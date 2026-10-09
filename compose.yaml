@@ -1,0 +1,60 @@
+name: contracts
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - .:/var/www/html
+      - php_vendor:/var/www/html/vendor
+      - app_storage:/var/www/html/storage
+      - app_cache:/var/www/html/bootstrap/cache
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: nginx:stable-alpine
+    ports:
+      - "127.0.0.1:8000:80"
+    volumes:
+      - .:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-contracts}
+      MYSQL_USER: ${DB_USERNAME:-contracts}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-contracts_local}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_local}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_PASSWORD mysql -h 127.0.0.1 -u $$MYSQL_USER -D $$MYSQL_DATABASE -e 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  node:
+    profiles: [assets]
+    image: node:22-bookworm-slim
+    working_dir: /var/www/html
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - .:/var/www/html
+      - node_modules:/var/www/html/node_modules
+    command: npm run dev
+
+volumes:
+  mysql_data:
+  node_modules:
+  php_vendor:
+  app_storage:
+  app_cache:
