@@ -106,7 +106,7 @@ class Contract extends Model
         if ($value === null) {
             return 'Não informado';
         }
-        $rounded = (string) BigDecimal::of($value)->toScale(2, RoundingMode::HALF_UP);
+        $rounded = (string) BigDecimal::of($value)->toScale(2, RoundingMode::HalfUp);
         [$integer, $decimal] = explode('.', $rounded);
         $integer = preg_replace('/\B(?=(\d{3})+(?!\d))/', '.', $integer);
 
