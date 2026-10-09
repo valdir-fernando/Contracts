@@ -5,6 +5,7 @@
             <a class="workspace-brand" href="{{ route('dashboard') }}">Contracts</a>
             <nav aria-label="Navegação principal">
                 <a href="{{ route('dashboard') }}" @class(['nav-link', 'selected' => request()->routeIs('dashboard')])>Início</a>
+                @can('viewAny', \App\Models\Contract::class)<a href="{{ route('contracts.index') }}" @class(['nav-link', 'selected' => request()->routeIs('contracts.*')])>Contratos</a>@endcan
                 @can('viewAny', \App\Models\User::class)<a href="{{ route('users.index') }}" @class(['nav-link', 'selected' => request()->routeIs('users.*')])>Usuários</a>@endcan
             </nav>
             <div class="nav-account"><strong>{{ auth()->user()->username }}</strong><span>{{ auth()->user()->isAdmin() ? 'Administrador' : 'Usuário' }}</span><form method="POST" action="{{ route('logout') }}">@csrf<button class="secondary-button" type="submit">Sair</button></form></div>

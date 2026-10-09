@@ -4,6 +4,10 @@ namespace App\Support;
 
 class ContractFields
 {
+    public const DERIVED = ['legacy_id', 'fundo_nome_snapshot', 'fundo_documento_snapshot', 'secretaria_nome_snapshot'];
+
+    public const PERSONAL = ['rg_fornec', 'pis_pasep', 'cpf_socio', 'rg_socio', 'cpf_gestor', 'rg_gestor', 'cpf_fiscal', 'rg_fiscal'];
+
     public const MAP = [
         'ID_Contrato' => ['column' => 'legacy_id', 'type' => 'id', 'group' => 'Identificação e licitação'],
         'Contrato' => ['column' => 'numero', 'type' => 'text', 'group' => 'Identificação e licitação'],
@@ -90,6 +94,22 @@ class ContractFields
     public static function label(string $source): string
     {
         return self::LABELS[$source] ?? str_replace('_', ' ', $source);
+    }
+
+    public static function labelColumn(string $column): string
+    {
+        foreach (self::MAP as $source => $definition) {
+            if ($definition['column'] === $column) {
+                return self::label($source);
+            }
+        }
+
+        return match ($column) {
+            'fund_id' => 'Fundo cadastrado', 'department_id' => 'Secretaria cadastrada', 'supplier_id' => 'Fornecedor cadastrado',
+            'supplier_document_key' => 'Documento normalizado do fornecedor', 'exercicio' => 'Exercício',
+            'ownership_resolved' => 'Órgão conciliado', 'vigencia_em_revisao' => 'Vigência em revisão',
+            'quality_issues' => 'Ocorrências de qualidade', default => str_replace('_', ' ', $column),
+        };
     }
 
     public const LABELS = [

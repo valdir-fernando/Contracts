@@ -1,5 +1,5 @@
 <x-layouts.app title="Início">
     <div class="page-heading"><div><h1>Olá, {{ auth()->user()->name }}.</h1><p>Bem-vindo ao Contracts.</p></div></div>
     <section class="surface form-surface"><h2>Seu acesso</h2><p class="muted">{{ auth()->user()->isAdmin() ? 'Administrador · acesso a todos os órgãos.' : 'Usuário · acesso aos fundos e secretarias abaixo.' }}</p>@unless(auth()->user()->isAdmin())<ul class="scope-list">@forelse(auth()->user()->scopes as $scope)<li>{{ $scope->label }}</li>@empty<li>Nenhum órgão vinculado. Entre em contato com um administrador.</li>@endforelse</ul>@endunless @can('viewAny', \App\Models\User::class)<a class="primary-button compact" href="{{ route('users.index') }}">Gerenciar usuários</a>@endcan</section>
-    <section class="surface form-surface"><h2>Gestão de contratos</h2><p class="muted">O módulo de contratos será disponibilizado na próxima etapa.</p></section>
+    <section class="surface form-surface"><h2>Gestão de contratos</h2><p class="muted">Consulte os contratos, sua vigência e as pendências de qualidade dos dados.</p><a class="primary-button compact" href="{{ route('contracts.index') }}">Consultar contratos</a></section>
 </x-layouts.app>

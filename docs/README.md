@@ -35,8 +35,10 @@ O dump fornecido `u910323952_bdgestao_niq.sql` foi examinado localmente. Invent�
 
 ## Estado atual
 
-**Entregue:** documentação técnica e funcional, aplicação Laravel em Docker, login, gestão de usuários e permissões, diagnóstico de desempenho e importador dos 80 campos dos contratos legados com testes.
+**Entregue:** documentação técnica e funcional, aplicação Laravel em Docker, login, gestão de usuários e permissões, diagnóstico de desempenho, importador dos 80 campos dos contratos legados, consulta, cadastro e edição de contratos com auditoria e testes.
 
-Notas das entregas: [login](05_LOGIN_IMPLEMENTADO.md), [desempenho](06_DESEMPENHO_DOCKER_WINDOWS.md), [usuários e permissões](07_USUARIOS_E_PERMISSOES.md) e [importação de contratos](08_IMPORTACAO_CONTRATOS.md).
+Notas das entregas: [login](05_LOGIN_IMPLEMENTADO.md), [desempenho](06_DESEMPENHO_DOCKER_WINDOWS.md), [usuários e permissões](07_USUARIOS_E_PERMISSOES.md), [importação de contratos](08_IMPORTACAO_CONTRATOS.md) e [consulta de contratos](09_CONSULTA_CONTRATOS.md).
 
-**Pendente:** telas e CRUD de contratos, conciliação de aditivos, relatórios e demais etapas do backlog. O ambiente atual usa MySQL e formulários Blade; Livewire ainda não foi instalado. Deploy não foi realizado.
+Detalhes da gravação: [Cadastro e edição de contratos](10_CADASTRO_EDICAO_CONTRATOS.md).
+
+**Pendente:** exclusão lógica e restauração de contratos, conciliação de aditivos, relatórios e demais etapas do backlog. O ambiente atual usa MySQL e formulários Blade; Livewire ainda não foi instalado. Deploy não foi realizado.

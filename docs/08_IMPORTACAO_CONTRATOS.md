@@ -27,4 +27,4 @@ Os testes automatizados cobrem preservação dos 80 campos, escape de texto SQL,
 
 ## Continuidade
 
-Esta etapa entrega a importação e a base dos contratos. As rotas e telas de contratos ainda não foram implementadas; o dashboard continua indicando essa etapa futura. A próxima entrega deve integrar listagem e detalhe à Policy, testar isolamento por escopo nas rotas e depois implementar cadastro, edição e auditoria conforme o backlog.
+Esta etapa entrega a importação e a base dos contratos. A listagem e o detalhe foram implementados na entrega seguinte, descrita em [Consulta de contratos](09_CONSULTA_CONTRATOS.md), com integração à Policy e testes de isolamento por escopo nas rotas. Cadastro, edição e auditoria continuam pendentes conforme o backlog.

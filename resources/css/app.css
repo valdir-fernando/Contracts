@@ -129,7 +129,20 @@ a.secondary-button { display: inline-block; text-decoration: none; white-space: 
 .audit-entry summary { cursor: pointer; }
 .audit-entry p { overflow-wrap: anywhere; }
 .scope-list { padding-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.8; }
-@media (max-width: 1200px) { .filter-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.contract-filters { grid-template-columns: 2fr 1.4fr 1.4fr .8fr 1fr auto auto; }
+.contract-reference { padding: 0 20px 20px; font-size: 12px; line-height: 1.6; }
+.money-cell { white-space: nowrap; }
+.contract-section { padding: 24px; }
+.contract-section > p { font-size: 13px; line-height: 1.6; }
+.contract-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin: 20px 0 0; }
+.contract-fields dt { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.contract-fields dd { margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.quality-list { margin: 16px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.8; }
+textarea { display: block; width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: white; color: #1c2b3a; font: inherit; font-size: 14px; resize: vertical; }
+textarea:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.readonly-field { padding: 9px 12px; margin: 0; color: var(--muted); background: #f8fafc; border-radius: 6px; font-size: 13px; overflow-wrap: anywhere; }
+.badge-warning, .notice-warning { color: #78540a; background: #fff9e8; border-color: #ead8aa; }
+@media (max-width: 1200px) { .filter-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); } .contract-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 800px) {
     .workspace { grid-template-columns: 1fr; }
     .workspace-nav { padding: 16px 20px; border-right: 0; border-bottom: 1px solid var(--border); gap: 12px; }
@@ -141,7 +154,7 @@ a.secondary-button { display: inline-block; text-decoration: none; white-space: 
     .page-heading { flex-wrap: wrap; }
 }
 @media (max-width: 520px) {
-    .form-grid, .filter-bar { grid-template-columns: 1fr; }
+    .form-grid, .filter-bar, .contract-fields { grid-template-columns: 1fr; }
     .form-surface { padding: 20px; }
     .page-heading h1 { font-size: 24px; }
     .form-actions { flex-wrap: wrap; }
