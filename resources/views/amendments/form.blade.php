@@ -17,16 +17,17 @@
                     $required = in_array($field, \App\Support\AmendmentFields::REQUIRED);
                     $value = old('fields.'.$field, $values['fields'][$field] ?? $amendment->payload[$field] ?? '');
                 @endphp
-                <div class="field"><label for="amendment-{{ $field }}">{{ $definition['label'] }}{{ $required ? ' *' : '' }}</label>
+                <div class="field"><label for="amendment-{{ $field }}">{{ $definition['label'] }}<x-required-mark :when="$required"/></label>
                     @if($readonly)<p class="readonly-field">{{ $amendment->display($field, auth()->user()) }}</p>
-                    @elseif($definition['type']==='date')<input id="amendment-{{ $field }}" name="fields[{{ $field }}]" type="date" value="{{ $value }}" @required($required)>
-                    @elseif($definition['type']==='money')<input id="amendment-{{ $field }}" name="fields[{{ $field }}]" inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ $value }}">
-                    @else<textarea id="amendment-{{ $field }}" name="fields[{{ $field }}]" rows="2" maxlength="{{ $field === 'N_ADT' ? 64 : 15000 }}" @required($required) @if(in_array($field,['CPF_Socio','CPF_Gestor'])) data-document-format @endif>{{ $value }}</textarea>@endif
-                    @error('fields.'.$field)<p class="field-error">{{ $message }}</p>@enderror
+                    @elseif($definition['type']==='date')<input id="amendment-{{ $field }}" @if($errors->has('fields.'.$field)) aria-invalid="true" aria-describedby="amendment-{{ $field }}-error" @endif name="fields[{{ $field }}]" type="date" value="{{ $value }}" @required($required)>
+                    @elseif($definition['type']==='money')<input id="amendment-{{ $field }}" @if($errors->has('fields.'.$field)) aria-invalid="true" aria-describedby="amendment-{{ $field }}-error" @endif name="fields[{{ $field }}]" inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ $value }}">
+                    @elseif(in_array($field, ['Motivo_ADT', 'Texto_Artigos', 'End_Fornecedor', 'End_Fundo']) || mb_strlen((string) $value) > 180 || str_contains((string) $value, "\n") || str_contains((string) $value, "\r"))<textarea id="amendment-{{ $field }}" @if($errors->has('fields.'.$field)) aria-invalid="true" aria-describedby="amendment-{{ $field }}-error" @endif name="fields[{{ $field }}]" rows="3" maxlength="15000" @required($required)>{{ $value }}</textarea>
+                    @else<input id="amendment-{{ $field }}" @if($errors->has('fields.'.$field)) aria-invalid="true" aria-describedby="amendment-{{ $field }}-error" @endif name="fields[{{ $field }}]" maxlength="{{ $field === 'N_ADT' ? 64 : 15000 }}" value="{{ $value }}" @required($required) @if(in_array($field,['CPF_Socio','CPF_Gestor'])) data-document-format @endif>@endif
+                    @error('fields.'.$field)<p class="field-error" id="amendment-{{ $field }}-error">{{ $message }}</p>@enderror
                 </div>
             @endforeach
         </div></section>@endforeach
-        <section class="surface contract-section"><label>Justificativa desta operação *<textarea name="reason" minlength="5" maxlength="1000" required>{{ old('reason', $values['reason'] ?? '') }}</textarea></label></section>
-        <div class="form-actions"><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)>Salvar aditivo</button></div>
+        <section class="surface contract-section"><label><span class="field-caption">Justificativa desta operação <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required>{{ old('reason', $values['reason'] ?? '') }}</textarea></label></section>
+        <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)>Salvar aditivo</button></div>
     </form>
 </x-layouts.app>

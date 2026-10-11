@@ -13,6 +13,6 @@
 @endif @else Não associado
 @endif</p></section>
     @if(auth()->user()->isAdmin())<section class="surface contract-section"><h2>Excluir registro financeiro</h2><p>A exclusão preserva o registro e seus vínculos no histórico.</p><form method="POST" action="{{ route('contracts.finance.destroy',[$contract,$record->id]) }}">
-@csrf @method('DELETE')<input type="hidden" name="version" value="{{ $record->version }}"><input type="hidden" name="contract_version" value="{{ $contract->version }}"><div class="field-grid"><label class="field">Confirme o número {{ $record->number }}<input name="confirmation" required></label><label class="field">Motivo<textarea name="reason" minlength="5" maxlength="1000" required></textarea></label></div><button class="danger-button">Excluir registro financeiro</button></form></section>
+@csrf @method('DELETE')<input type="hidden" name="version" value="{{ $record->version }}"><input type="hidden" name="contract_version" value="{{ $contract->version }}"><div class="field-grid"><label class="field"><span class="field-caption">Confirme o número {{ $record->number }} <x-required-mark/></span><input name="confirmation" required></label><label class="field"><span class="field-caption">Motivo <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required></textarea></label></div><button class="danger-button">Excluir registro financeiro</button></form></section>
 @endif
 </x-layouts.app>

@@ -24,12 +24,15 @@ class CatalogController extends Controller
     public function store(Request $request)
     {
         abort_unless($request->user()->isAdmin(), 403);
-        $data = $request->validate(['kind' => ['required', Rule::in(['fund', 'department', 'supplier', 'scope'])],
+        $kind = $request->input('kind');
+        $bag = in_array($kind, ['fund', 'department', 'supplier']) ? 'catalog-'.$kind : 'default';
+        $data = $request->validateWithBag($bag, ['kind' => ['required', Rule::in(['fund', 'department', 'supplier', 'scope'])],
+            'return_to' => ['nullable', Rule::in(['catalogs.index', 'suppliers.index'])],
             'name' => 'required_unless:kind,scope|nullable|string|max:255', 'document' => 'nullable|string|max:32',
             'fund_id' => 'required_if:kind,scope|nullable|integer|exists:contract_funds,id',
             'department_id' => 'nullable|integer|exists:contract_departments,id']);
         if (in_array($data['kind'], ['fund', 'supplier']) && ! Normalizer::validDocument(Normalizer::document($data['document'] ?? ''))) {
-            throw ValidationException::withMessages(['document' => 'Informe um CPF/CNPJ válido.']);
+            throw ValidationException::withMessages(['document' => 'Informe um CPF/CNPJ válido.'])->errorBag($bag);
         }
         DB::transaction(function () use ($data, $request) {
             if ($data['kind'] === 'scope') {
@@ -49,6 +52,9 @@ class CatalogController extends Controller
             ActivityEvent::create(['actor_id' => $request->user()->id, 'action' => 'catalog_created', 'metadata' => ['kind' => $data['kind'], 'id' => $id], 'created_at' => now()]);
         });
 
-        return redirect()->route('catalogs.index')->with('status', 'Cadastro salvo.');
+        $destination = $data['kind'] === 'supplier' && ($data['return_to'] ?? null) === 'suppliers.index'
+            ? 'suppliers.index' : 'catalogs.index';
+
+        return redirect()->route($destination)->with('status', 'Cadastro salvo.');
     }
 }

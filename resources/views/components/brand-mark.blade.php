@@ -1,0 +1,1 @@
+<span class="brand-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4H5v16h14V9l-5-5H8Z M14 4v5h5 M9 13h6 M9 16h4"/></svg></span>

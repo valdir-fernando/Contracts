@@ -4,11 +4,11 @@
         <h2>Cadastrar ou atualizar requisitos</h2>
         <form method="POST" action="{{ route('contract-types.store') }}">
             @csrf
-            <label>Tipo de contrato<input name="name" maxlength="150" required value="{{ old('name') }}"></label>
+            <label><span class="field-caption">Tipo de contrato <x-required-mark/></span><input name="name" maxlength="150" required value="{{ old('name') }}"></label>
             <fieldset><legend>Campos adicionais obrigatórios</legend>
                 @foreach(\App\Models\ContractTypeRule::FIELDS as $field=>$label)<label><input type="checkbox" name="required_fields[]" value="{{ $field }}" @checked(in_array($field, old('required_fields', [])))> {{ $label }}</label>@endforeach
             </fieldset>
-            <label>Justificativa<textarea name="reason" minlength="10" maxlength="1000" required>{{ old('reason') }}</textarea></label>
+            <label><span class="field-caption">Justificativa <x-required-mark/></span><textarea name="reason" minlength="10" maxlength="1000" required>{{ old('reason') }}</textarea></label>
             <p class="muted">O nome identifica o tipo, ignorando maiúsculas e acentos. Usar um nome já cadastrado substitui os requisitos anteriores. Deixe todos desmarcados para retirar os requisitos adicionais.</p>
             <button class="secondary-button">Salvar requisitos</button>
         </form>

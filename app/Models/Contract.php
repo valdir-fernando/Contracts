@@ -84,6 +84,11 @@ class Contract extends Model
 
     public const VALIDITY = ['a_iniciar' => 'A iniciar', 'vigente' => 'Vigente', 'vencido' => 'Vencido', 'indeterminado' => 'Indeterminado', 'em_revisao' => 'Em revisão'];
 
+    public function scopePendingReview(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $pending) => $pending->where('vigencia_em_revisao', true)->orWhere('ownership_resolved', false));
+    }
+
     public function scopeWithValidity(Builder $query, string $status): Builder
     {
         if ($status === 'em_revisao') {

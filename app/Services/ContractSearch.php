@@ -21,6 +21,7 @@ class ContractSearch
         }];
 
         return [
+            'review' => 'nullable|boolean',
             'object' => 'nullable|string|max:255', 'commitment' => 'nullable|string|max:255', 'budget' => 'nullable|string|max:255',
             'type' => 'nullable|string|max:255', 'modality' => 'nullable|string|max:255',
             'status' => ['nullable', Rule::in(array_keys(Contract::STATUSES))],
@@ -34,6 +35,9 @@ class ContractSearch
 
     public static function apply(Builder $query, array $filters): void
     {
+        if (! empty($filters['review'])) {
+            $query->pendingReview();
+        }
         foreach (['object' => 'objeto', 'commitment' => 'empenho', 'budget' => 'ficha'] as $key => $column) {
             if (trim($filters[$key] ?? '') !== '') {
                 $query->whereLike($column, '%'.trim($filters[$key]).'%');

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Overview;
 use App\Models\AccessScope;
 use App\Models\Contract;
 use App\Models\ImportRun;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Support\ContractFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ContractBrowsingTest extends TestCase
@@ -157,5 +159,38 @@ class ContractBrowsingTest extends TestCase
             $this->get('/contracts?validity='.$status)->assertOk()
                 ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->validity === $status);
         }
+    }
+
+    public function test_dashboard_cards_match_their_lists_including_ownership_review_and_access_scope(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo autorizado');
+        $current = $this->contract(['numero' => 'CURRENT', 'fund_id' => $fund]);
+        $expired = $this->contract(['numero' => 'EXPIRED', 'fund_id' => $fund, 'vigencia_fim_original' => '2026-10-08']);
+        $review = $this->contract(['numero' => 'REVIEW', 'fund_id' => $fund, 'vigencia_em_revisao' => true]);
+        $unresolved = $this->contract(['numero' => 'UNRESOLVED', 'fund_id' => $fund, 'ownership_resolved' => false]);
+        $both = $this->contract(['numero' => 'BOTH', 'fund_id' => $fund, 'vigencia_em_revisao' => true, 'ownership_resolved' => false]);
+        $deleted = $this->contract(['numero' => 'DELETED', 'fund_id' => $fund, 'vigencia_em_revisao' => true]);
+        $deleted->delete();
+        $admin = $this->user();
+        Livewire::actingAs($admin)->test(Overview::class)->assertViewHas('count', 5)->assertViewHas('expired', 1)->assertViewHas('review', 3)
+            ->assertSee(route('contracts.index', ['validity' => 'vigente']), false)
+            ->assertSee(route('contracts.index', ['validity' => 'vencido']), false)
+            ->assertSee(route('contracts.index', ['review' => 1]), false);
+        $this->actingAs($admin)->get('/contracts?review=1')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 3 && $rows->pluck('id')->sort()->values()->all() === collect([$review->id, $unresolved->id, $both->id])->sort()->values()->all());
+        $this->get('/contracts?validity=vigente')->assertViewHas('contracts', fn ($rows) => $rows->total() === 2 && $rows->contains('id', $current->id));
+        $this->get('/contracts?validity=vencido')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $expired->id);
+        $this->get('/contracts?review=1&q=UNRESOLVED')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1);
+        $this->get('/reports?review=1')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 3);
+        $this->get('/contracts?review=invalid')->assertSessionHasErrors('review');
+
+        $this->contract(['numero' => 'SECRET', 'vigencia_em_revisao' => true]);
+        $user = User::create(['name' => 'Scoped', 'username' => 'SCOPED', 'password' => 'TestPassword12345']);
+        $scope = AccessScope::create(['scope_key' => hash('sha256', 'card-scope'), 'fund' => 'Fundo autorizado', 'fund_id' => $fund]);
+        $user->scopes()->attach($scope);
+        Livewire::actingAs($user)->test(Overview::class)->assertViewHas('review', 1);
+        $this->actingAs($user)->get('/contracts?review=1')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $review->id);
+        $this->get('/reports?review=1')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $review->id);
     }
 }

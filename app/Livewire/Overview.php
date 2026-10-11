@@ -42,7 +42,7 @@ class Overview extends Component
             'alertCount' => $user->expiration_alert_enabled ? (clone $alerts)->count() : 0,
             'alerts' => $user->expiration_alert_enabled ? $alerts->limit(5)->get() : collect(),
             'expired' => (clone $visible)->withValidity('vencido')->count(),
-            'review' => (clone $visible)->where(fn ($q) => $q->where('vigencia_em_revisao', true)->orWhere('ownership_resolved', false))->count(),
+            'review' => (clone $visible)->pendingReview()->count(),
             'recent' => $query->latest('id')->paginate(10)]);
     }
 }

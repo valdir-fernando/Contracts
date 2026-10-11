@@ -41,4 +41,39 @@ class SupplierAssistanceTest extends TestCase
         $this->get('/suppliers')->assertForbidden();
         $this->get('/contracts/create?supplier='.$suppliers['Empresa Visível'])->assertForbidden();
     }
+
+    public function test_supplier_modal_keeps_validation_and_success_on_the_supplier_list(): void
+    {
+        $this->withoutVite();
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
+        $this->actingAs($admin)->from('/suppliers')->post('/catalogs', [
+            'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '123', 'return_to' => 'suppliers.index',
+        ])->assertRedirect('/suppliers')->assertSessionHasErrors(['document'], null, 'catalog-supplier');
+        $this->get('/suppliers')->assertOk()->assertSee('data-modal-auto-open', false)->assertSee('Fornecedor novo');
+        $this->assertDatabaseMissing('suppliers', ['name' => 'Fornecedor novo']);
+
+        $this->post('/catalogs', [
+            'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '11.222.333/0001-81', 'return_to' => 'suppliers.index',
+        ])->assertRedirect('/suppliers')->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('suppliers', ['name' => 'Fornecedor novo', 'document_key' => '11222333000181']);
+        $this->get('/suppliers')->assertSee('Fornecedor novo');
+    }
+
+    public function test_catalog_modal_creation_requires_admin_and_limits_return_destinations(): void
+    {
+        $this->withoutVite();
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
+        $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'TestPassword12345']);
+        $this->actingAs($user)->post('/catalogs', [
+            'kind' => 'supplier', 'name' => 'Negado', 'document' => '11222333000181', 'return_to' => 'suppliers.index',
+        ])->assertForbidden();
+        $this->actingAs($admin)->from('/catalogs')->post('/catalogs', [
+            'kind' => 'supplier', 'name' => 'Destino inválido', 'document' => '11222333000181', 'return_to' => 'https://example.com',
+        ])->assertRedirect('/catalogs')->assertSessionHasErrors(['return_to'], null, 'catalog-supplier');
+        $this->assertDatabaseMissing('suppliers', ['name' => 'Destino inválido']);
+        $this->post('/catalogs', ['kind' => 'department', 'name' => 'Secretaria nova', 'return_to' => 'suppliers.index'])
+            ->assertRedirect('/catalogs');
+        $this->assertDatabaseHas('contract_departments', ['name' => 'Secretaria nova']);
+        $this->get('/catalogs')->assertSee('Secretaria nova');
+    }
 }
