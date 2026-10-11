@@ -63,3 +63,22 @@ O dump real não está neste checkout. Homologação dos contratos reais, decis�
 | Backup e restauração | Checksums válidos; schema isolado restaurado e INSERTs de todas as tabelas, incluindo aditivos, iguais ao snapshot; storage e configuração recuperados |
 
 Os sete testes novos cobrem os 44 campos, máscara de documentos pessoais, escopo atual, revogação da sessão do ator, validação de dados, isolamento de IDs e documentos entre contratos, versões concorrentes, números reservados após exclusão e reversão integral em falha de auditoria na criação. A restauração recuperou sete contratos fictícios, duas contas e 40 eventos de auditoria contratual. O cadastro nativo não aplica efeitos financeiros nem altera as datas de vigência do contrato; o histórico importado continua separado.
+
+## Conclusão das funções internas e visual — 11/10/2026
+
+| Verificação | Resultado |
+|---|---|
+| Suíte completa SQLite | 91 testes aprovados, 1.197 asserções |
+| Suíte completa MySQL em schema isolado | 91 testes aprovados, 1.197 asserções |
+| Formatação | Pint aprovado nos 114 arquivos PHP |
+| Assets | Build Vite aprovado |
+| CI remoto | [Execução do commit 1c70639](https://github.com/valdir-fernando/Contracts/actions/runs/38137490418) aprovada: instalação, formatação, build e suítes SQLite/MySQL |
+| Navegador | Fluxos anteriores e dotação/ficha/empenho, edição, exclusão/restauração, conferência administrativa, relatório com colunas selecionadas, salvar/abrir/remover personalização, API autenticada, gráficos e largura móvel aprovados; nenhum erro JavaScript capturado |
+| Visual | Capturas desktop e celular conferidas após refinamento do login, navegação, indicadores, formulários e tabelas |
+| Produção | Imagens app/web compiladas e etiquetadas `1c70639`; runtime validou conexão, novas tabelas, debug desligado, cookies seguros, ausência de .env e de dependências de testes |
+| Backup/restauração | SHA-256 válido, todas as tabelas restauradas em schema isolado e INSERTs iguais ao snapshot; storage/configuração recuperados |
+| Aplicação local | `/ready` ready; migrations aplicadas e worker reiniciado |
+
+Os 14 testes adicionais cobrem campos financeiros, precisão decimal, escopo e máscaras, associações explícitas, concorrência, exclusão/restauração, reversão de gravações em falha de auditoria, personalizações privadas, seleção de colunas consistente em CSV/XLSX/PDF, API paginada e auditada, indicadores do painel, conferência/reabertura da revisão e importação periódica atômica/idempotente. Um teste que dependia da ordem de chaves JSON foi corrigido para aceitar a ordenação canônica do MySQL; as duas suítes completas passaram após a correção.
+
+A restauração final recuperou nove contratos fictícios, duas contas e 82 eventos de auditoria contratual, além das tabelas novas de registros financeiros e personalizações. O ensaio continua sintético. Assinatura eletrônica, integrações, publicação externa e homologação institucional permanecem pendências, conforme o [estado final](17_ESTADO_FINAL_E_PENDENCIAS.md).
