@@ -33,14 +33,14 @@ Invoke-Docker compose up -d db app
 Invoke-Docker compose exec -T app php artisan migrate --force
 Invoke-Docker compose run --rm --no-deps node npm install
 if ($HotReload) {
-    Invoke-Docker compose up -d web node
+    Invoke-Docker compose up -d web worker scheduler node
 } else {
     Invoke-Docker compose stop node
     Invoke-Docker compose run --rm --no-deps node npm run build
     if (Test-Path -LiteralPath 'public/hot') {
         Remove-Item -LiteralPath 'public/hot'
     }
-    Invoke-Docker compose up -d web
+    Invoke-Docker compose up -d web worker scheduler
 }
 
 Write-Host 'Projeto disponível em http://127.0.0.1:8000'

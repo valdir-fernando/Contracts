@@ -1,0 +1,38 @@
+name: contracts-production
+services:
+  app:
+    image: contracts-production-app:${APP_VERSION:-local}
+    build:
+      context: .
+      dockerfile: docker/production.Dockerfile
+      target: app
+    env_file: .env.production
+    volumes:
+      - production_storage:/var/www/html/storage
+    restart: unless-stopped
+  web:
+    image: contracts-production-web:${APP_VERSION:-local}
+    build:
+      context: .
+      dockerfile: docker/production.Dockerfile
+      target: web
+    ports:
+      - '127.0.0.1:8080:80'
+    depends_on: [app]
+    restart: unless-stopped
+  worker:
+    image: contracts-production-app:${APP_VERSION:-local}
+    env_file: .env.production
+    volumes:
+      - production_storage:/var/www/html/storage
+    command: php -d memory_limit=768M artisan queue:work --sleep=3 --tries=1 --timeout=900 --memory=512
+    restart: unless-stopped
+  scheduler:
+    image: contracts-production-app:${APP_VERSION:-local}
+    env_file: .env.production
+    volumes:
+      - production_storage:/var/www/html/storage
+    command: php artisan schedule:work
+    restart: unless-stopped
+volumes:
+  production_storage:

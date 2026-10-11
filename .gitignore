@@ -21,3 +21,9 @@
 /.codex/
 /.agents/
 *.pem
+/backups/
+/playwright-report/
+/test-results/
+
+.env.production
+!/.env.production.example

@@ -41,6 +41,34 @@ services:
       retries: 30
       start_period: 30s
 
+  worker:
+    image: contracts-app:latest
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - php_vendor:/var/www/html/vendor
+      - app_storage:/var/www/html/storage
+      - app_cache:/var/www/html/bootstrap/cache
+    command: php -d memory_limit=768M artisan queue:work --sleep=3 --tries=1 --timeout=900 --memory=512
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  scheduler:
+    image: contracts-app:latest
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - php_vendor:/var/www/html/vendor
+      - app_storage:/var/www/html/storage
+      - app_cache:/var/www/html/bootstrap/cache
+    command: php artisan schedule:work
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
   node:
     profiles: [assets]
     image: node:22-bookworm-slim

@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\DB;
+
 // Execute inside the app container; outputs timings only, never credentials.
 $root = dirname(__DIR__);
 $files = array_slice(glob($root.'/vendor/laravel/framework/src/Illuminate/Support/*.php'), 0, 40);
@@ -26,8 +29,8 @@ rmdir($native);
 $start = hrtime(true);
 require $root.'/vendor/autoload.php';
 $app = require $root.'/bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 printf("laravel_bootstrap: %.1f ms\n", (hrtime(true) - $start) / 1e6);
 $start = hrtime(true);
-Illuminate\Support\Facades\DB::select('SELECT 1');
+DB::select('SELECT 1');
 printf("database_connect_query: %.1f ms\n", (hrtime(true) - $start) / 1e6);
