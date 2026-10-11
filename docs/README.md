@@ -1,5 +1,7 @@
 # Documentação — Sistema Web de Gestão de Contratos
 
+Última evolução: [refinamento visual e validação responsiva](18_REFINAMENTO_VISUAL.md).
+
 **Versão:** 1.0 — 09/10/2026  
 **Propósito:** especificação para desenvolver a aplicação, não é o código do sistema.
 
