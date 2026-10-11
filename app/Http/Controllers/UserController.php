@@ -22,7 +22,7 @@ class UserController extends Controller
             'q' => 'nullable|string|max:255', 'role' => ['nullable', Rule::in(['Administrador', 'Usuario'])],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'deleted'])],
             'scope' => 'nullable|integer|exists:access_scopes,id',
-            'sort' => ['nullable', Rule::in(['name', 'username'])],
+            'sort' => ['nullable', Rule::in(['name', 'username', 'last_login_at'])],
         ]);
         $users = User::with('scopes');
         if (($filters['status'] ?? '') === 'deleted') {
@@ -42,7 +42,7 @@ class UserController extends Controller
         }
 
         return view('users.index', [
-            'users' => $users->orderBy($filters['sort'] ?? 'name')->orderBy('id')->paginate(15)->withQueryString(),
+            'users' => $users->orderBy($filters['sort'] ?? 'name', ($filters['sort'] ?? '') === 'last_login_at' ? 'desc' : 'asc')->orderBy('id')->paginate(15)->withQueryString(),
             'scopes' => AccessScope::orderBy('fund')->orderBy('department')->get(),
         ]);
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,10 +31,13 @@ class LoginController extends Controller
             throw ValidationException::withMessages(['username' => 'Muitas tentativas. Tente novamente em '.RateLimiter::availableIn($key).' segundos.']);
         }
         if (! Auth::attempt(['username' => $credentials['username'], 'password' => $credentials['password'], 'is_active' => true], $request->boolean('remember'))) {
+            ActivityEvent::create(['actor_id' => null, 'action' => 'login_failed', 'metadata' => [], 'created_at' => now()]);
             RateLimiter::hit($key, 60);
             throw ValidationException::withMessages(['username' => 'Não foi possível entrar. Confira seu usuário e sua senha.']);
         }
         RateLimiter::clear($key);
+        Auth::user()->forceFill(['last_login_at' => now()])->save();
+        ActivityEvent::create(['actor_id' => Auth::id(), 'action' => 'login', 'metadata' => [], 'created_at' => now()]);
         $request->session()->regenerate();
         $request->session()->put('auth_version', Auth::user()->session_version);
 
@@ -42,6 +46,7 @@ class LoginController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
+        ActivityEvent::create(['actor_id' => Auth::id(), 'action' => 'logout', 'metadata' => [], 'created_at' => now()]);
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

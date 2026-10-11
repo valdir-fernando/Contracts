@@ -14,6 +14,8 @@ class Contract extends Model
 {
     use SoftDeletes;
 
+    public const STATUSES = ['rascunho' => 'Rascunho', 'ativo' => 'Ativo', 'suspenso' => 'Suspenso', 'rescindido' => 'Rescindido', 'arquivado' => 'Arquivado'];
+
     protected $guarded = ['id'];
 
     protected $hidden = ['legacy_record_id'];

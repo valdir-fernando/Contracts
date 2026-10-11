@@ -41,7 +41,7 @@ class Normalizer
     public static function date(?string $value): ?string
     {
         $value = trim($value ?? '');
-        if ($value === '' || $value === '0000-00-00') {
+        if ($value === '' || ! preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', $value) || substr($value, 0, 4) < '1000') {
             return null;
         }
         $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);

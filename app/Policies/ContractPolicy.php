@@ -23,6 +23,16 @@ class ContractPolicy
             ->where(fn ($query) => $query->whereNull('department')->orWhere('department', '')->orWhereNotNull('department_id'))->exists());
     }
 
+    public function delete(User $user, Contract $contract): bool
+    {
+        return $user->isAdmin() && ! $contract->trashed();
+    }
+
+    public function restore(User $user, Contract $contract): bool
+    {
+        return $user->isAdmin() && $contract->trashed();
+    }
+
     public function update(User $user, Contract $contract): bool
     {
         return $this->view($user, $contract);

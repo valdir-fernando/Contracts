@@ -6,6 +6,9 @@
     <meta name="color-scheme" content="light">
     <title>{{ $title ?? 'Entrar' }} · Gestão de Contratos</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
 </head>
-<body>{{ $slot }}</body>
+<body>{{ $slot }}
+@livewireScripts
+</body>
 </html>

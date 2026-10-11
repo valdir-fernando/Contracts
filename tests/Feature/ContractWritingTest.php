@@ -58,9 +58,10 @@ class ContractWritingTest extends TestCase
     public function test_create_renders_sections_and_persists_native_contract_and_audit(): void
     {
         $this->get('/contracts/create')->assertOk()->assertSee('Novo contrato')->assertSee('Dados do veículo')->assertSee('Motivo do distrato');
-        $this->post('/contracts', $this->data(['dados_veiculo' => 'Veículo fictício', 'end_imovel' => 'Imóvel fictício', 'valor_acumulado' => '2500.0050']))
-            ->assertRedirect('/contracts/1');
+        $response = $this->post('/contracts', $this->data(['dados_veiculo' => 'Veículo fictício', 'end_imovel' => 'Imóvel fictício', 'valor_acumulado' => '2500.0050']))
+            ->assertRedirect();
         $contract = Contract::firstOrFail();
+        $response->assertRedirect('/contracts/'.$contract->id);
         $this->assertNull($contract->legacy_id);
         $this->assertNull($contract->legacy_record_id);
         $this->assertSame('1908.6300', $contract->valor_total);
@@ -90,14 +91,15 @@ class ContractWritingTest extends TestCase
 
     public function test_update_preserves_omitted_fields_records_difference_and_requires_reason(): void
     {
-        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['dados_veiculo' => 'Preservar', 'cpf_gestor' => '12345678901']));
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['dados_veiculo' => 'Preservar', 'cpf_gestor' => '11144477735']));
         $this->put('/contracts/'.$contract->id, ['version' => 1, 'objeto' => 'Objeto alterado'])->assertSessionHasErrors('reason');
         $this->put('/contracts/'.$contract->id, ['version' => 1, 'objeto' => 'Objeto alterado', 'reason' => 'Correção do objeto'])->assertRedirect('/contracts/'.$contract->id);
         $this->assertSame('Preservar', $contract->fresh()->dados_veiculo);
-        $this->assertSame('12345678901', $contract->fresh()->cpf_gestor);
+        $this->assertSame('11144477735', $contract->fresh()->cpf_gestor);
         $this->assertSame(2, $contract->fresh()->version);
         $audit = ContractAudit::latest('id')->firstOrFail();
-        $this->assertSame(['before' => 'Objeto fictício', 'after' => 'Objeto alterado'], $audit->changes['objeto']);
+        $this->assertSame('Objeto fictício', $audit->changes['objeto']['before']);
+        $this->assertSame('Objeto alterado', $audit->changes['objeto']['after']);
         $this->assertArrayNotHasKey('dados_veiculo', $audit->changes);
         $this->assertSame('Correção do objeto', $audit->reason);
     }
@@ -134,11 +136,11 @@ class ContractWritingTest extends TestCase
 
     public function test_personal_fields_remain_masked_and_cannot_be_overwritten_by_regular_user(): void
     {
-        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['cpf_gestor' => '12345678901', 'fornecedor_documento_snapshot' => '52998224725']));
-        $this->actingAs($this->regular())->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertDontSee('12345678901')->assertDontSee('52998224725');
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['cpf_gestor' => '11144477735', 'fornecedor_documento_snapshot' => '52998224725']));
+        $this->actingAs($this->regular())->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertDontSee('11144477735')->assertDontSee('52998224725');
         $this->put('/contracts/'.$contract->id, ['version' => 1, 'cpf_gestor' => '99999999999', 'reason' => 'Tentativa de alteração'])->assertSessionHasErrors('cpf_gestor');
         $this->put('/contracts/'.$contract->id, ['version' => 1, 'objeto' => 'Alteração permitida', 'reason' => 'Objeto corrigido'])->assertRedirect();
-        $this->assertSame('12345678901', $contract->fresh()->cpf_gestor);
+        $this->assertSame('11144477735', $contract->fresh()->cpf_gestor);
         $this->get('/contracts/'.$contract->id)->assertDontSee('Histórico de alterações');
     }
 
