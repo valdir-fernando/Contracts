@@ -41,4 +41,6 @@ Notas das entregas: [login](05_LOGIN_IMPLEMENTADO.md), [desempenho](06_DESEMPENH
 
 Detalhes da gravação: [Cadastro e edição de contratos](10_CADASTRO_EDICAO_CONTRATOS.md).
 
-**Pendente:** exclusão lógica e restauração de contratos, conciliação de aditivos, relatórios e demais etapas do backlog. O ambiente atual usa MySQL e formulários Blade; Livewire ainda não foi instalado. Deploy não foi realizado.
+**MVP implementado nesta evolução:** exclusão lógica e restauração, situação administrativa, histórico de aditivos/itens e conciliação manual, relatórios PDF/XLSX/CSV, conta pessoal, painel Livewire 4/Alpine, provisionamento inicial, catálogos nativos, fila, backup/restauração e imagens de produção. Consulte [MVP e operação](11_MVP_E_OPERACAO.md).
+
+**Limites externos:** homologação do dump real e das regras pendentes; configuração/publicação em infraestrutura de produção. P1 avançou com documentos privados, calendário, alertas internos, pesquisa avançada, fornecedores e requisitos por tipo; detalhes em [Evoluções P1](13_EVOLUCOES_P1.md). Os demais itens P1/P2 seguem no backlog. O servidor atual permanece MySQL 8.4; Blade completo e Livewire coexistem.
