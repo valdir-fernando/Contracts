@@ -7,6 +7,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -33,7 +34,7 @@ class ReportRenderer
                 fputcsv($stream, [$key, $this->safeCsv((string) $value)], ';', '"', '');
             }
             fputcsv($stream, [], ';', '"', '');
-            fputcsv($stream, ContractReport::HEADERS, ';', '"', '');
+            fputcsv($stream, $service->headers($filters), ';', '"', '');
             foreach ($service->query($actor, $filters)->cursor() as $contract) {
                 fputcsv($stream, array_map(fn ($value) => $this->safeCsv((string) $value), $service->row($contract, $actor, $filters)), ';', '"', '');
             }
@@ -56,7 +57,7 @@ class ReportRenderer
             }
             $line++;
             $header = $line;
-            $sheet->fromArray(ContractReport::HEADERS, null, 'A'.$line++);
+            $sheet->fromArray($service->headers($filters), null, 'A'.$line++);
             foreach ($service->query($actor, $filters)->cursor() as $contract) {
                 foreach ($service->row($contract, $actor, $filters) as $index => $value) {
                     // Explicit text preserves leading zeros, exact decimals and blocks formulas.
@@ -65,8 +66,9 @@ class ReportRenderer
                 $line++;
             }
             $sheet->freezePane('A'.($header + 1));
-            $sheet->setAutoFilter('A'.$header.':Q'.max($header, $line - 1));
-            foreach (range('A', 'Q') as $column) {
+            $lastColumn = Coordinate::stringFromColumnIndex(count($service->headers($filters)));
+            $sheet->setAutoFilter('A'.$header.':'.$lastColumn.max($header, $line - 1));
+            foreach (range('A', $lastColumn) as $column) {
                 $sheet->getColumnDimension($column)->setWidth(24);
             }
             if ($summary['groups']) {
@@ -89,12 +91,12 @@ class ReportRenderer
             foreach ($service->query($actor, $filters)->cursor() as $contract) {
                 $rows[] = array_map(fn ($value) => is_string($value) ? Str::limit($value, 160) : $value, $service->row($contract, $actor, $filters));
                 if (count($rows) === 60) {
-                    $this->appendPdf($merged, view('reports.pdf', ['rows' => $rows, 'metadata' => $metadata, 'summary' => $chunkSummary])->render());
+                    $this->appendPdf($merged, view('reports.pdf', ['rows' => $rows, 'metadata' => $metadata, 'summary' => $chunkSummary, 'headers' => $service->headers($filters)])->render());
                     $rows = [];
                 }
             }
             if ($rows || $summary['count'] === 0) {
-                $this->appendPdf($merged, view('reports.pdf', ['rows' => $rows, 'metadata' => $metadata, 'summary' => $chunkSummary])->render());
+                $this->appendPdf($merged, view('reports.pdf', ['rows' => $rows, 'metadata' => $metadata, 'summary' => $chunkSummary, 'headers' => $service->headers($filters)])->render());
             }
             foreach (array_chunk($summary['groups'], 60) as $groups) {
                 $this->appendPdf($merged, view('reports.groups-pdf', ['groups' => $groups, 'metadata' => $metadata])->render());

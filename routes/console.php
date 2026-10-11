@@ -8,3 +8,4 @@ Artisan::command('inspire', function () {
 })->purpose('Exibir uma mensagem de inspiração');
 
 Schedule::command('contracts:prune-exports')->hourly()->withoutOverlapping();
+Schedule::command('contracts:sync-legacy')->hourly()->withoutOverlapping()->when(fn () => config('legacy.sync_enabled'));

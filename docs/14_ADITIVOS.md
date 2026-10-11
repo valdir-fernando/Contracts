@@ -8,7 +8,7 @@ Informe número, data, processo, tipo e motivo do aditivo, além da justificativ
 
 Contrato, fornecedor, fundo e secretaria são preenchidos pelo servidor. Os dados das partes são copiados na criação e preservados nas edições posteriores do aditivo. Documentos pessoais ficam mascarados para usuários comuns, que não podem alterá-los. Novos CPFs são validados; dados históricos inalterados são preservados.
 
-Usuários comuns preparam e editam rascunhos dentro do seu escopo. Administradores podem registrar o aditivo após conferência e editar registros conferidos. O registro marca a vigência do contrato para revisão e inclui o contrato no relatório de alterações. **Não aplica valores, porcentagens, acumulados ou datas ao contrato.** Essa etapa depende de regras de negócio e de conferência explícita. Remover um aditivo ou devolvê-lo a rascunho não limpa automaticamente a pendência de revisão.
+Usuários comuns preparam e editam rascunhos dentro do seu escopo. Administradores podem registrar o aditivo após conferência e editar registros conferidos. O registro marca a vigência do contrato para revisão e inclui o contrato no relatório de alterações. **Não aplica valores, porcentagens, acumulados ou datas ao contrato.** A [conferência administrativa](16_FUNCOES_INTERNAS_E_VISUAL.md) permite informar explicitamente término e valor acumulado; cálculos automáticos dependem de regras de negócio homologadas. Remover um aditivo ou devolvê-lo a rascunho não limpa automaticamente a pendência de revisão.
 
 ## Documentos, histórico e concorrência
 

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Contract;
 use App\Services\ExpirationCalendar;
+use App\Services\OverviewMetrics;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -35,7 +36,7 @@ class Overview extends Component
         $user = auth()->user();
         $alerts = app(ExpirationCalendar::class)->query($user, today(), today()->addDays($user->expiration_alert_days));
 
-        return view('livewire.overview', ['count' => (clone $visible)->count(),
+        return view('livewire.overview', ['metrics' => app(OverviewMetrics::class)->for($user), 'count' => (clone $visible)->count(),
             'alertDays' => $user->expiration_alert_days,
             'alertsEnabled' => $user->expiration_alert_enabled,
             'alertCount' => $user->expiration_alert_enabled ? (clone $alerts)->count() : 0,

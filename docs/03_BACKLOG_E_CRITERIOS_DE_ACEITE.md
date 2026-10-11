@@ -152,16 +152,20 @@
 
 ## Checklist final de aceite do MVP
 
-- [ ] Autenticação de administrador e usuário comum funcionando.
-- [ ] Administrador consegue criar/visualizar/editar/desativar/reativar usuários.
-- [ ] Usuário comum é isolado por escopo institucional.
-- [ ] Cadastro e edição dos 80 campos cobertos no modelo/telas.
-- [ ] Lista e detalhe de contratos com filtros, busca e paginação.
-- [ ] Exclusão lógica com motivo e restauração de contratos.
-- [ ] Aditivos e itens históricos não desaparecem; vínculos ambíguos visíveis.
-- [ ] Relatórios gerais, por vigência, órgão, fornecedor e tipo exportáveis.
-- [ ] Valores BR e datas zeradas tratados sem erros ou perda de origem.
-- [ ] Sem reutilização de senhas do dump; sem segredo versionado.
-- [ ] Auditoria, backups e restauração documentados e testados.
-- [ ] Testes unitários, Feature e Livewire aprovados em CI.
+- [x] Autenticação de administrador e usuário comum funcionando.
+- [x] Administrador consegue criar/visualizar/editar/desativar/reativar usuários.
+- [x] Usuário comum é isolado por escopo institucional.
+- [x] Cadastro e edição dos 80 campos cobertos no modelo/telas.
+- [x] Lista e detalhe de contratos com filtros, busca e paginação.
+- [x] Exclusão lógica com motivo e restauração de contratos.
+- [x] Aditivos e itens históricos não desaparecem; vínculos ambíguos visíveis.
+- [x] Relatórios gerais, por vigência, órgão, fornecedor e tipo exportáveis.
+- [x] Valores BR e datas zeradas tratados sem erros ou perda de origem.
+- [x] Sem reutilização de senhas do dump; sem segredo versionado.
+- [x] Auditoria, backups e restauração documentados e testados.
+- [x] Testes unitários, Feature e Livewire aprovados em CI.
 - [ ] Homologação da área responsável e aceite das decisões pendentes.
+
+## Estado da evolução — 11/10/2026
+
+Funções internas P1 entregues. P2 interno inclui relatórios personalizados, gráficos, API de consulta por sessão e importação periódica opcional. Assinatura, integrações e publicação externa foram mantidas como pendências pelo usuário; homologação de dados/regras continua externa. Veja [estado final](17_ESTADO_FINAL_E_PENDENCIAS.md) e [evidências](12_REGISTRO_DE_VALIDACAO.md).

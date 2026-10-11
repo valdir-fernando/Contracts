@@ -2,7 +2,7 @@
 
 Sistema de gestão de contratos com Laravel 13, Livewire 4/Alpine, Blade, Tailwind 4, PHP 8.4, Nginx, MySQL 8.4 e Vite.
 
-Login, usuários e escopos, cadastro/edição dos 80 campos, exclusão/restauração, histórico de aditivos/itens, conciliação, relatórios PDF/XLSX/CSV, painel, auditoria, conta pessoal, fila, backup e imagens de produção. Guia: [MVP e operação](docs/11_MVP_E_OPERACAO.md). Evoluções: [documentos privados, calendário, alertas e pesquisa avançada](docs/13_EVOLUCOES_P1.md) e [cadastro de aditivos](docs/14_ADITIVOS.md).
+Login, usuários e escopos, cadastro/edição dos 80 campos, exclusão/restauração, histórico de aditivos/itens, conciliação, relatórios PDF/XLSX/CSV, painel, auditoria, conta pessoal, fila, backup e imagens de produção. Guia: [MVP e operação](docs/11_MVP_E_OPERACAO.md). Evoluções: [documentos privados, calendário, alertas e pesquisa avançada](docs/13_EVOLUCOES_P1.md) e [cadastro de aditivos](docs/14_ADITIVOS.md). [Estado final e pendências externas](docs/17_ESTADO_FINAL_E_PENDENCIAS.md): dotação/fichas/empenhos, conferência administrativa, personalização de relatórios, gráficos, API interna, importação periódica e visual refinado.
 
 ## Iniciar no Linux/macOS
 

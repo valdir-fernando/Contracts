@@ -38,6 +38,6 @@ As regras são aplicadas ao cadastrar contrato ou alterar seu tipo. Não impedem
 
 As migrations `000004`, `000005` e `000006` adicionam documentos, preferências e requisitos por tipo sem alterar os registros legados. Aplique `php artisan migrate --force` na instalação existente. O `/ready` também verifica a leitura da tabela de fila e retorna 503 quando ela não está disponível.
 
-## Próximos itens do backlog
+## Conclusão interna do backlog
 
-O [cadastro nativo de aditivos](14_ADITIVOS.md) permite criar, editar, registrar após conferência, excluir e restaurar, com documento privado associado. A aplicação de efeitos financeiros e de vigência dos aditivos, ficha de dotação e empenhos exigem a definição das regras de negócio e relações citadas na especificação. Os campos legados de ficha/empenho e o histórico de aditivos permanecem consultáveis; não são reinterpretados como cálculos ou relações novas. P2 permanece evolução.
+O [cadastro de aditivos](14_ADITIVOS.md), [dotação/fichas/empenhos](15_DOTACAO_FICHAS_E_EMPENHOS.md) e [conferência administrativa](16_FUNCOES_INTERNAS_E_VISUAL.md) completam as funções internas P1. Valores e datas conferidos são informados explicitamente; cálculos automáticos exigem regras homologadas. P2 interno e pendências externas estão no [estado final](17_ESTADO_FINAL_E_PENDENCIAS.md).

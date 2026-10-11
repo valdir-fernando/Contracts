@@ -1,8 +1,10 @@
 <x-layouts.auth>
     <main class="auth-shell">
+        <div class="auth-intro"><a class="auth-brand" href="{{ route('login') }}"><span class="brand-symbol" aria-hidden="true">C</span>Contracts</a><div><span class="section-label">GESTÃO DE CONTRATOS</span><h2>Organização para cada etapa do contrato.</h2><p>Cadastros, documentos e histórico em um só lugar, com acesso conforme o seu órgão.</p></div><span class="auth-footnote">Histórico preservado. Alterações rastreáveis.</span></div>
         <section class="login-card" aria-labelledby="login-title">
             <header class="login-header">
-                <h1 id="login-title">Contracts</h1>
+                <span class="section-label">ACESSO AO SISTEMA</span>
+                <h1 id="login-title">Bem-vindo ao Contracts</h1>
                 <p class="login-description">Entre com seu usuário e senha para acessar.</p>
             </header>
             <form action="{{ route('login.store') }}" method="POST" data-login-form>

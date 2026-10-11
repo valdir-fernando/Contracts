@@ -24,6 +24,14 @@ class ContractReport
     public const HEADERS = ['Contrato', 'Processo', 'Fornecedor', 'Documento', 'Fundo', 'Secretaria', 'Tipo', 'Modalidade',
         'Valor inicial (decimal)', 'Assinatura', 'Início', 'Término informado', 'Situação administrativa', 'Vigência', 'Pendências', 'Dias até o término', 'Origem do término'];
 
+    public const COLUMNS = ['number', 'process', 'supplier', 'document', 'fund', 'department', 'type', 'modality',
+        'initial_amount', 'signed_at', 'starts_at', 'ends_at', 'administrative_status', 'validity', 'issues', 'remaining_days', 'end_source'];
+
+    public function headers(array $filters): array
+    {
+        return array_map(fn ($key) => self::HEADERS[array_search($key, self::COLUMNS, true)], $filters['columns'] ?? self::COLUMNS);
+    }
+
     public function filters(array $input): array
     {
         return Validator::make($input, [
@@ -38,6 +46,7 @@ class ContractReport
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
             'include_personal' => 'nullable|boolean',
             'reason' => 'required_if:include_personal,1|nullable|string|min:10|max:1000',
+            'columns' => 'sometimes|array|min:1|max:17', 'columns.*' => ['required', 'string', 'distinct', Rule::in(self::COLUMNS)],
         ] + ContractSearch::rules($input))->validate();
     }
 
@@ -150,7 +159,7 @@ class ContractReport
         $validity = $contract->vigencia_em_revisao ? 'em_revisao' : (! $contract->end_date || ! $contract->vigencia_inicio ? 'indeterminado'
             : ($contract->end_date->lt($reference) ? 'vencido' : ($contract->vigencia_inicio->gt($reference) ? 'a_iniciar' : 'vigente')));
 
-        return [$contract->numero, $contract->processo, $contract->fornecedor_nome_snapshot,
+        $values = [$contract->numero, $contract->processo, $contract->fornecedor_nome_snapshot,
             $this->document($contract, $actor, $filters), $contract->fundo_nome_snapshot, $contract->secretaria_nome_snapshot,
             $contract->tipo, $contract->modalidade, $contract->valor_total, $contract->data_contrato?->toDateString(),
             $contract->vigencia_inicio?->toDateString(), $contract->end_date?->toDateString(),
@@ -158,5 +167,7 @@ class ContractReport
             count($contract->quality_issues ?? []) + (int) ! $contract->ownership_resolved + (int) $contract->vigencia_em_revisao,
             ! $contract->vigencia_em_revisao && $contract->end_date ? (string) (int) $reference->diffInDays($contract->end_date, false) : 'Em revisão / indeterminado',
             $contract->vigencia_fim_atual ? 'Término atualizado informado; sujeito a conciliação' : ($contract->vigencia_fim_original ? 'Término original' : 'Não informado')];
+
+        return array_map(fn ($key) => $values[array_search($key, self::COLUMNS, true)], $filters['columns'] ?? self::COLUMNS);
     }
 }

@@ -29,3 +29,15 @@ document.addEventListener('focusout', (event) => {
         input.value = digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
     }
 });
+
+document.querySelectorAll('[data-menu-toggle]').forEach((button) => {
+    const sidebar = button.closest('.workspace-nav');
+    const media = window.matchMedia('(max-width: 800px)');
+    const setOpen = (open) => {
+        sidebar.dataset.collapsed = String(!open);
+        button.setAttribute('aria-expanded', String(open));
+    };
+    setOpen(!media.matches);
+    button.addEventListener('click', () => setOpen(button.getAttribute('aria-expanded') !== 'true'));
+    media.addEventListener('change', () => setOpen(!media.matches));
+});

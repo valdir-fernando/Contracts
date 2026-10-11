@@ -6,6 +6,7 @@ use App\Jobs\GenerateReport;
 use App\Models\ActivityEvent;
 use App\Models\Contract;
 use App\Models\ReportExport;
+use App\Models\SavedReport;
 use App\Services\Reports\ContractReport;
 use App\Services\Reports\ReportRenderer;
 use Dompdf\Dompdf;
@@ -22,7 +23,7 @@ class ReportController extends Controller
 
         $visible = Contract::visibleTo($request->user());
 
-        return view('reports.index', ['filters' => $filters, 'summary' => $service->summary($request->user(), $filters),
+        return view('reports.index', ['presets' => SavedReport::where('user_id', $request->user()->id)->orderBy('name')->get(), 'filters' => $filters, 'summary' => $service->summary($request->user(), $filters),
             'contracts' => $service->query($request->user(), $filters)->paginate(20)->withQueryString(), 'service' => $service,
             'funds' => DB::table('contract_funds')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(),
             'departments' => DB::table('contract_departments')->whereIn('id', (clone $visible)->select('department_id'))->orderBy('name')->get(),

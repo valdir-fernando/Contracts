@@ -16,6 +16,10 @@ class EnsureActiveUser
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Seu acesso foi atualizado. Entre novamente.'], 401);
+            }
+
             return redirect()->route('login')->withErrors(['username' => 'Seu acesso foi atualizado. Entre novamente.']);
         }
 
