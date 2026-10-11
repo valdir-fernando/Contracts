@@ -50,3 +50,16 @@ A restauração final da evolução P1 recuperou 6 contratos fictícios, 2 conta
 ## Limites externos
 
 O dump real não está neste checkout. Homologação dos contratos reais, decisões marcadas [PENDENTE], política institucional de retenção, destino externo de backup, domínio/TLS e publicação em produção dependem da área e da infraestrutura. Nenhum deploy externo foi realizado. P1 já inclui documentos, calendário, alertas internos, pesquisa avançada, fornecedores e requisitos por tipo. Os módulos financeiros de aditivos e dotação/empenhos dependem das regras solicitadas ao responsável. P2 permanece evolução.
+
+## Cadastro nativo de aditivos — 11/10/2026
+
+| Verificação | Resultado |
+|---|---|
+| Suíte completa SQLite | 77 testes aprovados, 935 asserções |
+| MySQL em schema isolado | 22 testes aprovados, 276 asserções, abrangendo aditivos, conclusão de contratos, histórico/operação e relatório de auditoria |
+| Formatação PHP | Pint aprovado nos 98 arquivos PHP |
+| Assets | Build Vite aprovado |
+| Navegador | Fluxo anterior e aditivos: criar rascunho, editar, registrar, associar/baixar documento, excluir/restaurar, bloquear edição de registro conferido pelo usuário comum, preservar valores/datas do contrato e formulário móvel |
+| Backup e restauração | Checksums válidos; schema isolado restaurado e INSERTs de todas as tabelas, incluindo aditivos, iguais ao snapshot; storage e configuração recuperados |
+
+Os sete testes novos cobrem os 44 campos, máscara de documentos pessoais, escopo atual, revogação da sessão do ator, validação de dados, isolamento de IDs e documentos entre contratos, versões concorrentes, números reservados após exclusão e reversão integral em falha de auditoria na criação. A restauração recuperou sete contratos fictícios, duas contas e 40 eventos de auditoria contratual. O cadastro nativo não aplica efeitos financeiros nem altera as datas de vigência do contrato; o histórico importado continua separado.

@@ -5,6 +5,7 @@ use App\Http\Controllers\AdministrationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\ContractAmendmentController;
 use App\Http\Controllers\ContractAttachmentController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\ContractTypeRuleController;
@@ -50,6 +51,8 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/reports/export/{format}', [ReportController::class, 'export'])->middleware('throttle:10,1')->name('reports.export');
     Route::get('/contracts/{contract}/pdf', [ReportController::class, 'detail'])->name('contracts.pdf');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+    Route::resource('contracts.amendments', ContractAmendmentController::class)->parameters(['amendments' => 'amendment']);
+    Route::post('/contracts/{contract}/amendments/{amendment}/restore', [ContractAmendmentController::class, 'restore'])->name('contracts.amendments.restore');
     Route::post('/contracts/{contract}/attachments', [ContractAttachmentController::class, 'store'])->middleware('throttle:20,1')->name('contracts.attachments.store');
     Route::get('/contracts/{contract}/attachments/{attachment}', [ContractAttachmentController::class, 'download'])->name('contracts.attachments.download');
     Route::delete('/contracts/{contract}/attachments/{attachment}', [ContractAttachmentController::class, 'destroy'])->name('contracts.attachments.destroy');

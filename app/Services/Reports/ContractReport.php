@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\Contract;
+use App\Models\ContractAmendment;
 use App\Models\ContractHistoryRecord;
 use App\Models\User;
 use App\Services\ContractSearch;
@@ -77,7 +78,8 @@ class ContractReport
             $query->where(fn ($q) => $q->where('ownership_resolved', false)->orWhere('vigencia_em_revisao', true)->orWhereJsonLength('quality_issues', '>', 0));
         }
         if ($report === 'changes') {
-            $query->where(fn ($q) => $q->where('vigencia_em_revisao', true)->orWhereNotNull('vigencia_fim_atual')->orWhereIn('id', ContractHistoryRecord::where('kind', 'amendment')->select('contract_id')));
+            $query->where(fn ($q) => $q->where('vigencia_em_revisao', true)->orWhereNotNull('vigencia_fim_atual')->orWhereIn('id', ContractHistoryRecord::where('kind', 'amendment')->select('contract_id'))
+                ->orWhereIn('id', ContractAmendment::where('status', 'registrado')->select('contract_id')));
         }
         if ($validity = $filters['validity'] ?? null) {
             $query->where('vigencia_em_revisao', $validity === 'em_revisao');

@@ -40,4 +40,4 @@ As migrations `000004`, `000005` e `000006` adicionam documentos, preferências 
 
 ## Próximos itens do backlog
 
-CRUD financeiro de aditivos, ficha de dotação e empenhos exigem a definição das regras de negócio e relações citadas na especificação. Os campos legados de ficha/empenho e o histórico de aditivos permanecem consultáveis; não são reinterpretados como cálculos ou relações novas. P2 permanece evolução.
+O [cadastro nativo de aditivos](14_ADITIVOS.md) permite criar, editar, registrar após conferência, excluir e restaurar, com documento privado associado. A aplicação de efeitos financeiros e de vigência dos aditivos, ficha de dotação e empenhos exigem a definição das regras de negócio e relações citadas na especificação. Os campos legados de ficha/empenho e o histórico de aditivos permanecem consultáveis; não são reinterpretados como cálculos ou relações novas. P2 permanece evolução.

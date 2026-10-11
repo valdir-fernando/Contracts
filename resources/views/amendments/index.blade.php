@@ -1,0 +1,10 @@
+<x-layouts.app title="Aditivos do contrato">
+    <div class="page-heading"><div><a class="text-link" href="{{ route('contracts.show', $contract) }}">← Contrato {{ $contract->numero }}</a><h1>Aditivos cadastrados</h1><p>Registros nativos separados do histórico importado. Valores e prazos não são aplicados automaticamente.</p></div><a class="primary-button compact" href="{{ route('contracts.amendments.create', $contract) }}">Novo aditivo</a></div>
+    @if(auth()->user()->isAdmin())<p><a class="text-link" href="{{ route('contracts.amendments.index', $contract) }}">Aditivos atuais</a> · <a class="text-link" href="{{ route('contracts.amendments.index', ['contract'=>$contract, 'deleted'=>1]) }}">Aditivos excluídos</a></p>@endif
+    <section class="surface contract-section"><div class="table-scroll"><table class="data-table"><thead><tr><th>Número</th><th>Data</th><th>Tipo</th><th>Valor informado</th><th>Registro</th><th>Ações</th></tr></thead><tbody>
+        @forelse($amendments as $amendment)<tr><td>{{ $amendment->number }}</td><td>{{ $amendment->event_date->format('d/m/Y') }}</td><td>{{ $amendment->payload['Tipo_ADT'] }}</td><td>{{ \App\Models\Contract::moneyLabel($amendment->amount) }}</td><td>{{ \App\Models\ContractAmendment::STATUSES[$amendment->status] }}</td><td>
+            @if($amendment->trashed())<form method="POST" action="{{ route('contracts.amendments.restore', [$contract, $amendment->id]) }}">@csrf<input type="hidden" name="version" value="{{ $amendment->version }}"><input type="hidden" name="contract_version" value="{{ $contract->version }}"><label>Confirme {{ $amendment->number }}<input name="confirmation" required></label><label>Motivo<input name="reason" minlength="5" maxlength="1000" required></label><button class="secondary-button">Restaurar aditivo</button></form>
+            @else<a class="secondary-button" href="{{ route('contracts.amendments.show', [$contract, $amendment->id]) }}">Ver aditivo</a>@endif
+        </td></tr>@empty<tr><td colspan="6">Nenhum aditivo cadastrado nesta lista.</td></tr>@endforelse
+    </tbody></table></div>{{ $amendments->links() }}</section>
+</x-layouts.app>
