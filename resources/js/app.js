@@ -1,3 +1,5 @@
+import './count-up';
+
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
         const input = document.getElementById(button.getAttribute('aria-controls'));

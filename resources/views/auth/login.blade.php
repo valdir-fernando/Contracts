@@ -1,14 +1,8 @@
 <x-layouts.auth>
     <main class="auth-shell">
-        <div class="auth-intro">
-            <a class="auth-brand" href="{{ route('login') }}"><x-brand-mark/>Contracts</a>
-            <div class="auth-grid-art" aria-hidden="true"></div>
-            <div class="auth-copy"><span class="section-label">GESTÃO DE CONTRATOS</span><h2>Clareza em cada etapa.<br>Controle em cada decisão.</h2><p>Contratos, documentos e prazos em um só lugar. Uma visão organizada para acompanhar o que importa.</p><div class="auth-feature"><x-nav-icon name="shield"/>Acesso por órgão e histórico de alterações.</div></div>
-            <span class="auth-footnote">Contracts · Gestão e acompanhamento</span>
-        </div>
         <div class="auth-form-area">
+        <a class="auth-brand auth-login-brand" href="{{ route('login') }}"><x-brand-mark/>Contracts</a>
         <section class="login-card" aria-labelledby="login-title">
-            <a class="auth-brand auth-mobile-brand" href="{{ route('login') }}"><x-brand-mark/>Contracts</a>
             <header class="login-header">
                 <span class="section-label">ACESSO AO SISTEMA</span>
                 <h1 id="login-title">Bem-vindo ao Contracts</h1>

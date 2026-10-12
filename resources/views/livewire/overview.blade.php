@@ -17,10 +17,10 @@
         $maxMonth = max(1, collect($metrics['months'])->max('count'));
     @endphp
     <div class="overview-kpis" aria-label="Indicadores dos órgãos autorizados">
-        <a class="kpi-card" data-kpi="all" href="{{ route('contracts.index') }}" aria-label="Ver todos os {{ $count }} contratos cadastrados"><span>Contratos cadastrados</span><div class="kpi-icon"><x-nav-icon name="contracts"/></div><strong>{{ number_format($count, 0, ',', '.') }}</strong><small>No seu escopo atual <x-nav-icon name="arrow"/></small></a>
-        <a class="kpi-card kpi-success" data-kpi="current" href="{{ route('contracts.index', ['validity' => 'vigente']) }}" aria-label="Ver {{ $current }} contratos vigentes"><span>Vigentes</span><div class="kpi-icon"><x-nav-icon name="check"/></div><strong>{{ number_format($current, 0, ',', '.') }}</strong><small>Com vigência conhecida <x-nav-icon name="arrow"/></small></a>
-        <a class="kpi-card kpi-danger" data-kpi="expired" href="{{ route('contracts.index', ['validity' => 'vencido']) }}" aria-label="Ver {{ $expired }} contratos vencidos"><span>Vencidos</span><div class="kpi-icon"><x-nav-icon name="clock"/></div><strong>{{ number_format($expired, 0, ',', '.') }}</strong><small>Em {{ today()->format('d/m/Y') }} <x-nav-icon name="arrow"/></small></a>
-        <a class="kpi-card kpi-warning" data-kpi="review" href="{{ route('contracts.index', ['review' => 1]) }}" aria-label="Ver {{ $review }} contratos em revisão"><span>Em revisão</span><div class="kpi-icon"><x-nav-icon name="warning"/></div><strong>{{ number_format($review, 0, ',', '.') }}</strong><small>Vigências ou órgãos <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card" data-kpi="all" href="{{ route('contracts.index') }}" aria-label="Ver todos os {{ $count }} contratos cadastrados"><span>Contratos cadastrados</span><div class="kpi-icon"><x-nav-icon name="contracts"/></div><strong data-count-up="{{ $count }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($count, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($count, 0, ',', '.') }}</span></strong><small>No seu escopo atual <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card kpi-success" data-kpi="current" href="{{ route('contracts.index', ['validity' => 'vigente']) }}" aria-label="Ver {{ $current }} contratos vigentes"><span>Vigentes</span><div class="kpi-icon"><x-nav-icon name="check"/></div><strong data-count-up="{{ $current }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($current, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($current, 0, ',', '.') }}</span></strong><small>Com vigência conhecida <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card kpi-danger" data-kpi="expired" href="{{ route('contracts.index', ['validity' => 'vencido']) }}" aria-label="Ver {{ $expired }} contratos vencidos"><span>Vencidos</span><div class="kpi-icon"><x-nav-icon name="clock"/></div><strong data-count-up="{{ $expired }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($expired, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($expired, 0, ',', '.') }}</span></strong><small>Em {{ today()->format('d/m/Y') }} <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card kpi-warning" data-kpi="review" href="{{ route('contracts.index', ['review' => 1]) }}" aria-label="Ver {{ $review }} contratos em revisão"><span>Em revisão</span><div class="kpi-icon"><x-nav-icon name="warning"/></div><strong data-count-up="{{ $review }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($review, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($review, 0, ',', '.') }}</span></strong><small>Vigências ou órgãos <x-nav-icon name="arrow"/></small></a>
     </div>
 
     <div class="section-heading"><h2>Distribuição e vencimentos</h2><span>Indicadores temporais dos órgãos autorizados</span></div>
@@ -42,7 +42,7 @@
             <header class="panel-header"><div><h2>Próximos vencimentos</h2><p>Términos conhecidos nos próximos seis meses</p></div><a class="text-link" href="{{ route('calendar.index') }}">Ver calendário →</a></header>
             <div class="month-chart" aria-label="Términos conhecidos por mês">
                 @foreach($metrics['months'] as $metric)
-                    <div class="month-column" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos"><strong class="month-count">{{ $metric['count'] }}</strong><div class="month-track" aria-hidden="true"><div class="month-bar" style="--bar-height: {{ $metric['count'] / $maxMonth * 100 }}%"></div></div><span>{{ $metric['label'] }}</span></div>
+                    <div class="month-column" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos"><strong class="month-count">{{ $metric['count'] }}</strong><div class="month-track" aria-hidden="true"><div class="month-bar" style="--bar-height: {{ $metric['count'] / $maxMonth * 100 }}%; --chart-delay: {{ $loop->index * 65 }}ms"></div></div><span>{{ $metric['label'] }}</span></div>
                 @endforeach
             </div>
             <div class="portfolio-summary"><span>Valor inicial dos contratos acessíveis</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['summary']['total']) }}</strong></div>
@@ -55,7 +55,7 @@
             <header class="panel-header"><div><h2>Contratos por órgão</h2><p>Os dez órgãos com mais contratos no seu escopo</p></div><x-nav-icon name="catalogs"/></header>
             <div class="metrics-bars">
                 @forelse($metrics['funds'] as $metric)
-                    <div class="metric-bar"><span title="{{ $metric['label'] }}">{{ $metric['label'] }}</span><meter min="0" max="{{ max(1, collect($metrics['funds'])->max('count')) }}" value="{{ $metric['count'] }}" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos">{{ $metric['count'] }}</meter><strong>{{ $metric['count'] }}</strong></div>
+                    <div class="metric-bar"><span title="{{ $metric['label'] }}">{{ $metric['label'] }}</span><meter style="--chart-delay: {{ $loop->index * 55 }}ms" min="0" max="{{ max(1, collect($metrics['funds'])->max('count')) }}" value="{{ $metric['count'] }}" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos">{{ $metric['count'] }}</meter><strong>{{ $metric['count'] }}</strong></div>
                 @empty<div class="empty-state">Nenhum contrato nos seus órgãos autorizados.</div>@endforelse
             </div>
         </section>

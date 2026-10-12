@@ -723,19 +723,19 @@ body.modal-open { overflow: hidden; }
 .catalog-modal .field input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px #3267c812; }
 
 /* Vivid status colors make the overview easier to scan and explore. */
-.overview-kpis > a.kpi-card { --kpi-accent: #3478f6; --kpi-tint: #eff5ff; --kpi-border: #d6e5ff; border-color: var(--kpi-border); border-top: 3px solid var(--kpi-accent); background: var(--kpi-tint); color: inherit; text-decoration: none; transition: transform .18s, box-shadow .18s, border-color .18s; }
+a.kpi-card { --kpi-accent: #3478f6; --kpi-tint: #eff5ff; --kpi-border: #d6e5ff; }
+.overview-kpis > a.kpi-card { border-color: var(--kpi-border); border-top: 3px solid var(--kpi-accent); background: var(--kpi-tint); color: inherit; text-decoration: none; transition: transform .18s, box-shadow .18s, border-color .18s; }
 a.kpi-card:hover { transform: translateY(-3px); border-color: var(--kpi-accent); box-shadow: 0 8px 24px #23427012; }
 a.kpi-card small { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 a.kpi-card small svg { width: 16px; height: 16px; color: var(--kpi-accent); transition: transform .18s; }
 a.kpi-card:hover small svg { transform: translateX(3px); }
-a.kpi-card .kpi-icon { color: var(--kpi-accent); background: white; box-shadow: 0 2px 8px #203b6508; }
+a.kpi-card .kpi-icon { color: white; background: var(--kpi-accent); box-shadow: 0 3px 10px #203b6512; }
 a.kpi-success { --kpi-accent: #059669; --kpi-tint: #eefbf5; --kpi-border: #c8eedc; }
 a.kpi-danger { --kpi-accent: #e83e61; --kpi-tint: #fff1f4; --kpi-border: #f8d4df; }
-a.kpi-warning { --kpi-accent: #d88a09; --kpi-tint: #fff8e8; --kpi-border: #f3e1b5; }
-.donut-chart { box-shadow: 0 8px 24px #3267c812; }
+a.kpi-warning { --kpi-accent: #b97708; --kpi-tint: #fff8e8; --kpi-border: #f3e1b5; }
+.donut-chart { position: relative; background: none; box-shadow: 0 8px 24px #3267c812; }
 .chart-dot { width: 10px; height: 10px; }
-.month-bar, .month-column:first-child .month-bar { border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #38bdf8, #3478f6); box-shadow: inset 0 1px 0 #ffffff40; transition: height .25s ease; }
-.month-column:nth-child(even) .month-bar { background: linear-gradient(180deg, #818cf8, #6366f1); }
+.month-bar, .month-column:first-child .month-bar { border-radius: 8px 8px 0 0; background: #3478f6; transition: height .25s ease; }
 .month-count { color: #355b91; font-weight: 700; }
 .metric-bar meter { height: 9px; accent-color: #3478f6; }
 .metric-bar meter::-webkit-meter-optimum-value { background: linear-gradient(90deg, #3478f6, #22b8ec); }
@@ -788,9 +788,30 @@ a.kpi-warning { --kpi-accent: #d88a09; --kpi-tint: #fff8e8; --kpi-border: #f3e1b
 .calendar-panel > p.muted { font-size: 12px; line-height: 1.6; }
 .calendar-event-count > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Charts reveal their actual geometry once, while labels remain readable. */
+@property --chart-sweep { syntax: '<angle>'; inherits: false; initial-value: 360deg; }
+.donut-chart::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--donut-fill, #e5ebf4); mask-image: conic-gradient(#000 0deg var(--chart-sweep), transparent var(--chart-sweep) 360deg); animation: chart-sweep .9s cubic-bezier(.22, 1, .36, 1) both; }
+.donut-center { position: relative; z-index: 1; }
+.month-bar { transform-origin: center bottom; animation: chart-grow-y .7s cubic-bezier(.22, 1, .36, 1) var(--chart-delay, 0ms) both; }
+.metric-bar meter { transform-origin: left center; animation: chart-grow-x .7s cubic-bezier(.22, 1, .36, 1) var(--chart-delay, 0ms) both; }
+@keyframes chart-sweep { from { --chart-sweep: 0deg; } to { --chart-sweep: 360deg; } }
+@keyframes chart-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes chart-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
 .date-input-control { position: relative; display: block; width: 100%; }
 .date-input-control > input[data-brazilian-date] { padding-right: 52px; }
 .date-picker-button { position: absolute; top: 50%; right: 5px; transform: translateY(-50%); display: grid; place-items: center; width: 38px; height: 38px; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: #3478f6; cursor: pointer; }
 .date-picker-button:hover { background: #eff5ff; }
 .date-picker-button svg { width: 20px; height: 20px; }
 .date-input-control > .date-native-picker { position: absolute; bottom: 0; right: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
+/* Center the brand and login card together at every screen size. */
+.auth-shell { grid-template-columns: minmax(0, 1fr); background: radial-gradient(ellipse at 50% 0%, #e7efff 0%, #f4f7fb 65%); }
+.auth-form-area { min-height: 100svh; padding: 32px 16px; }
+.login-card { width: 100%; max-width: 420px; padding: 32px; border: 1px solid #dce6f4; border-radius: 24px; background: #fff; box-shadow: 0 12px 40px #2342700d; }
+.auth-login-brand { display: inline-flex; align-self: center; margin-bottom: 24px; color: #26364b; }
+.login-header { text-align: center; }
+.login-header h1 { font-size: clamp(24px, 4vw, 28px); }
+@media (max-width: 420px) {
+    .login-card { padding: 28px 22px; }
+}

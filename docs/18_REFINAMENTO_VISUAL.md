@@ -81,7 +81,7 @@ Validação: 10 testes de fornecedores, catálogos, escopos e permissões aprova
 
 ## Gráficos, calendário e indicadores clicáveis
 
-Gráficos usam cores mais vivas: esmeralda para vigente, rosa para vencido, âmbar para revisão e ciano para contratos a iniciar. Barras mensais alternam azul/ciano e índigo; barras por órgão usam azul/ciano. Os indicadores do início são links completos, com cores por situação, setas, hover e foco de teclado. Total, vigentes e vencidos abrem as listas existentes; revisão usa um filtro próprio que inclui pendências de vigência ou de identificação do órgão, preservando o critério e o total do painel. O filtro pode ser combinado com busca, desmarcado e levado aos relatórios e exportações.
+Gráficos usam cores mais vivas: esmeralda para vigente, rosa para vencido, âmbar para revisão e ciano para contratos a iniciar. Barras mensais usam azul sólido; barras por órgão usam azul/ciano. Os indicadores do início são links completos, com cores por situação, setas, hover e foco de teclado. Total, vigentes e vencidos abrem as listas existentes; revisão usa um filtro próprio que inclui pendências de vigência ou de identificação do órgão, preservando o critério e o total do painel. O filtro pode ser combinado com busca, desmarcado e levado aos relatórios e exportações.
 
 Calendário destaca hoje, fins de semana e dias com vencimentos; datas passadas e os próximos sete dias recebem cores próprias e legenda. Os controles de mês anterior, próximo mês e mês atual preservam os limites de data aceitos. A grade continua acessível em telas menores, com contagem compacta por dia e descrição completa para leitores de tela.
 
@@ -92,3 +92,23 @@ A conferência final em 1440, 390 e 320 px também garantiu que os sete dias da 
 ## Conferência antes dos commits
 
 Em 11/10/2026, a suíte completa passou com 94 testes e 1.239 asserções. Pint aprovado nos 115 arquivos PHP, assets compilados e templates Blade compilados. Os dados e capturas dos ensaios no navegador ficam fora do repositório; os cadastros fictícios usaram apenas a prévia SQLite isolada.
+
+## Entrada animada dos gráficos e ícones de situação
+
+Ao carregar o painel, o anel se revela em 900 ms; colunas e barras por órgão crescem em 700 ms, com pequenos atrasos entre os itens. As colunas mensais usam azul sólido. Rótulos e totais permanecem visíveis e estáveis durante a animação. Busca Livewire preserva os gráficos e não reinicia a entrada. Movimento reduzido apresenta imediatamente os valores finais.
+
+Ícones dos cards têm fundo azul para cadastrados, verde para vigentes, vermelho para vencidos e âmbar para revisão, com símbolo branco. As variáveis de cor foram separadas das regras de estrutura para preservar as cores específicas de cada situação.
+
+Conferência no navegador em 1440, 390 e 320 px: início, meio e fim do anel, colunas e barras por órgão; cores dos ícones e ausência de degradê nas colunas; busca Livewire sem reiniciar a animação e movimento reduzido sem animação. Sem transbordamento ou erros JavaScript. Build Vite e compilação Blade aprovados.
+
+## Contagem animada dos cards
+
+Os quatro indicadores do painel contam de zero até o total em 1.100 ms, com desaceleração suave. A formatação usa `pt-BR`, incluindo separador de milhares. Atualizações do mesmo total pelo Livewire não reiniciam a contagem; totais alterados partem do número que já está visível. Os rótulos acessíveis mantêm o valor final sem anunciar cada etapa da animação. Sem JavaScript, os números renderizados pelo servidor continuam disponíveis. Movimento reduzido mostra imediatamente os totais, inclusive se a preferência mudar durante a contagem.
+
+Verificação no navegador: início e progressão da animação, totais finais, agrupamento `12.345`, zero, busca Livewire sem reinício, movimento reduzido no carregamento e durante a animação, acessibilidade e largura de 320 px. Cinco testes PHP dos indicadores e calendário aprovados com 67 asserções. Build Vite, compilação Blade e diferenças sem erros.
+
+## Login centralizado
+
+A tela de acesso apresenta a marca acima e fora do card, com 24 px de intervalo. O conjunto formado pela marca e pelo card fica centralizado na largura e na altura da tela, com cabeçalho alinhado ao centro. O painel lateral de apresentação foi retirado para que o formulário ocupe o centro da página. O card mantém cantos arredondados, fundo azul suave e largura máxima de 420 px. Em telas baixas, o conteúdo permite rolagem e mantém margens para os controles.
+
+Conferido no navegador em 1440×900, 1024×768, 390×844, 320×568 e 667×375, incluindo centralização, ausência de rolagem horizontal e alternância da visibilidade da senha. Os oito testes de login passaram com 62 asserções. Build Vite, compilação Blade e diferenças sem erros. A atualização está disponível no túnel em execução.
