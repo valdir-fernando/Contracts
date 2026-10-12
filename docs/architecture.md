@@ -1,102 +1,142 @@
 # Arquitetura do Contracts
 
-## Objetivo e limites
+## Objetivo e estado atual
 
-Evoluir um monólito Laravel modular, com regras de domínio independentes onde isso traz testabilidade real. A aplicação permanece em Laravel 13/PHP 8.4, Livewire 4/Alpine, Blade, Tailwind 4, MySQL, Docker, Nginx e Vite. Esta etapa não modifica schema, rotas, contrato JSON da API, layout ou funcionalidades administrativas.
+O Contracts permanece um monólito Laravel 13, Livewire 4/Alpine, Blade, Tailwind 4, MySQL/SQLite e Docker. A arquitetura evolui por módulo, preservando os contratos HTTP, os 80 campos, o histórico, os escopos e as transações existentes.
 
-A [auditoria](architecture-audit.md) registra evidências, correções, verificações executadas e pendências. Não se trata de uma implementação completa de Clean Architecture: as dependências preservadas do Laravel estão explicitadas abaixo.
+O núcleo de cadastro, edição, exclusão e restauração de contratos agora possui **Domain e Application independentes de Laravel, Eloquent, Carbon, facades e HTTP**. As dependências são verificadas pela suíte Architecture. Os demais módulos continuam nos adaptadores/serviços existentes até uma migração justificada: não se afirma que todos os serviços do sistema já tenham essa independência.
 
-## Organização atual e evolução inicial
+As [evidências da primeira auditoria](architecture-audit.md) e da [auditoria incremental](technical-audit-2026-10-12.md) descrevem seus respectivos snapshots. A [evolução para desenvolvimento](clean-architecture-development.md) registra esta etapa, sua validação e os limites remanescentes.
 
-| Camada | Implementação | Responsabilidade |
-| --- | --- | --- |
-| Domain | `app/Domain/Contracts/ContractValidity.php` | Classificação temporal e comparação de datas civis; recebe a referência explicitamente, sem Laravel, Carbon, banco ou relógio global. |
-| Application | `app/Application/Contracts/SaveContract.php` | Orquestra cadastro/edição: ator e contrato atuais, validação contextual, escopo, normalização, invariantes, versão, persistência e auditoria na mesma transação. |
-| Application | `app/Application/Contracts/ContractInputValidator.php` | Validação de entrada com estado atual bloqueado: campos permitidos, proteção pessoal, campos derivados, requisitos por tipo e tolerâncias legadas. Utilizável por HTTP e CLI. |
-| Application | `app/Application/Contracts/ChangeContractLifecycle.php` | Casos de uso explícitos `delete` e `restore`, compartilhando a transação e as invariantes do ciclo de vida. |
-| Application | `app/Application/Security/LockActor.php` | Recarrega e bloqueia o usuário na transação; verifica atividade e versão de sessão contra o snapshot do chamador. |
-| Infrastructure | `app/Infrastructure/Contracts/ContractListingQuery.php` | Consulta Eloquent da listagem, escolhas restritas ao escopo, ordenação e paginação. |
-| Infrastructure existente | `app/Models`, `Services/Reports`, `Services/Legacy`, discos Laravel | Persistência, casts, queries, importação, renderização PDF/XLSX/CSV e documentos privados. Mantidos nos caminhos atuais para evitar mudanças cosméticas em massa. |
-| Presentation | `app/Http`, `app/Livewire`, `resources/views` | Rotas, autenticação HTTP, validação estrutural dos filtros, respostas, paginação e apresentação. |
-| Compatibilidade | `Services/ContractWriter`, `Services/ContractLifecycle` | Mantêm assinaturas existentes e delegam aos casos de uso. Evitam quebrar controllers, comando de demonstração, testes e consumidores existentes. |
+## Direção das dependências
 
 ```mermaid
 flowchart LR
-    HTTP[Controllers e Livewire] --> Compatibility[Services de compatibilidade]
+    Presentation[Controllers, Livewire e CLI] --> Compatibility[ContractWriter e ContractLifecycle]
     Compatibility --> Application[Application: casos de uso]
-    Application --> Domain[Domain: regras PHP puras]
-    Application --> Laravel[Eloquent, DB, Gate e Validator]
-    HTTP --> Reads[Infrastructure: consultas de leitura]
-    Reads --> Laravel
-    Laravel --> MySQL[(MySQL)]
-    Models[Models Eloquent] --> Domain
+    Application --> Domain[Domain: regras e snapshots PHP]
+    Application --> Ports[Interfaces de acesso, validação, catálogos, persistência e transação]
+    Infrastructure[Infrastructure: adaptadores Laravel e Eloquent] -. implementa .-> Ports
+    Infrastructure --> Domain
+    Infrastructure --> Laravel[Policies, Validator, models e DB]
+    Provider[AppServiceProvider: composição] --> Ports
+    Provider --> Infrastructure
+    Laravel --> Database[(MySQL ou SQLite)]
 ```
 
-**Concessão deliberada:** os casos de uso ainda recebem models Eloquent e usam transações, Gate, Validator e exceções HTTP do framework. A leitura pode ser chamada diretamente pelo controller. A dependência estritamente interna já existe na regra de domínio; a aplicação inteira ainda não possui inversão de persistência. O diagrama descreve o código implementado, não uma arquitetura idealizada.
+O caso de uso define suas necessidades por interfaces próprias. O container fornece os adaptadores externos; a aplicação não escolhe classes Eloquent nem acessa o container. A apresentação pode usar os serviços de compatibilidade e consultas de infraestrutura já existentes. Views, formatação, PDF/XLSX, discos e queues permanecem externos ao núcleo.
 
-## Fluxo de escrita
+## Responsabilidades e arquivos
 
-1. O middleware HTTP verifica autenticação e versão da sessão. Isso não substitui a verificação transacional.
-2. `SaveContract` inicia uma transação com até três tentativas e bloqueia o ator atual usando `LockActor`.
-3. Recarrega e bloqueia o contrato existente; executa a policy com o ator atual.
-4. `ContractInputValidator` valida o payload usando o estado bloqueado. Campos omitidos permanecem omitidos; `null` continua distinto de ausência. Dados pessoais protegidos e campos derivados não podem ser sobrescritos pelo cliente.
-5. Compara a versão enviada com a versão persistida e verifica o escopo de destino, incluindo mudança de fundo/secretaria.
-6. Normaliza valores sem `float`, conserva snapshots e pendências legadas e aplica as verificações temporais já existentes. A tolerância de datas históricas inconsistentes, quando não alteradas, permanece preservada.
-7. Persiste o contrato com versão incrementada e registra `ContractAudit`. Uma falha na auditoria reverte também o contrato.
+| Camada | Implementação | Responsabilidade |
+| --- | --- | --- |
+| Domain | `Contracts/ContractValidity.php` | Classificação temporal com referência explícita e cronologia por datas civis. |
+| Domain | `Contracts/ContractState.php` | Snapshot imutável, aplicação de patch parcial, exercício, revisão legada e verificação de datas alteradas. Não acessa relógio, banco ou usuário global. |
+| Domain | `Shared/BrazilianDocument.php`, `Shared/DecimalAmount.php` | Dígitos/verificadores/mascaramento e conversão decimal exata; regras compartilhadas com a normalização legada. |
+| Application | `Contracts/SaveContract.php` | Orquestra autorização atual, validação, versão, escopo de destino, snapshots, invariantes, duplicidade, persistência e auditoria. |
+| Application | `Contracts/ChangeContractLifecycle.php` | Casos explícitos de exclusão/restauração, autorização, confirmação e versão. |
+| Application | `Security/ActorIdentity.php` | ID e versão de sessão recebidos de um consumidor autenticado. Não contém permissões autodeclaradas. |
+| Application | `Contracts/AuthorizedContract.php`, `ValidatedContractInput.php` | Contexto autorizado e separação de controles validados do patch de campos graváveis. |
+| Application | `Contracts/Ports/*`, `Ports/TransactionManager.php` | Cinco interfaces específicas, sem builders/Models/Response na assinatura. |
+| Application | `Exceptions/*` | Falhas de acesso, validação, concorrência e ausência de registro sem status HTTP ou dependência do framework. |
+| Infrastructure | `Contracts/EloquentContractAccess.php` | Locks de ator/contrato e policies; verificação de atribuição de fundo/secretaria. Métodos públicos específicos de salvar/ciclo de vida evitam combinações arbitrárias de abilities. |
+| Infrastructure | `Contracts/LaravelContractInputValidator.php` | Validação contextual Laravel, requisitos por tipo, proteção de campos, existência de catálogos e normalização do patch permitido. |
+| Infrastructure | `Contracts/EloquentContractCatalog.php` | Snapshots de órgãos e resolução de fornecedor sem match ambíguo. |
+| Infrastructure | `Contracts/EloquentContractStore.php`, `ContractMapper.php` | Tradução de snapshots, duplicidade sob lock, Eloquent, soft delete e auditoria inseparável da persistência. |
+| Infrastructure | `Persistence/LaravelTransactionManager.php`, `TransactionGuard.php` | Transação com três tentativas; recusa explícita de mutação sem transação ativa. |
+| Infrastructure | `Security/LockActor.php` | Atividade, exclusão lógica e versão de sessão atual. Também reutilizado por aditivos, financeiro, revisão e controllers administrativos. |
+| Infrastructure | `Http/ApplicationErrors.php`, `bootstrap/app.php` | Tradução das falhas da aplicação em 403/404/409/422 ou erros de formulário, na fronteira HTTP. |
+| Compatibilidade | `Services/ContractWriter.php`, `ContractLifecycle.php`, `Legacy/Normalizer.php` | Preservam as chamadas existentes; convertem models/identidade e delegam regras compartilhadas. |
+| Composição | `Providers/AppServiceProvider.php` | Bindings das cinco interfaces. Sem singleton com estado mutável de contratos/usuários. |
 
-No conflito de edição, o controller recarrega o contrato ativo e o ator, confere a sessão e repete a autorização antes de mostrar o formulário. Conflitos ordinários continuam retornando 409 e os dados digitados; perda de acesso retorna 403 e exclusão concorrente retorna 404.
+`ContractInputValidator` deixou de ser uma classe Laravel em Application: sua interface está em `Application/Contracts/Ports`, e sua implementação em Infrastructure. `LockActor` também foi movido de Application para Infrastructure, com todos os consumidores locais atualizados. As assinaturas dos serviços públicos de compatibilidade permanecem iguais.
 
-`ChangeContractLifecycle` preserva confirmação pelo número/ID, motivo, versão, permissão administrativa, soft delete, autoria e auditoria. Exclusão e restauração compartilham a mesma fronteira transacional. Não há exclusão física no fluxo.
+## Fluxo seguro de escrita
 
-A verificação de ator também foi aplicada ao cadastro de usuários, alterações administrativas de usuários e cadastro de catálogos. A ordem de bloqueio de todos os administradores ativos em `UserController::mutate` foi mantida, para preservar a proteção do último administrador.
+1. HTTP/CLI fornece uma identidade derivada do usuário autenticado. ID, perfil e versão de sessão enviados no formulário não viram autoridade.
+2. O caso de uso inicia `TransactionManager::run`; a implementação Laravel mantém até três tentativas em caso de deadlock.
+3. `ContractAccess::lockForSave` ou `lockForLifecycle` bloqueia primeiro o ator, verifica atividade/versão de sessão, bloqueia o contrato atual e executa a policy. Os casos não podem escolher uma ability arbitrária recebida do cliente.
+4. O validador recebe o contexto atual autorizado, dentro da transação. Ausência continua distinta de `null`. Dados pessoais protegidos e campos derivados não entram no patch gravável, mesmo quando valores vazios são aceitos pela semântica do Validator.
+5. A aplicação verifica a versão persistida e o escopo de destino, resolve snapshots em catálogos e aplica as regras temporais. Datas históricas inconsistentes não alteradas continuam preservadas.
+6. Cadastro novo bloqueia o fundo antes da consulta corrente de candidatos acessíveis. Duplicidade plausível exige confirmação explícita; não cria unicidade nem impede registros legítimos.
+7. `ContractStore::save` calcula diferenças com a semântica de casts do Eloquent, salva e registra a auditoria na mesma transação. Uma falha reverte ambos.
+8. O resultado é o snapshot efetivamente salvo. O adaptador retorna o model compatível a partir desse snapshot, sem consulta global do contrato depois do commit. Conflitos de edição continuam reautorizando o ator/contrato atual antes de mostrar formulários.
 
-## Vigência e consultas
+O mapper preserva atributos originais e aplica somente diferenças: JSON já serializado não é serializado novamente; datas/decimais omitidos mantêm seus casts e campos legados continuam preservados. `ContractState` mantém arrays para representar os campos extensos, evitando um DTO artificial com 80 propriedades.
 
-`ContractValidity::classify` mantém a precedência: revisão; datas insuficientes; vencido; a iniciar ou vigente. Início e término são inclusivos na data de referência. São datas civis, não instantes de execução. A classificação não certifica situação jurídica.
+Os campos monetários chegam aos atributos de domínio como strings com quatro casas, usando os casts existentes também no SQLite, cujo PDO pode devolver números como `float`. `original()` conserva a representação original para mapeamento/auditoria; regras financeiras devem usar os atributos normalizados, não os valores brutos de persistência. Essa tradução preserva a semântica dos casts e não altera valores do banco.
 
-O término atualizado informado tem precedência sobre o original, como já ocorria. `Contract::validityOn` adapta os casts do Eloquent para a regra pura. O accessor `validity` continua usando a data atual da aplicação. Os relatórios passam sua própria referência, independente do dia de execução.
+`TransactionGuard` protege locks de ator, verificação de escopo de destino, duplicidade, escrita e ciclo de vida. Não é substituto da policy ou da ordem de locks. O adapter não expõe `save` sem auditoria; não há evento assíncrono para a trilha de alterações.
 
-A tradução SQL permanece em `Contract::scopeWithValidity`, agora com referência opcional. Os relatórios a reutilizam. Testes de equivalência verificam regra/model, filtros SQL e linhas dos relatórios para todas as situações, limites e datas ausentes.
+## Regras de desenvolvimento
 
-`ContractSearch::applyIdentityFilters` compartilha busca por número/processo/fornecedor/documento e filtro de fundo/secretaria entre listagem e relatório. O método `apply` anterior permanece com sua semântica de filtros avançados. As escolhas dos filtros continuam derivadas apenas dos contratos visíveis.
+- **Domain** depende apenas de Domain e PHP nativo. Não usar Eloquent, Laravel, Carbon, facades, HTTP, containers, helpers globais ou inclusões de arquivos.
+- **Application** depende de Application, Domain e PHP nativo. Novas operações recebem dependências pelo construtor e não usam `app()`, `auth()`, `request()`, `now()`, `collect()` ou `abort()`.
+- **Ports** descrevem necessidades do caso de uso. Retornam dados/snapshots, não builders, models ou respostas. Não criar repository genérico para espelhar o ORM.
+- **Infrastructure** implementa as interfaces e traduz recursos/falhas do framework. Não importar controllers, Livewire ou providers.
+- **Apresentação** decide transporte, navegação e renderização. Os fluxos existentes continuam usando os serviços compatíveis; novos consumidores podem usar os casos puros e suas falhas tipadas.
+- **Composição** acontece no provider. Não vincular repositories/contextos mutáveis como singleton.
+- **Autorização** permanece no backend e é repetida sob lock nas mutações. Nunca confiar em dados de papel, autoria, fundo derivado ou propriedade conciliada vindos do cliente.
+- **Validação contextual** permanece depois dos locks. Um FormRequest pode validar estrutura, mas não substituir a validação que depende do estado atual.
+- **Tempo** é parâmetro explícito no domínio. Valores monetários são strings decimais, sem `float`; mudanças de sinais/saldos/aditivos exigem regra funcional e testes.
 
-## Decisões técnicas
+A suíte Architecture inspeciona tokens PHP, imports, referências qualificadas e helpers comuns. Ela detecta dependências estáticas proibidas; não é uma análise de segurança completa nem tenta resolver código dinâmico/reflection. Não criar exceções à regra para acomodar nova dependência externa: colocar a implementação no adaptador adequado.
 
-- **Eloquent mantido:** models continuam em `app/Models`; queries e casts são integração útil, não uma falha arquitetural por si só. Policies são adaptadores Laravel de autorização.
-- **Sem repository genérico:** não existe troca concreta de persistência nesta etapa. Espelhar todos os métodos do Eloquent em interfaces aumentaria código sem reduzir o risco identificado.
-- **Sem DTO para cada formulário:** o contrato tem 80 campos mapeados e edição parcial. O array validado conserva a distinção entre ausente e nulo. Um DTO deverá ser introduzido somente se proteger um contrato estável ou reduzir ambiguidade comprovada.
-- **Auditoria junto à persistência:** não foi substituída por evento assíncrono. Isso preserva rollback e evita salvar uma alteração sem trilha de auditoria.
-- **Validação contextual na aplicação:** os requisitos por tipo, estado legado e perfil exigem o contrato atual. Mover tudo para um FormRequest executado antes dos locks poderia reintroduzir uma janela de concorrência.
-- **Normalização existente preservada:** `Legacy/Normalizer` ainda é usado pelo cadastro nativo, importação e relatórios. A extração futura de documentos/decimais compartilhados deve preservar quatro casas e comportamentos legados; não houve renomeação em massa nesta etapa.
-- **Interfaces quando houver uma fronteira real:** armazenamento remoto de documentos, múltiplos geradores de relatório ou integração externa são candidatos. A extração da regra temporal não exigiu uma interface de relógio, porque a referência já é um parâmetro explícito.
-
-## Testes e isolamento
-
-`phpunit.xml` executa suites Unit e Feature. `tests/bootstrap.php` cria storage e caches temporários exclusivos por processo, antes de inicializar Laravel. Isso isola relatórios, anexos de teste, views compiladas, logs, configuração e manifestos de pacotes do ambiente instalado. Ao terminar, remove apenas o diretório criado para aquela execução.
-
-O banco padrão dos testes permanece SQLite em memória. A verificação MySQL desta auditoria utilizou um container MySQL 8.4 separado, sem porta publicada e com dados em `tmpfs`, em rede própria; o código foi montado somente para leitura. O banco e os volumes da instalação não foram alvo de migrations.
+## Comandos de desenvolvimento e CI
 
 ```bash
-docker compose exec -T app php artisan test
-docker compose exec -T app vendor/bin/phpunit --testsuite=Unit
-docker compose exec -T app vendor/bin/pint --test
+# Verificar as fronteiras sem inicializar Laravel ou banco
+composer check:architecture
+
+# Regras/casos de uso com doubles de interfaces, sem Laravel ou banco
+composer test:unit
+
+# Pint + todas as suites, com SQLite/storage/cache isolados
+composer check
+
+# Assets continuam no fluxo Node existente
+npm run build
 ```
 
-Os testes Unit do domínio estendem diretamente `PHPUnit\Framework\TestCase`, sem inicializar a aplicação ou acessar banco. Os Feature verificam autorização, versão, rollback, consultas e integração.
+No ambiente Docker:
 
-## Evoluções seguintes
+```bash
+docker compose run --rm --no-deps app composer check:architecture
+docker compose run --rm --no-deps app composer test:unit
+docker compose run --rm --no-deps app composer check
+docker compose run --rm --no-deps node npm run build
+```
 
-1. Uniformizar a revalidação de ator nos demais comandos HTTP de mutação e testar as janelas entre middleware e transação, sem alterar ordens de locks existentes.
-2. Extrair a governança de usuários e a conciliação de histórico dos controllers, com caracterização do último administrador e da revisão obrigatória.
-3. Tornar a geração de exportação idempotente, melhorar observabilidade sem dados pessoais e reduzir o custo de `accessHash`/indicadores após medição.
-4. Consolidar a normalização de CPF/CNPJ e decimais em componentes compartilhados com testes puros, preservando diferenças entre dados nativos e importados.
-5. Definir necessidade real de contratos de infraestrutura antes de introduzir ports/repositories. Separar exceções de aplicação do transporte HTTP quando os casos de uso tiverem novos consumidores.
-6. Avaliar hard delete, retenção e imutabilidade da auditoria com requisitos operacionais. Qualquer mudança de FK ou migração de dados exige revisão própria.
+A CI verifica arquitetura explicitamente, Pint, build, suite completa SQLite e MySQL 8.4 em schema dedicado. A configuração SQLite padrão dos testes não acessa o banco instalado; `tests/bootstrap.php` prepara storage/caches temporários por processo. Configurações MySQL de teste devem apontar somente para um banco descartável: nunca trocar o DSN por uma instalação real em comandos com `RefreshDatabase`.
 
-### Módulos futuros, não implementados
+## Leituras, relatórios e limites atuais
 
-Atas de Registro de Preços precisam de modelagem própria para ata, itens, unidades, fornecedores, participantes e utilização por órgão. O histórico importado de itens não equivale a esse domínio.
+Leituras continuam usando Eloquent nos adaptadores existentes, com `visibleTo` e policies. `ContractListingQuery` compartilha filtros por `ContractSearch`; `review=1` usa `pendingReview`. `withValidity` traduz a classificação temporal para SQL; `endingBetween` compartilha os limites inclusivos de calendário/alertas/relatórios a vencer.
 
-Saldos e quantitativos precisam de eventos e vínculos verificáveis de reserva, consumo, cancelamento e ajuste, com unidade, origem documental e concorrência. As somas atuais de valores iniciais, fichas e empenhos continuam indicadores separados; não foram transformadas em saldo disponível nem aplicação automática de aditivo.
+`ReportRows` captura linhas formatadas em arquivo temporário privado. Linhas e totais derivam da mesma leitura; PDF/XLSX são renderizados após o commit. O hash de acesso usa lotes, ator/escopos atuais, visibilidade, versões e timestamps. Jobs têm claim condicional. Esses componentes continuam adaptadores Laravel, não foram movidos para Domain/Application.
 
-Essas definições dependem de requisitos do município e validação administrativa/jurídica. Esta etapa não implementa regras novas de prorrogação ou interpreta a Lei nº 14.133/2021 como uma autorização automática.
+O patch gravável exclui explicitamente campos pessoais protegidos; aditivos/financeiro também excluem snapshots derivados/somente leitura após validação. A aceitação de valores vazios por `prohibited` não define autorização de escrita. Edição cadastral de usuários aplica apenas nome, username, e-mail e perfil; senha usa a operação dedicada.
+
+Importação de aditivos históricos bloqueia candidatos em ordem de ID, incrementa a versão de cada contrato afetado e persiste `ContractAudit` na mesma transação. A identidade de sistema é explícita: `actor_id=null`, `import_run_id` com FK e motivo identificando a execução; não se atribui a ação ao último usuário humano. `updated_by` é limpo nessa mutação. Reimportar a mesma origem não muda novamente versão/auditoria. Dinheiro e períodos permanecem documentais.
+
+Mutações administrativas de usuários recebem `version`, que corresponde à `session_version` do alvo visto no formulário, e comparam a revisão depois de bloquear e autorizar ator/alvo. Não é identidade ou autoridade do cliente. Formulários antigos são recusados com 409; ausência de versão recebe validação 422. A ordem especial de locks do último administrador permanece preservada.
+
+Exportações prontas persistem SHA-256/tamanho e exigem ambos no download. Arquivos anteriores sem metadados de integridade recebem 410 e precisam ser solicitados novamente. Cada geração tem token e início de processamento; o token é serializado na fila para identificar também o callback `failed()`. Publicação/auditoria ocorrem na transação final, com ator bloqueado antes da exportação, e somente a tentativa proprietária pode publicar ou falhar. Payloads antigos sem token continuam gerando; callbacks sem identidade deixam a detecção de abandono para a limpeza.
+
+A limpeza executa a cada cinco minutos, expira registros mesmo sem arquivo e encerra como `failed` processamentos que excederam 960 segundos (900s de timeout mais 60s de margem). Não há reexecução automática; o usuário solicita nova exportação. Tentativas atrasadas removem seus próprios arquivos e não alteram uma tentativa posterior. Arquivos órfãos de processos mortos são removidos depois de 24 horas.
+
+Aditivos, registros financeiros, revisão, administração de usuários, conciliação e exportações ainda têm orquestração nos serviços/controllers existentes. A segurança não depende de esses módulos já estarem migrados: seus mecanismos de autorização/auditoria permanecem e a revalidação compartilhada do ator foi ampliada. Migrações futuras devem seguir os contratos e testes deste núcleo, uma operação por vez.
+
+## Evolução funcional e operacional
+
+A interface de relatórios/auditoria solicita `background=1` nas rotas de exportação existentes e recebe JSON 202 com ID e URL de acompanhamento. `ReportRequests` bloqueia/revalida o ator, verifica autorização e grava solicitação/evento na transação; a fila recebe o job após a gravação. A geração da interface não faz contagem prévia nem renderiza PDF/XLSX na requisição. Chamadas diretas sem esse controle preservam os contratos anteriores de download/redirect.
+
+`GET /reports/status/{export}` retorna somente ID, estado, formato e URL autorizada de download. Exige sessão atual/proprietário e perfil administrativo para auditoria. Pendências não calculam o hash de todos os contratos a cada consulta; resultados prontos revalidam esse hash, e o download mantém as verificações completas de acesso, expiração e integridade. Não há caminhos de disco, filtros pessoais ou models serializados na resposta.
+
+Cards consultam estados em sequência a cada cinco segundos, pausam em abas ocultas e param em estados finais. Voltar pelo cache de navegação retoma uma geração pendente. Falhas transitórias retomam consultas com espera maior; falhas de acesso removem a ação de download. Cliques repetidos no mesmo relatório em geração reutilizam o card. Capturas/totalizações selecionam somente os 21 atributos usados no relatório e reutilizam referência/datas na montagem das linhas. Medições e validação estão em [geração acompanhada de relatórios](report-generation-flow.md).
+
+Uma geração acompanhada dispara automaticamente um único download quando fica pronta, pela mesma URL privada que reautoriza e verifica integridade no servidor. O botão manual permanece disponível. Cards que já estavam prontos na abertura da página não disparam esse efeito; o acompanhamento em aba oculta retoma ao voltar.
+
+O worker/scheduler registram atividade recente via cache compartilhado. `contracts:check-operations` verifica banco, tabela da fila, heartbeats e espera de jobs; os healthchecks do Compose consultam cada processo. A imagem PHP inclui `pcntl` para aplicar timeouts no worker daemon. O Nginx resolve `app:9000` pelo DNS do Docker para acompanhar recriações do PHP. As [correções da verificação](audit-corrections-2026-10-12.md) registram migrations e recuperação local; não houve deploy externo. Retenção institucional, imutabilidade de auditoria e homologação continuam exigindo decisões próprias.
+
+Atas de Registro de Preços, saldos e quantitativos precisam de modelagem e regras institucionais verificáveis. Valores iniciais, acumulados, fichas e empenhos continuam indicadores separados. Não foi aplicada prorrogação, reajuste, acréscimo ou supressão automaticamente. Homologação jurídica/administrativa e restauração de backups continuam pendentes.

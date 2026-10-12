@@ -2,6 +2,12 @@
 
 Sistema de gestão de contratos com Laravel 13, Livewire 4/Alpine, Blade, Tailwind 4, PHP 8.4, Nginx, MySQL 8.4 e Vite.
 
+Auditoria incremental: [correções de segurança, concorrência e exportações — 12/10/2026](docs/technical-audit-2026-10-12.md). Cadastros potencialmente duplicados agora pedem confirmação antes da gravação. Exportações anteriores à atualização do hash precisam ser solicitadas novamente.
+
+Verificação posterior: [sete achados](docs/audit-findings-2026-10-12.md) e [correções e validação](docs/audit-corrections-2026-10-12.md). Campos protegidos permanecem intactos com entradas vazias; importações históricas alteram versão e auditoria; administração de usuários detecta formulários antigos; exportações verificam integridade e encerram gerações abandonadas.
+
+Desenvolvimento: [arquitetura e fronteiras](docs/architecture.md), [evolução do núcleo de contratos](docs/clean-architecture-development.md) e [regras do repositório](AGENTS.md). `composer check` executa Pint e todas as suites; `composer check:architecture` verifica as dependências entre camadas; `composer test:unit` testa regras e casos de uso sem Laravel/banco.
+
 Login, usuários e escopos, cadastro/edição dos 80 campos, exclusão/restauração, histórico de aditivos/itens, conciliação, relatórios PDF/XLSX/CSV, painel, auditoria, conta pessoal, fila, backup e imagens de produção. Guia: [MVP e operação](docs/11_MVP_E_OPERACAO.md). Evoluções: [documentos privados, calendário, alertas e pesquisa avançada](docs/13_EVOLUCOES_P1.md) e [cadastro de aditivos](docs/14_ADITIVOS.md). [Estado final e pendências externas](docs/17_ESTADO_FINAL_E_PENDENCIAS.md): dotação/fichas/empenhos, conferência administrativa, personalização de relatórios, gráficos, API interna, importação periódica e visual refinado.
 
 ## Iniciar no Linux/macOS

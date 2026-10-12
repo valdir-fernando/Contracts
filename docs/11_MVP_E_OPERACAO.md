@@ -32,12 +32,14 @@ A demonstração só funciona em `APP_ENV=local`. As senhas são aleatórias, o 
 
 ## Uso diário
 
+As linhas das tabelas de cadastros e registros abrem os dados do item ao clicar em uma célula; os links também funcionam por teclado. Botões/formulários mantêm suas ações próprias. Fornecedores e órgãos mostram dados cadastrais e contratos associados conforme o acesso da conta. Evidências e destinos estão em [navegação das tabelas](table-navigation.md).
+
 1. O administrador prepara órgãos e escopos e cadastra usuários. O reset de acesso fica em **Usuários → Editar → Redefinir senha**, sem depender de e-mail ou recuperar senhas antigas.
 2. Cada usuário consulta e edita somente seus órgãos. **Minha conta** permite atualizar nome/e-mail e trocar senha mediante a senha atual. Trocar a senha invalida outras sessões.
 3. No cadastro de contratos, use as sete seções ou mostre todas. A classificação administrativa é interna; vigência calculada não certifica situação jurídica.
 4. Exclusão exige número (ou ID quando sem número), motivo e versão atual. Só administrador exclui/restaura. **Contratos excluídos** conserva vínculos e permite restaurar.
 5. Em **Relatórios**, escolha período e semântica, referência, órgãos, tipo, modalidade e situação. O único indicador somado é **valor inicial**; acumulados e saldos não entram no total. Datas/valores sem conciliação são sinalizados. CPF fica mascarado por padrão; administrador precisa solicitar inclusão e justificar.
-6. Exportações até 1.000 registros são imediatas. Acima disso, acompanhe **Minhas exportações**. Os arquivos ficam privados por 24 horas. Mudanças de permissões ou da relação de contratos acessíveis invalidam downloads anteriores. PDFs são gerados em blocos e reunidos com FPDI, mantendo paginação contínua. Worker e scheduler precisam estar ativos.
+6. Os botões de exportação mostram um card de geração na própria página. Quando o arquivo fica pronto, o download inicia automaticamente uma vez; o botão permanece para baixar novamente. **Minhas exportações** também acompanha os estados automaticamente. Os arquivos ficam privados por 24 horas. Mudanças de permissões ou da relação de contratos acessíveis invalidam downloads anteriores. PDFs são gerados em blocos e reunidos com FPDI, mantendo paginação contínua. Worker e scheduler precisam estar ativos. Chamadas diretas às rotas existentes preservam o download imediato até 1.000 registros; a interface usa geração em segundo plano em qualquer tamanho.
 7. Administradores consultam **Auditoria e conciliação** para CRUD, acesso, exportações, importações, ocorrências e fila. A auditoria também é exportável em CSV/XLSX/PDF, com os filtros de ator, ação e período; diferenças brutas e documentos pessoais dos contratos não integram essa relação. Eventos não possuem endpoint de alteração/remoção.
 
 ## Importação e conciliação
@@ -80,6 +82,20 @@ APP_VERSION=release-1 docker compose --env-file .env.production -f compose.produ
 O proxy TLS deve publicar a porta interna `127.0.0.1:8080`, encaminhar o Host público e impedir acesso externo direto ao backend. A aplicação gera URLs HTTPS em produção. Cookies são Secure/HttpOnly/SameSite=Lax em produção, `APP_DEBUG=false`, sem segredo dentro da imagem. Não se deve considerar TLS testado numa infraestrutura ainda não configurada. Configure HSTS no proxy que termina TLS; a aplicação também o aplica a requisições identificadas como HTTPS.
 
 A imagem não inclui dependências de desenvolvimento; assets compilados fazem parte dela; OPcache não verifica alterações em produção. Recrie os containers a cada release. `/up` verifica bootstrap e `/ready` consulta banco e tabela de fila. Monitore também processos worker/scheduler, falhas da fila e tempo de geração; retry_after (960s) excede o timeout do worker (900s).
+
+Após instalar as [correções de auditoria](audit-corrections-2026-10-12.md), execute as migrations incrementais, recompile os assets e recrie os serviços para usar a imagem com `pcntl`. Formulários de usuário abertos antes da atualização precisam ser recarregados: edição, redefinição, exclusão e restauração exigem a revisão `version` do alvo. Exportações antigas sem integridade registrada ficam indisponíveis e devem ser solicitadas novamente.
+
+Para verificar atividade real:
+
+```bash
+docker compose exec app php artisan contracts:check-operations
+docker compose ps
+docker compose logs --tail 30 worker scheduler
+```
+
+O comando retorna código diferente de zero quando banco/fila não estão acessíveis, worker/scheduler não têm atividade recente ou há jobs disponíveis aguardando mais de cinco minutos. Heartbeats toleram até 1.020s no worker (incluindo uma geração de 900s) e 150s no scheduler. A contagem de falhas históricas é informativa; os registros são preservados. Os healthchecks do Compose usam `--process=worker`/`scheduler`, verificando somente aquele processo e o banco, sem classificar uma fila longa como morte do worker. `unhealthy` precisa gerar alerta no monitor da infraestrutura; Docker não reinicia automaticamente só por esse estado.
+
+`contracts:prune-exports` roda a cada cinco minutos: expira metadados sem arquivo e marca gerações abandonadas como falhas após 960s. O usuário pode solicitar novamente pela tela de exportações. Não reaplique manualmente `pending` a registros antigos nem reexecute uma exportação expirada; uma nova solicitação tem novo registro/identidade. Tokens impedem resultados/callbacks antigos de substituir outra tentativa. Arquivos órfãos de morte abrupta ficam privados e são limpos após 24h. Execute o worker em modo daemon; `queue:work --once` não instala o handler de timeout usado nesse fluxo.
 
 Os scripts de backup/restauração fornecidos operam o banco do Compose local. Para o banco externo de produção, configure a rotina do provedor/operador e ensaie a recuperação com o mesmo conteúdo (banco, storage e chave).
 
