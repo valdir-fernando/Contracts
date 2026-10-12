@@ -10,10 +10,10 @@
             </nav>
         </div>
         <form class="calendar-filter" method="GET" action="{{ route('calendar.index') }}">
-            <label><span class="field-caption">Mês <x-required-mark/></span><input type="month" name="month" value="{{ $month->format('Y-m') }}" min="1900-01" max="2199-12" required></label>
+            <label><span class="field-caption">Mês <x-required-mark/></span><select name="month_number" required>@foreach(\App\Support\BrazilianLocale::MONTHS as $number => $name)<option value="{{ $number }}" @selected($month->month === $number)>{{ $name }}</option>@endforeach</select></label><label><span class="field-caption">Ano <x-required-mark/></span><input type="number" name="calendar_year" value="{{ $month->year }}" min="1900" max="2199" required></label>
             <button class="secondary-button">Consultar mês</button>
         </form>
-        <p class="calendar-month-summary"><span class="calendar-summary-icon"><x-nav-icon name="clock"/></span><span>{{ $contracts->total() }} vencimentos em {{ $month->format('m/Y') }}. {{ $reviewCount }} contratos em revisão e {{ $unknownCount }} com vigência indeterminada ficam fora do calendário.</span></p>
+        <p class="calendar-month-summary"><span class="calendar-summary-icon"><x-nav-icon name="clock"/></span><span>{{ number_format($contracts->total(), 0, ',', '.') }} {{ $contracts->total() === 1 ? 'vencimento' : 'vencimentos' }} em {{ $month->format('m/Y') }}. {{ number_format($reviewCount, 0, ',', '.') }} {{ $reviewCount === 1 ? 'contrato em revisão' : 'contratos em revisão' }} e {{ $unknownCount }} com vigência indeterminada ficam fora do calendário.</span></p>
         <p class="muted">Situação temporal; consulte a classificação administrativa e os documentos antes de tomar decisões jurídicas.</p>
         <div class="calendar-legend" aria-label="Legenda do calendário"><span><i class="calendar-key key-today" aria-hidden="true"></i>Hoje</span><span><i class="calendar-key key-past" aria-hidden="true"></i>Data passada</span><span><i class="calendar-key key-soon" aria-hidden="true"></i>Próximos 7 dias</span><span><i class="calendar-key key-upcoming" aria-hidden="true"></i>Próximos vencimentos</span></div>
         <div class="table-scroll"><table class="data-table calendar-grid"><caption>Vencimentos por dia — {{ $month->format('m/Y') }}</caption><thead><tr>@foreach(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] as $weekday)<th scope="col">{{ $weekday }}</th>@endforeach</tr></thead><tbody>

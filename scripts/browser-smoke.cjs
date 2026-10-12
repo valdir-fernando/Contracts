@@ -103,7 +103,7 @@ const assert = require('node:assert/strict');
     assert(fs.statSync(downloadPath).size > 0);
   }
   await page.goto(base + '/administration');
-  assert((await page.locator('body').innerText()).includes('restored'));
+  assert((await page.locator('body').innerText()).includes('Registro restaurado'));
   await page.goto(detail + '/amendments/create');
   for (const [field,value] of Object.entries({N_ADT:'001', Data_ADT:'2026-10-11', Proc_ADT:marker, Tipo_ADT:'Prorrogação', Motivo_ADT:'Registro documental de teste', VL_ADT:'100,0000', Final_Prorrog:'2028-10-10'})) {
     await page.locator(`[name="fields[${field}]"]`).fill(value);

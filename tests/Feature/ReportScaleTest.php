@@ -50,13 +50,13 @@ class ReportScaleTest extends TestCase
                 $this->assertCount($count, $rows);
                 $sum = BigDecimal::of('0.0000');
                 foreach ($rows as $row) {
-                    $sum = $sum->plus($row[8]);
+                    $sum = $sum->plus(str_replace(',', '.', $row[8]));
                 }
                 $this->assertSame($summary['total'], (string) $sum);
                 $renderer->write($admin, [], 'xlsx', $path);
                 $book = IOFactory::load($path);
                 $sheet = $book->getActiveSheet();
-                $this->assertSame($summary['total'], $sheet->getCell('B7')->getValue());
+                $this->assertSame(str_replace('.', ',', $summary['total']), $sheet->getCell('B7')->getValue());
                 $this->assertSame(9 + $count, $sheet->getHighestRow());
                 $book->disconnectWorksheets();
                 $renderer->write($admin, [], 'pdf', $path);

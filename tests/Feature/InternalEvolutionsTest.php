@@ -84,12 +84,12 @@ class InternalEvolutionsTest extends TestCase
                 }
                 fclose($stream);
                 $this->assertSame($service->headers($filters), $lines[count($lines) - 2]);
-                $this->assertSame($row, $lines[count($lines) - 1]);
+                $this->assertSame(['1908,6300', '001/26', '•••4725'], $lines[count($lines) - 1]);
             } elseif ($format === 'xlsx') {
                 $book = IOFactory::load($path);
                 $sheet = $book->getActiveSheet();
                 $this->assertSame('C', $sheet->getHighestColumn());
-                $this->assertSame($row, $sheet->rangeToArray('A10:C10')[0]);
+                $this->assertSame(['1908,6300', '001/26', '•••4725'], $sheet->rangeToArray('A10:C10')[0]);
                 $book->disconnectWorksheets();
             } else {
                 $this->assertStringStartsWith('%PDF', file_get_contents($path));

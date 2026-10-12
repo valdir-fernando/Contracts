@@ -186,3 +186,85 @@ document.querySelectorAll('.catalog-modal').forEach((dialog) => {
         open(document.querySelector(`[data-modal-open="${dialog.id}"]`));
     }
 });
+
+// Brazilian dates stay readable even when the browser uses another locale.
+// FormData carries ISO dates to preserve the server and API contracts.
+const brazilianDate = (value) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) value = displayBrazilianDate(value);
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+    if (!match) return null;
+    const [, day, month, year] = match;
+    const iso = `${year}-${month}-${day}`;
+    const parsed = new Date(`${iso}T12:00:00Z`);
+    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
+};
+const displayBrazilianDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? value.split('-').reverse().join('/') : value;
+document.querySelectorAll('input[type="date"]').forEach((input) => {
+    input.type = 'text';
+    input.dataset.brazilianDate = 'true';
+    input.inputMode = 'numeric';
+    input.placeholder = 'dd/mm/aaaa';
+    input.value = displayBrazilianDate(input.value);
+    const validate = () => {
+        input.setCustomValidity(input.value && (!brazilianDate(input.value) || (input.min && brazilianDate(input.value) < input.min) || (input.max && brazilianDate(input.value) > input.max)) ? 'Informe uma data válida no formato dd/mm/aaaa, dentro do período permitido.' : '');
+    };
+    input.addEventListener('input', validate);
+    input.addEventListener('blur', () => {
+        input.value = displayBrazilianDate(input.value);
+        validate();
+    });
+    const control = document.createElement('span');
+    control.className = 'date-input-control';
+    input.before(control);
+    control.append(input);
+    const picker = document.createElement('input');
+    picker.type = 'date';
+    picker.className = 'date-native-picker';
+    picker.tabIndex = -1;
+    picker.setAttribute('aria-hidden', 'true');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'date-picker-button';
+    button.setAttribute('aria-label', 'Abrir calendário');
+    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>';
+    button.addEventListener('click', () => {
+        picker.value = brazilianDate(input.value) ?? '';
+        if (typeof picker.showPicker === 'function') picker.showPicker();
+        else { picker.focus(); picker.click(); }
+    });
+    picker.addEventListener('change', () => {
+        input.value = displayBrazilianDate(picker.value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.focus();
+    });
+    control.append(button, picker);
+    validate();
+});
+document.querySelectorAll('form').forEach((form) => {
+    form.addEventListener('formdata', (event) => {
+        form.querySelectorAll('[data-brazilian-date][name]:not(:disabled)').forEach((input) => {
+            event.formData.set(input.name, brazilianDate(input.value) ?? input.value);
+        });
+    });
+    form.addEventListener('invalid', (event) => {
+        const field = event.target;
+        if (field.validity.valueMissing) field.setCustomValidity('Preencha este campo obrigatório.');
+        else if (field.validity.typeMismatch) field.setCustomValidity('Informe um valor válido para este campo.');
+        else if (field.validity.rangeUnderflow) field.setCustomValidity(`Informe um valor igual ou maior que ${field.min}.`);
+        else if (field.validity.rangeOverflow) field.setCustomValidity(`Informe um valor igual ou menor que ${field.max}.`);
+        else if (!field.validity.customError) field.setCustomValidity('Confira o valor informado neste campo.');
+    }, true);
+    form.addEventListener('input', (event) => {
+        if (!event.target.matches('[data-brazilian-date]') && typeof event.target.setCustomValidity === 'function') event.target.setCustomValidity('');
+    });
+});
+
+// Keep stored decimal values readable without changing their precision.
+document.querySelectorAll('input[inputmode="decimal"]').forEach((input) => {
+    if (/^-?\d+\.\d{4}$/.test(input.value)) {
+        const [integer, fraction] = input.value.split('.');
+        input.value = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + fraction;
+    }
+});

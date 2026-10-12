@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\User;
+use App\Support\BrazilianLocale;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Facades\DB;
@@ -25,8 +26,8 @@ class ReportRenderer
         $service = app(ContractReport::class);
         $summary = $service->summary($actor, $filters);
         $metadata = ['Relatório' => ContractReport::TYPES[$filters['report'] ?? 'general'], 'Emitente' => $actor->name,
-            'Emitido em' => now()->format('d/m/Y H:i:s').' America/Sao_Paulo', 'Filtros' => json_encode($filters, JSON_UNESCAPED_UNICODE),
-            'Registros' => $summary['count'], 'Indicador' => 'Valor inicial; não inclui acumulados ou saldos', 'Total decimal' => $summary['total']];
+            'Emitido em' => now()->format('d/m/Y H:i:s').' (horário de Brasília)', 'Filtros' => BrazilianLocale::filters($filters),
+            'Registros' => $summary['count'], 'Indicador' => 'Valor inicial; não inclui acumulados ou saldos', 'Total decimal (R$)' => BrazilianLocale::decimal($summary['total'], $format === 'pdf')];
         if ($format === 'csv') {
             $stream = fopen($path, 'wb');
             fwrite($stream, "\xEF\xBB\xBF");
@@ -36,13 +37,13 @@ class ReportRenderer
             fputcsv($stream, [], ';', '"', '');
             fputcsv($stream, $service->headers($filters), ';', '"', '');
             foreach ($service->query($actor, $filters)->cursor() as $contract) {
-                fputcsv($stream, array_map(fn ($value) => $this->safeCsv((string) $value), $service->row($contract, $actor, $filters)), ';', '"', '');
+                fputcsv($stream, array_map(fn ($value) => $this->safeCsv((string) $value), BrazilianLocale::reportRow($service->row($contract, $actor, $filters), $filters, $format === 'pdf')), ';', '"', '');
             }
             if ($summary['groups']) {
                 fputcsv($stream, [], ';', '"', '');
                 fputcsv($stream, ['Grupo', 'Quantidade', 'Valor inicial decimal'], ';', '"', '');
                 foreach ($summary['groups'] as $group) {
-                    fputcsv($stream, [$this->safeCsv($group['label']), $group['count'], $group['total']], ';', '"', '');
+                    fputcsv($stream, [$this->safeCsv($group['label']), $group['count'], BrazilianLocale::decimal($group['total'])], ';', '"', '');
                 }
             }
             fclose($stream);
@@ -59,7 +60,7 @@ class ReportRenderer
             $header = $line;
             $sheet->fromArray($service->headers($filters), null, 'A'.$line++);
             foreach ($service->query($actor, $filters)->cursor() as $contract) {
-                foreach ($service->row($contract, $actor, $filters) as $index => $value) {
+                foreach (BrazilianLocale::reportRow($service->row($contract, $actor, $filters), $filters, $format === 'pdf') as $index => $value) {
                     // Explicit text preserves leading zeros, exact decimals and blocks formulas.
                     $sheet->setCellValueExplicit([$index + 1, $line], (string) $value, DataType::TYPE_STRING);
                 }
@@ -75,7 +76,7 @@ class ReportRenderer
                 $groupSheet = $book->createSheet()->setTitle('Agrupamentos');
                 $groupSheet->fromArray(['Grupo', 'Quantidade', 'Valor inicial decimal'], null, 'A1');
                 foreach ($summary['groups'] as $index => $group) {
-                    foreach (array_values($group) as $column => $value) {
+                    foreach ([$group['label'], $group['count'], BrazilianLocale::decimal($group['total'])] as $column => $value) {
                         $groupSheet->setCellValueExplicit([$column + 1, $index + 2], (string) $value, DataType::TYPE_STRING);
                     }
                 }
@@ -89,7 +90,7 @@ class ReportRenderer
             $chunkSummary = $summary;
             $chunkSummary['groups'] = [];
             foreach ($service->query($actor, $filters)->cursor() as $contract) {
-                $rows[] = array_map(fn ($value) => is_string($value) ? Str::limit($value, 160) : $value, $service->row($contract, $actor, $filters));
+                $rows[] = array_map(fn ($value) => is_string($value) ? Str::limit($value, 160) : $value, BrazilianLocale::reportRow($service->row($contract, $actor, $filters), $filters, $format === 'pdf'));
                 if (count($rows) === 60) {
                     $this->appendPdf($merged, view('reports.pdf', ['rows' => $rows, 'metadata' => $metadata, 'summary' => $chunkSummary, 'headers' => $service->headers($filters)])->render());
                     $rows = [];

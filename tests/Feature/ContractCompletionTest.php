@@ -101,7 +101,7 @@ class ContractCompletionTest extends TestCase
             $this->assertStringNotContainsString('52998224725', $bytes);
             if ($format === 'csv') {
                 $this->assertStringContainsString('001/26', $bytes);
-                $this->assertStringContainsString('1908.6300', $bytes);
+                $this->assertStringContainsString('1908,6300', $bytes);
             } elseif ($format === 'pdf') {
                 $this->assertStringStartsWith('%PDF-', $bytes);
             } else {

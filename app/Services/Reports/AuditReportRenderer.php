@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\User;
+use App\Support\BrazilianLocale;
 use Carbon\Carbon;
 use Dompdf\Dompdf;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use setasign\Fpdi\PdfParser\StreamReader;
 
 class AuditReportRenderer
 {
-    public const HEADERS = ['Módulo', 'Registro interno', 'Quando (America/Sao_Paulo)', 'Ator', 'Ação', 'Motivo'];
+    public const HEADERS = ['Módulo', 'Registro interno', 'Quando (horário de Brasília)', 'Ator', 'Ação', 'Motivo'];
 
     private function query(array $filters)
     {
@@ -48,7 +49,7 @@ class AuditReportRenderer
         return DB::transaction(function () use ($actor, $filters, $format, $path) {
             $count = $this->query($filters)->count();
             $metadata = ['Relatório' => 'Auditoria administrativa', 'Emitente' => $actor->name,
-                'Emitido em' => now()->format('d/m/Y H:i:s').' America/Sao_Paulo', 'Filtros' => json_encode($filters, JSON_UNESCAPED_UNICODE),
+                'Emitido em' => now()->format('d/m/Y H:i:s').' (horário de Brasília)', 'Filtros' => BrazilianLocale::filters($filters),
                 'Total de eventos' => $count, 'Indicador' => 'Eventos administrativos; sem totalização financeira'];
             $stream = null;
             $book = null;
@@ -78,7 +79,7 @@ class AuditReportRenderer
                 $merged->AliasNbPages();
             }
             foreach ($this->query($filters)->cursor() as $event) {
-                $row = [$event->module, (string) $event->target_id, Carbon::parse($event->created_at)->format('d/m/Y H:i:s'), $event->actor_name ?? 'Conta indisponível', $event->action, $event->reason ?? ''];
+                $row = [$event->module, (string) $event->target_id, Carbon::parse($event->created_at)->format('d/m/Y H:i:s'), $event->actor_name ?? 'Conta indisponível', BrazilianLocale::action($event->action), $event->reason ?? ''];
                 if ($stream) {
                     fputcsv($stream, array_map(fn ($value) => CsvCell::safe($value), $row), ';', '"', '');
                 } elseif ($book) {

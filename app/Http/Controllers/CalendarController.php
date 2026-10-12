@@ -16,8 +16,9 @@ class CalendarController extends Controller
     public function index(Request $request, ExpirationCalendar $calendar)
     {
         Gate::authorize('viewAny', Contract::class);
-        $data = $request->validate(['month' => ['nullable', 'date_format:Y-m', 'regex:/^(19|20|21)[0-9]{2}-(0[1-9]|1[0-2])$/'], 'page' => 'nullable|integer|min:1']);
-        $month = CarbonImmutable::createFromFormat('!Y-m', $data['month'] ?? today()->format('Y-m'));
+        $data = $request->validate(['month_number' => 'nullable|integer|min:1|max:12|required_with:calendar_year', 'calendar_year' => 'nullable|integer|min:1900|max:2199|required_with:month_number', 'month' => ['nullable', 'date_format:Y-m', 'regex:/^(19|20|21)[0-9]{2}-(0[1-9]|1[0-2])$/'], 'page' => 'nullable|integer|min:1']);
+        $selected = isset($data['month_number'], $data['calendar_year']) ? sprintf('%04d-%02d', $data['calendar_year'], $data['month_number']) : ($data['month'] ?? today()->format('Y-m'));
+        $month = CarbonImmutable::createFromFormat('!Y-m', $selected);
         $query = $calendar->query($request->user(), $month, $month->endOfMonth());
         $counts = (clone $query)->reorder()->selectRaw('DATE(COALESCE(vigencia_fim_atual, vigencia_fim_original)) AS end_day, COUNT(*) AS total')
             ->groupByRaw('DATE(COALESCE(vigencia_fim_atual, vigencia_fim_original))')->pluck('total', 'end_day');

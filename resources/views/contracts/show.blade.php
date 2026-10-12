@@ -14,7 +14,7 @@
     @endforeach
     <section class="surface contract-section"><h2>Situação administrativa</h2><p>{{ \App\Models\Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada' }}</p><p class="muted">Classificação interna; não certifica a situação jurídica do instrumento.</p></section>
     <section class="surface contract-section"><h2>Aditivos e itens históricos</h2><p class="muted">Vínculos identificados por evidências ou confirmados por administrador. Valores e prazos não são aplicados automaticamente.</p>
-        @forelse($history as $entry)<details class="audit-entry"><summary>{{ $entry->kind === 'amendment' ? 'Aditivo' : 'Item' }} · {{ $entry->legacy_id }} · {{ $entry->description }}</summary><p>{{ $entry->event_date?->format('d/m/Y') }} · {{ \App\Models\Contract::moneyLabel($entry->amount) }} · {{ $entry->match_status }}</p>
+        @forelse($history as $entry)<details class="audit-entry"><summary>{{ $entry->kind === 'amendment' ? 'Aditivo' : 'Item' }} · {{ $entry->legacy_id }} · {{ $entry->description }}</summary><p>{{ $entry->event_date?->format('d/m/Y') }} · {{ \App\Models\Contract::moneyLabel($entry->amount) }} · {{ \App\Support\BrazilianLocale::state($entry->match_status) }}</p>
         @if(auth()->user()->isAdmin())<dl class="contract-fields">@foreach($entry->source->raw_payload as $field => $value)<div><dt>{{ $field }}</dt><dd>{{ $value ?? 'Não informado' }}</dd></div>@endforeach</dl>@endif
         @foreach($entry->quality_issues as $issue)<p>{{ $issue['field'] }}: {{ $issue['message'] }}</p>@endforeach</details>
         @empty<p>Nenhum histórico vinculado. Registros pendentes são tratados na conciliação administrativa.</p>@endforelse
@@ -24,7 +24,7 @@
     <section class="surface contract-section"><h2>Aditivos cadastrados no sistema</h2><p>Consulte e prepare aditivos documentais, separados do histórico legado e dos valores do contrato.</p><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Gerenciar aditivos</a></section>
     @if($audits->isNotEmpty())
         <section class="surface contract-section"><h2>Histórico de alterações</h2><p class="muted">Últimos 20 eventos. O histórico completo permanece preservado.</p>
-            @foreach($audits as $audit)<details class="audit-entry"><summary>{{ $audit->created_at->format('d/m/Y H:i') }} · {{ ['created' => 'Cadastro', 'updated' => 'Edição', 'deleted' => 'Exclusão', 'restored' => 'Restauração', 'history_linked' => 'Conciliação'][$audit->action] ?? $audit->action }} · {{ $audit->actor?->name ?? 'Conta indisponível' }}</summary><p>Motivo: {{ $audit->reason ?: 'Cadastro inicial' }}</p>
+            @foreach($audits as $audit)<details class="audit-entry"><summary>{{ $audit->created_at->format('d/m/Y H:i') }} · {{ \App\Support\BrazilianLocale::action($audit->action) }} · {{ $audit->actor?->name ?? 'Conta indisponível' }}</summary><p>Motivo: {{ $audit->reason ?: 'Cadastro inicial' }}</p>
                 @foreach($audit->changes as $column => $change)<p><strong>{{ \App\Support\ContractFields::labelColumn($column) }}:</strong> {{ is_scalar($change['before']) ? $change['before'] : 'Não informado' }} → {{ is_scalar($change['after']) ? $change['after'] : 'Não informado' }}</p>@endforeach
             </details>@endforeach
         </section>

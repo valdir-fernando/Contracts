@@ -35,7 +35,7 @@ class AuditReportTest extends TestCase
                 $this->assertStringNotContainsString(';login;', file_get_contents($path));
             } elseif ($format === 'xlsx') {
                 $book = IOFactory::load($path);
-                $this->assertSame('updated', $book->getActiveSheet()->getCell('E9')->getValue());
+                $this->assertSame('Cadastro atualizado', $book->getActiveSheet()->getCell('E9')->getValue());
                 $book->disconnectWorksheets();
             } else {
                 $this->assertStringStartsWith('%PDF-', file_get_contents($path));

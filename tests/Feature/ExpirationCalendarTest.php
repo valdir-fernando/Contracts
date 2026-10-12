@@ -36,11 +36,11 @@ class ExpirationCalendarTest extends TestCase
     public function test_calendar_and_livewire_alerts_obey_current_scope_and_known_dates(): void
     {
         Contract::create(['numero' => 'SEGREDO-CALENDARIO', 'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-10-31', 'quality_issues' => []]);
-        $this->get('/calendar?month=2026-10')->assertOk()->assertSee('VISIVEL-CALENDARIO')->assertDontSee('SEGREDO-CALENDARIO')->assertSee('1 vencimentos')
+        $this->get('/calendar?month=2026-10')->assertOk()->assertSee('VISIVEL-CALENDARIO')->assertDontSee('SEGREDO-CALENDARIO')->assertSee('1 vencimento')
             ->assertViewHas('counts', fn ($counts) => $counts->all() === ['2026-10-31' => 1]);
         Livewire::test(Overview::class)->assertViewHas('alertCount', 1)->assertSee('VISIVEL-CALENDARIO')->assertDontSee('SEGREDO-CALENDARIO');
         $this->contract->update(['vigencia_em_revisao' => true]);
-        $this->get('/calendar?month=2026-10')->assertDontSee('VISIVEL-CALENDARIO')->assertSee('1 contratos em revisão');
+        $this->get('/calendar?month=2026-10')->assertDontSee('VISIVEL-CALENDARIO')->assertSee('1 contrato em revisão');
         Livewire::test(Overview::class)->assertViewHas('alertCount', 0);
         $this->contract->update(['vigencia_em_revisao' => false, 'vigencia_fim_original' => null]);
         $this->get('/calendar?month=2026-10')->assertSee('1 com vigência indeterminada');
