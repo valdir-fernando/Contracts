@@ -6,6 +6,9 @@ return [
     'debug' => (bool) env('APP_DEBUG', false),
     'url' => env('APP_URL', 'http://localhost'),
     'timezone' => 'America/Sao_Paulo',
+
+    // Only explicitly configured reverse proxies may forward the HTTPS scheme.
+    'trusted_proxies' => array_values(array_filter(array_map('trim', explode(',', env('TRUSTED_PROXIES', ''))))),
     'locale' => env('APP_LOCALE', 'pt_BR'),
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'pt_BR'),
     'faker_locale' => env('APP_FAKER_LOCALE', 'pt_BR'),
