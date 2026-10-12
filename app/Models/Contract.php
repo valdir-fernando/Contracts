@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Domain\Contracts\ContractValidity;
 use App\Services\Legacy\Normalizer;
 use App\Support\ContractFields;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -69,17 +71,12 @@ class Contract extends Model
 
     public function getValidityAttribute(): string
     {
-        if ($this->vigencia_em_revisao) {
-            return 'em_revisao';
-        }
-        if (! $this->end_date || ! $this->vigencia_inicio) {
-            return 'indeterminado';
-        }
-        if ($this->end_date->lt(today())) {
-            return 'vencido';
-        }
+        return $this->validityOn(today());
+    }
 
-        return $this->vigencia_inicio->gt(today()) ? 'a_iniciar' : 'vigente';
+    public function validityOn(DateTimeInterface $reference): string
+    {
+        return ContractValidity::classify((bool) $this->vigencia_em_revisao, $this->vigencia_inicio, $this->end_date, $reference);
     }
 
     public const VALIDITY = ['a_iniciar' => 'A iniciar', 'vigente' => 'Vigente', 'vencido' => 'Vencido', 'indeterminado' => 'Indeterminado', 'em_revisao' => 'Em revisão'];
@@ -89,8 +86,9 @@ class Contract extends Model
         return $query->where(fn (Builder $pending) => $pending->where('vigencia_em_revisao', true)->orWhere('ownership_resolved', false));
     }
 
-    public function scopeWithValidity(Builder $query, string $status): Builder
+    public function scopeWithValidity(Builder $query, string $status, ?DateTimeInterface $reference = null): Builder
     {
+        $referenceDate = ($reference ?? today())->format('Y-m-d');
         if ($status === 'em_revisao') {
             return $query->where('vigencia_em_revisao', true);
         }
@@ -101,11 +99,11 @@ class Contract extends Model
         $query->whereNotNull('vigencia_inicio');
         $end = 'COALESCE(vigencia_fim_atual, vigencia_fim_original)';
         if ($status === 'vencido') {
-            return $query->whereRaw($end.' < ?', [today()->toDateString()]);
+            return $query->whereRaw($end.' < ?', [$referenceDate]);
         }
-        $query->whereRaw($end.' >= ?', [today()->toDateString()]);
+        $query->whereRaw($end.' >= ?', [$referenceDate]);
 
-        return $query->whereDate('vigencia_inicio', $status === 'a_iniciar' ? '>' : '<=', today());
+        return $query->whereDate('vigencia_inicio', $status === 'a_iniciar' ? '>' : '<=', $referenceDate);
     }
 
     public static function moneyLabel(?string $value): string

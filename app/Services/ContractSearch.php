@@ -33,6 +33,27 @@ class ContractSearch
         ];
     }
 
+    /** Shared identity filters for contract lists and reports, with bound values. */
+    public static function applyIdentityFilters(Builder $query, array $filters): void
+    {
+        if ($search = trim($filters['q'] ?? '')) {
+            $query->where(function ($query) use ($search) {
+                foreach (['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot'] as $column) {
+                    $query->orWhereLike($column, '%'.$search.'%');
+                }
+                $document = preg_replace('/\D/', '', $search);
+                if (preg_match('/^[\d\s.\/\-]+$/', $search) && strlen($document) >= 4) {
+                    $query->orWhereLike('supplier_document_key', '%'.$document.'%');
+                }
+            });
+        }
+        foreach (['fund' => 'fund_id', 'department' => 'department_id'] as $filter => $column) {
+            if ($filters[$filter] ?? null) {
+                $query->where($column, $filters[$filter]);
+            }
+        }
+    }
+
     public static function apply(Builder $query, array $filters): void
     {
         if (! empty($filters['review'])) {

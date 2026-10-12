@@ -56,22 +56,7 @@ class ContractReport
         abort_if(! empty($filters['include_personal']) && ! $actor->isAdmin(), 403);
         $query = Contract::visibleTo($actor);
         ContractSearch::apply($query, $filters);
-        if ($search = trim($filters['q'] ?? '')) {
-            $query->where(function ($q) use ($search) {
-                foreach (['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot'] as $column) {
-                    $q->orWhereLike($column, '%'.$search.'%');
-                }
-                $document = Normalizer::document($search);
-                if (preg_match('/^[\d\s.\/\-]+$/', $search) && strlen($document) >= 4) {
-                    $q->orWhereLike('supplier_document_key', '%'.$document.'%');
-                }
-            });
-        }
-        foreach (['fund' => 'fund_id', 'department' => 'department_id'] as $key => $column) {
-            if ($filters[$key] ?? null) {
-                $query->where($column, $filters[$key]);
-            }
-        }
+        ContractSearch::applyIdentityFilters($query, $filters);
         $reference = $filters['reference'] ?? today()->toDateString();
         $end = 'COALESCE(vigencia_fim_atual, vigencia_fim_original)';
         $report = $filters['report'] ?? 'general';
@@ -91,15 +76,7 @@ class ContractReport
                 ->orWhereIn('id', ContractAmendment::where('status', 'registrado')->select('contract_id')));
         }
         if ($validity = $filters['validity'] ?? null) {
-            $query->where('vigencia_em_revisao', $validity === 'em_revisao');
-            if ($validity === 'indeterminado') {
-                $query->where(fn ($q) => $q->whereNull('vigencia_inicio')->orWhereRaw($end.' IS NULL'));
-            } elseif ($validity !== 'em_revisao') {
-                $query->whereNotNull('vigencia_inicio')->whereRaw($end.($validity === 'vencido' ? ' < ?' : ' >= ?'), [$reference]);
-                if ($validity !== 'vencido') {
-                    $query->whereDate('vigencia_inicio', $validity === 'a_iniciar' ? '>' : '<=', $reference);
-                }
-            }
+            $query->withValidity($validity, CarbonImmutable::parse($reference));
         }
 
         return $query->orderBy($filters['sort'] ?? 'numero', $filters['direction'] ?? 'asc')->orderBy('id');
@@ -156,8 +133,7 @@ class ContractReport
     public function row(Contract $contract, User $actor, array $filters): array
     {
         $reference = CarbonImmutable::parse($filters['reference'] ?? today()->toDateString());
-        $validity = $contract->vigencia_em_revisao ? 'em_revisao' : (! $contract->end_date || ! $contract->vigencia_inicio ? 'indeterminado'
-            : ($contract->end_date->lt($reference) ? 'vencido' : ($contract->vigencia_inicio->gt($reference) ? 'a_iniciar' : 'vigente')));
+        $validity = $contract->validityOn($reference);
 
         $values = [$contract->numero, $contract->processo, $contract->fornecedor_nome_snapshot,
             $this->document($contract, $actor, $filters), $contract->fundo_nome_snapshot, $contract->secretaria_nome_snapshot,

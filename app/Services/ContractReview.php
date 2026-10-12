@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Contracts\ContractValidity;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractAudit;
@@ -46,7 +47,7 @@ class ContractReview
             if (array_key_exists('end_date', $data)) {
                 $contract->vigencia_fim_atual = $data['end_date'];
             }
-            if ($contract->vigencia_inicio && $contract->end_date && $contract->end_date->lt($contract->vigencia_inicio)) {
+            if (ContractValidity::endsBeforeStart($contract->vigencia_inicio, $contract->end_date)) {
                 throw ValidationException::withMessages(['end_date' => 'O término não pode ser anterior ao início do contrato.']);
             }
             if (array_key_exists('accumulated_amount', $data)) {

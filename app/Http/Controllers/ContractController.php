@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Contracts\ContractListingQuery;
 use App\Models\Contract;
 use App\Models\ContractAttachment;
 use App\Models\ContractAudit;
@@ -20,7 +21,7 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ContractController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, ContractListingQuery $listing)
     {
         Gate::authorize('viewAny', Contract::class);
         $filters = $request->validate([
@@ -32,45 +33,8 @@ class ContractController extends Controller
             'sort' => ['nullable', Rule::in(['exercicio', 'numero', 'valor_total', 'data_contrato'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ] + ContractSearch::rules($request->all()));
-        $visible = Contract::visibleTo($request->user());
-        if ($request->boolean('deleted')) {
-            abort_unless($request->user()->isAdmin(), 403);
-            $visible->onlyTrashed();
-        }
-        // Filter choices come only from accessible contracts, never from all catalogs.
-        $funds = DB::table('contract_funds')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(['id', 'name']);
-        $departments = DB::table('contract_departments')->whereIn('id', (clone $visible)->select('department_id'))->orderBy('name')->get(['id', 'name']);
-        $years = (clone $visible)->whereNotNull('exercicio')->distinct()->orderByDesc('exercicio')->pluck('exercicio');
-        $types = (clone $visible)->whereNotNull('tipo')->distinct()->orderBy('tipo')->pluck('tipo');
-        $modalities = (clone $visible)->whereNotNull('modalidade')->distinct()->orderBy('modalidade')->pluck('modalidade');
-        $contracts = clone $visible;
-        ContractSearch::apply($contracts, $filters);
-        if ($search = trim($filters['q'] ?? '')) {
-            $contracts->where(function ($query) use ($search) {
-                foreach (['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot'] as $column) {
-                    $query->orWhereLike($column, '%'.$search.'%');
-                }
-                $document = preg_replace('/\D/', '', $search);
-                if (preg_match('/^[\d\s.\/\-]+$/', $search) && strlen($document) >= 4) {
-                    $query->orWhereLike('supplier_document_key', '%'.$document.'%');
-                }
-            });
-        }
-        foreach (['fund' => 'fund_id', 'department' => 'department_id'] as $filter => $column) {
-            if ($filters[$filter] ?? null) {
-                $contracts->where($column, $filters[$filter]);
-            }
-        }
-        if ($filters['validity'] ?? null) {
-            $contracts->withValidity($filters['validity']);
-        }
 
-        return view('contracts.index', [
-            'contracts' => $contracts->select(['deleted_at', 'version', 'administrative_status', 'tipo', 'id', 'numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot',
-                'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'valor_total', 'vigencia_inicio', 'vigencia_fim_original',
-                'vigencia_fim_atual', 'vigencia_em_revisao', 'ownership_resolved'])->orderBy($filters['sort'] ?? 'exercicio', $filters['direction'] ?? 'desc')->orderByDesc('id')->paginate(20)->withQueryString(),
-            'funds' => $funds, 'departments' => $departments, 'years' => $years, 'types' => $types, 'modalities' => $modalities,
-        ]);
+        return view('contracts.index', $listing->for($request->user(), $filters));
     }
 
     public function show(Contract $contract)
@@ -143,7 +107,12 @@ class ContractController extends Controller
         try {
             $saved = $writer->save($request->user(), $request->all(), $contract);
         } catch (ConflictHttpException) {
-            return $this->form($contract->fresh(), $request->all(), true);
+            $current = Contract::findOrFail($contract->id);
+            $actor = $request->user()->fresh();
+            abort_unless($actor && $actor->session_version === $request->user()->session_version, 403);
+            Gate::forUser($actor)->authorize('update', $current);
+
+            return $this->form($current, $request->all(), true);
         }
 
         return $this->savedResponse($request, $saved, 'Contrato atualizado.');
