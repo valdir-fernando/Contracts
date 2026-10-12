@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractAttachment;
@@ -18,6 +19,8 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class AmendmentWriter
 {
+    public function __construct(private LockActor $actors) {}
+
     public static function seed(Contract $contract): array
     {
         $payload = [];
@@ -77,6 +80,9 @@ class AmendmentWriter
             $status = $data['status'] ?? ($id ? $amendment->status : 'rascunho');
             abort_if(! $actor->isAdmin() && $status !== 'rascunho', 403);
             foreach ($data['fields'] ?? [] as $field => $value) {
+                if (in_array($field, AmendmentFields::DERIVED, true) || ! $actor->isAdmin() && in_array($field, AmendmentFields::PERSONAL, true)) {
+                    continue;
+                }
                 $payload[$field] = AmendmentFields::MAP[$field]['type'] === 'money' ? Normalizer::money($value) : $value;
             }
             $payload['N_ADT'] = trim($payload['N_ADT']);
@@ -145,11 +151,9 @@ class AmendmentWriter
 
     private function lock(User $actor, Contract $parent): array
     {
-        $expectedSessionVersion = $actor->session_version;
-        $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
+        $actor = $this->actors->lock($actor);
         $contract = Contract::whereKey($parent->id)->lockForUpdate()->firstOrFail();
         Gate::forUser($actor)->authorize('update', $contract);
-        abort_unless($actor->session_version === $expectedSessionVersion, 403);
 
         return [$actor, $contract];
     }

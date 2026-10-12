@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Application\Security\LockActor;
+use App\Infrastructure\Security\LockActor;
 use App\Models\AccessScope;
 use App\Models\ActivityEvent;
+use App\Models\Contract;
 use App\Services\Legacy\Normalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,20 @@ class CatalogController extends Controller
         return view('administration.catalogs', ['funds' => DB::table('contract_funds')->orderBy('name')->get(),
             'departments' => DB::table('contract_departments')->orderBy('name')->get(),
             'scopes' => AccessScope::orderBy('fund')->orderBy('department')->get()]);
+    }
+
+    public function show(Request $request, string $kind, int $catalog)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless(in_array($kind, ['fund', 'department'], true), 404);
+        $table = $kind === 'fund' ? 'contract_funds' : 'contract_departments';
+        $columns = $kind === 'fund' ? ['id', 'name', 'document'] : ['id', 'name'];
+        $record = DB::table($table)->select($columns)->where('id', $catalog)->first();
+        abort_unless($record, 404);
+
+        return view('administration.catalog-detail', ['record' => $record, 'kind' => $kind,
+            'contracts' => Contract::visibleTo($request->user())
+                ->where($kind === 'fund' ? 'fund_id' : 'department_id', $record->id)->latest('id')->paginate(20)]);
     }
 
     public function store(Request $request)

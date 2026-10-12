@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Contract;
 use App\Models\User;
+use App\Services\ExpirationCalendar;
 use App\Services\Reports\ContractReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,5 +48,33 @@ class ContractValidityParityTest extends TestCase
         $report = app(ContractReport::class);
         $this->assertSame(['Vigente'], $report->row($contract, $actor, ['reference' => '2026-10-11', 'columns' => ['validity']]));
         $this->assertTrue($report->query($actor, ['reference' => '2026-10-11', 'validity' => 'vigente'])->whereKey($contract->id)->exists());
+    }
+
+    public function test_expiring_report_and_calendar_share_inclusive_limits_and_missing_date_rules(): void
+    {
+        $actor = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaFicticia123', 'user_type' => 'Administrador']);
+        $from = CarbonImmutable::parse('2026-10-01');
+        $to = $from->addDays(30);
+        $expected = [];
+        foreach ([
+            ['2026-10-01', '2026-10-01', false, true],
+            ['2026-10-01', '2026-10-31', false, true],
+            ['2026-10-01', '2026-11-01', false, false],
+            ['2026-10-01', '2026-09-30', false, false],
+            [null, '2026-10-15', false, false],
+            ['2026-10-01', null, false, false],
+            ['2026-10-01', '2026-10-15', true, false],
+            // Preserve the calendar's inclusion of contracts that have yet to start.
+            ['2026-10-20', '2026-10-25', false, true],
+        ] as [$start, $end, $review, $included]) {
+            $contract = Contract::create(['vigencia_inicio' => $start, 'vigencia_fim_original' => $end, 'vigencia_em_revisao' => $review, 'quality_issues' => []]);
+            if ($included) {
+                $expected[] = $contract->id;
+            }
+        }
+        $reportIds = app(ContractReport::class)->query($actor, ['report' => 'expiring', 'reference' => '2026-10-01', 'days' => 30])->pluck('id')->sort()->values()->all();
+        $calendarIds = app(ExpirationCalendar::class)->query($actor, $from, $to)->pluck('id')->sort()->values()->all();
+        $this->assertSame($expected, $reportIds);
+        $this->assertSame($expected, $calendarIds);
     }
 }

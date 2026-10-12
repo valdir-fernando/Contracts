@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\User;
 use App\Support\BrazilianLocale;
 use Carbon\Carbon;
@@ -14,6 +15,8 @@ use setasign\Fpdi\PdfParser\StreamReader;
 
 class AuditReportRenderer
 {
+    public function __construct(private LockActor $actors) {}
+
     public const HEADERS = ['Módulo', 'Registro interno', 'Quando (horário de Brasília)', 'Ator', 'Ação', 'Motivo'];
 
     private function query(array $filters)
@@ -44,72 +47,85 @@ class AuditReportRenderer
 
     public function write(User $actor, array $filters, string $format, string $path): int
     {
+        $actor = $this->actors->current($actor);
         abort_unless($actor->isAdmin(), 403);
 
-        return DB::transaction(function () use ($actor, $filters, $format, $path) {
-            $count = $this->query($filters)->count();
-            $metadata = ['Relatório' => 'Auditoria administrativa', 'Emitente' => $actor->name,
-                'Emitido em' => now()->format('d/m/Y H:i:s').' (horário de Brasília)', 'Filtros' => BrazilianLocale::filters($filters),
-                'Total de eventos' => $count, 'Indicador' => 'Eventos administrativos; sem totalização financeira'];
-            $stream = null;
-            $book = null;
-            $merged = null;
-            $line = 1;
-            $rows = [];
-            if ($format === 'csv') {
-                $stream = fopen($path, 'wb');
-                fwrite($stream, "\xEF\xBB\xBF");
-                foreach ($metadata as $key => $value) {
-                    fputcsv($stream, [$key, CsvCell::safe((string) $value)], ';', '"', '');
-                }
-                fputcsv($stream, [], ';', '"', '');
-                fputcsv($stream, self::HEADERS, ';', '"', '');
-            } elseif ($format === 'xlsx') {
-                $book = new Spreadsheet;
-                $sheet = $book->getActiveSheet();
-                $sheet->setTitle('Auditoria');
-                foreach ($metadata as $key => $value) {
-                    $sheet->setCellValueExplicit('A'.$line, $key, DataType::TYPE_STRING);
-                    $sheet->setCellValueExplicit('B'.$line++, (string) $value, DataType::TYPE_STRING);
-                }
-                $line++;
-                $sheet->fromArray(self::HEADERS, null, 'A'.$line++);
-            } else {
-                $merged = new PagedPdf;
-                $merged->AliasNbPages();
-            }
+        $snapshot = new ReportRows;
+        $count = DB::transaction(function () use ($filters, $snapshot) {
+            $count = 0;
             foreach ($this->query($filters)->cursor() as $event) {
-                $row = [$event->module, (string) $event->target_id, Carbon::parse($event->created_at)->format('d/m/Y H:i:s'), $event->actor_name ?? 'Conta indisponível', BrazilianLocale::action($event->action), $event->reason ?? ''];
-                if ($stream) {
-                    fputcsv($stream, array_map(fn ($value) => CsvCell::safe($value), $row), ';', '"', '');
-                } elseif ($book) {
-                    foreach ($row as $column => $value) {
-                        $sheet->setCellValueExplicit([$column + 1, $line], $value, DataType::TYPE_STRING);
-                    } $line++;
-                } else {
-                    $rows[] = $row;
-                    if (count($rows) === 60) {
-                        $this->append($merged, $rows, $metadata);
-                        $rows = [];
-                    }
-                }
-            }
-            if ($stream) {
-                fclose($stream);
-            } elseif ($book) {
-                $sheet->freezePane('A9');
-                foreach (range('A', 'F') as $column) {
-                    $sheet->getColumnDimension($column)->setWidth(28);
-                } (new Xlsx($book))->save($path);
-                $book->disconnectWorksheets();
-            } else {
-                if ($rows || ! $count) {
-                    $this->append($merged, $rows, $metadata);
-                } $merged->Output('F', $path);
+                $snapshot->append([$event->module, (string) $event->target_id, Carbon::parse($event->created_at)->format('d/m/Y H:i:s'), $event->actor_id === null ? 'Sistema' : ($event->actor_name ?? 'Conta indisponível'), BrazilianLocale::action($event->action), $event->reason ?? '']);
+                $count++;
             }
 
             return $count;
         });
+
+        return $this->renderSnapshot($actor, $filters, $format, $path, $snapshot, $count);
+    }
+
+    private function renderSnapshot(User $actor, array $filters, string $format, string $path, ReportRows $snapshot, int $count): int
+    {
+        $metadata = ['Relatório' => 'Auditoria administrativa', 'Emitente' => $actor->name,
+            'Emitido em' => now()->format('d/m/Y H:i:s').' (horário de Brasília)', 'Filtros' => BrazilianLocale::filters($filters),
+            'Total de eventos' => $count, 'Indicador' => 'Eventos administrativos; sem totalização financeira'];
+        $stream = null;
+        $book = null;
+        $merged = null;
+        $line = 1;
+        $rows = [];
+        if ($format === 'csv') {
+            $stream = fopen($path, 'wb');
+            fwrite($stream, "\xEF\xBB\xBF");
+            foreach ($metadata as $key => $value) {
+                fputcsv($stream, [$key, CsvCell::safe((string) $value)], ';', '"', '');
+            }
+            fputcsv($stream, [], ';', '"', '');
+            fputcsv($stream, self::HEADERS, ';', '"', '');
+        } elseif ($format === 'xlsx') {
+            $book = new Spreadsheet;
+            $sheet = $book->getActiveSheet();
+            $sheet->setTitle('Auditoria');
+            foreach ($metadata as $key => $value) {
+                $sheet->setCellValueExplicit('A'.$line, $key, DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit('B'.$line++, (string) $value, DataType::TYPE_STRING);
+            }
+            $line++;
+            $sheet->fromArray(self::HEADERS, null, 'A'.$line++);
+        } else {
+            $merged = new PagedPdf;
+            $merged->AliasNbPages();
+        }
+        foreach ($snapshot as $row) {
+            if ($stream) {
+                fputcsv($stream, array_map(fn ($value) => CsvCell::safe($value), $row), ';', '"', '');
+            } elseif ($book) {
+                foreach ($row as $column => $value) {
+                    $sheet->setCellValueExplicit([$column + 1, $line], $value, DataType::TYPE_STRING);
+                } $line++;
+            } else {
+                $rows[] = $row;
+                if (count($rows) === 60) {
+                    $this->append($merged, $rows, $metadata);
+                    $rows = [];
+                }
+            }
+        }
+        if ($stream) {
+            fclose($stream);
+        } elseif ($book) {
+            $sheet->freezePane('A9');
+            foreach (range('A', 'F') as $column) {
+                $sheet->getColumnDimension($column)->setWidth(28);
+            } (new Xlsx($book))->save($path);
+            $book->disconnectWorksheets();
+        } else {
+            if ($rows || ! $count) {
+                $this->append($merged, $rows, $metadata);
+            } $merged->Output('F', $path);
+        }
+
+        return $count;
     }
 
     private function append(PagedPdf $merged, array $rows, array $metadata): void

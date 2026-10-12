@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\User;
 use App\Support\BrazilianLocale;
 use Dompdf\Dompdf;
@@ -16,15 +17,21 @@ use setasign\Fpdi\PdfParser\StreamReader;
 
 class ReportRenderer
 {
+    public function __construct(private ContractReport $service, private LockActor $actors) {}
+
     public function write(User $actor, array $filters, string $format, string $path): void
     {
-        DB::transaction(fn () => $this->renderSnapshot($actor, $filters, $format, $path));
+        $actor = $this->actors->current($actor);
+        $snapshotFilters = $filters;
+        $snapshotFilters['reference'] ??= today()->toDateString();
+        $rows = new ReportRows;
+        $summary = DB::transaction(fn () => $this->service->snapshot($actor, $snapshotFilters, $rows, $format === 'pdf'));
+        $this->renderSnapshot($actor, $filters, $format, $path, $rows, $summary);
     }
 
-    private function renderSnapshot(User $actor, array $filters, string $format, string $path): void
+    private function renderSnapshot(User $actor, array $filters, string $format, string $path, ReportRows $snapshot, array $summary): void
     {
-        $service = app(ContractReport::class);
-        $summary = $service->summary($actor, $filters);
+        $service = $this->service;
         $metadata = ['Relatório' => ContractReport::TYPES[$filters['report'] ?? 'general'], 'Emitente' => $actor->name,
             'Emitido em' => now()->format('d/m/Y H:i:s').' (horário de Brasília)', 'Filtros' => BrazilianLocale::filters($filters),
             'Registros' => $summary['count'], 'Indicador' => 'Valor inicial; não inclui acumulados ou saldos', 'Total decimal (R$)' => BrazilianLocale::decimal($summary['total'], $format === 'pdf')];
@@ -36,8 +43,8 @@ class ReportRenderer
             }
             fputcsv($stream, [], ';', '"', '');
             fputcsv($stream, $service->headers($filters), ';', '"', '');
-            foreach ($service->query($actor, $filters)->cursor() as $contract) {
-                fputcsv($stream, array_map(fn ($value) => $this->safeCsv((string) $value), BrazilianLocale::reportRow($service->row($contract, $actor, $filters), $filters, $format === 'pdf')), ';', '"', '');
+            foreach ($snapshot as $row) {
+                fputcsv($stream, array_map(fn ($value) => $this->safeCsv((string) $value), $row), ';', '"', '');
             }
             if ($summary['groups']) {
                 fputcsv($stream, [], ';', '"', '');
@@ -59,8 +66,8 @@ class ReportRenderer
             $line++;
             $header = $line;
             $sheet->fromArray($service->headers($filters), null, 'A'.$line++);
-            foreach ($service->query($actor, $filters)->cursor() as $contract) {
-                foreach (BrazilianLocale::reportRow($service->row($contract, $actor, $filters), $filters, $format === 'pdf') as $index => $value) {
+            foreach ($snapshot as $row) {
+                foreach ($row as $index => $value) {
                     // Explicit text preserves leading zeros, exact decimals and blocks formulas.
                     $sheet->setCellValueExplicit([$index + 1, $line], (string) $value, DataType::TYPE_STRING);
                 }
@@ -89,8 +96,8 @@ class ReportRenderer
             $rows = [];
             $chunkSummary = $summary;
             $chunkSummary['groups'] = [];
-            foreach ($service->query($actor, $filters)->cursor() as $contract) {
-                $rows[] = array_map(fn ($value) => is_string($value) ? Str::limit($value, 160) : $value, BrazilianLocale::reportRow($service->row($contract, $actor, $filters), $filters, $format === 'pdf'));
+            foreach ($snapshot as $row) {
+                $rows[] = array_map(fn ($value) => is_string($value) ? Str::limit($value, 160) : $value, $row);
                 if (count($rows) === 60) {
                     $this->appendPdf($merged, view('reports.pdf', ['rows' => $rows, 'metadata' => $metadata, 'summary' => $chunkSummary, 'headers' => $service->headers($filters)])->render());
                     $rows = [];

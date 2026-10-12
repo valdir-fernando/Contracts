@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\Gate;
 
 class SupplierController extends Controller
 {
+    public function show(Request $request, int $supplier)
+    {
+        Gate::authorize('create', Contract::class);
+        $record = SupplierCatalog::visibleTo($request->user())->select(['id', 'name', 'document', 'document_key'])->where('id', $supplier)->first();
+        abort_unless($record, 404);
+
+        return view('suppliers.show', ['supplier' => $record,
+            'contracts' => Contract::visibleTo($request->user())->where('supplier_id', $record->id)->latest('id')->paginate(20)]);
+    }
+
     public function index(Request $request)
     {
         Gate::authorize('create', Contract::class);

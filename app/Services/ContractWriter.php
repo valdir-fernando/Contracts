@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Application\Contracts\SaveContract;
+use App\Application\Security\ActorIdentity;
+use App\Infrastructure\Contracts\ContractMapper;
+use App\Infrastructure\Http\ApplicationErrors;
 use App\Models\Contract;
 use App\Models\User;
 
@@ -13,6 +16,8 @@ class ContractWriter
 
     public function save(User $actor, array $input, ?Contract $target = null): Contract
     {
-        return $this->saveContract->execute($actor, $input, $target);
+        $saved = ApplicationErrors::translate(fn () => $this->saveContract->execute(new ActorIdentity($actor->id, $actor->session_version), $input, $target?->id));
+
+        return ContractMapper::toModel($saved, $target === null);
     }
 }

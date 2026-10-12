@@ -1,0 +1,4 @@
+@props(['contracts'])
+<section class="surface contract-section"><h2>Contratos associados</h2><div class="table-scroll"><table class="data-table"><thead><tr><th>Contrato</th><th>Fornecedor</th><th>Órgão</th><th>Valor inicial</th></tr></thead><tbody>
+@forelse($contracts as $contract)<tr data-row-href="{{ route('contracts.show', $contract) }}"><td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: 'Sem número' }}</a></td><td>{{ $contract->fornecedor_nome_snapshot }}</td><td>{{ $contract->fundo_nome_snapshot }}<small>{{ $contract->secretaria_nome_snapshot }}</small></td><td>{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}</td></tr>@empty<tr><td colspan="4">Nenhum contrato acessível associado a este cadastro.</td></tr>@endforelse
+</tbody></table></div>{{ $contracts->links() }}</section>

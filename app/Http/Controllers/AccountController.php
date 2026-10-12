@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class AccountController extends Controller
 {
+    public function __construct(private LockActor $actors) {}
+
     public function edit()
     {
         return view('account.edit');
@@ -27,7 +29,7 @@ class AccountController extends Controller
             'password' => ['nullable', 'confirmed', Password::min(12)->letters()->numbers(), 'max:1024'],
             'user_type' => 'prohibited', 'scope_ids' => 'prohibited', 'is_active' => 'prohibited']);
         DB::transaction(function () use ($request, $data) {
-            $user = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $user = $this->actors->lock($request->user());
             if (! Hash::check($data['current_password'], $user->password)) {
                 throw ValidationException::withMessages(['current_password' => 'A senha atual foi alterada. Entre novamente.']);
             }

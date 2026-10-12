@@ -36,7 +36,7 @@
             @endfor
         </tbody></table></div>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>Vencimento</th><th>Contrato</th><th>Fornecedor</th><th>Órgão</th><th>Situação administrativa</th></tr></thead><tbody>
-            @forelse($contracts as $contract)<tr><td>{{ $contract->end_date->format('d/m/Y') }}</td><td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: 'Sem número' }}</a></td><td>{{ $contract->fornecedor_nome_snapshot }}</td><td>{{ $contract->fundo_nome_snapshot }}</td><td>{{ \App\Models\Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada' }}</td></tr>
+            @forelse($contracts as $contract)<tr data-row-href="{{ route('contracts.show', $contract) }}"><td>{{ $contract->end_date->format('d/m/Y') }}</td><td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: 'Sem número' }}</a></td><td>{{ $contract->fornecedor_nome_snapshot }}</td><td>{{ $contract->fundo_nome_snapshot }}</td><td>{{ \App\Models\Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada' }}</td></tr>
             @empty<tr><td colspan="5">Nenhum vencimento conhecido neste mês.</td></tr>@endforelse
         </tbody></table></div>
         {{ $contracts->links() }}

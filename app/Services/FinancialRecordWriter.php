@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractAudit;
@@ -19,6 +20,8 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class FinancialRecordWriter
 {
+    public function __construct(private LockActor $actors) {}
+
     public function save(User $actor, Contract $parent, string $kind, array $input, ?int $id = null): ContractFinancialRecord
     {
         abort_unless(isset(FinancialFields::KINDS[$kind]), 404);
@@ -68,6 +71,9 @@ class FinancialRecordWriter
             }
             $payload = $id ? $record->payload : FinancialFields::seed($kind, $contract);
             foreach ($data['fields'] ?? [] as $field => $value) {
+                if (str_starts_with(FinancialFields::MAP[$kind][$field][1], 'readonly')) {
+                    continue;
+                }
                 $payload[$field] = FinancialFields::MAP[$kind][$field][1] === 'money' ? Normalizer::money($value) : $value;
             }
             $links = [];
@@ -115,11 +121,9 @@ class FinancialRecordWriter
 
     private function lock(User $actor, Contract $parent): array
     {
-        $sessionVersion = $actor->session_version;
-        $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
+        $actor = $this->actors->lock($actor);
         $contract = Contract::whereKey($parent->id)->lockForUpdate()->firstOrFail();
         Gate::forUser($actor)->authorize('update', $contract);
-        abort_unless($actor->session_version === $sessionVersion, 403);
 
         return [$actor, $contract];
     }

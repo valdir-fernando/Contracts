@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domain\Contracts\ContractValidity;
+use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractAudit;
@@ -18,14 +19,15 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ContractReview
 {
+    public function __construct(private LockActor $actors) {}
+
     public function confirm(User $actor, Contract $parent, array $input): void
     {
         DB::transaction(function () use ($actor, $parent, $input) {
-            $session = $actor->session_version;
-            $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
+            $actor = $this->actors->lock($actor);
             $contract = Contract::whereKey($parent->id)->lockForUpdate()->firstOrFail();
             Gate::forUser($actor)->authorize('update', $contract);
-            abort_unless($actor->isAdmin() && $session === $actor->session_version, 403);
+            abort_unless($actor->isAdmin(), 403);
             $rules = ['version' => 'required|integer|min:1', 'confirmation' => ['required', Rule::in([$contract->numero])],
                 'acknowledged' => 'required|accepted', 'reason' => 'required|string|min:20|max:1000',
                 'end_date' => 'sometimes|nullable|date_format:Y-m-d|after_or_equal:1000-01-01',

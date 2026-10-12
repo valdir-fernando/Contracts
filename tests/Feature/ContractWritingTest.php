@@ -173,15 +173,33 @@ class ContractWritingTest extends TestCase
         $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'legacy_id' => 999, 'reason' => 'Tentativa de alterar origem'])->assertSessionHasErrors('legacy_id');
     }
 
-    public function test_duplicate_number_is_allowed_with_warning_and_actor_cannot_be_forged(): void
+    public function test_duplicate_requires_confirmation_then_is_allowed_with_warning_and_actor_cannot_be_forged(): void
     {
         app(ContractWriter::class)->save($this->admin, $this->data());
-        $this->post('/contracts', $this->data(['created_by' => 999, 'updated_by' => 999, 'ownership_resolved' => false]))
+        $this->from('/contracts/create')->post('/contracts', $this->data())->assertRedirect('/contracts/create')->assertSessionHasErrors('duplicate_confirmation');
+        $this->assertDatabaseCount('contracts', 1);
+        $this->assertDatabaseCount('contract_audits', 1);
+        $this->get('/contracts/create')->assertSee('name="duplicate_confirmation"', false);
+        $this->post('/contracts', $this->data(['duplicate_confirmation' => '1', 'created_by' => 999, 'updated_by' => 999, 'ownership_resolved' => false]))
             ->assertRedirect()->assertSessionHas('warning');
         $contract = Contract::latest('id')->firstOrFail();
         $this->assertSame($this->admin->id, $contract->created_by);
         $this->assertTrue($contract->ownership_resolved);
         $this->assertDatabaseCount('contracts', 2);
+        $this->assertTrue(ContractAudit::latest('id')->first()->changes['duplicate_confirmation']['after']);
+    }
+
+    public function test_preventive_duplicate_check_does_not_block_distinct_processes_or_expose_other_departments(): void
+    {
+        app(ContractWriter::class)->save($this->admin, $this->data());
+        $this->post('/contracts', $this->data(['processo' => 'OUTRO-PROCESSO']))->assertRedirect()->assertSessionMissing('warning');
+        $otherDepartment = DB::table('contract_departments')->insertGetId(['name' => 'Outra secretaria', 'name_key' => 'OUTRA', 'raw_payload' => '{}']);
+        $user = $this->regular();
+        app(ContractWriter::class)->save($this->admin, $this->data(['numero' => 'HIDDEN/26', 'department_id' => $otherDepartment]));
+        $this->actingAs($user)->post('/contracts', $this->data(['numero' => 'HIDDEN/26']))->assertRedirect()->assertSessionMissing('warning');
+        $this->assertDatabaseCount('contracts', 4);
+        $this->post('/contracts', $this->data(['numero' => 'HIDDEN/26', 'duplicate_confirmation' => 'false']))->assertSessionHasErrors('duplicate_confirmation');
+        $this->assertDatabaseCount('contracts', 4);
     }
 
     public function test_audit_failure_rolls_back_the_contract(): void

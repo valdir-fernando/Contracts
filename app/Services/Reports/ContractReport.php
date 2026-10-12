@@ -2,15 +2,16 @@
 
 namespace App\Services\Reports;
 
+use App\Domain\Contracts\ContractValidity;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractHistoryRecord;
 use App\Models\User;
 use App\Services\ContractSearch;
 use App\Services\Legacy\Normalizer;
+use App\Support\BrazilianLocale;
 use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -58,14 +59,13 @@ class ContractReport
         ContractSearch::apply($query, $filters);
         ContractSearch::applyIdentityFilters($query, $filters);
         $reference = $filters['reference'] ?? today()->toDateString();
-        $end = 'COALESCE(vigencia_fim_atual, vigencia_fim_original)';
         $report = $filters['report'] ?? 'general';
         if (in_array($report, ['expiring', 'expired'])) {
-            $query->where('vigencia_em_revisao', false)->whereNotNull('vigencia_inicio');
             if ($report === 'expired') {
-                $query->whereRaw($end.' < ?', [$reference]);
+                $query->withValidity('vencido', CarbonImmutable::parse($reference));
             } else {
-                $query->whereDate(DB::raw($end), '>=', $reference)->whereDate(DB::raw($end), '<=', CarbonImmutable::parse($reference)->addDays((int) ($filters['days'] ?? 30))->toDateString());
+                $from = CarbonImmutable::parse($reference);
+                $query->endingBetween($from, $from->addDays((int) ($filters['days'] ?? 30)));
             }
         }
         if ($report === 'quality') {
@@ -84,12 +84,40 @@ class ContractReport
 
     public function summary(User $actor, array $filters): array
     {
+        return $this->summarize($this->reportQuery($actor, $filters)->cursor(), $actor, $filters);
+    }
+
+    private function reportQuery(User $actor, array $filters)
+    {
+        // No personal fields, object text or source JSON outside the report projection.
+        return $this->query($actor, $filters)->select(['id', 'numero', 'processo', 'fornecedor_nome_snapshot',
+            'fornecedor_documento_snapshot', 'supplier_document_key', 'fund_id', 'department_id', 'fundo_nome_snapshot',
+            'secretaria_nome_snapshot', 'tipo', 'modalidade', 'valor_total', 'data_contrato', 'vigencia_inicio',
+            'vigencia_fim_original', 'vigencia_fim_atual', 'administrative_status', 'quality_issues',
+            'ownership_resolved', 'vigencia_em_revisao']);
+    }
+
+    public function snapshot(User $actor, array $filters, ReportRows $rows, bool $pdf): array
+    {
+        $reference = CarbonImmutable::parse($filters['reference'] ?? today()->toDateString());
+        $contracts = (function () use ($actor, $filters, $rows, $pdf, $reference) {
+            foreach ($this->reportQuery($actor, $filters)->cursor() as $contract) {
+                $rows->append(BrazilianLocale::reportRow($this->row($contract, $actor, $filters, $reference), $filters, $pdf));
+                yield $contract;
+            }
+        })();
+
+        return $this->summarize($contracts, $actor, $filters);
+    }
+
+    private function summarize(iterable $contracts, User $actor, array $filters): array
+    {
         $total = BigDecimal::of('0.0000');
         $groups = [];
         $count = 0;
         $missing = 0;
         $report = $filters['report'] ?? 'general';
-        foreach ($this->query($actor, $filters)->cursor() as $contract) {
+        foreach ($contracts as $contract) {
             $count++;
             $amount = BigDecimal::of($contract->valor_total ?? '0')->toScale(4);
             $total = $total->plus($amount);
@@ -130,18 +158,21 @@ class ContractReport
         return Normalizer::mask($value);
     }
 
-    public function row(Contract $contract, User $actor, array $filters): array
+    public function row(Contract $contract, User $actor, array $filters, ?CarbonImmutable $reference = null): array
     {
-        $reference = CarbonImmutable::parse($filters['reference'] ?? today()->toDateString());
-        $validity = $contract->validityOn($reference);
+        $reference ??= CarbonImmutable::parse($filters['reference'] ?? today()->toDateString());
+        $start = $contract->vigencia_inicio;
+        $end = $contract->end_date;
+        $review = (bool) $contract->vigencia_em_revisao;
+        $validity = ContractValidity::classify($review, $start, $end, $reference);
 
         $values = [$contract->numero, $contract->processo, $contract->fornecedor_nome_snapshot,
             $this->document($contract, $actor, $filters), $contract->fundo_nome_snapshot, $contract->secretaria_nome_snapshot,
             $contract->tipo, $contract->modalidade, $contract->valor_total, $contract->data_contrato?->toDateString(),
-            $contract->vigencia_inicio?->toDateString(), $contract->end_date?->toDateString(),
+            $start?->toDateString(), $end?->toDateString(),
             Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada', Contract::VALIDITY[$validity],
             count($contract->quality_issues ?? []) + (int) ! $contract->ownership_resolved + (int) $contract->vigencia_em_revisao,
-            ! $contract->vigencia_em_revisao && $contract->end_date ? (string) (int) $reference->diffInDays($contract->end_date, false) : 'Em revisão / indeterminado',
+            ! $review && $end ? (string) (int) $reference->diffInDays($end, false) : 'Em revisão / indeterminado',
             $contract->vigencia_fim_atual ? 'Término atualizado informado; sujeito a conciliação' : ($contract->vigencia_fim_original ? 'Término original' : 'Não informado')];
 
         return array_map(fn ($key) => $values[array_search($key, self::COLUMNS, true)], $filters['columns'] ?? self::COLUMNS);

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\GenerateReport;
+use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\Contract;
 use App\Models\ContractAudit;
@@ -10,15 +10,18 @@ use App\Models\ContractHistoryRecord;
 use App\Models\ImportIssue;
 use App\Models\ImportRun;
 use App\Models\ReportExport;
-use App\Models\User;
 use App\Models\UserAudit;
 use App\Services\Reports\AuditReportRenderer;
+use App\Services\Reports\ReportRequests;
+use App\Support\BrazilianLocale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AdministrationController extends Controller
 {
+    public function __construct(private LockActor $actors) {}
+
     public function index(Request $request)
     {
         abort_unless($request->user()->isAdmin(), 403);
@@ -57,10 +60,12 @@ class AdministrationController extends Controller
         $filters = $request->validate(['from' => 'nullable|date_format:Y-m-d',
             'to' => 'nullable|date_format:Y-m-d'.($request->filled('from') ? '|after_or_equal:from' : ''),
             'actor' => 'nullable|integer|min:1', 'action' => 'nullable|string|max:64']);
-        if ($renderer->count($filters) > 1000) {
-            $export = ReportExport::create(['user_id' => $request->user()->id, 'format' => $format, 'filters' => $filters,
-                'report_kind' => 'audit', 'access_hash' => ReportExport::accessHash($request->user()), 'expires_at' => now()->addDay()]);
-            GenerateReport::dispatch($export->id);
+        $request->validate(['background' => 'sometimes|boolean']);
+        if ($request->boolean('background') || $renderer->count($filters) > 1000) {
+            $export = app(ReportRequests::class)->create($request->user(), $format, $filters, 'audit');
+            if ($request->expectsJson()) {
+                return response()->json(['id' => $export->id, 'status_url' => route('reports.status', $export)], 202);
+            }
 
             return redirect()->route('reports.exports')->with('status', 'Auditoria solicitada. Acompanhe a geração nesta página.');
         }
@@ -69,8 +74,9 @@ class AdministrationController extends Controller
             mkdir(dirname($path), 0770, true);
         }
         try {
+            $accessHash = ReportExport::accessHash($request->user());
             $count = $renderer->write($request->user(), $filters, $format, $path);
-            abort_unless($request->user()->fresh()?->isAdmin(), 403);
+            abort_unless(hash_equals($accessHash, ReportExport::accessHash($request->user())), 403);
             ActivityEvent::create(['actor_id' => $request->user()->id, 'action' => 'audit_exported', 'metadata' => ['format' => $format, 'filters' => $filters, 'count' => $count], 'created_at' => now()]);
         } catch (\Throwable $error) {
             @unlink($path);
@@ -80,12 +86,45 @@ class AdministrationController extends Controller
         return response()->download($path, 'auditoria.'.$format, ['Cache-Control' => 'private, no-store'])->deleteFileAfterSend(true);
     }
 
+    public function record(Request $request, string $kind, int $record)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+        $model = match ($kind) {
+            'contract-audit' => ContractAudit::class, 'user-audit' => UserAudit::class,
+            'event' => ActivityEvent::class, 'import' => ImportRun::class, 'issue' => ImportIssue::class,
+            default => null,
+        };
+        abort_unless($model, 404);
+        $entry = $model::findOrFail($record);
+        $title = match ($kind) {
+            'contract-audit' => 'Alteração de contrato', 'user-audit' => 'Alteração de usuário',
+            'event' => 'Evento administrativo', 'import' => 'Execução de importação', 'issue' => 'Pendência de importação',
+        };
+        $fields = match ($kind) {
+            'contract-audit' => ['Contrato' => $entry->contract_id, 'Ator' => $entry->actor?->name ?? 'Sistema',
+                'Ação' => BrazilianLocale::action($entry->action), 'Motivo' => $entry->reason, 'Quando' => $entry->created_at->format('d/m/Y H:i:s'),
+                'Execução de importação' => $entry->import_run_id, 'Alterações' => $entry->changes],
+            'user-audit' => ['Usuário' => $entry->user_id, 'Ator' => $entry->actor?->name ?? 'Conta indisponível',
+                'Ação' => BrazilianLocale::action($entry->action), 'Motivo' => $entry->reason, 'Quando' => $entry->created_at->format('d/m/Y H:i:s'),
+                'Antes' => $entry->before, 'Depois' => $entry->after],
+            'event' => ['Ator' => $entry->actor?->name ?? 'Sistema', 'Ação' => BrazilianLocale::action($entry->action),
+                'Quando' => $entry->created_at->format('d/m/Y H:i:s'), 'Dados do evento' => BrazilianLocale::metadata($entry->metadata ?? [])],
+            'import' => ['Estado' => BrazilianLocale::state($entry->status), 'Início' => $entry->started_at?->format('d/m/Y H:i:s'),
+                'Fim' => $entry->finished_at?->format('d/m/Y H:i:s'), 'Origem' => $entry->source_count, 'Importados' => $entry->imported_count,
+                'Ignorados' => $entry->skipped_count, 'Rejeitados' => $entry->rejected_count, 'Ocorrências' => $entry->issues_count, 'Resumo' => $entry->summary],
+            'issue' => ['Execução' => $entry->import_run_id, 'Tabela de origem' => $entry->source_table, 'Registro de origem' => $entry->legacy_id,
+                'Campo' => $entry->field, 'Código' => $entry->code, 'Gravidade' => $entry->severity, 'Ocorrência' => $entry->message],
+        };
+
+        return view('administration.record', ['title' => $title, 'recordId' => $entry->id, 'fields' => $fields]);
+    }
+
     public function reconcile(Request $request, ContractHistoryRecord $history)
     {
         abort_unless($request->user()->isAdmin(), 403);
         $data = $request->validate(['contract_id' => 'required|integer|exists:contracts,id', 'reason' => 'required|string|min:10|max:1000']);
         DB::transaction(function () use ($request, $history, $data) {
-            $actor = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $actor = $this->actors->lock($request->user());
             abort_unless($actor->isAdmin(), 403);
             $record = ContractHistoryRecord::whereKey($history->id)->lockForUpdate()->firstOrFail();
             abort_if($record->contract_id !== null, 409, 'Vínculo já conciliado.');

@@ -4,6 +4,12 @@
     @unless($contract->exists)<p><a class="text-link" href="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</a></p>@endunless
     <form x-data="{ step: 0, all: true }" method="POST" novalidate action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
         @csrf @if($contract->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $contract->version }}">@endif
+        @if(!$contract->exists && $errors->has('duplicate_confirmation'))
+            <section class="notice notice-error" role="alert">
+                <p>{{ $errors->first('duplicate_confirmation') }}</p>
+                <label><input type="checkbox" name="duplicate_confirmation" value="1"> Conferi os dados e confirmo o cadastro de outro contrato com esta identificação.</label>
+            </section>
+        @endif
         <section class="surface contract-section"><h2>Órgão e situação administrativa</h2><div class="field-grid">
             <div class="field"><label for="fund_id">Fundo<x-required-mark :when="!$contract->exists"/></label><select id="fund_id" name="fund_id" @required(!$contract->exists)><option value="">{{ $contract->exists ? 'Manter fundo atual / histórico' : 'Selecione' }}</option>@foreach($funds as $fund)<option value="{{ $fund->id }}" @selected((string) old('fund_id', $values['fund_id'] ?? $contract->fund_id) === (string) $fund->id)>{{ $fund->name }}</option>@endforeach</select>@error('fund_id')<p class="field-error">{{ $message }}</p>@enderror</div>
             <div class="field"><label for="department_id">Secretaria</label><select id="department_id" name="department_id"><option value="">Sem secretaria</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected((string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $department->id)>{{ $department->name }}</option>@endforeach</select>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>

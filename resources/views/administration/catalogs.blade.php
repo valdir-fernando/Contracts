@@ -4,14 +4,14 @@
         <section class="surface catalog-section" aria-labelledby="funds-title">
             <div class="panel-header"><div><span class="catalog-icon"><x-nav-icon name="catalogs"/></span><h2 id="funds-title">Fundos <span class="catalog-count">{{ $funds->count() }}</span></h2><p>Responsáveis pelos contratos e seus recursos.</p></div><button class="primary-button" type="button" data-modal-open="catalog-fund"><x-nav-icon name="plus"/>Novo fundo</button></div>
             <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome do fundo</th><th>CPF/CNPJ</th></tr></thead><tbody>
-                @forelse($funds as $fund)<tr><td><strong>{{ $fund->name }}</strong></td><td>{{ $fund->document ?: 'Não informado' }}</td></tr>
+                @forelse($funds as $fund)<tr data-row-href="{{ route('catalogs.show', ['fund', $fund->id]) }}"><td><a class="text-link" href="{{ route('catalogs.show', ['fund', $fund->id]) }}"><strong>{{ $fund->name }}</strong></a></td><td>{{ $fund->document ?: 'Não informado' }}</td></tr>
                 @empty<tr><td colspan="2" class="empty-state">Nenhum fundo cadastrado. Adicione o primeiro para organizar os contratos.</td></tr>@endforelse
             </tbody></table></div>
         </section>
         <section class="surface catalog-section" aria-labelledby="departments-title">
             <div class="panel-header"><div><span class="catalog-icon"><x-nav-icon name="suppliers"/></span><h2 id="departments-title">Órgãos e secretarias <span class="catalog-count">{{ $departments->count() }}</span></h2><p>Unidades que participam da gestão dos contratos.</p></div><button class="primary-button" type="button" data-modal-open="catalog-department"><x-nav-icon name="plus"/>Novo órgão</button></div>
             <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome do órgão ou secretaria</th></tr></thead><tbody>
-                @forelse($departments as $department)<tr><td><strong>{{ $department->name }}</strong></td></tr>
+                @forelse($departments as $department)<tr data-row-href="{{ route('catalogs.show', ['department', $department->id]) }}"><td><a class="text-link" href="{{ route('catalogs.show', ['department', $department->id]) }}"><strong>{{ $department->name }}</strong></a></td></tr>
                 @empty<tr><td class="empty-state">Nenhum órgão cadastrado. Adicione uma secretaria ou unidade.</td></tr>@endforelse
             </tbody></table></div>
         </section>

@@ -31,7 +31,7 @@ class UserManagementTest extends TestCase
 
     private function data(User $user, array $extra = []): array
     {
-        return array_replace(['name' => $user->name, 'username' => $user->username, 'user_type' => $user->user_type,
+        return array_replace(['version' => $user->fresh()->session_version, 'name' => $user->name, 'username' => $user->username, 'user_type' => $user->user_type,
             'is_active' => 1, 'scope_ids' => $user->scopes()->pluck('access_scopes.id')->all()], $extra);
     }
 
@@ -93,7 +93,7 @@ class UserManagementTest extends TestCase
         $scope = $this->scope();
         $this->actingAs($admin)->put('/users/'.$admin->id, $this->data($admin, ['is_active' => 0]))->assertSessionHasErrors('user_type');
         $this->put('/users/'.$admin->id, $this->data($admin, ['user_type' => 'Usuario', 'scope_ids' => [$scope->id]]))->assertSessionHasErrors('user_type');
-        $this->delete('/users/'.$admin->id, ['reason' => 'Teste de exclusão', 'confirmation' => 'ADMIN'])->assertSessionHasErrors('user_type');
+        $this->delete('/users/'.$admin->id, ['version' => $admin->fresh()->session_version, 'reason' => 'Teste de exclusão', 'confirmation' => 'ADMIN'])->assertSessionHasErrors('user_type');
         $this->assertTrue($admin->fresh()->isAdmin());
         $this->assertDatabaseCount('user_audits', 0);
         $this->assertDatabaseCount('access_scope_user', 0);
@@ -105,12 +105,12 @@ class UserManagementTest extends TestCase
         $user = $this->user('REGULAR');
         $scope = $this->scope();
         $user->scopes()->attach($scope);
-        $this->actingAs($admin)->delete('/users/'.$user->id, ['reason' => 'Não faz mais parte da equipe', 'confirmation' => 'OUTRO'])->assertSessionHasErrors('confirmation');
-        $this->delete('/users/'.$user->id, ['reason' => 'Não faz mais parte da equipe', 'confirmation' => 'REGULAR'])->assertRedirect('/users');
+        $this->actingAs($admin)->delete('/users/'.$user->id, ['version' => $user->fresh()->session_version, 'reason' => 'Não faz mais parte da equipe', 'confirmation' => 'OUTRO'])->assertSessionHasErrors('confirmation');
+        $this->delete('/users/'.$user->id, ['version' => $user->fresh()->session_version, 'reason' => 'Não faz mais parte da equipe', 'confirmation' => 'REGULAR'])->assertRedirect('/users');
         $this->assertSoftDeleted($user);
         $this->assertDatabaseHas('access_scope_user', ['user_id' => $user->id, 'access_scope_id' => $scope->id]);
         $this->get('/users?status=deleted')->assertOk()->assertSee('REGULAR')->assertSee('Restaurar e ativar');
-        $this->post('/users/'.$user->id.'/restore')->assertRedirect('/users');
+        $this->post('/users/'.$user->id.'/restore', ['version' => $user->fresh()->session_version])->assertRedirect('/users');
         $this->assertTrue($user->fresh()->is_active);
         $this->assertNotSoftDeleted($user);
         $this->assertDatabaseCount('user_audits', 2);
@@ -120,7 +120,7 @@ class UserManagementTest extends TestCase
     {
         $admin = $this->user('ADMIN', true);
         $user = $this->user('REGULAR');
-        $this->actingAs($admin)->put('/users/'.$user->id.'/password', ['password' => 'OutraSenha!12345', 'password_confirmation' => 'OutraSenha!12345'])->assertRedirect('/users');
+        $this->actingAs($admin)->put('/users/'.$user->id.'/password', ['version' => $user->fresh()->session_version, 'password' => 'OutraSenha!12345', 'password_confirmation' => 'OutraSenha!12345'])->assertRedirect('/users');
         $this->assertTrue(Hash::check('OutraSenha!12345', $user->fresh()->password));
         $this->assertFalse(Hash::check('SenhaSegura!123', $user->fresh()->password));
         $this->assertSame(1, $user->fresh()->session_version);

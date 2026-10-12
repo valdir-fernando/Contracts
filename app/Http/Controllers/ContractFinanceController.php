@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractFinancialRecord;
@@ -9,12 +10,15 @@ use App\Services\FinancialRecordWriter;
 use App\Support\FinancialFields;
 use Brick\Math\BigDecimal;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ContractFinanceController extends Controller
 {
+    public function __construct(private LockActor $actors) {}
+
     public function index(Request $request, Contract $contract)
     {
         Gate::authorize('view', $contract);
@@ -56,8 +60,10 @@ class ContractFinanceController extends Controller
         try {
             $record = $writer->save($request->user(), $contract, $kind, $request->all());
         } catch (ConflictHttpException) {
-            $contract = $contract->fresh();
-            Gate::authorize('update', $contract);
+            $actor = $this->actors->current($request->user());
+            $contract = Contract::findOrFail($contract->id);
+            Gate::forUser($actor)->authorize('update', $contract);
+            Auth::setUser($actor);
 
             return $this->form($contract, new ContractFinancialRecord(['kind' => $kind, 'payload' => FinancialFields::seed($kind, $contract), 'status' => 'rascunho']), $request->all(), true);
         }
@@ -90,10 +96,12 @@ class ContractFinanceController extends Controller
         try {
             $writer->save($request->user(), $contract, $record->kind, $request->all(), $record->id);
         } catch (ConflictHttpException) {
-            $contract = $contract->fresh();
-            Gate::authorize('update', $contract);
-            $record->refresh();
-            abort_if(! $request->user()->isAdmin() && $record->status === 'registrado', 403);
+            $actor = $this->actors->current($request->user());
+            $contract = Contract::findOrFail($contract->id);
+            Gate::forUser($actor)->authorize('update', $contract);
+            Auth::setUser($actor);
+            $record = ContractFinancialRecord::where('contract_id', $contract->id)->findOrFail($finance);
+            abort_if(! $actor->isAdmin() && $record->status === 'registrado', 403);
 
             return $this->form($contract, $record, $request->all(), true);
         }

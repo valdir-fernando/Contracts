@@ -1,3 +1,5 @@
+import './table-navigation';
+import './report-generation';
 import './count-up';
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {

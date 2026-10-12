@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Application\Security\LockActor;
+use App\Infrastructure\Security\LockActor;
 use App\Models\AccessScope;
 use App\Models\User;
 use App\Models\UserAudit;
@@ -136,6 +136,9 @@ class UserController extends Controller
             Gate::forUser($actor)->authorize(match ($action) {
                 'deleted' => 'delete', 'restored' => 'restore', default => 'update'
             }, $user);
+            $revision = $request->validate(['version' => 'required|integer|min:0']);
+            abort_unless((int) $revision['version'] === $user->session_version, 409,
+                'Esta conta foi alterada por outra pessoa. Recarregue a página antes de salvar.');
             $before = $this->snapshot($user);
             $wasAdmin = $user->isAdmin();
             $change($user);
@@ -160,7 +163,7 @@ class UserController extends Controller
         $data = $this->validated($request, $user);
 
         return $this->mutate($request, $user, 'updated', function (User $user) use ($data) {
-            $user->fill(collect($data)->except(['scope_ids', 'is_active'])->all());
+            $user->fill(collect($data)->only(['name', 'username', 'email', 'user_type'])->all());
             $user->is_active = (bool) $data['is_active'];
             $user->scopes()->sync($data['scope_ids'] ?? []);
         });

@@ -3,6 +3,7 @@
 namespace App\Services\Legacy;
 
 use App\Models\Contract;
+use App\Models\ContractAudit;
 use App\Models\ContractHistoryRecord;
 use App\Models\ImportRun;
 use App\Models\LegacyRecord;
@@ -44,7 +45,7 @@ class HistoryImporter
                     continue;
                 }
                 $number = trim($raw['Contrato'] ?? '');
-                $candidates = $number === '' ? collect() : Contract::withTrashed()->where('numero', $number)->get();
+                $candidates = $number === '' ? collect() : Contract::withTrashed()->where('numero', $number)->orderBy('id')->lockForUpdate()->get();
                 $supplier = Normalizer::document($raw[$kind === 'amendment' ? 'CNPJ_Fornec' : 'CNPJ'] ?? '');
                 $fund = $raw[$kind === 'amendment' ? 'CNPJ_Fundo' : 'FUNDO'] ?? '';
                 $fundDocument = Normalizer::document($fund);
@@ -78,7 +79,18 @@ class HistoryImporter
                 $record->update(['status' => $status]);
                 if ($kind === 'amendment') {
                     // Matching history does not certify validity or apply any financial change.
-                    Contract::withTrashed()->whereIn('id', $ids)->update(['vigencia_em_revisao' => true]);
+                    foreach ($candidates as $contract) {
+                        $before = $contract->vigencia_em_revisao;
+                        $contract->vigencia_em_revisao = true;
+                        $contract->updated_by = null;
+                        $contract->version++;
+                        $contract->save();
+                        ContractAudit::create(['contract_id' => $contract->id, 'actor_id' => null, 'import_run_id' => $run->id,
+                            'action' => 'history_imported', 'reason' => 'Importação histórica pelo sistema; execução '.$run->id.'.',
+                            'changes' => ['history_id' => ['before' => null, 'after' => $history->id],
+                                'match_status' => ['before' => null, 'after' => $status],
+                                'vigencia_em_revisao' => ['before' => $before, 'after' => true]], 'created_at' => now()]);
+                    }
                 }
                 if ($status !== 'matched' || $issues) {
                     DB::table('import_issues')->insert(['import_run_id' => $run->id, 'legacy_record_id' => $record->id,

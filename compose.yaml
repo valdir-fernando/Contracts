@@ -50,6 +50,12 @@ services:
       - app_storage:/var/www/html/storage
       - app_cache:/var/www/html/bootstrap/cache
     command: php -d memory_limit=768M artisan queue:work --sleep=3 --tries=1 --timeout=900 --memory=512
+    healthcheck:
+      test: ["CMD", "php", "artisan", "contracts:check-operations", "--process=worker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
     depends_on:
       db:
@@ -64,6 +70,12 @@ services:
       - app_storage:/var/www/html/storage
       - app_cache:/var/www/html/bootstrap/cache
     command: php artisan schedule:work
+    healthcheck:
+      test: ["CMD", "php", "artisan", "contracts:check-operations", "--process=scheduler"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     restart: unless-stopped
     depends_on:
       db:

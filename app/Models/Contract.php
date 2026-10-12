@@ -7,6 +7,7 @@ use App\Services\Legacy\Normalizer;
 use App\Support\ContractFields;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
+use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -84,6 +85,13 @@ class Contract extends Model
     public function scopePendingReview(Builder $query): Builder
     {
         return $query->where(fn (Builder $pending) => $pending->where('vigencia_em_revisao', true)->orWhere('ownership_resolved', false));
+    }
+
+    /** Inclusive civil-date window, also used by reports and dashboard alerts. */
+    public function scopeEndingBetween(Builder $query, DateTimeInterface $from, DateTimeInterface $to): Builder
+    {
+        return $query->where('vigencia_em_revisao', false)->whereNotNull('vigencia_inicio')
+            ->whereRaw('COALESCE(vigencia_fim_atual, vigencia_fim_original) >= ? AND COALESCE(vigencia_fim_atual, vigencia_fim_original) < ?', [$from->format('Y-m-d'), DateTimeImmutable::createFromInterface($to)->modify('+1 day')->format('Y-m-d')]);
     }
 
     public function scopeWithValidity(Builder $query, string $status, ?DateTimeInterface $reference = null): Builder

@@ -33,6 +33,12 @@
         }
     },
     "scripts": {
+        "check:architecture": "@php vendor/bin/phpunit --testsuite=Architecture --do-not-cache-result",
+        "test:unit": "@php vendor/bin/phpunit --testsuite=Unit --do-not-cache-result",
+        "check": [
+            "@php vendor/bin/pint --test",
+            "@php vendor/bin/phpunit --do-not-cache-result"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

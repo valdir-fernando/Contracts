@@ -8,6 +8,9 @@ RUN apt-get update \
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
 
+# Queue worker timeouts require signal handling in CLI PHP.
+RUN docker-php-ext-install -j$(nproc) pcntl
+
 RUN git config --system --add safe.directory /var/www/html
 
 WORKDIR /var/www/html

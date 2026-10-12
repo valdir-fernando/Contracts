@@ -6,7 +6,7 @@
     <section class="surface contract-section">
         <form method="GET" class="inline-search"><label>Buscar por nome ou documento<input name="q" maxlength="255" value="{{ request('q') }}"></label><button class="secondary-button">Buscar fornecedor</button></form>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome</th><th>Documento</th><th>Ação</th></tr></thead><tbody>
-            @forelse($suppliers as $supplier)<tr><td>{{ $supplier->name }}</td><td>{{ $supplier->document }}</td><td><a class="secondary-button" href="{{ route('contracts.create', ['supplier'=>$supplier->id]) }}">Usar no novo contrato</a></td></tr>
+            @forelse($suppliers as $supplier)<tr data-row-href="{{ route('suppliers.show', $supplier->id) }}"><td><a class="text-link" href="{{ route('suppliers.show', $supplier->id) }}">{{ $supplier->name }}</a></td><td>{{ $supplier->document }}</td><td><a class="secondary-button" href="{{ route('contracts.create', ['supplier'=>$supplier->id]) }}">Usar no novo contrato</a></td></tr>
             @empty<tr><td colspan="3">Nenhum fornecedor disponível para esta busca.</td></tr>@endforelse
         </tbody></table></div>
         {{ $suppliers->links() }}

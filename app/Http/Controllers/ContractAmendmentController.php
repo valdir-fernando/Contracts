@@ -2,17 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractAttachment;
 use App\Services\AmendmentWriter;
 use App\Support\AmendmentFields;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ContractAmendmentController extends Controller
 {
+    public function __construct(private LockActor $actors) {}
+
     public function index(Request $request, Contract $contract)
     {
         Gate::authorize('view', $contract);
@@ -39,9 +43,12 @@ class ContractAmendmentController extends Controller
         try {
             $amendment = $writer->save($request->user(), $contract, $request->all());
         } catch (ConflictHttpException) {
-            Gate::authorize('update', $contract->fresh());
+            $actor = $this->actors->current($request->user());
+            $contract = Contract::findOrFail($contract->id);
+            Gate::forUser($actor)->authorize('update', $contract);
+            Auth::setUser($actor);
 
-            return $this->form($contract->fresh(), new ContractAmendment(['payload' => AmendmentWriter::seed($contract->fresh()), 'status' => 'rascunho']), $request->all(), true);
+            return $this->form($contract, new ContractAmendment(['payload' => AmendmentWriter::seed($contract), 'status' => 'rascunho']), $request->all(), true);
         }
 
         return redirect()->route('contracts.amendments.show', [$contract, $amendment->id])->with('status', 'Aditivo cadastrado. Valores e datas do contrato preservados.');
@@ -72,11 +79,14 @@ class ContractAmendmentController extends Controller
         try {
             $writer->save($request->user(), $contract, $request->all(), $amendment);
         } catch (ConflictHttpException) {
-            Gate::authorize('update', $contract->fresh());
+            $actor = $this->actors->current($request->user());
+            $contract = Contract::findOrFail($contract->id);
+            Gate::forUser($actor)->authorize('update', $contract);
+            Auth::setUser($actor);
             $current = ContractAmendment::where('contract_id', $contract->id)->findOrFail($amendment);
-            abort_if(! $request->user()->isAdmin() && $current->status === 'registrado', 403);
+            abort_if(! $actor->isAdmin() && $current->status === 'registrado', 403);
 
-            return $this->form($contract->fresh(), $current, $request->all(), true);
+            return $this->form($contract, $current, $request->all(), true);
         }
 
         return redirect()->route('contracts.amendments.show', [$contract, $amendment])->with('status', 'Aditivo atualizado. Valores e datas do contrato preservados.');

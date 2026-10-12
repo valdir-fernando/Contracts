@@ -45,18 +45,23 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
     Route::put('/calendar/preferences', [CalendarController::class, 'preferences'])->name('calendar.preferences');
     Route::get('/catalogs', [CatalogController::class, 'index'])->name('catalogs.index');
+    Route::get('/catalogs/{kind}/{catalog}', [CatalogController::class, 'show'])->whereIn('kind', ['fund', 'department'])->whereNumber('catalog')->name('catalogs.show');
     Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+    Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->whereNumber('supplier')->name('suppliers.show');
     Route::get('/contract-types', [ContractTypeRuleController::class, 'index'])->name('contract-types.index');
     Route::post('/contract-types', [ContractTypeRuleController::class, 'store'])->name('contract-types.store');
     Route::post('/catalogs', [CatalogController::class, 'store'])->name('catalogs.store');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [AccountController::class, 'update'])->name('account.update');
     Route::get('/administration', [AdministrationController::class, 'index'])->name('administration.index');
+    Route::get('/administration/records/{kind}/{record}', [AdministrationController::class, 'record'])
+        ->whereIn('kind', ['contract-audit', 'user-audit', 'event', 'import', 'issue'])->whereNumber('record')->name('administration.record');
     Route::get('/administration/export/{format}', [AdministrationController::class, 'export'])->middleware('throttle:10,1')->name('administration.export');
     Route::post('/administration/history/{history}/reconcile', [AdministrationController::class, 'reconcile'])->name('administration.reconcile');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/exports', [ReportController::class, 'exports'])->name('reports.exports');
     Route::get('/reports/download/{export}', [ReportController::class, 'download'])->name('reports.download');
+    Route::get('/reports/status/{export}', [ReportController::class, 'status'])->middleware('throttle:300,1')->name('reports.status');
     Route::get('/reports/export/{format}', [ReportController::class, 'export'])->middleware('throttle:10,1')->name('reports.export');
     Route::get('/contracts/{contract}/pdf', [ReportController::class, 'detail'])->name('contracts.pdf');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
