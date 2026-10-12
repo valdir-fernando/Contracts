@@ -25,3 +25,7 @@ auth.json
 .aws
 .codex
 .agents
+
+# Configuração compilada pode conter credenciais do ambiente de execução.
+bootstrap/cache/*
+!bootstrap/cache/.gitignore

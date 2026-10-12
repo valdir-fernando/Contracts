@@ -27,3 +27,10 @@
 
 .env.production
 !/.env.production.example
+
+# Dados operacionais: documentos privados, relatórios e acessos locais.
+/storage/app/
+/database/*.sqlite
+/database/*.sqlite-*
+contracts-*.tar.gz
+/phpunit.mysql.xml

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Application\Security\LockActor;
 use App\Models\AccessScope;
 use App\Models\ActivityEvent;
 use App\Services\Legacy\Normalizer;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class CatalogController extends Controller
 {
+    public function __construct(private LockActor $actors) {}
+
     public function index(Request $request)
     {
         abort_unless($request->user()->isAdmin(), 403);
@@ -35,6 +38,8 @@ class CatalogController extends Controller
             throw ValidationException::withMessages(['document' => 'Informe um CPF/CNPJ válido.'])->errorBag($bag);
         }
         DB::transaction(function () use ($data, $request) {
+            $actor = $this->actors->lock($request->user());
+            abort_unless($actor->isAdmin(), 403);
             if ($data['kind'] === 'scope') {
                 $fund = DB::table('contract_funds')->find($data['fund_id']);
                 $department = empty($data['department_id']) ? null : DB::table('contract_departments')->find($data['department_id']);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Application\Security\LockActor;
 use App\Models\AccessScope;
 use App\Models\User;
 use App\Models\UserAudit;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
+    public function __construct(private LockActor $actors) {}
+
     public function index(Request $request)
     {
         Gate::authorize('viewAny', User::class);
@@ -110,6 +113,8 @@ class UserController extends Controller
         Gate::authorize('create', User::class);
         $data = $this->validated($request);
         DB::transaction(function () use ($request, $data) {
+            $actor = $this->actors->lock($request->user());
+            Gate::forUser($actor)->authorize('create', User::class);
             $user = User::create(collect($data)->except(['scope_ids', 'is_active'])->all());
             $user->is_active = (bool) $data['is_active'];
             $user->save();
@@ -125,7 +130,7 @@ class UserController extends Controller
         DB::transaction(function () use ($request, $target, $action, $change, $reason) {
             // Lock all active admins first, in a stable order, to protect concurrent changes.
             $admins = User::where('user_type', 'Administrador')->where('is_active', true)->orderBy('id')->lockForUpdate()->get();
-            $actor = User::findOrFail($request->user()->id);
+            $actor = $this->actors->lock($request->user());
             abort_unless($actor->isAdmin(), 403);
             $user = User::withTrashed()->whereKey($target->id)->lockForUpdate()->firstOrFail();
             Gate::forUser($actor)->authorize(match ($action) {
