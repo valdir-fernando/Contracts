@@ -13,6 +13,8 @@ class SecurityHeaders
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('Referrer-Policy', 'same-origin');
+        // Enforce compatible directives while Alpine's evaluator is still in use.
+        $response->headers->set('Content-Security-Policy', "base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'self'");
         if ($request->user()) {
             $response->headers->set('Cache-Control', 'private, no-store');
         }

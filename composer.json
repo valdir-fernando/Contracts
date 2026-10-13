@@ -18,6 +18,7 @@
         "laravel/pint": "^1.24",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.0"
     },
     "autoload": {
@@ -42,13 +43,17 @@
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
-        ]
+        ],
+        "check:static": "@php vendor/bin/phpstan analyse --no-progress --memory-limit=512M",
+        "test:coverage": "@php vendor/bin/phpunit --do-not-cache-result --coverage-clover=build/coverage/clover.xml --coverage-text"
     },
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
-        "allow-plugins": { "php-http/discovery": true }
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true

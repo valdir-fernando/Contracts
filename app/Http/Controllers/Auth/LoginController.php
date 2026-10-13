@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityEvent;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -30,14 +33,34 @@ class LoginController extends Controller
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages(['username' => 'Muitas tentativas. Tente novamente em '.RateLimiter::availableIn($key).' segundos.']);
         }
-        if (! Auth::attempt(['username' => $credentials['username'], 'password' => $credentials['password'], 'is_active' => true], $request->boolean('remember'))) {
-            ActivityEvent::create(['actor_id' => null, 'action' => 'login_failed', 'metadata' => [], 'created_at' => now()]);
-            RateLimiter::hit($key, 60);
+        try {
+            DB::transaction(function () use ($request, $credentials, $key) {
+                if (! Auth::attempt(['username' => $credentials['username'], 'password' => $credentials['password'], 'is_active' => true], $request->boolean('remember'))) {
+                    // Count failures even when recording the event is unavailable.
+                    RateLimiter::hit($key, 60);
+                    ActivityEvent::create(['actor_id' => null, 'action' => 'login_failed', 'metadata' => [], 'created_at' => now()]);
+
+                    return;
+                }
+                $user = User::whereKey(Auth::id())->lockForUpdate()->first();
+                if (! $user || ! $user->is_active || $user->session_version !== Auth::user()->session_version
+                    || ! Hash::check($credentials['password'], $user->password)) {
+                    RateLimiter::hit($key, 60);
+                    throw ValidationException::withMessages(['username' => 'Seu acesso foi atualizado. Entre novamente.']);
+                }
+                $user->forceFill(['last_login_at' => now()])->save();
+                ActivityEvent::create(['actor_id' => $user->id, 'action' => 'login', 'metadata' => [], 'created_at' => now()]);
+                Auth::setUser($user);
+            });
+        } catch (\Throwable $error) {
+            // Session/cookies are not rolled back with database writes.
+            $this->terminateSession($request, false);
+            throw $error;
+        }
+        if (! Auth::check()) {
             throw ValidationException::withMessages(['username' => 'Não foi possível entrar. Confira seu usuário e sua senha.']);
         }
         RateLimiter::clear($key);
-        Auth::user()->forceFill(['last_login_at' => now()])->save();
-        ActivityEvent::create(['actor_id' => Auth::id(), 'action' => 'login', 'metadata' => [], 'created_at' => now()]);
         $request->session()->regenerate();
         $request->session()->put('auth_version', Auth::user()->session_version);
 
@@ -46,11 +69,31 @@ class LoginController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        ActivityEvent::create(['actor_id' => Auth::id(), 'action' => 'logout', 'metadata' => [], 'created_at' => now()]);
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        try {
+            ActivityEvent::create(['actor_id' => Auth::id(), 'action' => 'logout', 'metadata' => [], 'created_at' => now()]);
+        } finally {
+            $this->terminateSession($request, true);
+        }
 
         return redirect()->route('login');
+    }
+
+    private function terminateSession(Request $request, bool $rotateRememberToken): void
+    {
+        try {
+            if ($rotateRememberToken) {
+                Auth::logout();
+            }
+        } finally {
+            // Also clears queued recaller cookies; no database write is needed here.
+            try {
+                if (! $rotateRememberToken || Auth::hasUser()) {
+                    Auth::logoutCurrentDevice();
+                }
+            } finally {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+        }
     }
 }

@@ -1,5 +1,7 @@
 name: Validate Contracts
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   application:
     runs-on: ubuntu-latest
@@ -20,7 +22,7 @@ jobs:
         with:
           php-version: '8.4'
           extensions: mbstring, intl, zip, bcmath, pdo_sqlite, pdo_mysql, gd, pcntl
-          coverage: none
+          coverage: pcov
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -28,11 +30,39 @@ jobs:
       - run: cp .env.example .env
       - run: mkdir -p storage/framework/views storage/framework/cache/data storage/framework/sessions storage/logs bootstrap/cache
       - run: composer install --no-interaction --prefer-dist
+      - name: Audit locked PHP dependencies (all severities)
+        run: composer audit --locked
       - run: vendor/bin/pint --test
+      - name: Static analysis of Domain and Application
+        run: composer check:static
       - name: Check architecture boundaries
         run: composer check:architecture
-      - run: npm ci && npm run build
-      - run: php artisan test
+      - run: npm ci
+      - name: Audit npm dependencies (including build tools)
+        run: |
+          audit_status=0
+          npm audit --audit-level=high --json > npm-audit.json || audit_status=$?
+          cat npm-audit.json
+          exit "$audit_status"
+      - name: Publish full npm advisory report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit
+          path: npm-audit.json
+          if-no-files-found: ignore
+      - run: npm run build
+      - name: SQLite tests with line coverage (no artificial threshold)
+        run: composer test:coverage
+      - name: Publish coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: build/coverage/clover.xml
+          if-no-files-found: ignore
+      - name: Validate backup isolation
+        run: python3 -m unittest discover -s tests/Operations -v
       - name: Test MySQL in isolated schema
         run: |
           python3 - <<'PYTHON'

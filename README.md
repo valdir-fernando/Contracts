@@ -65,3 +65,5 @@ curl.exe -s -o NUL -w "TTFB=%{time_starttransfer} total=%{time_total}\n" http://
 ```
 
 Documentação: https://laravel.com/docs/13.x
+
+A [revisão de segurança, CI e confiabilidade](docs/security-hardening-2026-10-12.md) registra o endurecimento de autenticação, CSP parcial, isolamento da verificação de backup, auditorias de dependências, análise estática e cobertura reproduzível.

@@ -1,0 +1,7 @@
+parameters:
+    level: 5
+    phpVersion: 80400
+    paths:
+        - app/Domain
+        - app/Application
+    tmpDir: /tmp/contracts-phpstan

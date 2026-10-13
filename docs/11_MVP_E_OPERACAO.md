@@ -64,7 +64,7 @@ Conciliação manual registra ator e evidência e confirma apenas o vínculo. El
 
 O backup reúne snapshot InnoDB, storage e configuração/chave em arquivo local restrito, com SHA-256. Retenção operacional padrão: 30 dias, configurável por `BACKUP_RETENTION_DAYS`; a retenção documental precisa ser homologada separadamente. Copie os arquivos para armazenamento seguro externo conforme a operação da instituição.
 
-O ensaio verifica checksums, restaura em schema novo, compara os INSERTs de todas as tabelas e recupera storage/configuração em diretório temporário. O schema temporário é removido ao final. Não modifica o banco aplicativo. Requer Python 3.12+ no host, pois a extração usa filtros de segurança do tarfile.
+O verificador confere checksums e restaura o SQL em um container MySQL 8.4 descartável, sem rede, portas publicadas ou volumes da instalação. Os dados ficam em tmpfs de 1 GiB. Compara os INSERTs de todas as tabelas e recupera storage/configuração em diretório temporário; container e diretório são removidos ao final, inclusive em falhas. Requer Docker, Bash e Python 3.12+ no host; a imagem MySQL precisa estar disponível. O limite de tmpfs deve ser dimensionado pelo operador para backups maiores. SQL de backup é código executável: um schema separado no mesmo servidor, usando root, não oferece isolamento suficiente.
 
 Para recuperação real em infraestrutura nova: pare tráfego e workers; restaure o SQL em banco vazio; recupere o diretório storage no volume; injete a chave e a configuração do backup; execute migrations da versão correspondente; valide `/ready`, acessos, contagens, vínculos e arquivos; então reabra tráfego. Nunca restaure com `migrate:fresh` sobre um banco de produção.
 
@@ -97,13 +97,13 @@ O comando retorna código diferente de zero quando banco/fila não estão acess�
 
 `contracts:prune-exports` roda a cada cinco minutos: expira metadados sem arquivo e marca gerações abandonadas como falhas após 960s. O usuário pode solicitar novamente pela tela de exportações. Não reaplique manualmente `pending` a registros antigos nem reexecute uma exportação expirada; uma nova solicitação tem novo registro/identidade. Tokens impedem resultados/callbacks antigos de substituir outra tentativa. Arquivos órfãos de morte abrupta ficam privados e são limpos após 24h. Execute o worker em modo daemon; `queue:work --once` não instala o handler de timeout usado nesse fluxo.
 
-Os scripts de backup/restauração fornecidos operam o banco do Compose local. Para o banco externo de produção, configure a rotina do provedor/operador e ensaie a recuperação com o mesmo conteúdo (banco, storage e chave).
+A coleta de backup opera o banco do Compose local; o verificador opera somente seu servidor descartável. Para o banco externo de produção, configure a rotina do provedor/operador e ensaie a recuperação com o mesmo conteúdo (banco, storage e chave).
 
 Antes de promover uma versão: faça backup, teste a restauração isolada, execute CI e valide a amostra histórica com a área. Rollback de código não reverte migrations automaticamente; mantenha migrations compatíveis e restore separado para recuperação.
 
 ## Verificação e limites de aceite
 
-Os testes usam dados fictícios, incluindo datas zeradas, moeda BR, duplicidades, concorrência, rollback da auditoria, escopos, mascaramento, exportações, fórmulas em CSV/XLSX, Livewire e história ambígua. A suíte inclui 0, 1, 100 e 2.145 registros nos testes de relatório. O arquivo de CI executa testes em SQLite e MySQL isolado, formatação e build.
+Os testes usam dados fictícios, incluindo datas zeradas, moeda BR, duplicidades, concorrência, rollback da auditoria, escopos, mascaramento, exportações, fórmulas em CSV/XLSX, Livewire e história ambígua. A suíte inclui 0, 1, 100 e 2.145 registros nos testes de relatório. O arquivo de CI executa testes em SQLite com cobertura de linhas e MySQL isolado, formatação, arquitetura, PHPStan do núcleo, build e auditorias de dependências. A [revisão de segurança e CI](security-hardening-2026-10-12.md) registra comandos, evidências e limitações.
 
 O script `scripts/browser-smoke.cjs` usa Playwright 1.58.2 e acessos gerados pelo comando de demonstração. Ele cria/edita/exclui/restaura um contrato fictício, testa downloads e isolamento do usuário e verifica largura móvel. Para repetir com o ambiente já iniciado:
 

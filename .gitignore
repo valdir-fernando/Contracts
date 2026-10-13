@@ -34,3 +34,6 @@
 /database/*.sqlite-*
 contracts-*.tar.gz
 /phpunit.mysql.xml
+
+/build/coverage/
+__pycache__/

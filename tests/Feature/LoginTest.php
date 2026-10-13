@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -67,6 +69,59 @@ class LoginTest extends TestCase
             ->assertSessionHasErrors('username');
         $this->assertStringStartsWith('Muitas tentativas.', session('errors')->first('username'));
         $this->assertGuest();
+    }
+
+    public function test_failed_login_audit_does_not_leave_an_authenticated_session(): void
+    {
+        $user = $this->createUser();
+        $this->failActivityWrites();
+        $this->post('/login', ['username' => $user->username, 'password' => 'SenhaSegura!123', 'remember' => '1'])->assertStatus(500);
+        $this->assertGuest();
+        $this->assertNull($user->fresh()->last_login_at);
+        $this->assertNull($user->fresh()->remember_token);
+        $this->get('/dashboard')->assertRedirect('/login');
+    }
+
+    public function test_failed_logout_audit_still_terminates_the_session(): void
+    {
+        $user = $this->createUser();
+        $this->post('/login', ['username' => $user->username, 'password' => 'SenhaSegura!123'])->assertRedirect('/dashboard');
+        $this->failActivityWrites();
+        $this->post('/logout')->assertStatus(500);
+        $this->assertGuest();
+        $this->assertFalse(session()->has('auth_version'));
+        $this->get('/dashboard')->assertRedirect('/login');
+    }
+
+    public function test_remember_token_storage_failure_still_terminates_logout(): void
+    {
+        $user = $this->createUser();
+        $this->post('/login', ['username' => $user->username, 'password' => 'SenhaSegura!123', 'remember' => '1'])->assertRedirect('/dashboard');
+        Event::listen('eloquent.saving: '.User::class, function () {
+            throw new \RuntimeException('Simulated remember token storage failure');
+        });
+        $this->post('/logout')->assertStatus(500);
+        $this->assertGuest();
+        $this->assertFalse(session()->has('auth_version'));
+        $this->get('/dashboard')->assertRedirect('/login');
+    }
+
+    public function test_failed_attempts_are_rate_limited_even_when_activity_storage_fails(): void
+    {
+        $this->failActivityWrites();
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post('/login', ['username' => 'TESTE', 'password' => 'incorreta'])->assertStatus(500);
+        }
+        $this->post('/login', ['username' => 'TESTE', 'password' => 'incorreta'])->assertSessionHasErrors('username');
+        $this->assertStringStartsWith('Muitas tentativas.', session('errors')->first('username'));
+        $this->assertGuest();
+    }
+
+    private function failActivityWrites(): void
+    {
+        Event::listen('eloquent.creating: '.ActivityEvent::class, function () {
+            throw new \RuntimeException('Simulated activity storage failure');
+        });
     }
 
     public function test_fields_are_validated(): void
