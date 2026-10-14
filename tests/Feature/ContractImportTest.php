@@ -13,6 +13,7 @@ use App\Services\Legacy\Normalizer;
 use App\Services\Legacy\SqlDumpReader;
 use App\Support\ContractFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -135,5 +136,19 @@ class ContractImportTest extends TestCase
         $this->assertSame('2024-02-29', Normalizer::date('2024-02-29'));
         $this->assertTrue(Normalizer::validDocument('11222333000181'));
         $this->assertFalse(Normalizer::validDocument('11111111111'));
+    }
+
+    public function test_import_preserves_conflicting_source_without_reusing_a_generated_number(): void
+    {
+        $fund = DB::table('contract_funds')->insertGetId(['legacy_id' => 1, 'name' => 'Fundo A', 'name_key' => 'FUNDO A',
+            'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
+        $native = Contract::create(['fund_id' => $fund, 'numero' => '019/26', 'number_year' => 2026, 'number_sequence' => 19, 'quality_issues' => []]);
+        $path = $this->dump(['Fundo' => 'Fundo A', 'CNPJ_Fundo' => '11222333000181']);
+        $run = app(ContractImporter::class)->import($path);
+        $this->assertSame(1, $run->rejected_count);
+        $this->assertDatabaseCount('contracts', 1);
+        $this->assertSame('019/26', $native->fresh()->numero);
+        $this->assertDatabaseHas('legacy_records', ['source_table' => 'TB_Contratos', 'status' => 'conflict']);
+        $this->assertDatabaseHas('import_issues', ['code' => 'allocated_number_collision']);
     }
 }

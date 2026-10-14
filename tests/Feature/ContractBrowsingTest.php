@@ -106,6 +106,34 @@ class ContractBrowsingTest extends TestCase
         $this->get('/contracts/'.$allowed->id)->assertForbidden();
     }
 
+    public function test_current_contracts_can_be_filtered_by_type_in_primary_filters_with_scope_preserved(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo autorizado');
+        $otherFund = $this->catalog('contract_funds', 'Fundo restrito');
+        $scope = AccessScope::create(['scope_key' => hash('sha256', 'type-filter'),
+            'fund' => 'Fundo autorizado', 'fund_id' => $fund]);
+        $user = $this->user(false);
+        $user->scopes()->attach($scope);
+        $allowed = $this->contract(['fund_id' => $fund, 'tipo' => 'Serviços']);
+        $this->contract(['fund_id' => $fund, 'tipo' => 'Compras']);
+        $this->contract(['fund_id' => $fund, 'tipo' => 'Serviços', 'vigencia_fim_original' => '2026-09-30']);
+        $this->contract(['fund_id' => $otherFund, 'tipo' => 'Serviços']);
+        $this->contract(['fund_id' => $otherFund, 'tipo' => 'Tipo restrito']);
+
+        $response = $this->actingAs($user)->get('/contracts?'.http_build_query([
+            'validity' => 'vigente', 'type' => 'Serviços', 'fund' => $fund, 'year' => 2026,
+        ]))->assertOk()->assertSee('Contratos vigentes')
+            ->assertSeeInOrder(['for="type"', 'Pesquisa avançada'], false)
+            ->assertSee('value="Serviços" selected', false)
+            ->assertDontSee('Tipo restrito')
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $allowed->id);
+        $this->assertSame(1, substr_count($response->getContent(), 'name="type"'));
+        $this->get('/contracts?'.http_build_query(['validity' => 'vigente', 'fund' => $fund, 'year' => 2026]))
+            ->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 2);
+        $this->get('/contracts?'.http_build_query(['validity' => 'vigente', 'type' => 'Tipo restrito']))
+            ->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 0);
+    }
+
     public function test_detail_renders_all_fields_masks_personal_documents_and_escapes_source_text(): void
     {
         $fund = $this->catalog('contract_funds', 'Fundo A');
@@ -172,10 +200,11 @@ class ContractBrowsingTest extends TestCase
         $deleted = $this->contract(['numero' => 'DELETED', 'fund_id' => $fund, 'vigencia_em_revisao' => true]);
         $deleted->delete();
         $admin = $this->user();
+        $this->withSession(['fund_id' => $fund]);
         Livewire::actingAs($admin)->test(Overview::class)->assertViewHas('count', 5)->assertViewHas('expired', 1)->assertViewHas('review', 3)
-            ->assertSee(route('contracts.index', ['validity' => 'vigente']), false)
-            ->assertSee(route('contracts.index', ['validity' => 'vencido']), false)
-            ->assertSee(route('contracts.index', ['review' => 1]), false);
+            ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'validity' => 'vigente']))
+            ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'validity' => 'vencido']))
+            ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'review' => 1]));
         $this->actingAs($admin)->get('/contracts?review=1')->assertOk()
             ->assertViewHas('contracts', fn ($rows) => $rows->total() === 3 && $rows->pluck('id')->sort()->values()->all() === collect([$review->id, $unresolved->id, $both->id])->sort()->values()->all());
         $this->get('/contracts?validity=vigente')->assertViewHas('contracts', fn ($rows) => $rows->total() === 2 && $rows->contains('id', $current->id));

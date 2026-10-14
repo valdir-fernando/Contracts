@@ -117,7 +117,8 @@ class HistoryAndOperationsTest extends TestCase
     public function test_livewire_search_enforces_current_scope_and_active_account(): void
     {
         Contract::create(['numero' => 'SECRET', 'quality_issues' => []]);
-        Livewire::actingAs($this->regular)->test(Overview::class)->assertSee('001/26')->assertDontSee('SECRET')
+        $this->withSession(['fund_id' => $this->contract->fund_id]);
+        Livewire::actingAs($this->regular)->withQueryParams(['year' => 'all'])->test(Overview::class)->assertSee('001/26')->assertDontSee('SECRET')
             ->set('search', 'SECRET')->assertDontSee('001/26')->assertSee('Nenhum contrato encontrado');
         $this->regular->scopes()->detach();
         Livewire::actingAs($this->regular)->test(Overview::class)->assertDontSee('001/26');

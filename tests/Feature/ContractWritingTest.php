@@ -55,6 +55,53 @@ class ContractWritingTest extends TestCase
         return $user;
     }
 
+    public function test_heading_shows_generated_number_after_save_and_supplier_and_instructions_are_positioned(): void
+    {
+        $this->withSession(['fund_id' => $this->fund])->get('/contracts/create')->assertOk()->assertSee('Gerado ao salvar')
+            ->assertSeeInOrder(['selected-fund-name', 'fund-header-back', 'session-fund', 'contract-context-heading'], false)
+            ->assertSee('aria-label="Resumo do contrato e fornecedor"', false)
+            ->assertSee('data-contract-summary-field="fornecedor_nome_snapshot"', false)
+            ->assertSeeInOrder(['Alterar Fundo', 'contract-context-heading', '<h1>Novo contrato', 'Não informado', 'Selecionar fornecedor cadastrado'], false)
+            ->assertSeeInOrder(['Preencha as seções abaixo.', 'Órgão e situação administrativa', 'data-editor-section="1"', 'for="fornecedor_documento_snapshot"', 'field-label-divider', 'Selecionar fornecedor cadastrado', 'id="fornecedor_documento_snapshot"'], false);
+        $this->post('/contracts', $this->data(['end_fornec' => 'Rua do fornecedor']))->assertRedirect()->assertSessionHas('contract_created', true);
+        $contract = Contract::firstOrFail();
+        foreach (['/contracts/'.$contract->id, '/contracts/'.$contract->id.'/edit'] as $url) {
+            $response = $this->get($url)->assertOk()->assertSee('Rua do fornecedor')
+                ->assertSeeInOrder(['Alterar Fundo', 'contract-number-highlight', 'Fornecedor fictício'], false);
+            $this->assertStringContainsString('<strong class="contract-number-highlight">'.$contract->numero.'</strong>', $response->getContent());
+            $heading = str_ends_with($url, '/edit') ? 'Editar contrato' : 'Novo contrato';
+            $response->assertSee('<h1>'.$heading.' <strong class="contract-number-highlight">', false);
+        }
+    }
+
+    public function test_heading_shows_only_supplier_name_and_escapes_it(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data([
+            'fornecedor_nome_snapshot' => '<script>Fornecedor</script>', 'rg_fornec' => 'RG-PRIVADO', 'cpf_socio' => '52998224725',
+        ]));
+        $this->actingAs($this->regular());
+        $html = $this->blade('<x-contract-summary :contract="$contract" :editable="true"/>', ['contract' => $contract]);
+        $html->assertSee('&lt;script&gt;Fornecedor&lt;/script&gt;', false)->assertDontSee('<script>Fornecedor</script>', false)
+            ->assertDontSee('RG-PRIVADO')->assertDontSee('52998224725')->assertDontSee('data-contract-summary-field="cpf_socio"', false);
+    }
+
+    public function test_document_icons_explain_save_requirement_and_pending_templates_without_submitting_contract(): void
+    {
+        $response = $this->get('/contracts/create')->assertOk()
+            ->assertSeeInOrder(['Emissão de documentos do contrato', 'Órgão e situação administrativa'])
+            ->assertSee('data-document-state="save-required"', false);
+        foreach (['Contrato', 'Extrato', 'Publicação', 'Distrato'] as $label) {
+            $response->assertSee('aria-label="Emitir '.$label.'"', false)
+                ->assertSee('Salve o contrato antes de emitir '.$label.'.');
+        }
+        $this->assertSame(4, substr_count($response->getContent(), 'type="button" class="document-action"'));
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('data-document-state="model-pending"', false)
+            ->assertSee('A emissão de Contrato depende da configuração do modelo desse documento.')
+            ->assertDontSee('Salve o contrato antes de emitir');
+    }
+
     public function test_create_renders_sections_and_persists_native_contract_and_audit(): void
     {
         $this->get('/contracts/create')->assertOk()->assertSee('Novo contrato')->assertSee('Dados do veículo')->assertSee('Motivo do distrato');
@@ -173,20 +220,21 @@ class ContractWritingTest extends TestCase
         $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'legacy_id' => 999, 'reason' => 'Tentativa de alterar origem'])->assertSessionHasErrors('legacy_id');
     }
 
-    public function test_duplicate_requires_confirmation_then_is_allowed_with_warning_and_actor_cannot_be_forged(): void
+    public function test_repeated_forms_receive_distinct_generated_numbers_and_actor_cannot_be_forged(): void
     {
-        app(ContractWriter::class)->save($this->admin, $this->data());
-        $this->from('/contracts/create')->post('/contracts', $this->data())->assertRedirect('/contracts/create')->assertSessionHasErrors('duplicate_confirmation');
+        $first = app(ContractWriter::class)->save($this->admin, $this->data());
         $this->assertDatabaseCount('contracts', 1);
         $this->assertDatabaseCount('contract_audits', 1);
-        $this->get('/contracts/create')->assertSee('name="duplicate_confirmation"', false);
         $this->post('/contracts', $this->data(['duplicate_confirmation' => '1', 'created_by' => 999, 'updated_by' => 999, 'ownership_resolved' => false]))
-            ->assertRedirect()->assertSessionHas('warning');
+            ->assertRedirect()->assertSessionMissing('warning');
         $contract = Contract::latest('id')->firstOrFail();
+        $this->assertNotSame($first->numero, $contract->numero);
+        $this->assertSame(2, $contract->number_sequence);
+        $this->assertSame('2', $contract->cont_inteiro);
         $this->assertSame($this->admin->id, $contract->created_by);
         $this->assertTrue($contract->ownership_resolved);
         $this->assertDatabaseCount('contracts', 2);
-        $this->assertTrue(ContractAudit::latest('id')->first()->changes['duplicate_confirmation']['after']);
+        $this->assertArrayNotHasKey('duplicate_confirmation', ContractAudit::latest('id')->first()->changes);
     }
 
     public function test_preventive_duplicate_check_does_not_block_distinct_processes_or_expose_other_departments(): void

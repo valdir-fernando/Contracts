@@ -64,6 +64,9 @@ final readonly class ContractState
 
     public function exercise(): ?int
     {
+        if ($this->get('number_year') !== null) {
+            return (int) $this->get('number_year');
+        }
         if (preg_match('~/([0-9]{2}|[0-9]{4})$~D', trim($this->get('numero') ?? ''), $match)) {
             return strlen($match[1]) === 2 ? 2000 + (int) $match[1] : (int) $match[1];
         }

@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
   const base = process.env.CONTRACTS_URL || 'http://127.0.0.1:8000';
   async function login(account) {
     await page.goto(base + '/login');
+    await page.locator('[name=fund_id]').selectOption(String(account.fund_id || process.env.CONTRACTS_FUND_ID || await page.locator('[name=fund_id] option[value]:not([value=""])').first().getAttribute('value')));
     await page.locator('[name=username]').fill(account.username);
     await page.locator('[name=password]').fill(account.password);
     await Promise.all([page.waitForURL('**/dashboard'), page.locator('[data-submit-button]').click()]);
@@ -44,17 +45,19 @@ const assert = require('node:assert/strict');
   await page.goto(base + '/suppliers?q=' + marker);
   await page.getByRole('link', {name:'Usar no novo contrato', exact:true}).click();
   await page.locator('[name=fund_id]').selectOption({ label: 'Fundo de demonstração' });
-  for (const [name, value] of Object.entries({numero: marker, processo: marker, objeto:'Objeto sintético de validação de ponta a ponta', tipo:marker, data_contrato:'2026-10-10', vigencia_inicio:'2026-10-10', vigencia_fim_original:'2027-10-10', valor_total:'1.908,6300'})) {
+  for (const [name, value] of Object.entries({processo: marker, objeto:'Objeto sintético de validação de ponta a ponta', tipo:marker, data_contrato:'2026-10-10', vigencia_inicio:'2026-10-10', vigencia_fim_original:'2027-10-10', valor_total:'1.908,6300'})) {
     await page.locator(`[name=${name}]`).fill(value);
   }
   await page.locator('[name=fornecedor_documento_snapshot]').focus();
   await page.locator('[name=objeto]').focus();
+  await page.waitForFunction(() => document.querySelector('[data-supplier-lookup-status]')?.textContent.includes('Dados do fornecedor preenchidos'));
   assert.match(await page.locator('[name=fornecedor_documento_snapshot]').inputValue(), /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/);
   await Promise.all([page.waitForNavigation(), page.getByRole('button', {name:'Salvar contrato', exact:true}).click()]);
   assert((await page.locator('body').innerText()).includes('Confira os dados informados.'));
   await page.locator('[name=local_servico]').fill('Local fictício de execução');
   await Promise.all([page.waitForURL(/\/contracts\/\d+$/), page.getByRole('button', { name: 'Salvar contrato', exact: true }).click()]);
   const detail = page.url();
+  const savedNumber = (await page.locator('.contract-context-heading h1').innerText()).replace(/^(?:Novo contrato|Contrato)\s+/, '');
   assert((await page.locator('body').innerText()).includes('Contrato cadastrado.'));
   await page.getByRole('link', { name: 'Editar contrato', exact: true }).click();
   await page.locator('[name=objeto]').fill('Objeto ajustado pelo navegador');
@@ -62,12 +65,12 @@ const assert = require('node:assert/strict');
   await Promise.all([page.waitForURL(detail), page.getByRole('button', { name: 'Salvar contrato', exact: true }).click()]);
   await page.locator('.detail-disclosure').evaluateAll(sections => sections.forEach(section => { section.open = true; }));
   assert((await page.locator('body').innerText()).includes('Objeto ajustado pelo navegador'));
-  await page.locator('[name=confirmation]').fill(marker);
+  await page.locator('[name=confirmation]').fill(savedNumber);
   await page.locator('[name=reason]').fill('Validação da exclusão pelo navegador');
   await Promise.all([page.waitForURL(base + '/contracts'), page.getByRole('button', { name: 'Confirmar exclusão', exact: true }).click()]);
   await page.goto(base + '/contracts?deleted=1');
   const row = page.getByRole('row').filter({hasText:marker});
-  await row.locator('[name=confirmation]').fill(marker);
+  await row.locator('[name=confirmation]').fill(savedNumber);
   await row.locator('[name=reason]').fill('Validação da restauração pelo navegador');
   await Promise.all([page.waitForURL(detail), row.getByRole('button', {name:'Restaurar', exact:true}).click()]);
   const uploadForm = page.locator('form[enctype="multipart/form-data"]');

@@ -6,6 +6,7 @@ use App\Models\AccessScope;
 use App\Models\User;
 use App\Models\UserAudit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -127,7 +128,10 @@ class UserManagementTest extends TestCase
         $this->assertStringNotContainsString('OutraSenha', UserAudit::first()->toJson());
         $this->actingAs($user->fresh())->withSession(['auth_version' => 0])->get('/dashboard')->assertRedirect('/login');
         $this->assertGuest();
-        $this->post('/login', ['username' => 'REGULAR', 'password' => 'OutraSenha!12345'])->assertRedirect('/dashboard');
+        $fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo de login', 'name_key' => 'FUNDO DE LOGIN', 'raw_payload' => '{}']);
+        $scope = AccessScope::create(['scope_key' => 'login-reset', 'fund_id' => $fund, 'fund' => 'Fundo de login']);
+        $user->scopes()->attach($scope);
+        $this->post('/login', ['fund_id' => $fund, 'username' => 'REGULAR', 'password' => 'OutraSenha!12345'])->assertRedirect('/dashboard');
         $this->get('/dashboard')->assertOk();
     }
 

@@ -7,6 +7,7 @@ use App\Application\Contracts\ChangeContractLifecycle;
 use App\Application\Contracts\Ports\ContractAccess;
 use App\Application\Contracts\Ports\ContractCatalog;
 use App\Application\Contracts\Ports\ContractInputValidator;
+use App\Application\Contracts\Ports\ContractNumbering;
 use App\Application\Contracts\Ports\ContractStore;
 use App\Application\Contracts\SaveContract;
 use App\Application\Contracts\ValidatedContractInput;
@@ -15,6 +16,7 @@ use App\Application\Exceptions\ConcurrencyConflict;
 use App\Application\Exceptions\InputRejected;
 use App\Application\Ports\TransactionManager;
 use App\Application\Security\ActorIdentity;
+use App\Domain\Contracts\ContractNumber;
 use App\Domain\Contracts\ContractState;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -33,7 +35,7 @@ class ContractUseCasesTest extends TestCase
 
     private function save(InMemoryContractPorts $ports): SaveContract
     {
-        return new SaveContract($ports, $ports, $ports, $ports, $ports);
+        return new SaveContract($ports, $ports, $ports, $ports, $ports, $ports);
     }
 
     public function test_creation_authorizes_and_validates_inside_transaction_then_audits_with_current_actor(): void
@@ -41,7 +43,7 @@ class ContractUseCasesTest extends TestCase
         $ports = $this->ports();
         $ports->fields = ['objeto' => 'Novo objeto'];
         $this->assertSame(101, $this->save($ports)->execute(new ActorIdentity(5, 2), ['fund_id' => 1, 'created_by' => 999])->id);
-        $this->assertSame(['begin', 'authorize:create', 'validate', 'destination', 'ownership', 'supplier', 'duplicate', 'save', 'commit'], $ports->events);
+        $this->assertSame(['begin', 'authorize:create', 'validate', 'destination', 'ownership', 'supplier', 'number', 'duplicate', 'save', 'commit'], $ports->events);
         $this->assertSame(5, $ports->saved->get('created_by'));
         $this->assertSame(5, $ports->saved->get('updated_by'));
         $this->assertSame('Fundo confiável', $ports->saved->get('fundo_nome_snapshot'));
@@ -164,7 +166,7 @@ class ContractUseCasesTest extends TestCase
 }
 
 /** Test-only ports: no Laravel boot, ORM, facades, HTTP or database. */
-final class InMemoryContractPorts implements ContractAccess, ContractCatalog, ContractInputValidator, ContractStore, TransactionManager
+final class InMemoryContractPorts implements ContractAccess, ContractCatalog, ContractInputValidator, ContractNumbering, ContractStore, TransactionManager
 {
     public array $events = [];
 
@@ -182,6 +184,8 @@ final class InMemoryContractPorts implements ContractAccess, ContractCatalog, Co
 
     public bool $failOnSave = false;
 
+    public int $lastNumber = 0;
+
     public ?ContractState $saved = null;
 
     public ?bool $restored = null;
@@ -191,6 +195,7 @@ final class InMemoryContractPorts implements ContractAccess, ContractCatalog, Co
     public function run(callable $operation): mixed
     {
         $before = $this->saved;
+        $beforeNumber = $this->lastNumber;
         $this->events[] = 'begin';
         $this->active = true;
         try {
@@ -200,6 +205,7 @@ final class InMemoryContractPorts implements ContractAccess, ContractCatalog, Co
             return $result;
         } catch (Throwable $error) {
             $this->saved = $before;
+            $this->lastNumber = $beforeNumber;
             $this->events[] = 'rollback';
             throw $error;
         } finally {
@@ -270,6 +276,16 @@ final class InMemoryContractPorts implements ContractAccess, ContractCatalog, Co
         $this->events[] = 'duplicate';
 
         return $this->duplicate;
+    }
+
+    public function nextNumber(AuthorizedContract $context, int $fundId): ContractNumber
+    {
+        if (! $this->active) {
+            throw new RuntimeException('Missing transaction');
+        }
+        $this->events[] = 'number';
+
+        return new ContractNumber(++$this->lastNumber, 2026);
     }
 
     public function save(AuthorizedContract $context, ContractState $contract, ?string $reason, bool $duplicateConfirmed): ContractState

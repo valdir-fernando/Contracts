@@ -26,7 +26,7 @@ final class LaravelContractInputValidator implements ContractInputValidator
             'version' => $updating ? 'required|integer|min:1' : 'prohibited',
             'administrative_status' => ['sometimes', Rule::in(array_keys(Contract::STATUSES))],
             'reason' => $updating ? 'required|string|min:5|max:1000' : 'nullable|string|max:1000',
-            'duplicate_confirmation' => 'sometimes|boolean'];
+            'duplicate_confirmation' => 'sometimes|boolean', 'number_year' => 'prohibited', 'number_sequence' => 'prohibited'];
         $required = ['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot', 'objeto',
             'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total'];
         $type = $input['tipo'] ?? $contract->tipo;
@@ -36,6 +36,15 @@ final class LaravelContractInputValidator implements ContractInputValidator
         $writable = [];
         foreach (ContractFields::MAP as $definition) {
             $column = $definition['column'];
+            if (in_array($column, ContractFields::GENERATED) && (! $updating || $contract->number_sequence !== null)) {
+                // Old clients may still submit these controls; they never enter the writable patch.
+                $rules[$column] = 'sometimes|nullable|string|max:15000';
+                if ($updating && array_key_exists($column, $input) && $input[$column] !== $contract->$column) {
+                    throw new InputRejected([$column => 'Este campo é gerado automaticamente e não pode ser alterado.']);
+                }
+
+                continue;
+            }
             if (in_array($column, ContractFields::DERIVED)) {
                 $rules[$column] = 'prohibited';
 

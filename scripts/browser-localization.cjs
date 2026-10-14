@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
   page.on('pageerror', error => errors.push(error.message));
   try {
     await page.goto(base + '/login');
+    await page.locator('[name=fund_id]').selectOption(String(access.admin.fund_id || process.env.CONTRACTS_FUND_ID || await page.locator('[name=fund_id] option[value]:not([value=""])').first().getAttribute('value')));
     await page.locator('[name=username]').fill(access.admin.username);
     await page.locator('[name=password]').fill(access.admin.password);
     await Promise.all([page.waitForURL('**/dashboard'), page.locator('[data-submit-button]').click()]);

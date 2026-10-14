@@ -51,6 +51,7 @@ jobs:
           name: npm-audit
           path: npm-audit.json
           if-no-files-found: ignore
+      - run: npm test
       - run: npm run build
       - name: SQLite tests with line coverage (no artificial threshold)
         run: composer test:coverage
@@ -64,6 +65,8 @@ jobs:
       - name: Validate backup isolation
         run: python3 -m unittest discover -s tests/Operations -v
       - name: Test MySQL in isolated schema
+        env:
+          CONTRACTS_ISOLATED_MYSQL_TESTS: '1'
         run: |
           python3 - <<'PYTHON'
           import xml.etree.ElementTree as ET

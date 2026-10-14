@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Application\Contracts\AuthorizedContract;
 use App\Application\Contracts\Ports\ContractAccess;
+use App\Application\Contracts\Ports\ContractNumbering;
 use App\Application\Contracts\Ports\ContractStore;
 use App\Application\Contracts\SaveContract;
 use App\Application\Exceptions\AccessDenied;
@@ -62,7 +63,7 @@ class ContractArchitectureIntegrationTest extends TestCase
 
     public static function mutationOperations(): array
     {
-        return [['access'], ['actor'], ['save'], ['duplicate'], ['lifecycle'], ['destination']];
+        return [['access'], ['actor'], ['save'], ['duplicate'], ['lifecycle'], ['destination'], ['numbering']];
     }
 
     #[DataProvider('mutationOperations')]
@@ -80,6 +81,7 @@ class ContractArchitectureIntegrationTest extends TestCase
             'save' => $store->save($context, $context->contract, 'Correção', false),
             'duplicate' => $store->hasDuplicate($context, $context->contract),
             'lifecycle' => $store->changeLifecycle($context, false, 'Exclusão'),
+            'numbering' => app(ContractNumbering::class)->nextNumber($context, 1),
         };
     }
 

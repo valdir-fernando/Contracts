@@ -5,11 +5,13 @@ namespace App\Providers;
 use App\Application\Contracts\Ports\ContractAccess;
 use App\Application\Contracts\Ports\ContractCatalog;
 use App\Application\Contracts\Ports\ContractInputValidator;
+use App\Application\Contracts\Ports\ContractNumbering;
 use App\Application\Contracts\Ports\ContractStore;
 use App\Application\Ports\TransactionManager;
 use App\Http\Middleware\EnsureActiveUser;
 use App\Infrastructure\Contracts\EloquentContractAccess;
 use App\Infrastructure\Contracts\EloquentContractCatalog;
+use App\Infrastructure\Contracts\EloquentContractNumbering;
 use App\Infrastructure\Contracts\EloquentContractStore;
 use App\Infrastructure\Contracts\LaravelContractInputValidator;
 use App\Infrastructure\Operations\ProcessHeartbeat;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ContractInputValidator::class, LaravelContractInputValidator::class);
         $this->app->bind(ContractCatalog::class, EloquentContractCatalog::class);
         $this->app->bind(ContractStore::class, EloquentContractStore::class);
+        $this->app->bind(ContractNumbering::class, EloquentContractNumbering::class);
     }
 
     public function boot(ProcessHeartbeat $heartbeat): void

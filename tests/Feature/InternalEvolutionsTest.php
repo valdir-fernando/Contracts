@@ -169,7 +169,7 @@ class InternalEvolutionsTest extends TestCase
         $this->assertSame(0, array_sum(array_column($metrics['months'], 'count')));
         $this->assertSame(1, collect($metrics['validities'])->firstWhere('key', 'em_revisao')['count']);
         $this->actingAs($this->user);
-        $this->get('/dashboard')->assertOk()->assertSee('Distribuição e vencimentos')->assertSee('meter', false);
+        $this->withSession(['fund_id' => $this->contract->fund_id])->get('/dashboard?year=all')->assertOk()->assertSee('Distribuição e vencimentos')->assertSee('meter', false);
         $this->user->scopes()->detach();
         $this->assertSame(0, app(OverviewMetrics::class)->for($this->user)['summary']['count']);
     }

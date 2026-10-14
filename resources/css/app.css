@@ -73,6 +73,39 @@ p { margin-block: 0 16px; }
 .workspace-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 77px; margin-bottom: 32px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; }
 .workspace-top > span { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .workspace-top strong { color: #34465f; font-weight: 550; }
+.workspace-top { container-type: inline-size; }
+.workspace-top.workspace-top-compact { margin-bottom: 8px; }
+.fund-header-group { flex: 1; min-width: 0; padding-block: 10px; }
+.fund-header-group > span { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 13px; min-width: 0; }
+.fund-header-back { display: inline-block; margin-top: 2px; }
+[data-contract-editor] > .workspace-top { margin-bottom: 4px; }
+[data-contract-editor] > .contract-context-row { margin-bottom: 4px; padding-block: 4px; }
+[data-contract-editor] .contract-form-introduction { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; margin-bottom: 6px; }
+@media (max-width: 650px) { [data-contract-editor] .contract-form-introduction { grid-template-columns: minmax(0, 1fr); } }
+.contract-context-row { display: flex; align-items: center; gap: 24px; position: sticky; top: 0; z-index: 6; margin-bottom: 16px; padding-block: 10px; background: var(--canvas); }
+.contract-context-row > .fund-session-form { flex: 1; min-width: 0; margin-bottom: 0; }
+.contract-context-heading { flex: 0 1 45%; min-width: 0; text-align: right; }
+.contract-context-heading h1 { margin: 0; font-size: clamp(30px, 3vw, 44px); font-weight: 800; line-height: 1.2; color: var(--nav); overflow-wrap: anywhere; }
+.contract-number-highlight { font-weight: inherit; }
+.contract-context-heading .contract-heading-supplier { margin: 4px 0 0; font-size: clamp(20px, 2vw, 28px); font-weight: 750; color: var(--nav); line-height: 1.3; overflow-wrap: anywhere; }
+@media (max-width: 650px) { .contract-context-row { flex-wrap: wrap; position: static; } .contract-context-row > .fund-session-form, .contract-context-heading { flex-basis: 100%; } }
+.contract-form-introduction { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 10px; }
+.contract-form-introduction > div > p { margin: 0 0 4px; }
+.field-label-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 7px; }
+.field-label-row > label { margin-bottom: 0; }
+.field-label-divider { color: var(--muted); }
+.contract-document-actions { margin-left: auto; max-width: 100%; }
+.contract-document-actions nav { display: flex; justify-content: end; flex-wrap: wrap; gap: 8px; }
+.document-action { position: relative; display: grid; justify-items: center; gap: 5px; min-width: 70px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: white; color: var(--nav); font-size: 11px; font-weight: 650; transition: transform .15s, background-color .15s, box-shadow .15s; }
+.document-action > svg { width: 25px; height: 25px; }
+.document-action:hover, .document-action:focus-visible { transform: translateY(-3px); background: #eaf1fc; box-shadow: 0 5px 14px #172b4918; }
+.document-action:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.document-action-tooltip { position: absolute; z-index: 10; right: 0; top: calc(100% + 8px); width: min(230px, 75vw); padding: 10px 12px; border-radius: 8px; background: var(--nav); color: white; text-align: left; font-size: 12px; line-height: 1.5; font-weight: 400; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.document-action:hover .document-action-tooltip, .document-action:focus-visible .document-action-tooltip { visibility: visible; opacity: 1; }
+.document-action-message { max-width: 46ch; margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .document-action, .document-action-tooltip { transition: none; } .document-action:hover, .document-action:focus-visible { transform: none; } }
+.workspace-top > .fund-breadcrumb { flex: 1; flex-wrap: wrap; row-gap: 4px; padding-block: 14px; }
+.workspace-top .selected-fund-name { min-width: 0; max-width: 100%; font-size: clamp(1.125rem, 0.8rem + 1.5vw, 1.875rem); font-size: clamp(1.125rem, 0.8rem + 2cqi, 1.875rem); font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
 .breadcrumb-divider { color: #aab2c2; }
 .topbar-account { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
 .topbar-account .account-avatar { background: #eaf1fc; color: var(--primary); width: 30px; height: 30px; text-decoration: none; }
@@ -219,6 +252,12 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 
 /* Overview: real metrics, compact charts and next deadlines */
 .overview-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; margin-bottom: 24px; }
+.overview-year-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; margin-bottom: 24px; }
+.fund-session-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 24px; }
+.fund-session-form .field { width: min(100%, 420px); margin-bottom: 0; }
+.fund-session-form select, .fund-session-form > button { height: var(--control-height); }
+.overview-year-filter .field { width: min(100%, 240px); }
+.overview-year-filter > .hint { margin: 0; padding-bottom: 10px; }
 .kpi-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 13px; padding: 20px; background: white; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
 .kpi-card > span { align-self: center; color: #5e708b; font-size: 12px; font-weight: 550; }
 .kpi-icon { display: grid; place-items: center; width: 33px; height: 33px; background: #edf3fd; color: var(--primary); border-radius: 8px; }

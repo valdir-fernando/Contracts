@@ -16,14 +16,25 @@
         $donut = $count ? 'conic-gradient('.implode(', ', $stops).')' : '#e5ebf4';
         $maxMonth = max(1, collect($metrics['months'])->max('count'));
     @endphp
-    <div class="overview-kpis" aria-label="Indicadores dos órgãos autorizados">
-        <a class="kpi-card" data-kpi="all" href="{{ route('contracts.index') }}" aria-label="Ver todos os {{ $count }} contratos cadastrados"><span>Contratos cadastrados</span><div class="kpi-icon"><x-nav-icon name="contracts"/></div><strong data-count-up="{{ $count }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($count, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($count, 0, ',', '.') }}</span></strong><small>No seu escopo atual <x-nav-icon name="arrow"/></small></a>
-        <a class="kpi-card kpi-success" data-kpi="current" href="{{ route('contracts.index', ['validity' => 'vigente']) }}" aria-label="Ver {{ $current }} contratos vigentes"><span>Vigentes</span><div class="kpi-icon"><x-nav-icon name="check"/></div><strong data-count-up="{{ $current }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($current, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($current, 0, ',', '.') }}</span></strong><small>Com vigência conhecida <x-nav-icon name="arrow"/></small></a>
-        <a class="kpi-card kpi-danger" data-kpi="expired" href="{{ route('contracts.index', ['validity' => 'vencido']) }}" aria-label="Ver {{ $expired }} contratos vencidos"><span>Vencidos</span><div class="kpi-icon"><x-nav-icon name="clock"/></div><strong data-count-up="{{ $expired }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($expired, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($expired, 0, ',', '.') }}</span></strong><small>Em {{ today()->format('d/m/Y') }} <x-nav-icon name="arrow"/></small></a>
-        <a class="kpi-card kpi-warning" data-kpi="review" href="{{ route('contracts.index', ['review' => 1]) }}" aria-label="Ver {{ $review }} contratos em revisão"><span>Em revisão</span><div class="kpi-icon"><x-nav-icon name="warning"/></div><strong data-count-up="{{ $review }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($review, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($review, 0, ',', '.') }}</span></strong><small>Vigências ou órgãos <x-nav-icon name="arrow"/></small></a>
+    @unless($hasSelectedFund)<p class="notice" role="status">Selecione um Fundo acima para visualizar seus contratos e indicadores.</p>@endunless
+    @if($hasSelectedFund)
+    <div class="overview-year-filter">
+        <div class="field"><label for="overview-year">Ano dos contratos</label><select id="overview-year" wire:model.live="year">
+            @foreach($years as $option)<option value="{{ $option }}">{{ $option }}{{ $option === $currentYear ? ' (ano atual)' : '' }}</option>@endforeach
+            <option value="all">Todos os anos</option>
+        </select></div>
+        <p class="hint">{{ $year === 'all' ? 'Todos os exercícios, incluindo contratos sem ano informado.' : 'Indicadores e contratos do exercício '.$year.'.' }}</p>
+        <span class="hint" wire:loading wire:target="year" role="status">Atualizando o ano…</span>
+        @error('year')<p class="field-error" role="alert">{{ $message }}</p>@enderror
+    </div>
+    <div class="overview-kpis" aria-label="Indicadores do Fundo selecionado">
+        <a class="kpi-card" data-kpi="all" href="{{ route('contracts.index', $yearFilters) }}" aria-label="Ver todos os {{ $count }} contratos cadastrados"><span>Contratos cadastrados</span><div class="kpi-icon"><x-nav-icon name="contracts"/></div><strong data-count-up="{{ $count }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($count, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($count, 0, ',', '.') }}</span></strong><small>No seu escopo atual <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card kpi-success" data-kpi="current" href="{{ route('contracts.index', $yearFilters + ['validity' => 'vigente']) }}" aria-label="Ver {{ $current }} contratos vigentes"><span>Vigentes</span><div class="kpi-icon"><x-nav-icon name="check"/></div><strong data-count-up="{{ $current }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($current, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($current, 0, ',', '.') }}</span></strong><small>Com vigência conhecida <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card kpi-danger" data-kpi="expired" href="{{ route('contracts.index', $yearFilters + ['validity' => 'vencido']) }}" aria-label="Ver {{ $expired }} contratos vencidos"><span>Vencidos</span><div class="kpi-icon"><x-nav-icon name="clock"/></div><strong data-count-up="{{ $expired }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($expired, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($expired, 0, ',', '.') }}</span></strong><small>Em {{ today()->format('d/m/Y') }} <x-nav-icon name="arrow"/></small></a>
+        <a class="kpi-card kpi-warning" data-kpi="review" href="{{ route('contracts.index', $yearFilters + ['review' => 1]) }}" aria-label="Ver {{ $review }} contratos em revisão"><span>Em revisão</span><div class="kpi-icon"><x-nav-icon name="warning"/></div><strong data-count-up="{{ $review }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($review, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($review, 0, ',', '.') }}</span></strong><small>Vigências ou órgãos <x-nav-icon name="arrow"/></small></a>
     </div>
 
-    <div class="section-heading"><h2>Distribuição e vencimentos</h2><span>Indicadores temporais dos órgãos autorizados</span></div>
+    <div class="section-heading"><h2>Distribuição e vencimentos</h2><span>Indicadores temporais do Fundo selecionado</span></div>
     <div class="overview-grid">
         <section class="surface contract-section">
             <header class="panel-header"><div><h2>Situação temporal</h2><p>Distribuição dos contratos por vigência</p></div><x-nav-icon name="reports"/></header>
@@ -45,14 +56,14 @@
                     <div class="month-column" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos"><strong class="month-count">{{ $metric['count'] }}</strong><div class="month-track" aria-hidden="true"><div class="month-bar" style="--bar-height: {{ $metric['count'] / $maxMonth * 100 }}%; --chart-delay: {{ $loop->index * 65 }}ms"></div></div><span>{{ $metric['label'] }}</span></div>
                 @endforeach
             </div>
-            <div class="portfolio-summary"><span>Valor inicial dos contratos acessíveis</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['summary']['total']) }}</strong></div>
+            <div class="portfolio-summary"><span>Valor inicial dos contratos do Fundo</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['summary']['total']) }}</strong></div>
             <p class="chart-note">{{ $metrics['summary']['missing'] }} sem valor inicial informado. Vigências em revisão ou indeterminadas ficam fora dos vencimentos.</p>
         </section>
     </div>
 
     <div class="overview-grid">
         <section class="surface contract-section">
-            <header class="panel-header"><div><h2>Contratos por órgão</h2><p>Os dez órgãos com mais contratos no seu escopo</p></div><x-nav-icon name="catalogs"/></header>
+            <header class="panel-header"><div><h2>Contratos do Fundo</h2><p>Distribuição dos contratos no Fundo selecionado</p></div><x-nav-icon name="catalogs"/></header>
             <div class="metrics-bars">
                 @forelse($metrics['funds'] as $metric)
                     <div class="metric-bar"><span title="{{ $metric['label'] }}">{{ $metric['label'] }}</span><meter style="--chart-delay: {{ $loop->index * 55 }}ms" min="0" max="{{ max(1, collect($metrics['funds'])->max('count')) }}" value="{{ $metric['count'] }}" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos">{{ $metric['count'] }}</meter><strong>{{ $metric['count'] }}</strong></div>
@@ -71,7 +82,7 @@
     </div>
 
     <section class="surface recent-panel">
-        <header class="panel-header"><div><h2>Contratos recentes</h2><p>Últimos cadastros dos seus órgãos autorizados</p></div><a class="text-link" href="{{ route('contracts.index') }}">Ver todos →</a></header>
+        <header class="panel-header"><div><h2>Contratos recentes</h2><p>Últimos cadastros do Fundo selecionado</p></div><a class="text-link" href="{{ route('contracts.index', $yearFilters) }}">Ver todos →</a></header>
         <div class="recent-toolbar"><label class="search-field" for="overview-search"><span class="sr-only">Buscar contrato, processo ou fornecedor</span><x-nav-icon name="search"/><input id="overview-search" wire:model.live.debounce.300ms="search" maxlength="255" placeholder="Buscar contrato, processo ou fornecedor…"></label><span class="hint" wire:loading role="status">Atualizando…</span></div>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>Contrato / processo</th><th>Fornecedor</th><th>Vigência</th><th>Término</th><th class="money-cell">Valor inicial</th></tr></thead><tbody>
             @forelse($recent as $contract)
@@ -80,4 +91,5 @@
         </tbody></table></div>
         <div class="table-footer">{{ $recent->links('components.pagination', ['livewire' => true]) }}</div>
     </section>
+    @endif
 </div>

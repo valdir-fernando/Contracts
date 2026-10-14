@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Services\Legacy\Normalizer;
 use App\Services\SupplierCatalog;
@@ -10,6 +11,23 @@ use Illuminate\Support\Facades\Gate;
 
 class SupplierController extends Controller
 {
+    public function lookup(Request $request, LockActor $actors)
+    {
+        $actor = $actors->current($request->user());
+        Gate::forUser($actor)->authorize('create', Contract::class);
+        $data = $request->validate(['document' => ['required', 'string', 'max:32', function ($attribute, $value, $fail) {
+            if (! preg_match('/^[\d\s.\/\-]+$/D', $value) || ! Normalizer::validDocument(Normalizer::document($value))) {
+                $fail('Informe um CPF ou CNPJ válido.');
+            }
+        }]]);
+        $suppliers = SupplierCatalog::visibleTo($actor)->where('document_key', Normalizer::document($data['document']))->limit(2)->get();
+        abort_unless($suppliers->count(), 404, 'Nenhum fornecedor disponível para este documento.');
+        abort_if($suppliers->count() > 1, 409, 'Há mais de um cadastro para este documento. Use Selecionar fornecedor cadastrado.');
+
+        return response()->json(['values' => SupplierCatalog::defaults($actor, $suppliers->first())],
+            headers: ['Cache-Control' => 'private, no-store']);
+    }
+
     public function show(Request $request, int $supplier)
     {
         Gate::authorize('create', Contract::class);

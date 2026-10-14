@@ -28,9 +28,10 @@ class ExpirationCalendarTest extends TestCase
         $fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
         $scope = AccessScope::create(['scope_key' => hash('sha256', 'calendar-scope'), 'fund' => 'Fundo', 'fund_id' => $fund]);
         $this->user->scopes()->attach($scope);
-        $this->contract = Contract::create(['numero' => 'VISIVEL-CALENDARIO', 'fund_id' => $fund, 'ownership_resolved' => true,
+        $this->contract = Contract::create(['numero' => 'VISIVEL-CALENDARIO', 'exercicio' => 2026, 'fund_id' => $fund, 'ownership_resolved' => true,
             'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-10-31', 'quality_issues' => []]);
         $this->actingAs($this->user->fresh());
+        $this->withSession(['fund_id' => $fund]);
     }
 
     public function test_calendar_and_livewire_alerts_obey_current_scope_and_known_dates(): void
@@ -48,7 +49,7 @@ class ExpirationCalendarTest extends TestCase
         $component = Livewire::test(Overview::class)->assertViewHas('alertCount', 1);
         $this->user->scopes()->detach();
         $component->call('$refresh')->assertViewHas('alertCount', 0)->assertDontSee('VISIVEL-CALENDARIO');
-        $this->get('/calendar?month=2026-10')->assertDontSee('VISIVEL-CALENDARIO');
+        $this->get('/calendar?month=2026-10')->assertRedirect('/login');
     }
 
     public function test_month_and_alert_boundaries_updated_date_and_soft_delete(): void

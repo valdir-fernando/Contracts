@@ -1,6 +1,14 @@
 import './table-navigation';
 import './report-generation';
 import './count-up';
+import './contract-summary';
+import './supplier-assistance';
+
+document.querySelectorAll('[data-fund-switch][data-preserve-dashboard-year]').forEach((form) => {
+    form.addEventListener('submit', () => {
+        form.elements.namedItem('year').value = new URL(window.location.href).searchParams.get('year') ?? '';
+    });
+});
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -271,4 +279,57 @@ document.querySelectorAll('input[inputmode="decimal"]').forEach((input) => {
         const [integer, fraction] = input.value.split('.');
         input.value = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + fraction;
     }
+});
+
+document.querySelectorAll('[data-fund-defaults-form]').forEach((form) => {
+    const select = form.querySelector('[name=fund_id]');
+    const fields = ['end_fundo', 'nome_gestor', 'cargo_gestor', 'cpf_gestor', 'rg_gestor'];
+    const edited = new Set();
+    fields.forEach((name) => form.elements.namedItem(name)?.addEventListener('input', () => edited.add(name)));
+    const notice = document.createElement('p');
+    notice.className = 'hint';
+    notice.setAttribute('role', 'status');
+    select.closest('.field').append(notice);
+    let controller;
+    select.addEventListener('change', async () => {
+        controller?.abort();
+        controller = new AbortController();
+        const attempt = controller;
+        fields.forEach((name) => {
+            const input = form.elements.namedItem(name);
+            if (input && !edited.has(name)) input.value = '';
+        });
+        ['fundo_nome_snapshot', 'fundo_documento_snapshot'].forEach((name) => {
+            form.querySelector(`[data-derived-field="${name}"]`).textContent = 'Preenchido pelo órgão selecionado';
+        });
+        notice.textContent = '';
+        const submit = form.querySelector('[type=submit]');
+        if (!select.value) {
+            submit.disabled = false;
+            return;
+        }
+        submit.disabled = true;
+        try {
+            const response = await fetch(`${form.dataset.fundDefaultsUrl}/${select.value}/contract-defaults`, {
+                headers: { Accept: 'application/json' }, signal: attempt.signal,
+            });
+            if (!response.ok) throw new Error('defaults');
+            const { values } = await response.json();
+            fields.forEach((name) => {
+                const input = form.elements.namedItem(name);
+                if (input && !edited.has(name)) {
+                    input.value = values[name] ?? '';
+                    input.dispatchEvent(new Event('blur'));
+                }
+            });
+            ['fundo_nome_snapshot', 'fundo_documento_snapshot'].forEach((name) => {
+                form.querySelector(`[data-derived-field="${name}"]`).textContent = values[name] ?? 'Não informado';
+            });
+            notice.textContent = 'Dados do Fundo carregados. Confira o gestor antes de salvar. Campos editados foram preservados.';
+        } catch (error) {
+            if (error.name !== 'AbortError') notice.textContent = 'Não foi possível carregar os dados do Fundo. Confira e preencha os campos antes de salvar.';
+        } finally {
+            if (controller === attempt) submit.disabled = false;
+        }
+    });
 });

@@ -1,8 +1,14 @@
-<x-layouts.app :title="$contract->exists ? 'Editar contrato' : 'Novo contrato'">
-    <div class="page-heading"><div><a class="text-link" href="{{ $contract->exists ? route('contracts.show', $contract) : route('contracts.index') }}">← Voltar</a><h1>{{ $contract->exists ? 'Editar contrato '.$contract->numero : 'Novo contrato' }}</h1><p>Preencha as seções abaixo. Campos com <x-required-mark/> são obrigatórios para novos contratos.</p></div></div>
+<x-layouts.app :title="$contract->exists ? 'Editar contrato' : 'Novo contrato'" :contract-editor="true">
+    <x-slot:contractSummary><x-contract-summary :contract="$contract" :values="$values" :editable="true" :heading="$contract->exists ? 'Editar contrato' : 'Novo contrato'"/></x-slot:contractSummary>
+    <x-slot:headerBack><a class="text-link fund-header-back" href="{{ $contract->exists ? route('contracts.show', $contract) : route('contracts.index') }}">← Voltar</a></x-slot:headerBack>
     @if($conflict)<div class="notice notice-error" role="alert">O contrato foi alterado por outra pessoa. Seus valores estão abaixo para consulta; recarregue os dados e revise as diferenças antes de salvar. <a class="text-link" href="{{ route('contracts.edit', $contract) }}">Recarregar contrato</a></div>@endif
-    @unless($contract->exists)<p><a class="text-link" href="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</a></p>@endunless
-    <form x-data="{ step: 0, all: true }" method="POST" novalidate action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
+    <div class="contract-form-introduction">
+        <div>
+        <p class="hint">Preencha as seções abaixo. Campos com <x-required-mark/> são obrigatórios para novos contratos.</p>
+        </div>
+        <x-contract-document-actions :contract="$contract"/>
+    </div>
+    <form data-contract-form x-data="{ step: 0, all: true }" method="POST" novalidate @unless($contract->exists) data-fund-defaults-form data-fund-defaults-url="{{ url('/funds') }}" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" data-supplier-prefill="{{ json_encode(array_intersect_key($values, array_flip(['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio'])), JSON_THROW_ON_ERROR) }}" @endunless action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
         @csrf @if($contract->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $contract->version }}">@endif
         @if(!$contract->exists && $errors->has('duplicate_confirmation'))
             <section class="notice notice-error" role="alert">
@@ -11,7 +17,7 @@
             </section>
         @endif
         <section class="surface contract-section"><h2>Órgão e situação administrativa</h2><div class="field-grid">
-            <div class="field"><label for="fund_id">Fundo<x-required-mark :when="!$contract->exists"/></label><select id="fund_id" name="fund_id" @required(!$contract->exists)><option value="">{{ $contract->exists ? 'Manter fundo atual / histórico' : 'Selecione' }}</option>@foreach($funds as $fund)<option value="{{ $fund->id }}" @selected((string) old('fund_id', $values['fund_id'] ?? $contract->fund_id) === (string) $fund->id)>{{ $fund->name }}</option>@endforeach</select>@error('fund_id')<p class="field-error">{{ $message }}</p>@enderror</div>
+            <div class="field"><label for="fund_id">Fundo<x-required-mark :when="!$contract->exists"/></label><select id="fund_id" name="fund_id" @required(!$contract->exists) @disabled($contract->exists && $contract->number_sequence !== null)><option value="">{{ $contract->exists ? 'Manter fundo atual / histórico' : 'Selecione' }}</option>@foreach($funds as $fund)<option value="{{ $fund->id }}" @selected((string) ($contract->number_sequence !== null ? $contract->fund_id : old('fund_id', $values['fund_id'] ?? $contract->fund_id)) === (string) $fund->id)>{{ $fund->name }}</option>@endforeach</select>@error('fund_id')<p class="field-error">{{ $message }}</p>@enderror</div>
             <div class="field"><label for="department_id">Secretaria</label><select id="department_id" name="department_id"><option value="">Sem secretaria</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected((string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $department->id)>{{ $department->name }}</option>@endforeach</select>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>
             <div class="field"><label for="administrative_status">Situação administrativa</label><select id="administrative_status" name="administrative_status">@foreach(\App\Models\Contract::STATUSES as $value => $label)<option value="{{ $value }}" @selected(old('administrative_status', $values['administrative_status'] ?? $contract->administrative_status ?? 'rascunho') === $value)>{{ $label }}</option>@endforeach</select><p class="hint">Classificação interna, distinta da vigência calculada.</p></div>
         </div><p class="hint">O fundo e a secretaria devem corresponder aos órgãos autorizados para sua conta. Os dados do órgão são preenchidos a partir do cadastro selecionado.</p></section>
@@ -24,14 +30,21 @@
                     @php
                         $column = $definition['column'];
                         $derived = in_array($column, \App\Support\ContractFields::DERIVED);
+                        $automatic = in_array($column, \App\Support\ContractFields::GENERATED) && (!$contract->exists || $contract->number_sequence !== null);
                         $protected = $contract->exists && !auth()->user()->isAdmin() && (in_array($column, \App\Support\ContractFields::PERSONAL) || ($column === 'fornecedor_documento_snapshot' && strlen(\App\Services\Legacy\Normalizer::document($contract->$column)) !== 14));
-                        $required = !$contract->exists && in_array($column, ['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot', 'objeto', 'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total']);
+                        $required = !$contract->exists && in_array($column, ['processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot', 'objeto', 'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total']);
                         $value = $definition['type'] === 'date' ? $contract->$column?->format('Y-m-d') : $contract->$column;
                         $inputValue = old($column, $values[$column] ?? $value);
                         $multiline = in_array($column, ['objeto', 'escopo', 'end_fornec', 'end_fundo', 'end_imovel', 'local_servico', 'dados_veiculo', 'instalacoes', 'motivo_distrato', 'motivo_paraliz_obra']) || str_contains((string) $inputValue, "\n") || str_contains((string) $inputValue, "\r") || mb_strlen((string) $inputValue) > 180;
                     @endphp
-                    <div @class(['field', 'field-wide' => $multiline && !$derived && !$protected])><label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :when="$required"/></label>
-                        @if($derived || $protected)<p class="readonly-field">{{ $contract->exists ? $contract->displayField($source, auth()->user()) : ($column === 'legacy_id' ? 'Sem origem legada' : 'Preenchido pelo órgão selecionado') }}</p>
+                    <div @class(['field', 'field-wide' => $multiline && !$derived && !$protected])>
+                        @if(!$contract->exists && $column === 'fornecedor_documento_snapshot')
+                            <div class="field-label-row"><label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :when="$required"/></label><span class="field-label-divider" aria-hidden="true">|</span><a class="text-link" href="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</a></div>
+                        @else
+                            <label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :when="$required"/></label>
+                        @endif
+                        @if($automatic)<p class="readonly-field" id="{{ $column }}">{{ $contract->exists ? $contract->displayField($source, auth()->user()) : 'Gerado ao salvar' }}</p>
+                        @elseif($derived || $protected)<p class="readonly-field" data-derived-field="{{ $column }}">{{ $contract->exists ? $contract->displayField($source, auth()->user()) : ($column === 'legacy_id' ? 'Sem origem legada' : ($values[$column] ?? 'Preenchido pelo órgão selecionado')) }}</p>
                         @elseif($column === 'tipo')<input id="tipo" name="tipo" @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif list="contract-types" maxlength="15000" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>

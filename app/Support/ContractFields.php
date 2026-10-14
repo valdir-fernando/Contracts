@@ -8,6 +8,8 @@ class ContractFields
 
     public const PERSONAL = ['rg_fornec', 'pis_pasep', 'cpf_socio', 'rg_socio', 'cpf_gestor', 'rg_gestor', 'cpf_fiscal', 'rg_fiscal'];
 
+    public const GENERATED = ['numero', 'cont_inteiro'];
+
     public const MAP = [
         'ID_Contrato' => ['column' => 'legacy_id', 'type' => 'id', 'group' => 'Identificação e licitação'],
         'Contrato' => ['column' => 'numero', 'type' => 'text', 'group' => 'Identificação e licitação'],

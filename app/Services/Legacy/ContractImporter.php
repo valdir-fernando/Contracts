@@ -2,6 +2,7 @@
 
 namespace App\Services\Legacy;
 
+use App\Domain\Contracts\ContractNumber;
 use App\Models\AccessScope;
 use App\Models\Contract;
 use App\Models\ImportRun;
@@ -25,6 +26,7 @@ class ContractImporter
         'tb_Fundo' => ['table' => 'contract_funds', 'id' => 'ID_Fundo', 'name' => 'Fundo', 'document' => 'CNPJ_Fundo'],
         'tb_Secretaria' => ['table' => 'contract_departments', 'id' => 'ID_Secretaria', 'name' => 'Secretaria'],
         'tb_Fornecedor' => ['table' => 'suppliers', 'id' => 'ID_Fornecedor', 'name' => 'Nome_Fornecedor', 'document' => 'CPF_CNPJ'],
+        'tb_Gestor' => ['table' => 'contract_managers', 'id' => 'ID_Gestor', 'name' => 'Nome_Gestor', 'document' => 'CPF_Gestor'],
     ];
 
     public function import(string $path, bool $dryRun = false): ImportRun
@@ -143,6 +145,9 @@ class ContractImporter
                 $this->issue($record, $config['document'], 'invalid_document', 'Documento ausente ou inválido; não utilizado para associação automática.');
             }
         }
+        if ($source === 'tb_Gestor') {
+            $attributes['fund_name_key'] = Normalizer::name($raw['Fundo'] ?? '');
+        }
         DB::table($config['table'])->insert($attributes);
         $record->update(['status' => 'imported']);
         $this->stats[$source]['imported']++;
@@ -252,6 +257,16 @@ class ContractImporter
             $year = strlen($match[1]) === 2 ? 2000 + (int) $match[1] : (int) $match[1];
         } elseif ($attributes['data_contrato']) {
             $year = (int) substr($attributes['data_contrato'], 0, 4);
+        }
+        if ($fund) {
+            DB::table('contract_funds')->where('id', $fund->id)->lockForUpdate()->firstOrFail();
+            $sequence = $year ? ContractNumber::sequenceIn($attributes['numero'] ?? '', $year) : null;
+            if ($sequence !== null && Contract::withTrashed()->where('fund_id', $fund->id)->where('number_year', $year)->where('number_sequence', $sequence)->lockForUpdate()->exists()) {
+                $this->issue($record, 'Contrato', 'allocated_number_collision', 'Número já atribuído a um contrato nativo. Origem preservada para conciliação.', 'error');
+                $record->update(['status' => 'conflict']);
+
+                return 'rejected';
+            }
         }
         Contract::create($attributes + ['legacy_record_id' => $record->id, 'fund_id' => $fund?->id, 'department_id' => $department?->id,
             'supplier_id' => $supplier?->id, 'supplier_document_key' => strlen($document) <= 32 ? ($document ?: null) : null,

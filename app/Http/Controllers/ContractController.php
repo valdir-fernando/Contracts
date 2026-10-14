@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Infrastructure\Contracts\ContractListingQuery;
+use App\Infrastructure\Security\LockActor;
+use App\Infrastructure\Security\SelectedFund;
 use App\Models\Contract;
 use App\Models\ContractAttachment;
 use App\Models\ContractAudit;
@@ -53,14 +55,16 @@ class ContractController extends Controller
 
     public function create(Request $request)
     {
-        Gate::authorize('create', Contract::class);
+        $actor = app(LockActor::class)->current($request->user());
+        Gate::forUser($actor)->authorize('create', Contract::class);
 
         $data = $request->validate(['supplier' => 'nullable|integer|min:1']);
-        $values = [];
+        $selectedFund = $request->attributes->get('selected_fund');
+        $values = $selectedFund ? app(SelectedFund::class)->defaults($actor, $selectedFund['id']) : [];
         if ($data['supplier'] ?? null) {
-            $supplier = SupplierCatalog::visibleTo($request->user())->where('id', $data['supplier'])->first();
+            $supplier = SupplierCatalog::visibleTo($actor)->where('id', $data['supplier'])->first();
             abort_unless($supplier, 404);
-            $values = ['fornecedor_nome_snapshot' => $supplier->name, 'fornecedor_documento_snapshot' => $supplier->document_key ?: $supplier->document];
+            $values += SupplierCatalog::defaults($actor, $supplier);
         }
 
         return $this->form(new Contract, $values);
@@ -71,6 +75,15 @@ class ContractController extends Controller
         Gate::authorize('update', $contract);
 
         return $this->form($contract);
+    }
+
+    public function fundDefaults(Request $request, int $fund, SelectedFund $context)
+    {
+        Gate::authorize('create', Contract::class);
+        $values = $context->defaults($request->user(), $fund);
+        abort_unless($values, 403);
+
+        return response()->json(['values' => $values], headers: ['Cache-Control' => 'private, no-store']);
     }
 
     private function form(Contract $contract, array $values = [], bool $conflict = false)
@@ -138,6 +151,9 @@ class ContractController extends Controller
             ->where('numero', $contract->numero)->where('fund_id', $contract->fund_id)
             ->where('exercicio', $contract->exercicio)->where('processo', $contract->processo)->exists();
         $response = redirect()->route('contracts.show', $contract)->with('status', $message);
+        if ($request->routeIs('contracts.store')) {
+            $response->with('contract_created', true);
+        }
         if ($duplicate) {
             $response->with('warning', 'Possível duplicidade: existe outro contrato com o mesmo número, fundo, exercício e processo. Revise os registros.');
         }

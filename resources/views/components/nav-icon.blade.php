@@ -3,6 +3,9 @@
     $paths = [
         'dashboard' => 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
         'contracts' => 'M6 3h9l3 3v15H6z M14 3v5h4 M9 12h6 M9 16h6',
+        'document-extract' => 'M6 3h9l3 3v15H6z M14 3v5h4 M9 11h6 M9 14h6 M9 17h3',
+        'document-publication' => 'M3 10v5h4l9 4V6l-9 4H3z M7 15l2 6h3l-2-5 M19 9l2-1 M19 16l2 1',
+        'document-termination' => 'M6 3h9l3 3v15H6z M14 3v5h4 M9 12l6 6 M15 12l-6 6',
         'reports' => 'M4 20h16 M7 16V9 M12 16V4 M17 16v-5',
         'calendar' => 'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2',
         'settings' => 'M4 7h16 M4 17h16 M9 4v6 M15 14v6',

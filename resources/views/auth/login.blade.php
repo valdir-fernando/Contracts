@@ -6,10 +6,19 @@
             <header class="login-header">
                 <span class="section-label">ACESSO AO SISTEMA</span>
                 <h1 id="login-title">Bem-vindo ao Contracts</h1>
-                <p class="login-description">Entre com seu usuário e senha para acessar.</p>
+                <p class="login-description">Selecione o Fundo e entre com seu usuário e senha.</p>
             </header>
             <form action="{{ route('login.store') }}" method="POST" data-login-form>
                 @csrf
+                <div class="field">
+                    <label for="fund_id">Fundo <x-required-mark/></label>
+                    <select id="fund_id" name="fund_id" required @error('fund_id') aria-invalid="true" aria-describedby="fund-error" @enderror>
+                        <option value="">Selecione o Fundo</option>
+                        @foreach($funds as $fund)<option value="{{ $fund->id }}" @selected((string) old('fund_id') === (string) $fund->id)>{{ $fund->name }}</option>@endforeach
+                    </select>
+                    @error('fund_id')<p class="field-error" id="fund-error" role="alert">{{ $message }}</p>@enderror
+                    @if($funds->isEmpty())<p class="hint">Nenhum Fundo cadastrado. Entre em contato com o administrador.</p>@endif
+                </div>
                 <div class="field">
                     <label for="username">Usuário <x-required-mark/></label>
                     <input id="username" name="username" type="text" value="{{ old('username') }}" placeholder="Seu nome de usuário" autocomplete="username" maxlength="255" required autofocus @error('username') aria-invalid="true" aria-describedby="username-error" @enderror>

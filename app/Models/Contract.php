@@ -25,7 +25,8 @@ class Contract extends Model
 
     protected function casts(): array
     {
-        $casts = ['quality_issues' => 'array', 'ownership_resolved' => 'boolean', 'vigencia_em_revisao' => 'boolean'];
+        $casts = ['quality_issues' => 'array', 'ownership_resolved' => 'boolean', 'vigencia_em_revisao' => 'boolean',
+            'number_year' => 'integer', 'number_sequence' => 'integer'];
         foreach (ContractFields::MAP as $definition) {
             if ($definition['type'] === 'date') {
                 $casts[$definition['column']] = 'date';

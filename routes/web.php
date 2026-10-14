@@ -14,6 +14,7 @@ use App\Http\Controllers\ContractTypeRuleController;
 use App\Http\Controllers\InternalApiController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavedReportController;
+use App\Http\Controllers\SelectedFundController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureActiveUser;
@@ -32,11 +33,12 @@ Route::get('/ready', function () {
     }
 })->name('readiness');
 Route::middleware('guest')->group(function () {
-    Route::view('/login', 'auth.login')->name('login');
+    Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->name('login.store');
 });
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::post('/session/fund', [SelectedFundController::class, 'update'])->name('session.fund');
     Route::get('/internal-api/v1/contracts', [InternalApiController::class, 'index'])->middleware('throttle:60,1')->name('internal-api.contracts.index');
     Route::get('/internal-api/v1/contracts/{contract}', [InternalApiController::class, 'show'])->middleware('throttle:60,1')->name('internal-api.contracts.show');
     Route::post('/saved-reports', [SavedReportController::class, 'store'])->name('saved-reports.store');
@@ -47,10 +49,12 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/catalogs', [CatalogController::class, 'index'])->name('catalogs.index');
     Route::get('/catalogs/{kind}/{catalog}', [CatalogController::class, 'show'])->whereIn('kind', ['fund', 'department'])->whereNumber('catalog')->name('catalogs.show');
     Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+    Route::post('/suppliers/lookup', [SupplierController::class, 'lookup'])->middleware('throttle:60,1')->name('suppliers.lookup');
     Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->whereNumber('supplier')->name('suppliers.show');
     Route::get('/contract-types', [ContractTypeRuleController::class, 'index'])->name('contract-types.index');
     Route::post('/contract-types', [ContractTypeRuleController::class, 'store'])->name('contract-types.store');
     Route::post('/catalogs', [CatalogController::class, 'store'])->name('catalogs.store');
+    Route::get('/funds/{fund}/contract-defaults', [ContractController::class, 'fundDefaults'])->whereNumber('fund')->name('contracts.fund-defaults');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [AccountController::class, 'update'])->name('account.update');
     Route::get('/administration', [AdministrationController::class, 'index'])->name('administration.index');

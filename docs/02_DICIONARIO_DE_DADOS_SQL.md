@@ -71,7 +71,7 @@
 |---|---|---|---|---|
 | `ID_Contrato` | `int(11)` | Identificação e licitação | `contratos.legacy_id` | ID legado único; não gerar novo número a partir dele |
 | `Contrato` | `text` | Identificação e licitação | `contratos.numero` | Texto; não único globalmente |
-| `Cont_Inteiro` | `text` | Identificação e licitação | `contrato_detalhes.cont_inteiro` | Texto histórico; não derivar de Contrato sem revisão |
+| `Cont_Inteiro` | `text` | Identificação e licitação | `contrato_detalhes.cont_inteiro` | Texto histórico preservado; novos contratos recebem a sequência automática sem máscara, conforme regra confirmada em 13/10/2026 |
 | `Data_Cont` | `date` | Identificação e licitação | `contratos.data_contrato` | date nullable; `0000-00-00` → NULL |
 | `Data_Cont_Verd` | `date` | Identificação e licitação | `contrato_detalhes.data_cont_verd` | Significado operacional a confirmar; permite NULL para legado |
 | `Processo` | `text` | Identificação e licitação | `contratos.processo` | Preservar texto e limpar apenas para busca |

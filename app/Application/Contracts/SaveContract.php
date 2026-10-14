@@ -5,6 +5,7 @@ namespace App\Application\Contracts;
 use App\Application\Contracts\Ports\ContractAccess;
 use App\Application\Contracts\Ports\ContractCatalog;
 use App\Application\Contracts\Ports\ContractInputValidator;
+use App\Application\Contracts\Ports\ContractNumbering;
 use App\Application\Contracts\Ports\ContractStore;
 use App\Application\Exceptions\AccessDenied;
 use App\Application\Exceptions\ConcurrencyConflict;
@@ -22,6 +23,7 @@ final class SaveContract
         private ContractInputValidator $inputValidator,
         private ContractCatalog $catalog,
         private ContractStore $store,
+        private ContractNumbering $numbering,
     ) {}
 
     public function execute(ActorIdentity $actor, array $input, ?int $targetId = null): ContractState
@@ -42,6 +44,9 @@ final class SaveContract
             if (! $this->access->canAssign($context, $fundId, $departmentId)) {
                 throw new AccessDenied;
             }
+            if ($targetId !== null && $context->contract->get('number_sequence') !== null && $fundId !== (int) $context->contract->get('fund_id')) {
+                throw new InputRejected(['fund_id' => 'O Fundo de um contrato com numeração automática não pode ser alterado.']);
+            }
             $ownershipChanged = array_key_exists('fund_id', $data) && (int) $fundId !== (int) $contract->get('fund_id')
                 || array_key_exists('department_id', $data) && (int) $departmentId !== (int) $contract->get('department_id');
             if ($targetId === null || $ownershipChanged || (! $contract->get('ownership_resolved') && ! empty($data['fund_id']))) {
@@ -61,6 +66,7 @@ final class SaveContract
             ]);
             $duplicateConfirmed = false;
             if ($targetId === null) {
+                $contract = $contract->with($this->numbering->nextNumber($context, (int) $fundId)->attributes());
                 $duplicate = $this->store->hasDuplicate($context, $contract);
                 if ($duplicate && ! ($data['duplicate_confirmation'] ?? false)) {
                     throw new InputRejected(['duplicate_confirmation' => 'Possível duplicidade: existe um contrato acessível com o mesmo número, fundo, exercício e processo. Confira os dados e confirme para cadastrar outro registro.']);

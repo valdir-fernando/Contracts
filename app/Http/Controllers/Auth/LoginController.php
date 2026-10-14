@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Infrastructure\Security\SelectedFund;
 use App\Models\ActivityEvent;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -16,17 +17,25 @@ use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
+    public function create()
+    {
+        return view('auth.login', ['funds' => DB::table('contract_funds')->orderBy('name')->get(['id', 'name'])]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
             'username' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'max:1024'],
             'remember' => ['sometimes', 'boolean'],
+            'fund_id' => ['required', 'integer', 'exists:contract_funds,id'],
         ], [
             'username.required' => 'Informe seu nome de usuário.',
             'username.max' => 'O nome de usuário deve ter no máximo 255 caracteres.',
             'password.required' => 'Informe sua senha.',
             'password.max' => 'A senha informada é muito longa.',
+            'fund_id.required' => 'Selecione o Fundo para entrar.',
+            'fund_id.exists' => 'Selecione um Fundo cadastrado.',
         ]);
         $credentials['username'] = Str::upper(trim($credentials['username']));
         $key = 'login:'.hash('sha256', $credentials['username'].'|'.$request->ip());
@@ -48,8 +57,12 @@ class LoginController extends Controller
                     RateLimiter::hit($key, 60);
                     throw ValidationException::withMessages(['username' => 'Seu acesso foi atualizado. Entre novamente.']);
                 }
+                if (! app(SelectedFund::class)->current($user, (int) $credentials['fund_id'])) {
+                    RateLimiter::hit($key, 60);
+                    throw ValidationException::withMessages(['fund_id' => 'Sua conta não possui acesso ao Fundo selecionado.']);
+                }
                 $user->forceFill(['last_login_at' => now()])->save();
-                ActivityEvent::create(['actor_id' => $user->id, 'action' => 'login', 'metadata' => [], 'created_at' => now()]);
+                ActivityEvent::create(['actor_id' => $user->id, 'action' => 'login', 'metadata' => ['fund_id' => (int) $credentials['fund_id']], 'created_at' => now()]);
                 Auth::setUser($user);
             });
         } catch (\Throwable $error) {
@@ -63,6 +76,7 @@ class LoginController extends Controller
         RateLimiter::clear($key);
         $request->session()->regenerate();
         $request->session()->put('auth_version', Auth::user()->session_version);
+        $request->session()->put('fund_id', (int) $credentials['fund_id']);
 
         return redirect()->intended(route('dashboard'));
     }

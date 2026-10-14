@@ -1,6 +1,16 @@
 # Contracts
 
+Banco de desenvolvimento na Hostinger: [criação das tabelas, conexão remota, importação e preparação da hospedagem](docs/hostinger-development.md). A configuração opcional `compose.hostinger-dev.yaml` preserva o banco local e usa storage/cache separados.
+
 Sistema de gestão de contratos com Laravel 13, Livewire 4/Alpine, Blade, Tailwind 4, PHP 8.4, Nginx, MySQL 8.4 e Vite.
+
+O login exige selecionar um Fundo autorizado. O Início exibe esse Fundo, e novos contratos usam sugestões do Fundo e do gestor cadastrado na `tb_Gestor`. [Comportamento, instalação e validação](docs/login-fundo-2026-10-13.md).
+
+O Início mostra os contratos do Fundo selecionado e do exercício atual por padrão. O seletor **Ano dos contratos** permite consultar exercícios anteriores ou **Todos os anos**, atualizando indicadores, gráficos, alertas e a lista recente. Use **Fundo selecionado → Alterar Fundo**, no topo das telas, para trocar entre fundos autorizados sem sair da sessão.
+
+Novos contratos aplicam máscara de CPF/CNPJ e preenchem os dados do fornecedor ao sair do campo ou selecionar um cadastro, usando a `tb_Fornecedor` importada e respeitando permissões. [Comportamento e validação](docs/supplier-autofill-2026-10-13.md).
+
+A numeração de novos contratos é automática por Fundo e ano, atribuída ao salvar: `001/26` até `999/26`, continuando com `1000/26`. Identificação completa guarda a sequência sem máscara. A virada do ano inicia um contador independente, e gravação/auditoria/contador são transacionais. [Instalação e validação](docs/contract-numbering-2026-10-13.md).
 
 Auditoria incremental: [correções de segurança, concorrência e exportações — 12/10/2026](docs/technical-audit-2026-10-12.md). Cadastros potencialmente duplicados agora pedem confirmação antes da gravação. Exportações anteriores à atualização do hash precisam ser solicitadas novamente.
 
