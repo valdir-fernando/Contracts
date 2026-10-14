@@ -1,5 +1,7 @@
 # Preenchimento de fornecedor em novos contratos — 13/10/2026
 
+Atualização em 14/10/2026: os oito campos de dados do fornecedor agora são somente leitura e vêm exclusivamente do cadastro autorizado, reconsultado na gravação. A edição preserva snapshots quando o documento permanece igual e consulta o novo cadastro quando ele muda. As regras de edição manual descritas abaixo registram o comportamento anterior; consulte [o comportamento atual e sua validação](contract-form-2026-10-14.md).
+
 Ao sair do campo CPF/CNPJ na seção de fornecedor, o formulário aplica a máscara e busca um cadastro acessível com documento válido. Nome, RG, documento profissional, PIS/PASEP, endereço, sócio/representante e CPF/RG do sócio vêm do catálogo `suppliers`, cujo payload original é importado de `tb_Fornecedor`. A opção **Selecionar fornecedor cadastrado → Usar no novo contrato** usa a mesma projeção; documentos já selecionados recebem máscara na abertura.
 
 RG, PIS/PASEP e CPF/RG do sócio são sugeridos apenas a administradores. Usuários comuns continuam acessando somente fornecedores com CNPJ vinculados a contratos visíveis e recebem os demais campos permitidos. Não são retornados payloads completos, contatos, dados de nascimento, pensão ou outros atributos da origem. CPF inválido do sócio não é sugerido, preservando o dado original no catálogo.

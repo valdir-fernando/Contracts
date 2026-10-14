@@ -13,6 +13,7 @@ use App\Models\ContractTypeRule;
 use App\Services\ContractLifecycle;
 use App\Services\ContractSearch;
 use App\Services\ContractWriter;
+use App\Services\Legacy\Normalizer;
 use App\Services\SupplierCatalog;
 use App\Support\ContractFields;
 use Illuminate\Http\Request;
@@ -64,7 +65,7 @@ class ContractController extends Controller
         if ($data['supplier'] ?? null) {
             $supplier = SupplierCatalog::visibleTo($actor)->where('id', $data['supplier'])->first();
             abort_unless($supplier, 404);
-            $values += SupplierCatalog::defaults($actor, $supplier);
+            $values += ['supplier_id' => $supplier->id] + SupplierCatalog::defaults($actor, $supplier);
         }
 
         return $this->form(new Contract, $values);
@@ -88,7 +89,25 @@ class ContractController extends Controller
 
     private function form(Contract $contract, array $values = [], bool $conflict = false)
     {
-        $user = auth()->user();
+        $user = app(LockActor::class)->current(auth()->user());
+        if (! $contract->exists && session()->hasOldInput('fornecedor_documento_snapshot')) {
+            $document = old('fornecedor_documento_snapshot', $values['fornecedor_documento_snapshot'] ?? null);
+            $selectedSupplier = old('supplier_id', $values['supplier_id'] ?? null);
+            foreach (ContractFields::SUPPLIER_CATALOG as $column) {
+                unset($values[$column]);
+            }
+            unset($values['supplier_id']);
+            if (is_string($document) && Normalizer::validDocument(Normalizer::document($document))) {
+                $query = SupplierCatalog::visibleTo($user)->where('document_key', Normalizer::document($document));
+                if (is_scalar($selectedSupplier) && ctype_digit((string) $selectedSupplier)) {
+                    $query->where('id', (int) $selectedSupplier);
+                }
+                $suppliers = $query->limit(2)->get();
+                if ($suppliers->count() === 1) {
+                    $values = array_replace($values, ['supplier_id' => $suppliers->first()->id], SupplierCatalog::defaults($user, $suppliers->first()));
+                }
+            }
+        }
         $funds = DB::table('contract_funds');
         $departments = DB::table('contract_departments');
         if (! $user->isAdmin()) {
@@ -98,10 +117,21 @@ class ContractController extends Controller
             $departments->whereIn('id', $departmentIds->merge($scopes->pluck('department_id'))->filter()->unique());
         }
 
-        return response()->view('contracts.form', ['contract' => $contract,
+        $formFields = [];
+        foreach (ContractFields::MAP as $source => $definition) {
+            if ($source === 'End_Imovel') {
+                continue;
+            }
+            $formFields[$source] = $definition;
+            if ($source === 'IPTU') {
+                $formFields['End_Imovel'] = ContractFields::MAP['End_Imovel'];
+            }
+        }
+
+        return response()->view('contracts.form', ['contract' => $contract, 'formActor' => $user,
             'typeRules' => ContractTypeRule::orderBy('name')->get(),
             'history' => ContractHistoryRecord::where('contract_id', $contract->id)->orderBy('event_date')->get(),
-            'groups' => collect(ContractFields::MAP)->groupBy('group', preserveKeys: true),
+            'groups' => collect($formFields)->except(['Proc_Edital', 'N_Edital', 'Data_Licit', 'N_Solicit', 'Tipo_Contrato'])->groupBy('group', preserveKeys: true),
             'funds' => $funds->orderBy('name')->get(), 'departments' => $departments->orderBy('name')->get(),
             'values' => $values, 'conflict' => $conflict], $conflict ? 409 : 200);
     }

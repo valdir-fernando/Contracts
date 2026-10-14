@@ -20,6 +20,7 @@ class ContractNumberingConcurrencyTest extends TestCase
         $this->assertTrue(app()->environment('testing'));
         $this->assertContains($database, ['contracts_validation', 'contracts_numbering_validation']);
         $this->artisan('migrate', ['--force' => true])->assertSuccessful();
+        DB::table('suppliers')->insert(['name' => 'Fornecedor sintético', 'name_key' => 'FORNECEDOR SINTETICO', 'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
         $actors = [];
         $token = bin2hex(random_bytes(8));
         foreach ([1, 2] as $index) {

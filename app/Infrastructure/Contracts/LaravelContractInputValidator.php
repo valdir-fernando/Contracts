@@ -5,11 +5,18 @@ namespace App\Infrastructure\Contracts;
 use App\Application\Contracts\AuthorizedContract;
 use App\Application\Contracts\Ports\ContractInputValidator;
 use App\Application\Contracts\ValidatedContractInput;
+use App\Application\Exceptions\AccessDenied;
 use App\Application\Exceptions\InputRejected;
+use App\Infrastructure\Persistence\TransactionGuard;
+use App\Infrastructure\Security\SelectedFund;
 use App\Models\Contract;
 use App\Models\ContractTypeRule;
+use App\Models\User;
 use App\Services\Legacy\Normalizer;
+use App\Services\SupplierCatalog;
 use App\Support\ContractFields;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -17,10 +24,47 @@ use Illuminate\Validation\ValidationException;
 /** Contextual validation for HTTP and CLI; always called with locked current state. */
 final class LaravelContractInputValidator implements ContractInputValidator
 {
+    public function __construct(private Request $request, private SelectedFund $selectedFund) {}
+
     public function validate(AuthorizedContract $context, array $input): ValidatedContractInput
     {
         $contract = ContractMapper::toModel($context->contract);
         $updating = $contract->exists;
+        if (! $updating && $this->request->routeIs('contracts.store')) {
+            TransactionGuard::requireActive();
+            $actor = User::findOrFail($context->actor->id);
+            $sessionFundId = $this->request->session()->get('fund_id');
+            $fund = is_numeric($sessionFundId) && $this->selectedFund->allows($actor, (int) $sessionFundId)
+                ? DB::table('contract_funds')->where('id', (int) $sessionFundId)->lockForUpdate()->first() : null;
+            if (! $fund) {
+                throw new InputRejected(['fund_id' => 'Selecione um Fundo autorizado ao entrar no sistema.']);
+            }
+            if (isset($input['fund_id']) && (! is_scalar($input['fund_id']) || (string) $input['fund_id'] !== (string) $fund->id)) {
+                throw new AccessDenied;
+            }
+            $input['fund_id'] = (int) $fund->id;
+            if (Normalizer::name($fund->name) !== 'MUNICIPIO DE NIQUELANDIA') {
+                if (! empty($input['department_id'])) {
+                    throw new InputRejected(['department_id' => 'O Fundo da sessão não possui secretarias.']);
+                }
+                $input['department_id'] = null;
+            }
+        }
+        if ($updating && $this->request->routeIs('contracts.update') && isset($input['department_id']) && ! is_scalar($input['department_id'])) {
+            throw new InputRejected(['department_id' => 'Selecione uma secretaria válida.']);
+        }
+        if ($updating && $this->request->routeIs('contracts.update') && ! empty($input['department_id'])
+            && (string) $input['department_id'] !== (string) $contract->department_id) {
+            TransactionGuard::requireActive();
+            $actor = User::findOrFail($context->actor->id);
+            $sessionFundId = $this->request->session()->get('fund_id');
+            $fund = is_numeric($sessionFundId) && $this->selectedFund->allows($actor, (int) $sessionFundId)
+                ? DB::table('contract_funds')->where('id', (int) $sessionFundId)->lockForUpdate()->first() : null;
+            if (! $fund || (int) $fund->id !== (int) $contract->fund_id || Normalizer::name($fund->name) !== 'MUNICIPIO DE NIQUELANDIA') {
+                throw new InputRejected(['department_id' => 'O Fundo da sessão não permite selecionar uma secretaria.']);
+            }
+        }
+        $input = $this->supplierInput($context, $contract, $input);
         $rules = ['fund_id' => [$updating ? 'sometimes' : 'required', 'nullable', 'integer', 'exists:contract_funds,id'],
             'department_id' => 'sometimes|nullable|integer|exists:contract_departments,id',
             'version' => $updating ? 'required|integer|min:1' : 'prohibited',
@@ -28,7 +72,7 @@ final class LaravelContractInputValidator implements ContractInputValidator
             'reason' => $updating ? 'required|string|min:5|max:1000' : 'nullable|string|max:1000',
             'duplicate_confirmation' => 'sometimes|boolean', 'number_year' => 'prohibited', 'number_sequence' => 'prohibited'];
         $required = ['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot', 'objeto',
-            'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total'];
+            'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total', 'modalidade', 'n_licit'];
         $type = $input['tipo'] ?? $contract->tipo;
         if (is_string($type) && (! $updating || $type !== $contract->tipo)) {
             $required = array_merge($required, ContractTypeRule::where('name_key', Normalizer::name($type))->value('required_fields') ?? []);
@@ -64,6 +108,13 @@ final class LaravelContractInputValidator implements ContractInputValidator
                 $input[$column] = $contract->$column;
             }
             $rules[$column] = ['bail', $updating ? 'sometimes' : ($mandatory ? 'required' : 'sometimes'), $mandatory ? 'required' : 'nullable', 'string', 'max:15000'];
+            if ($column === 'iptu') {
+                $choices = ContractFields::IPTU_RESPONSIBILITIES;
+                if ($updating && $contract->iptu !== null) {
+                    $choices[] = $contract->iptu;
+                }
+                $rules[$column][] = Rule::in($choices);
+            }
             if ($definition['type'] === 'date') {
                 $rules[$column][] = 'date_format:Y-m-d';
                 $rules[$column][] = 'after_or_equal:1000-01-01';
@@ -111,7 +162,58 @@ final class LaravelContractInputValidator implements ContractInputValidator
             }
         }
 
+        if (array_key_exists('_catalog_supplier_id', $input)) {
+            $fields['supplier_id'] = $input['_catalog_supplier_id'];
+            if ($updating && ! $context->isAdministrator && array_key_exists('fornecedor_documento_snapshot', $input)
+                && Normalizer::document($input['fornecedor_documento_snapshot']) !== Normalizer::document($contract->fornecedor_documento_snapshot)) {
+                foreach (array_intersect(ContractFields::SUPPLIER_CATALOG, ContractFields::PERSONAL) as $column) {
+                    $fields[$column] = null;
+                }
+            }
+        }
+
         return new ValidatedContractInput($data, $fields);
+    }
+
+    private function supplierInput(AuthorizedContract $context, Contract $contract, array $input): array
+    {
+        TransactionGuard::requireActive();
+        unset($input['_catalog_supplier_id']);
+        foreach (ContractFields::SUPPLIER_CATALOG as $column) {
+            unset($input[$column]);
+        }
+        if ($contract->exists && (! array_key_exists('fornecedor_documento_snapshot', $input)
+            || is_string($input['fornecedor_documento_snapshot']) && Normalizer::document($input['fornecedor_documento_snapshot']) === Normalizer::document($contract->fornecedor_documento_snapshot))) {
+            $input['_catalog_supplier_id'] = $contract->supplier_id;
+
+            return $input;
+        }
+        $document = $input['fornecedor_documento_snapshot'] ?? null;
+        if (! is_string($document) || ! Normalizer::validDocument(Normalizer::document($document))) {
+            return $input;
+        }
+        $actor = User::findOrFail($context->actor->id);
+        $query = SupplierCatalog::visibleTo($actor)->where('document_key', Normalizer::document($document));
+        if (isset($input['supplier_id'])) {
+            $id = $this->validated($input, ['supplier_id' => 'required|integer|min:1']);
+            $query->where('id', $id['supplier_id']);
+        }
+        $suppliers = $query->orderBy('id')->lockForUpdate()->limit(2)->get();
+        if ($suppliers->count() !== 1) {
+            throw new InputRejected(['fornecedor_documento_snapshot' => $suppliers->isEmpty()
+                ? 'Selecione um fornecedor cadastrado e disponível para sua conta.'
+                : 'Mais de um cadastro encontrado. Use Selecionar fornecedor cadastrado.']);
+        }
+        $supplier = $suppliers->first();
+        $values = SupplierCatalog::defaults($actor, $supplier);
+        foreach (ContractFields::SUPPLIER_CATALOG as $column) {
+            if (array_key_exists($column, $values)) {
+                $input[$column] = $values[$column];
+            }
+        }
+        $input['_catalog_supplier_id'] = (int) $supplier->id;
+
+        return $input;
     }
 
     public function validateLifecycle(AuthorizedContract $context, array $input): array

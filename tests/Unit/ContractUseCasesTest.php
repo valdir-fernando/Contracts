@@ -64,6 +64,18 @@ class ContractUseCasesTest extends TestCase
         }
     }
 
+    public function test_only_validated_supplier_id_can_override_document_resolution(): void
+    {
+        $ports = $this->ports();
+        $ports->fields = ['supplier_id' => 17];
+        $saved = $this->save($ports)->execute(new ActorIdentity(5, 2), ['fund_id' => 1, 'supplier_id' => 999]);
+        $this->assertSame(17, $saved->get('supplier_id'));
+        $this->assertNotContains('supplier', $ports->events);
+        $ports = $this->ports();
+        $saved = $this->save($ports)->execute(new ActorIdentity(5, 2), ['fund_id' => 1, 'supplier_id' => 999]);
+        $this->assertSame(10, $saved->get('supplier_id'));
+    }
+
     public function test_destination_scope_is_checked_before_resolving_catalogs_or_persisting(): void
     {
         $ports = $this->ports(4);

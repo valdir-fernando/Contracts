@@ -3,6 +3,8 @@ import './report-generation';
 import './count-up';
 import './contract-summary';
 import './supplier-assistance';
+import './fund-heading';
+import { scrollContractSection } from './contract-panel-scroll';
 
 document.querySelectorAll('[data-fund-switch][data-preserve-dashboard-year]').forEach((form) => {
     form.addEventListener('submit', () => {
@@ -124,8 +126,7 @@ document.querySelectorAll('.table-scroll').forEach((scroller) => {
 document.addEventListener('editor-section-change', (event) => {
     const section = document.querySelector(`[data-editor-section="${event.detail.step}"]`);
     if (!section) return;
-    section.scrollIntoView({ block: 'start', behavior: 'instant' });
-    section.querySelector('h2')?.focus({ preventScroll: true });
+    scrollContractSection(section);
 });
 
 // Keep filters close at hand without pushing results below the fold on phones.
@@ -325,7 +326,7 @@ document.querySelectorAll('[data-fund-defaults-form]').forEach((form) => {
             ['fundo_nome_snapshot', 'fundo_documento_snapshot'].forEach((name) => {
                 form.querySelector(`[data-derived-field="${name}"]`).textContent = values[name] ?? 'Não informado';
             });
-            notice.textContent = 'Dados do Fundo carregados. Confira o gestor antes de salvar. Campos editados foram preservados.';
+            notice.textContent = '';
         } catch (error) {
             if (error.name !== 'AbortError') notice.textContent = 'Não foi possível carregar os dados do Fundo. Confira e preencha os campos antes de salvar.';
         } finally {

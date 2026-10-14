@@ -35,7 +35,7 @@ try {
     $contract = $application->make(ContractWriter::class)->save($actor, [
         'fund_id' => $arguments['fund_id'], 'processo' => 'CONCURRENCY-'.$actor->id,
         'fornecedor_nome_snapshot' => 'Fornecedor sintético', 'fornecedor_documento_snapshot' => '11222333000181',
-        'objeto' => 'Contrato de teste de concorrência', 'tipo' => 'Serviço', 'valor_total' => '100.0000',
+        'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'objeto' => 'Contrato de teste de concorrência', 'tipo' => 'Serviço', 'valor_total' => '100.0000',
         'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13', 'vigencia_fim_original' => '2027-10-13',
     ]);
     echo json_encode(['number' => $contract->numero, 'sequence' => $contract->number_sequence], JSON_THROW_ON_ERROR);

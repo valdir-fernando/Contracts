@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { formatSupplierDocument, initializeSupplierAssistance } from '../../resources/js/supplier-assistance.js';
 
 globalThis.document = { createElement: () => ({ textContent: '', setAttribute() {} }) };
-const names = ['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio', '_token'];
+const names = ['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio', '_token', 'supplier_id'];
 function fixture(values = {}, prefill = {}) {
     const statuses = [];
     const controls = Object.fromEntries(names.map((name) => [name, {
-        name, value: values[name] ?? '', listeners: {},
+        name, value: values[name] ?? '', readOnly: !['fornecedor_documento_snapshot', '_token', 'supplier_id'].includes(name), listeners: {},
         addEventListener(event, handler) { this.listeners[event] = handler; },
         closest() { return { append: (status) => statuses.push(status) }; },
     }]));
@@ -59,7 +59,7 @@ test('catalog prefill is masked immediately and clears old automatic values when
     setup.input('11222333000181');
     assert.equal(setup.controls.fornecedor_nome_snapshot.value, '');
     assert.equal(setup.controls.cpf_socio.value, '');
-    assert.equal(setup.controls.end_fornec.value, 'Endereço digitado');
+    assert.equal(setup.controls.end_fornec.value, '');
     assert.equal(setup.summary.find((output) => output.dataset.contractSummaryField === 'fornecedor_nome_snapshot').textContent, 'Não informado');
 });
 
@@ -79,7 +79,7 @@ test('a delayed old response cannot overwrite the newly selected supplier', asyn
     assert.equal(setup.controls.fornecedor_nome_snapshot.value, 'Fornecedor atual');
 });
 
-test('manual edits during lookup are preserved and submission waits for lookup completion', async () => {
+test('catalog values overwrite manipulated readonly fields and submission waits for lookup completion', async () => {
     const setup = fixture({ fornecedor_documento_snapshot: '11222333000181' });
     const request = defer();
     initializeSupplierAssistance(setup.form, () => request.promise);
@@ -90,7 +90,7 @@ test('manual edits during lookup are preserved and submission waits for lookup c
     setup.controls.end_fornec.value = 'Endereço editado';
     request.resolve(response({ fornecedor_nome_snapshot: 'Empresa', end_fornec: 'Endereço cadastrado' }));
     await pending;
-    assert.equal(setup.controls.end_fornec.value, 'Endereço editado');
+    assert.equal(setup.controls.end_fornec.value, 'Endereço cadastrado');
     prevented = false;
     setup.form.listeners.submit({ preventDefault() { prevented = true; } });
     assert.equal(prevented, false);
@@ -109,4 +109,23 @@ test('missing and ambiguous matches never fill guessed data and incomplete input
     initializeSupplierAssistance(setup.form, async () => { called = true; return response({}); });
     await setup.blur();
     assert.equal(called, false);
+});
+
+test('changing document clears the selected catalog ID and every readonly value', () => {
+    const values = Object.fromEntries(names.map((name) => [name, name === 'fornecedor_documento_snapshot' ? '11222333000181' : 'old-value']));
+    const setup = fixture(values, values);
+    initializeSupplierAssistance(setup.form, async () => response({}));
+    setup.input('19131243000197');
+    assert.equal(setup.controls.supplier_id.value, '');
+    for (const field of Object.values(setup.controls).filter((field) => field.readOnly)) assert.equal(field.value, '');
+});
+
+test('an unchanged existing document preserves the stored snapshot without a lookup', async () => {
+    const setup = fixture({ fornecedor_documento_snapshot: '11222333000181', fornecedor_nome_snapshot: 'Snapshot histórico' });
+    setup.form.dataset.supplierOriginalDocument = '11222333000181';
+    let called = false;
+    initializeSupplierAssistance(setup.form, async () => { called = true; return response({ fornecedor_nome_snapshot: 'Nome atual' }); });
+    await setup.blur();
+    assert.equal(called, false);
+    assert.equal(setup.controls.fornecedor_nome_snapshot.value, 'Snapshot histórico');
 });

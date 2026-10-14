@@ -10,6 +10,16 @@ class ContractFields
 
     public const GENERATED = ['numero', 'cont_inteiro'];
 
+    public const IPTU_RESPONSIBILITIES = ['Locador(a)', 'Locatário'];
+
+    public const IPTU_HELP = [
+        'Locador(a)' => 'O locador(a) é o proprietário(a) do imóvel',
+        'Locatário' => 'locatário (também chamado de inquilino) é quem ocupa o espaço mediante o pagamento do aluguel',
+    ];
+
+    public const SUPPLIER_CATALOG = ['fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep',
+        'end_fornec', 'socio', 'cpf_socio', 'rg_socio'];
+
     public const MAP = [
         'ID_Contrato' => ['column' => 'legacy_id', 'type' => 'id', 'group' => 'Identificação e licitação'],
         'Contrato' => ['column' => 'numero', 'type' => 'text', 'group' => 'Identificação e licitação'],
@@ -129,7 +139,7 @@ class ContractFields
         'Nome_Fiscal' => 'Fiscal', 'RG_Fiscal' => 'RG do fiscal', 'Decreto_Fiscal' => 'Decreto do fiscal',
         'Tipo_Contrato' => 'Tipo de contrato', 'Tipo_Veiculo' => 'Tipo de veículo', 'Dados_Veiculo' => 'Dados do veículo',
         'End_Imovel' => 'Endereço do imóvel', 'Cargo_Credenc' => 'Cargo de credenciamento',
-        'Local_Servico' => 'Local do serviço', 'Instalacoes' => 'Instalações', 'AreaTerreno' => 'Área do terreno',
+        'Local_Servico' => 'Local do serviço', 'IPTU' => 'IPTU por conta do(a)>', 'Instalacoes' => 'Instalações', 'AreaTerreno' => 'Área do terreno',
         'AreaConstruida' => 'Área construída', 'Objeto' => 'Objeto', 'Tipo_Fornecimento' => 'Tipo de fornecimento',
         'Vigencia' => 'Vigência por extenso', 'Inicio_Vig' => 'Início da vigência',
         'Final_Vig' => 'Término original', 'Final_Vig_Atualiz' => 'Término atualizado informado',

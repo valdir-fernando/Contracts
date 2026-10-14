@@ -1,10 +1,11 @@
 @props(['title' => 'Início', 'contractEditor' => false])
+@php($summaryInHeader = $contractEditor && isset($contractSummary))
 <x-layouts.auth :title="$title">
     <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
     <script>
         try { document.documentElement.dataset.sidebarCollapsed = String(localStorage.getItem('contracts.sidebar-collapsed') === 'true'); } catch {}
     </script>
-    <div class="workspace">
+    <div @class(['workspace', 'workspace-contract-editor' => $contractEditor])>
         <aside class="workspace-nav" data-collapsed="true">
             <div class="nav-brand-row">
                 <a class="workspace-brand" href="{{ route('dashboard') }}" aria-label="Contracts — Início"><x-brand-mark/><span class="brand-name">Contracts</span></a>
@@ -45,16 +46,18 @@
             </div>
         </aside>
         <main class="workspace-content" id="main-content" tabindex="-1" @if($contractEditor) data-contract-editor @endif>
-            <header @class(['workspace-top', 'workspace-top-compact' => request()->routeIs('contracts.create')])>
-                @isset($headerBack)<div class="fund-header-group">@endisset
+            <header @class(['workspace-top', 'workspace-top-compact' => request()->routeIs('contracts.create'), 'workspace-top-contract' => $summaryInHeader])>
+                @isset($headerBack)<div class="fund-header-group">{{ $headerBack }}@endisset
                 @if($selectedFund = request()->attributes->get('selected_fund'))
-                    <span class="fund-breadcrumb"><strong class="selected-fund-name">{{ $selectedFund['name'] }}</strong>@unless(request()->routeIs('dashboard')) <span class="breadcrumb-divider" aria-hidden="true">/</span>{{ $title }}@endunless</span>
+                    <span class="fund-breadcrumb"><strong class="selected-fund-name"{{ $summaryInHeader ? ' data-fit-fund-name' : '' }}>{{ $selectedFund['name'] }}</strong>@unless(request()->routeIs('dashboard') || $summaryInHeader) <span class="breadcrumb-divider" aria-hidden="true">/</span>{{ $title }}@endunless</span>
                 @else
-                    <span>Gestão de contratos <span class="breadcrumb-divider" aria-hidden="true">/</span><strong>{{ $title }}</strong></span>
+                    <span>Gestão de contratos @unless($summaryInHeader)<span class="breadcrumb-divider" aria-hidden="true">/</span><strong>{{ $title }}</strong>@endunless</span>
                 @endif
-                @isset($headerBack){{ $headerBack }}</div>@endisset
-                <div class="topbar-account"><span class="workspace-date"><x-nav-icon name="calendar"/>{{ today()->format('d/m/Y') }}</span><a class="account-avatar" href="{{ route('account.edit') }}" aria-label="Abrir minha conta" title="{{ auth()->user()->name }}">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</a></div>
+                @isset($headerBack)</div>@endisset
+                @unless($summaryInHeader)<div class="topbar-account"><span class="workspace-date"><x-nav-icon name="calendar"/>{{ today()->format('d/m/Y') }}</span><a class="account-avatar" href="{{ route('account.edit') }}" aria-label="Abrir minha conta" title="{{ auth()->user()->name }}">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</a></div>@endunless
+                @if($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endif
             </header>
+            @unless($contractEditor)
             @isset($contractSummary)<div class="contract-context-row">@endisset
             <form class="fund-session-form" method="POST" action="{{ route('session.fund') }}" data-fund-switch @if(request()->routeIs('dashboard')) data-preserve-dashboard-year @endif>
                 @csrf
@@ -67,7 +70,8 @@
                 </select></div>
                 <button class="secondary-button" type="submit">Alterar Fundo</button>
             </form>
-            @isset($contractSummary)<div class="contract-context-heading">{{ $contractSummary }}</div></div>@endisset
+            @isset($contractSummary)@unless($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endunless</div>@endisset
+            @endunless
             @if(session('status'))<div class="notice" role="status">{{ session('status') }}</div>@endif
             @if($errors->any())<div class="notice notice-error" role="alert"><strong>Confira os dados informados.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             {{ $slot }}

@@ -61,7 +61,8 @@ final class SaveContract
             $document = BrazilianDocument::document($contract->get('fornecedor_documento_snapshot'));
             $contract = $contract->with([
                 'supplier_document_key' => strlen($document) <= 32 ? ($document ?: null) : null,
-                'supplier_id' => BrazilianDocument::validDocument($document) ? $this->catalog->supplierId($document) : null,
+                'supplier_id' => array_key_exists('supplier_id', $validated->fields) ? $validated->fields['supplier_id']
+                    : (BrazilianDocument::validDocument($document) ? $this->catalog->supplierId($document) : null),
                 'exercicio' => $contract->exercise(),
             ]);
             $duplicateConfirmed = false;

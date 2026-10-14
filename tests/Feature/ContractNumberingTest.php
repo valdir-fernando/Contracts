@@ -29,7 +29,9 @@ class ContractNumberingTest extends TestCase
         $this->travelTo(now()->setDate(2026, 10, 13)->startOfDay());
         $this->admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SyntheticPassword123', 'user_type' => 'Administrador']);
         $this->fund = $this->fund('Fundo A');
+        DB::table('suppliers')->insert(['name' => 'Fornecedor', 'name_key' => 'FORNECEDOR', 'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
         $this->actingAs($this->admin);
+        $this->withSession(['fund_id' => $this->fund]);
     }
 
     private function fund(string $name): int
@@ -41,7 +43,7 @@ class ContractNumberingTest extends TestCase
     {
         return array_replace(['fund_id' => $this->fund, 'processo' => 'PROC', 'fornecedor_nome_snapshot' => 'Fornecedor',
             'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço',
-            'valor_total' => '100.0000', 'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13',
+            'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'valor_total' => '100.0000', 'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13',
             'vigencia_fim_original' => '2027-10-13'], $values);
     }
 
@@ -101,6 +103,7 @@ class ContractNumberingTest extends TestCase
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
         $scope = AccessScope::create(['scope_key' => 'numbering', 'fund' => 'Fundo A', 'fund_id' => $this->fund]);
         $user->scopes()->attach($scope);
+        Contract::create(['fund_id' => $this->fund, 'supplier_id' => DB::table('suppliers')->where('document_key', '11222333000181')->value('id'), 'ownership_resolved' => true, 'quality_issues' => []]);
         $fundB = $this->fund('Fundo B');
         $this->actingAs($user)->post('/contracts', $this->input(['fund_id' => $fundB]))->assertForbidden();
         $this->assertDatabaseCount('tb_N_Contrato', 0);

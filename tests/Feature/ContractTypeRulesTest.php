@@ -23,7 +23,9 @@ class ContractTypeRulesTest extends TestCase
         $this->withoutVite();
         $this->admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
         $this->fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
+        DB::table('suppliers')->insert(['name' => 'Fornecedor', 'name_key' => 'FORNECEDOR', 'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
         $this->actingAs($this->admin);
+        $this->withSession(['fund_id' => $this->fund]);
     }
 
     private function data(array $extra = []): array
@@ -31,7 +33,7 @@ class ContractTypeRulesTest extends TestCase
         return array_replace(['numero' => 'TIPO/26', 'processo' => 'Processo', 'fornecedor_nome_snapshot' => 'Fornecedor',
             'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto de teste', 'tipo' => 'Locação',
             'data_contrato' => '2026-10-10', 'vigencia_inicio' => '2026-10-10', 'vigencia_fim_original' => '2027-10-10',
-            'valor_total' => '1908.6300', 'fund_id' => $this->fund], $extra);
+            'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'valor_total' => '1908.6300', 'fund_id' => $this->fund], $extra);
     }
 
     public function test_configured_requirements_apply_on_creation_and_type_change_without_retroactively_blocking_history(): void
@@ -57,9 +59,11 @@ class ContractTypeRulesTest extends TestCase
     {
         $this->post('/contract-types', ['name' => 'Teste', 'required_fields' => ['user_type'], 'reason' => 'Tentativa com campo inválido'])->assertSessionHasErrors('required_fields.0');
         $regular = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'TestPassword12345']);
+        $this->flushSession();
         $this->actingAs($regular)->get('/contract-types')->assertForbidden();
         $this->post('/contract-types', ['name' => 'Teste', 'reason' => 'Tentativa de alterar requisitos'])->assertForbidden();
         $this->actingAs($this->admin);
+        $this->withSession(['fund_id' => $this->fund]);
         $this->post('/contracts', $this->data(['cpf_gestor' => '11111111111', 'cpf_fiscal' => '11222333000181']))->assertSessionHasErrors(['cpf_gestor', 'cpf_fiscal']);
         $this->post('/contracts', $this->data(['cpf_gestor' => '529.982.247-25']))->assertRedirect();
         $contract = Contract::sole();

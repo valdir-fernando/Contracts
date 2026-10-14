@@ -14,6 +14,7 @@ export function formatSupplierDocument(value) {
 export function initializeSupplierAssistance(form, fetcher = fetch) {
     const documentField = form.elements.namedItem('fornecedor_documento_snapshot');
     if (!documentField) return;
+    const supplierId = form.elements.namedItem('supplier_id');
     const fields = supplierFields.map((name) => form.elements.namedItem(name)).filter(Boolean);
     documentField.value = formatSupplierDocument(documentField.value);
     const partnerDocument = form.elements.namedItem('cpf_socio');
@@ -28,6 +29,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
     let pending = false;
     const automatic = new Map();
     const prefill = JSON.parse(form.dataset.supplierPrefill || '{}');
+    let resolvedDocument = form.dataset.supplierOriginalDocument || (prefill.fornecedor_documento_snapshot ?? '').replace(/\D/g, '');
     if ((prefill.fornecedor_documento_snapshot ?? '').replace(/\D/g, '') === documentField.value.replace(/\D/g, '')) {
         fields.forEach((field) => {
             if (!(field.name in prefill)) return;
@@ -37,7 +39,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
     }
     const clearAutomatic = () => {
         fields.forEach((field) => {
-            if (automatic.has(field.name) && field.value === automatic.get(field.name)) field.value = '';
+            if (field.readOnly || automatic.has(field.name) && field.value === automatic.get(field.name)) field.value = '';
         });
         automatic.clear();
         refreshContractSummary(form);
@@ -46,6 +48,8 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
         controller?.abort();
         controller = null;
         pending = false;
+        resolvedDocument = '';
+        if (supplierId) supplierId.value = '';
         status.textContent = '';
         clearAutomatic();
     });
@@ -61,6 +65,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
         controller = attempt;
         const digits = documentField.value.replace(/\D/g, '');
         pending = false;
+        if (resolvedDocument === digits) return;
         if (!/^[\d\s.\/-]+$/.test(documentField.value) || ![11, 14].includes(digits.length)) {
             status.textContent = documentField.value ? 'Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.' : '';
             return;
@@ -78,7 +83,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
             });
             if (!response.ok) {
                 const messages = {
-                    404: 'Nenhum fornecedor disponível para este documento. Preencha os dados ou selecione um cadastro.',
+                    404: 'Nenhum fornecedor disponível para este documento. Selecione um fornecedor cadastrado.',
                     409: 'Mais de um cadastro encontrado. Use Selecionar fornecedor cadastrado.',
                     422: 'Informe um CPF ou CNPJ válido.',
                     401: 'Seu acesso foi atualizado. Entre novamente.',
@@ -90,10 +95,11 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
             const { values } = await response.json();
             if (controller !== attempt || documentField.value.replace(/\D/g, '') !== digits) return;
             fields.forEach((field) => {
-                if (field.value !== before.get(field.name)) return;
+                if (!field.readOnly && field.value !== before.get(field.name)) return;
                 field.value = field.name === 'cpf_socio' ? formatSupplierDocument(values[field.name] ?? '') : (values[field.name] ?? '');
                 automatic.set(field.name, field.value);
             });
+            resolvedDocument = digits;
             status.textContent = 'Dados do fornecedor preenchidos. Confira antes de salvar.';
         } catch (error) {
             if (controller === attempt && error.name !== 'AbortError') status.textContent = failureMessage;
