@@ -1,0 +1,43 @@
+# Overlay para executar o código local com um banco remoto de desenvolvimento.
+# Mantém o MySQL local e seus volumes intactos; usa storage/cache separados.
+x-hostinger-environment: &hostinger-environment
+  APP_ENV: staging
+  APP_DEBUG: "false"
+  APP_KEY: ${HOSTINGER_APP_KEY:?Configure HOSTINGER_APP_KEY em .env.hostinger-dev}
+  APP_URL: http://127.0.0.1:8000
+  DB_CONNECTION: ${HOSTINGER_DB_CONNECTION:-mysql}
+  DB_URL: ""
+  DB_SOCKET: ""
+  DB_HOST: ${HOSTINGER_DB_HOST:?Configure o host remoto}
+  DB_PORT: ${HOSTINGER_DB_PORT:-3306}
+  DB_DATABASE: ${HOSTINGER_DB_DATABASE:?Configure o banco separado de desenvolvimento}
+  DB_USERNAME: ${HOSTINGER_DB_USERNAME:?Configure o usuário desse banco}
+  DB_PASSWORD: ${HOSTINGER_DB_PASSWORD:?Configure a senha desse banco}
+  DB_MASK_BINDINGS: "true"
+  MYSQL_ATTR_SSL_CA: ${HOSTINGER_MYSQL_SSL_CA:-}
+  SESSION_DRIVER: file
+  SESSION_SECURE_COOKIE: "false"
+  CACHE_STORE: file
+  QUEUE_CONNECTION: database
+  LEGACY_SYNC_ENABLED: "false"
+
+services:
+  app:
+    environment: *hostinger-environment
+    volumes:
+      - hostinger_dev_storage:/var/www/html/storage
+      - hostinger_dev_cache:/var/www/html/bootstrap/cache
+  worker:
+    environment: *hostinger-environment
+    volumes:
+      - hostinger_dev_storage:/var/www/html/storage
+      - hostinger_dev_cache:/var/www/html/bootstrap/cache
+  scheduler:
+    environment: *hostinger-environment
+    volumes:
+      - hostinger_dev_storage:/var/www/html/storage
+      - hostinger_dev_cache:/var/www/html/bootstrap/cache
+
+volumes:
+  hostinger_dev_storage:
+  hostinger_dev_cache:
