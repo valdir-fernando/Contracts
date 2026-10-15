@@ -2,15 +2,43 @@
 
 ## Apresentação final
 
-No cadastro e na edição, cabeçalho, Secretaria, Tipo de contrato e navegação permanecem fixos; somente os painéis têm rolagem própria. Os botões de seção deslocam apenas essa área, com foco no título sem mover a página. Salvar e Cancelar permanecem acessíveis; Anterior/Próxima seção foram retirados.
+Os campos editáveis do sistema usam fundo #808080, com texto e placeholder escuros para leitura. A regra se aplica a inputs de dados, selects e textareas habilitados; controles somente leitura e desabilitados mantêm sua aparência anterior. Botões, checkboxes e rádios preservam seus estilos.
 
-O cabeçalho não apresenta data, calendário, avatar, breadcrumb duplicado ou seletor de Fundo. Voltar fica acima do nome do Fundo, cuja fonte se adapta à largura disponível; título do contrato e fornecedor ficam à direita. Secretaria e Tipo de contrato ficam sem moldura, com os botões de documentos à direita, alinhados à base. A navegação não tem painel nem título Dados do contrato; Expandir Tudo exibe todas as seções e ocupa o espaço restante da linha.
+Todos os controles de uma linha do formulário (inputs, selects e textareas de uma linha) usam a altura compacta de Instalações, inclusive Secretaria e Tipo de contrato. Valores somente leitura têm a mesma altura mínima e podem crescer para exibir conteúdo longo. Campos de várias linhas preservam sua altura. O cálculo acompanha a fonte maior em telas pequenas; o botão de calendário cabe dentro do controle compacto.
+
+Dados Contratante apresenta somente valores de consulta. O fiscal e seus dados são preenchidos pelo Fundo ou pela Secretaria do Município, sem entrada manual nem confiança em snapshots HTTP. [Regras, importação de tb_Fiscal e validação](inspector-autofill-2026-10-15.md).
+
+Fiscal tem indicação de campo obrigatório. A gravação exige o fiscal automático ou um histórico preenchido mantido no mesmo contexto; ausência e ambiguidade impedem salvar e exibem erro junto ao campo. A obrigatoriedade também é validada no servidor.
+
+Escopo usa seleção opcional com as opções “Escopo” e “Contínuo”, validadas no servidor. Na edição, valores históricos diferentes permanecem disponíveis para aquele contrato e são preservados quando omitidos; podem ser substituídos pelas opções atuais.
+
+Um ícone informativo ao lado de Escopo abre uma explicação em popover ao passar o mouse, focar pelo teclado ou clicar/tocar. A mensagem segue Reference/Escopo_Continuo.jpg: introdução e tabela comparativa com objetivo, execução, exemplos, encerramento e vigência. Os prazos foram descritos com as condições dos arts. 106, 107 e 111 da Lei nº 14.133/2021, sem efeitos automáticos no sistema. O popover tem largura ampliada, rolagem vertical e tabela com rolagem horizontal em telas pequenas. A janela aparece acima dos painéis, sem ser cortada pela rolagem; permite Escape e fechamento ao clicar fora.
+
+O cabeçalho apresenta o campo editável “Nº do Contrato” no lugar do título visual Novo contrato/Editar contrato, com placeholder “N° do Contrato” e lupa interna. Ao abrir um contrato, exibe `numero` persistido. Digitar um número e clicar na lupa ou pressionar Enter abre uma janela de busca; selecionar um resultado abre a edição. A digitação serve à consulta e não altera a numeração automática nem integra o formulário de gravação.
+
+`GET /contracts/lookup` recebe `q` (trecho literal do número, até 100 caracteres) e `page`, com 15 resultados por página. Revalida o ator e o Fundo da sessão, aplica `visibleTo` e exclui soft deletes. Parâmetros HTTP não substituem o Fundo. A resposta privada, sem cache, projeta apenas número, processo e URL autorizável de edição, além da página atual e final; não retorna models nem dados pessoais. A edição reautoriza o acesso ao abrir. A janela oferece busca, paginação, estado vazio/erro, fechamento por Escape e retorno do foco à lupa. Consultas substituídas ou encerradas são canceladas.
+
+Validação desta busca: `ContractWritingTest` passou (26 testes, 405 asserções), `composer check:architecture` passou (3 testes), Pint passou nos arquivos PHP alterados, `npm test` passou (11 testes existentes), `npm run build` e `git diff --check` passaram. Não foi executado ensaio de navegador para a nova janela.
+
+No painel Vigência execução e aditivos, Término atualizado informado, Número de aditivo (resumo legado), Processo do aditivo, Número da ordem de serviço e Data da ordem de serviço aparecem somente na edição, no quadro interno “Resumo de execução e aditivos”, sem controles editáveis. O quadro consulta os valores persistidos e respeita a apresentação autorizada por perfil. As rotas de cadastro e edição recusam valores não vazios desses campos e nunca os incluem no patch gravável, mesmo quando enviados como null ou vazios. As integrações internas permanecem compatíveis; uma janela específica para manutenção posterior ainda será implementada. A alteração não aplica efeitos financeiros ou de vigência.
+
+O painel Dados Processuais não exibe Código de origem, Número do contrato ou Identificação completa no cadastro e na edição. A geração automática da numeração, o número apresentado no cabeçalho e os dados históricos permanecem preservados.
+
+Cadastro e edição abrem com apenas o primeiro painel (Dados Processuais) ativo. Após a inicialização do Alpine, o foco vai para Secretaria quando habilitada para o Município de Niquelândia; nos demais casos, vai para Tipo de contrato. O foco não desloca a página. Novo Contrato abre o cadastro com essa mesma inicialização. Expandir Tudo continua disponível para exibir todos os painéis.
+
+No cadastro e na edição, cabeçalho, Secretaria, Tipo de contrato e navegação permanecem fixos; somente os painéis têm rolagem própria. Os botões de seção deslocam apenas essa área, com foco no título sem mover a página. A barra de ações contém Salvar contrato, Novo Contrato, Editar Contrato e Excluir Contrato, com as cores azuis e hover da navegação; Cancelar foi removido. Editar e Excluir ficam desabilitados antes do primeiro salvamento. Em contratos existentes, as ações respeitam as policies, e Excluir abre a confirmação existente (número e motivo) na tela de detalhes. Os botões permanecem acessíveis; Anterior/Próxima seção foram retirados.
+
+O cabeçalho não apresenta data, calendário, avatar, breadcrumb duplicado ou seletor de Fundo. Voltar fica acima do nome do Fundo, cuja fonte se adapta à largura disponível; o campo Nº do Contrato fica à direita, e o nome do fornecedor fica à esquerda, logo abaixo do Fundo, em vermelho claro (#f5a3a3), igual ao hover de Expandir Tudo. Secretaria e Tipo de contrato ficam sem moldura, com os botões de documentos à direita, alinhados à base. A navegação não tem painel nem título Dados do contrato; Expandir Tudo exibe todas as seções e ocupa o espaço restante da linha.
 
 Botões de navegação usam azul del rey/texto azul e, no hover/foco, azul claro/texto preto. Expandir Tudo usa dourado e, no hover/foco, vermelho claro/texto preto. Espaçamento entre painéis foi reduzido em 60%, e existe uma margem de 8px abaixo do cabeçalho.
 
 Escopo/Tipo de veículo, Cargo de credenciamento/Local do serviço e Instalações têm altura de uma linha e ocupam uma coluna. Dados do veículo também tem uma linha. Endereços do fornecedor/fundo têm duas linhas e altura compacta, inclusive em aditivos. IPTU fica compacto junto de Endereço do imóvel, que ocupa o restante da linha; ambos têm altura de 44px e o espaçamento padrão dos campos. As opções de IPTU possuem títulos explicativos; o campo atualiza sua dica conforme a seleção. A apresentação de dicas em opções do select nativo depende do navegador.
 
 ## IPTU
+
+O rótulo de IPTU possui ícone informativo com o mesmo popover de Escopo: abre ao passar o mouse, focar ou tocar e exibe tabela comparando Locador(a) e Locatário, exemplos e orientação para conferir a cláusula de IPTU. A explicação distingue a obrigação contratual e cita a Lei nº 8.245/1991, art. 22, VIII. O conteúdo não altera a seleção nem produz efeitos financeiros.
+
+Tipo de contrato usa um select de escolha única com as onze opções fixas de `ContractFields::CONTRACT_TYPES`, ordenadas pela quantidade de caracteres (incluindo espaços), da maior para a menor. Empates preservam a ordem da lista definida. Na edição, um tipo histórico fora da lista aparece somente para preservar o valor daquele contrato. As regras por tipo continuam independentes das opções. Não há alteração de schema ou dos dados históricos.
 
 IPTU é apresentado como select compacto, com o rótulo `IPTU por conta do(a)>` e opções `Locador(a)` e `Locatário`. A seleção permanece opcional. O adaptador contextual valida as opções dentro da transação existente; valores livres novos são recusados antes da persistência/auditoria. Registros históricos com texto diferente continuam exibindo seu valor anterior e podem preservá-lo ou substituí-lo por uma das opções atuais. Campos omitidos mantêm o histórico, sem migration ou alteração de dados existentes. Não há efeito financeiro automático.
 
@@ -44,9 +72,9 @@ O navegador limpa os dados de consulta e a seleção explícita ao trocar o docu
 
 Validação executada: Pint e `composer check` via Docker com `QUEUE_CONNECTION=database` passaram (323 testes, 2611 asserções, 1 ignorado); a nova regra unitária também passou em `composer test:unit` (57 testes, 129 asserções). `composer check:architecture` passou (3 testes), e a última verificação de `SupplierAutofillTest` passou (11 testes, 150 asserções). `npm test` passou com 10 testes; `npm run build` concluiu via `docker compose run --rm --no-deps node`. Views compiladas foram limpas e `git diff --check` passou. Os testes usam SQLite/storage/cache isolados; MySQL de concorrência e verificação interativa de navegador não foram executados. Nenhum dado do catálogo instalado foi modificado.
 
-## Identificação e licitação
+## Dados Processuais
 
-O formulário de criação e edição não apresenta Processo do edital (`proc_edital`), Número do edital (`n_edital`), Data da licitação (`data_licit`) e Número da solicitação (`n_solicit`). As colunas, importação, visualização histórica e compatibilidade HTTP são preservadas; uma edição com campos omitidos não apaga os valores anteriores.
+O formulário de criação e edição apresenta Número do edital (`n_edital`) e Processo do edital (`proc_edital`) no painel Objeto e dados especiais, logo após Cargo Credenciamento - Saúde e Local do serviço. Data da licitação (`data_licit`) e Número da solicitação (`n_solicit`) permanecem ocultos. As colunas, importação, visualização histórica e compatibilidade HTTP são preservadas; uma edição com campos omitidos não apaga os valores anteriores.
 
 Modalidade (`modalidade`) e Número da licitação (`n_licit`) são obrigatórios para novos contratos, com indicação no formulário e validação no adaptador contextual dentro da transação existente. Na edição, valores já preenchidos não podem ser esvaziados; omissão em patches preserva os valores existentes. Registros históricos incompletos continuam editáveis sem exigir preenchimento retroativo, seguindo a regra existente dos demais campos básicos.
 
@@ -80,3 +108,17 @@ Comandos executados:
 - `git diff --check`: sem erros; `/up`: HTTP 200.
 
 Não foi realizada validação interativa de seleção/área de transferência em navegador; Playwright não está disponível no Node local. A alteração de seleção usa as propriedades CSS nativas do navegador.
+
+## Seleção de fornecedor sem perder o formulário (15/10/2026)
+
+O controle Selecionar fornecedor cadastrado abre o catálogo original completo em uma janela ampla sobre o formulário atual, com a busca, tabela, detalhes e paginação existentes. O catálogo é carregado em um iframe da própria aplicação. Ao clicar em Usar no novo contrato, a janela lê apenas a projeção autorizada de fornecedor retornada pelo formulário de criação e fecha. Escolher um cadastro atualiza somente supplier_id, documento e os oito campos de fornecedor; processo, objeto, valores, datas e os demais dados digitados permanecem intactos. Fechar ou cancelar não altera o formulário. Consultas anteriores por documento são canceladas para não sobrescrever a seleção.
+
+O catálogo utiliza as rotas HTML existentes, sem endpoint JSON adicional para listagem. A autorização, os escopos e as restrições de dados pessoais continuam aplicados no servidor. A gravação continua revalidando o fornecedor no servidor.
+
+Validação: npm test (16 testes), npm run build, SupplierAutofillTest (12 testes, 163 asserções), composer check:architecture (3 testes), composer test:unit (57 testes) e Pint passaram, executados pelo Docker. Testes PHP usam SQLite e storage/cache isolados. Sem validação interativa em navegador nesta execução.
+
+Verificação geral: docker compose exec -T -e QUEUE_CONNECTION=database app composer check passou (Pint; 344 testes, 2977 asserções, 1 ignorado). php artisan view:clear executado; git diff --check sem erros de whitespace.
+
+Após restaurar o catálogo original: npm test passou (16 testes), npm run build passou, SupplierAutofillTest passou (12 testes, 165 asserções), Pint nos dois arquivos PHP envolvidos passou e git diff --check não apontou erros de whitespace. A suíte completa acima refere-se à implementação anterior; não foi repetida para esta troca de apresentação. Sem validação interativa do iframe em navegador.
+
+O iframe do seletor agora se identifica como contracts-supplier-catalog. O layout oculta a barra lateral somente nesse contexto e deixa o catálogo ocupar toda a largura; a identificação permanece ao navegar entre busca, paginação e detalhes. Acesso normal ao catálogo mantém o menu. Validação: npm run build pelo Docker passou; php artisan view:clear executado; git diff --check sem erros de whitespace. Sem inspeção visual em navegador ou repetição da suíte PHP para esta alteração de apresentação.

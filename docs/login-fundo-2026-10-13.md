@@ -4,7 +4,7 @@ O login exige escolher um Fundo cadastrado e autorizado para a conta. O cabeçal
 
 A migration adiciona somente `contract_managers`. O comando de importação preserva os oito registros de `tb_Gestor` do dump local, sem alterar contratos. Todos os oito gestores encontraram Fundo correspondente. Vínculos ambíguos não são escolhidos automaticamente. A seleção não modifica a matriz de permissões. A evolução posterior limita os indicadores e contratos recentes do Início ao Fundo da sessão e oferece troca de Fundo autenticada no cabeçalho.
 
-Sessões anteriores sem Fundo podem escolher o contexto em **Fundo selecionado → Alterar Fundo**, no cabeçalho. Acesso restaurado por cookie de lembrar login sem contexto exige novo login. Revogação de acesso ao Fundo selecionado encerra a sessão.
+O seletor de Fundo permanece somente no login. O campo Fundo selecionado e o botão Alterar Fundo foram removidos do layout compartilhado, inclusive do catálogo aberto na busca de fornecedor. Para trocar o contexto, saia e entre novamente. Acesso restaurado por cookie de lembrar login sem contexto exige novo login. Revogação de acesso ao Fundo selecionado encerra a sessão.
 
 ## Validação executada
 
@@ -23,3 +23,5 @@ Sessões anteriores sem Fundo podem escolher o contexto em **Fundo selecionado �
 | Requisição HTTP local a `/login` | HTTP 200, Fundo obrigatório e 8 opções |
 
 Os testes utilizaram SQLite em memória e armazenamento/cache temporários. `QUEUE_CONNECTION=database` foi explicitado porque o `.env` local usa `sync` e o teste existente de escala espera uma exportação pendente. Não houve teste MySQL, ensaio de navegador ou publicação externa; Playwright não está disponível no host. A troca de Fundo no navegador tem validação de sintaxe/build; autorização, projeção e sugestões são cobertas pelos testes de integração. Não foram criados commits.
+
+Validação da remoção do seletor nas telas autenticadas (15/10/2026): docker compose exec -T app php vendor/bin/phpunit --do-not-cache-result --filter SelectedFundTest passou (11 testes, 90 asserções), incluindo ausência dos controles no painel, fornecedores, contratos, criação e conta, além da preservação do seletor no login. docker compose run --rm --no-deps node npm run build passou; Pint do teste passou; php artisan view:clear executado; git diff --check sem erros de whitespace. Suíte completa não repetida e sem inspeção visual em navegador nesta alteração de layout.

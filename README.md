@@ -1,14 +1,16 @@
 # Contracts
 
+Dados Contratante permanece somente para consulta, com fiscal automático por Fundo ou Secretaria do Município. [Importação de `tb_Fiscal`, comportamento e validação](docs/inspector-autofill-2026-10-15.md).
+
 Banco de desenvolvimento na Hostinger: [criação das tabelas, conexão remota, importação e preparação da hospedagem](docs/hostinger-development.md). A configuração opcional `compose.hostinger-dev.yaml` preserva o banco local e usa storage/cache separados.
 
 Sistema de gestão de contratos com Laravel 13, Livewire 4/Alpine, Blade, Tailwind 4, PHP 8.4, Nginx, MySQL 8.4 e Vite.
 
 O login exige selecionar um Fundo autorizado. O Início exibe esse Fundo, e novos contratos usam sugestões do Fundo e do gestor cadastrado na `tb_Gestor`. [Comportamento, instalação e validação](docs/login-fundo-2026-10-13.md).
 
-O Início mostra os contratos do Fundo selecionado e do exercício atual por padrão. O seletor **Ano dos contratos** permite consultar exercícios anteriores ou **Todos os anos**, atualizando indicadores, gráficos, alertas e a lista recente. Use **Fundo selecionado → Alterar Fundo**, no topo das telas, para trocar entre fundos autorizados sem sair da sessão.
+O Início mostra os contratos do Fundo selecionado e do exercício atual por padrão. O seletor **Ano dos contratos** permite consultar exercícios anteriores ou **Todos os anos**, atualizando indicadores, gráficos, alertas e a lista recente. O Fundo é escolhido na tela de login; para trocar, saia e entre novamente selecionando outro Fundo autorizado.
 
-Novos contratos aplicam máscara de CPF/CNPJ e preenchem os dados do fornecedor ao sair do campo ou selecionar um cadastro, usando a `tb_Fornecedor` importada e respeitando permissões. [Comportamento e validação](docs/supplier-autofill-2026-10-13.md).
+Novos contratos aplicam máscara de CPF/CNPJ e preenchem os dados do fornecedor ao sair do campo ou selecionar um cadastro, usando a `tb_Fornecedor` importada e respeitando permissões. [Comportamento e validação](docs/supplier-autofill-2026-10-13.md). O [cadastro de fornecedores](docs/supplier-registration-2026-10-15.md) permite preencher os dados cadastrais, contatos e representante.
 
 A numeração de novos contratos é automática por Fundo e ano, atribuída ao salvar: `001/26` até `999/26`, continuando com `1000/26`. Identificação completa guarda a sequência sem máscara. A virada do ano inicia um contador independente, e gravação/auditoria/contador são transacionais. [Instalação e validação](docs/contract-numbering-2026-10-13.md).
 
