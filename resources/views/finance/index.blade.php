@@ -1,7 +1,7 @@
 <x-layouts.app title="Dotação e empenhos">
     <div class="page-heading"><div><a class="text-link" href="{{ route('contracts.show', $contract) }}">← Contrato {{ $contract->numero }}</a><h1>Dotação, fichas e empenhos</h1><p>Registros informados e conferidos, com vínculos explícitos ao contrato.</p></div></div>
     <div class="action-toolbar">
-@foreach(\App\Support\FinancialFields::KINDS as $kind=>$label)<a class="secondary-button" href="{{ route('contracts.finance.create', ['contract'=>$contract, 'kind'=>$kind]) }}">Novo registro: {{ $label }}</a> @endforeach</div>
+@foreach(\App\Support\FinancialFields::KINDS as $kind=>$label)<a class="secondary-button" href="{{ route('contracts.finance.create', ['contract'=>$contract, 'kind'=>$kind]) }}"><x-nav-icon name="plus"/>Novo registro: {{ $label }}</a> @endforeach</div>
     <form method="GET" class="surface contract-section"><div class="field-grid"><label class="field">Tipo<select name="kind"><option value="">Todos</option>
 @foreach(\App\Support\FinancialFields::KINDS as $kind=>$label)<option value="{{ $kind }}" @selected(($filters['kind']??'')===$kind)>{{ $label }}</option>
 @endforeach</select></label><label class="field">Exercício<input type="number" name="year" min="1000" max="9999" value="{{ $filters['year']??'' }}"></label>

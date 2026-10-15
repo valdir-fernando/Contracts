@@ -65,6 +65,17 @@ class SelectedFundTest extends TestCase
         $this->post('/logout')->assertRedirect('/login')->assertSessionMissing('fund_id');
     }
 
+    public function test_authenticated_pages_do_not_display_the_fund_switcher(): void
+    {
+        $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
+        foreach (['/dashboard', '/suppliers', '/contracts', '/contracts/create', '/account'] as $url) {
+            $this->get($url)->assertOk()
+                ->assertDontSee('id="session-fund"', false)
+                ->assertDontSee('data-fund-switch', false)
+                ->assertDontSee('Alterar Fundo');
+        }
+    }
+
     public function test_regular_user_cannot_login_to_an_unauthorized_fund(): void
     {
         $user = $this->regular();
@@ -103,7 +114,7 @@ class SelectedFundTest extends TestCase
                 && $values['nome_gestor'] === 'Gestor do Fundo' && $values['cargo_gestor'] === 'Presidente' && $values['cpf_gestor'] === '52998224725')
             ->assertDontSee('PRIVATE EMAIL')->assertDontSee('PRIVATE ADDRESS')->assertDontSee('SOURCE PRIVATE');
         $this->withSession(['_old_input' => ['nome_gestor' => 'Valor digitado']])->get('/contracts/create')
-            ->assertOk()->assertSee('value="Valor digitado"', false);
+            ->assertOk()->assertSee('Gestor do Fundo')->assertDontSee('Valor digitado');
         $supplier = DB::table('suppliers')->insertGetId(['name' => 'Fornecedor', 'name_key' => 'FORNECEDOR', 'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
         $this->get('/contracts/create?supplier='.$supplier)->assertViewHas('values', fn ($values) => $values['fund_id'] === $this->fund && $values['fornecedor_nome_snapshot'] === 'Fornecedor');
     }
@@ -133,7 +144,7 @@ class SelectedFundTest extends TestCase
         $this->manager();
         $contract = Contract::create(['numero' => '001/26', 'fund_id' => $this->fund, 'nome_gestor' => 'Gestor histórico', 'quality_issues' => []]);
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund])->get('/contracts/'.$contract->id.'/edit')
-            ->assertOk()->assertSee('value="Gestor histórico"', false)->assertDontSee('value="Gestor do Fundo"', false);
+            ->assertOk()->assertSee('Gestor histórico')->assertDontSee('Gestor do Fundo');
     }
 
     public function test_manager_import_preserves_raw_source_is_idempotent_and_preserves_changed_records(): void

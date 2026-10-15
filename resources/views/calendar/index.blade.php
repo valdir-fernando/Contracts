@@ -48,7 +48,7 @@
             @csrf @method('PUT')
             <label>Exibir avisos<select name="enabled"><option value="1" @selected($user->expiration_alert_enabled)>Sim</option><option value="0" @selected(!$user->expiration_alert_enabled)>Não</option></select></label>
             <label><span class="field-caption">Antecedência em dias <x-required-mark/></span><input name="days" type="number" min="1" max="365" value="{{ old('days', $user->expiration_alert_days) }}" required></label>
-            <button class="secondary-button">Salvar preferências</button>
+            <button class="secondary-button"><x-nav-icon name="save"/>Salvar preferências</button>
         </form>
     </section>
 </x-layouts.app>

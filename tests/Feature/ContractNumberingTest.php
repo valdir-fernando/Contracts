@@ -36,7 +36,10 @@ class ContractNumberingTest extends TestCase
 
     private function fund(string $name): int
     {
-        return DB::table('contract_funds')->insertGetId(['name' => $name, 'name_key' => strtoupper($name), 'raw_payload' => '{}']);
+        $id = DB::table('contract_funds')->insertGetId(['name' => $name, 'name_key' => strtoupper($name), 'raw_payload' => '{}']);
+        $this->seedContractInspector($id);
+
+        return $id;
     }
 
     private function input(array $values = []): array
@@ -54,7 +57,7 @@ class ContractNumberingTest extends TestCase
 
     public function test_number_is_assigned_at_save_and_client_numbers_cannot_control_it(): void
     {
-        $this->get('/contracts/create')->assertOk()->assertSee('Gerado ao salvar')
+        $this->get('/contracts/create')->assertOk()->assertDontSee('id="numero"', false)
             ->assertDontSee('name="numero"', false)->assertDontSee('name="cont_inteiro"', false);
         $first = $this->save(['numero' => '999/99', 'cont_inteiro' => '999']);
         $second = $this->save();

@@ -1,5 +1,5 @@
 <x-layouts.app title="Exportações">
-    <div class="page-heading"><div><h1>Minhas exportações</h1><p>Acompanhe seus relatórios. Os arquivos ficam disponíveis por 24 horas.</p></div><a class="secondary-button" href="{{ route('reports.index') }}">Novo relatório</a></div>
+    <div class="page-heading"><div><h1>Minhas exportações</h1><p>Acompanhe seus relatórios. Os arquivos ficam disponíveis por 24 horas.</p></div><a class="secondary-button" href="{{ route('reports.index') }}"><x-nav-icon name="plus"/>Novo relatório</a></div>
     <div class="report-generation-list" data-report-cards>
         @forelse($exports as $export)
             @php($state = $export->expires_at->isFuture() ? $export->status : 'expired')

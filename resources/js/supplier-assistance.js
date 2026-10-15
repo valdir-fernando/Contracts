@@ -44,6 +44,21 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
         automatic.clear();
         refreshContractSummary(form);
     };
+    form.addEventListener('supplier-selected', ({ detail: { id, values } }) => {
+        controller?.abort();
+        controller = null;
+        pending = false;
+        automatic.clear();
+        documentField.value = formatSupplierDocument(values.fornecedor_documento_snapshot ?? '');
+        fields.forEach((field) => {
+            field.value = field.name === 'cpf_socio' ? formatSupplierDocument(values[field.name] ?? '') : (values[field.name] ?? '');
+            automatic.set(field.name, field.value);
+        });
+        if (supplierId) supplierId.value = String(id);
+        resolvedDocument = documentField.value.replace(/\D/g, '');
+        status.textContent = 'Dados do fornecedor preenchidos. Confira antes de salvar.';
+        refreshContractSummary(form);
+    });
     documentField.addEventListener('input', () => {
         controller?.abort();
         controller = null;

@@ -1,10 +1,15 @@
 <x-layouts.app :title="$contract->exists ? 'Editar contrato' : 'Novo contrato'" :contract-editor="true">
-    <x-slot:contractSummary><x-contract-summary :contract="$contract" :values="$values" :editable="true" :heading="$contract->exists ? 'Editar contrato' : 'Novo contrato'"/></x-slot:contractSummary>
+    <x-slot:contractSummary><x-contract-summary :contract="$contract" :values="$values" :editable="true" :show-supplier="false" :heading="$contract->exists ? 'Editar contrato' : 'Novo contrato'"/></x-slot:contractSummary>
+    <x-slot:fundSupplier><x-contract-supplier-heading :contract="$contract" :values="$values" :editable="true"/></x-slot:fundSupplier>
     <x-slot:headerBack><a class="text-link fund-header-back" href="{{ $contract->exists ? route('contracts.show', $contract) : route('contracts.index') }}">← Voltar</a></x-slot:headerBack>
     @if($conflict)<div class="notice notice-error" role="alert">O contrato foi alterado por outra pessoa. Seus valores estão abaixo para consulta; recarregue os dados e revise as diferenças antes de salvar. <a class="text-link" href="{{ route('contracts.edit', $contract) }}">Recarregar contrato</a></div>@endif
-    <form data-contract-form data-supplier-original-document="{{ ($contract->exists && ($formActor->isAdmin() || strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot)) === 14)) ? \App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot) : '' }}" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" x-data="{ step: 0, all: true }" method="POST" novalidate @unless($contract->exists) data-supplier-prefill="{{ json_encode(array_intersect_key($values, array_flip(['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio'])), JSON_THROW_ON_ERROR) }}" @endunless action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
+    <form data-contract-form data-supplier-original-document="{{ ($contract->exists && ($formActor->isAdmin() || strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot)) === 14)) ? \App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot) : '' }}" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" x-data="{ step: 0, all: false }" x-init="$nextTick(() => ($el.querySelector('#department_id:not(:disabled)') || $el.querySelector('#tipo'))?.focus({ preventScroll: true }))" method="POST" novalidate @unless($contract->exists) data-supplier-prefill="{{ json_encode(array_intersect_key($values, array_flip(['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio'])), JSON_THROW_ON_ERROR) }}" @endunless action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
         @csrf @if($contract->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $contract->version }}">@endif
+        @if(!$contract->exists || (int) $contract->fund_id === (int) (request()->attributes->get('selected_fund')['id'] ?? 0))
+            <span hidden data-inspector-assistance data-url="{{ route('contracts.inspector-defaults') }}" data-contract-id="{{ $contract->exists ? $contract->id : '' }}" data-preserve-fiscal="{{ $contract->exists && filled($contract->nome_fiscal) && (string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $contract->department_id ? 'true' : 'false' }}"></span>
+        @endif
         @unless($contract->exists)<input type="hidden" name="supplier_id" value="{{ $values['supplier_id'] ?? '' }}">@endunless
+        <input type="hidden" name="fornecedor_nome_snapshot" id="fornecedor_nome_snapshot" readonly data-supplier-catalog-field value="{{ $contract->exists ? $contract->fornecedor_nome_snapshot : ($values['fornecedor_nome_snapshot'] ?? '') }}">
         @if(!$contract->exists && $errors->has('duplicate_confirmation'))
             <section class="notice notice-error" role="alert">
                 <p>{{ $errors->first('duplicate_confirmation') }}</p>
@@ -18,28 +23,34 @@
         <div class="contract-administration-row">
         <section class="contract-administration-fields" aria-label="Órgão e situação administrativa"><div class="field-grid">
             <div class="field"><label for="department_id">Secretaria</label><select id="department_id" name="department_id" @disabled(!$departmentEnabled)><option value="">Sem secretaria</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(($contract->exists || $departmentEnabled) && (string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $department->id)>{{ $department->name }}</option>@endforeach</select>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>
-            <div class="field"><label for="tipo">Tipo de contrato<x-required-mark :explain="true" :when="!$contract->exists || filled($contract->tipo)"/></label><input id="tipo" name="tipo" list="contract-types" maxlength="15000" value="{{ old('tipo', $values['tipo'] ?? $contract->tipo) }}" @required(!$contract->exists || filled($contract->tipo)) @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif>@error('tipo')<p class="field-error" id="tipo-error">{{ $message }}</p>@enderror</div>
+            <div class="field"><label for="tipo">Tipo de contrato<x-required-mark :explain="true" :when="!$contract->exists || filled($contract->tipo)"/></label><select id="tipo" name="tipo" @required(!$contract->exists || filled($contract->tipo)) @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif>
+                <option value="">Selecione</option>
+                @if($contract->exists && filled($contract->tipo) && !$contractTypes->contains($contract->tipo))<option value="{{ $contract->tipo }}" @selected(old('tipo', $values['tipo'] ?? $contract->tipo) === $contract->tipo)>{{ $contract->tipo }} (histórico)</option>@endif
+                @foreach($contractTypes as $contractType)<option value="{{ $contractType }}" @selected(old('tipo', $values['tipo'] ?? $contract->tipo) === $contractType)>{{ $contractType }}</option>@endforeach
+            </select>@error('tipo')<p class="field-error" id="tipo-error">{{ $message }}</p>@enderror</div>
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
         </div>
         <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}. {{ $group }}</button>@endforeach<button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
-        <datalist id="contract-types">@foreach($typeRules as $typeRule)<option value="{{ $typeRule->name }}"></option>@endforeach</datalist>
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
             <section class="surface contract-section contract-editor-section" data-editor-section="{{ $loop->index }}" x-show="all || step === {{ $loop->index }}"><h2 tabindex="-1">{{ $group }}</h2><div class="form-grid">
                 @foreach($fields as $source => $definition)
+                    @continue(in_array($source, \App\Support\ContractFields::EXECUTION_SUMMARY))
                     @php
                         $column = $definition['column'];
                         $supplierReadonly = in_array($column, \App\Support\ContractFields::SUPPLIER_CATALOG);
+                        $contractorReadonly = in_array($column, \App\Support\ContractFields::CONTRACTOR_CATALOG);
                         $derived = in_array($column, \App\Support\ContractFields::DERIVED);
                         $automatic = in_array($column, \App\Support\ContractFields::GENERATED) && (!$contract->exists || $contract->number_sequence !== null);
                         $protected = $contract->exists && !$formActor->isAdmin() && (in_array($column, \App\Support\ContractFields::PERSONAL) || ($column === 'fornecedor_documento_snapshot' && strlen(\App\Services\Legacy\Normalizer::document($contract->$column)) !== 14));
                         $required = !$contract->exists && in_array($column, ['processo', 'fornecedor_documento_snapshot', 'objeto', 'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total', 'modalidade', 'n_licit']);
                         $required = $required || ($contract->exists && in_array($column, ['modalidade', 'n_licit']) && $contract->$column !== null && $contract->$column !== '');
+                        $required = $required || $column === 'nome_fiscal';
                         $value = $definition['type'] === 'date' ? $contract->$column?->format('Y-m-d') : $contract->$column;
                         $inputValue = old($column, $values[$column] ?? $value);
-                        if ($supplierReadonly) {
+                        if ($supplierReadonly || $contractorReadonly) {
                             $inputValue = $contract->exists ? $value : ($values[$column] ?? '');
                         }
                         $multiline = in_array($column, ['objeto', 'escopo', 'tipo_veiculo', 'end_fornec', 'end_fundo', 'end_imovel', 'cargo_credenc', 'local_servico', 'dados_veiculo', 'instalacoes', 'motivo_distrato', 'motivo_paraliz_obra']) || str_contains((string) $inputValue, "\n") || str_contains((string) $inputValue, "\r") || mb_strlen((string) $inputValue) > 180;
@@ -50,24 +61,78 @@
                         };
                     @endphp
                     @if($column === 'iptu')<div class="property-field-pair">@endif
+                    @if($column === 'instalacoes')<div class="property-area-row">@endif
+                    @if($column === 'cargo_credenc')<div class="contract-service-notice-row">@endif
                     <div @class(['field', 'field-iptu' => $column === 'iptu', 'field-wide' => $multiline && !$derived && !$protected && !in_array($column, ['escopo', 'tipo_veiculo', 'iptu', 'end_imovel', 'cargo_credenc', 'local_servico', 'instalacoes'])])>
                         @if(!$contract->exists && $column === 'fornecedor_documento_snapshot')
-                            <div class="field-label-row"><label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label><span class="field-label-divider" aria-hidden="true">|</span><a class="text-link" href="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</a></div>
+                            <div class="field-label-row"><label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label><span class="field-label-divider" aria-hidden="true">|</span><button type="button" class="text-link" data-supplier-picker-open data-supplier-list-url="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</button></div>
+                        @elseif($column === 'escopo')
+                            <div class="field-label-row">
+                                <label for="escopo">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label>
+                                <button type="button" class="field-info-button" aria-label="Entenda as opções Escopo e Contínuo" aria-describedby="scope-help" popovertarget="scope-help" data-field-help="scope-help"><span aria-hidden="true">i</span></button>
+                            </div>
+                            <div id="scope-help" class="field-help-popover" popover>
+                                <p>A principal diferença está na <strong>finalidade do serviço e na forma como o contrato chega ao fim</strong>: o contrato por escopo busca um <strong>resultado final</strong>; o contínuo atende a uma <strong>necessidade permanente ou prolongada</strong> do órgão público.</p>
+                                <p>Compare os dois modelos sob a ótica da <strong>Nova Lei de Licitações (Lei nº 14.133/2021)</strong>:</p>
+                                <h3>Tabela Comparativa</h3>
+                                <div class="scope-comparison-scroll" tabindex="0" role="region" aria-label="Comparação entre contrato por escopo e contrato continuado">
+                                    <table class="scope-comparison-table">
+                                        <thead><tr><th scope="col">Critério</th><th scope="col">Contrato por Escopo</th><th scope="col">Contrato Continuado</th></tr></thead>
+                                        <tbody>
+                                            <tr><th scope="row">Objetivo Principal</th><td>Entregar um <strong>produto ou resultado final específico</strong>.</td><td>Manter uma <strong>atividade rotineira</strong> ou atender necessidade permanente ou prolongada.</td></tr>
+                                            <tr><th scope="row">Foco da Execução</th><td>A <strong>conclusão</strong> da obra ou serviço.</td><td>A <strong>permanência</strong> do serviço no tempo.</td></tr>
+                                            <tr><th scope="row">Exemplos Comuns</th><td>Construção de uma creche, reforma de um hospital, elaboração de projeto e pintura de uma fachada.</td><td>Vigilância, limpeza predial, copeiragem, suporte de TI e manutenção de elevadores, conforme a necessidade contratada.</td></tr>
+                                            <tr><th scope="row">Como Termina?</th><td>Com a <strong>conclusão e o recebimento do objeto</strong>, sem prejuízo de outras hipóteses legais de extinção.</td><td>Ao chegar ao <strong>fim da vigência</strong>, sem prorrogação, ou por extinção antecipada.</td></tr>
+                                            <tr><th scope="row">Vigência e Prazos</th><td>Vinculada à <strong>conclusão do objeto</strong>. O art. 111 prevê prorrogação automática se ele não for concluído no prazo; havendo culpa do contratado, cabem mora, sanções e possível extinção.</td><td>Em regra, prazo inicial de até <strong>5 anos</strong>, com prorrogações até o limite de <strong>10 anos</strong>, conforme os requisitos dos arts. 106 e 107, ressalvadas hipóteses específicas.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <small>Referência: Lei nº 14.133/2021, arts. 6º, XV e XVII, 106, 107 e 111. Observe os documentos e as condições da contratação.</small>
+                            </div>
+                        @elseif($column === 'iptu')
+                            <div class="field-label-row">
+                                <label for="iptu">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label>
+                                <button type="button" class="field-info-button" aria-label="Entenda Locador(a) e Locatário no IPTU" aria-describedby="iptu-help" popovertarget="iptu-help" data-field-help="iptu-help"><span aria-hidden="true">i</span></button>
+                            </div>
+                            <div id="iptu-help" class="field-help-popover" popover>
+                                <p>Este campo indica <strong>quem assume o pagamento do IPTU no contrato de locação</strong>. Locador(a) é quem disponibiliza o imóvel para alugar; Locatário é quem o aluga para utilizar.</p>
+                                <h3>Locador(a) ou Locatário?</h3>
+                                <div class="scope-comparison-scroll" tabindex="0" role="region" aria-label="Comparação entre Locador(a) e Locatário">
+                                    <table class="scope-comparison-table">
+                                        <thead><tr><th scope="col">Critério</th><th scope="col">Locador(a)</th><th scope="col">Locatário</th></tr></thead>
+                                        <tbody>
+                                            <tr><th scope="row">Quem é?</th><td>Quem cede o uso do imóvel, geralmente seu proprietário.</td><td>Quem recebe o imóvel para uso mediante aluguel, também chamado de inquilino.</td></tr>
+                                            <tr><th scope="row">Quando selecionar?</th><td>Quando o pagamento do IPTU fica a cargo de quem aluga o imóvel para terceiros.</td><td>Quando o contrato atribui expressamente o pagamento do IPTU a quem utiliza o imóvel alugado.</td></tr>
+                                            <tr><th scope="row">Exemplo</th><td>O proprietário mantém o pagamento do IPTU.</td><td>O Município aluga um imóvel e assume o IPTU por cláusula expressa.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p>Nas locações regidas pela Lei do Inquilinato, impostos e taxas cabem ao locador, salvo previsão contratual expressa em contrário. <strong>Confira a cláusula de IPTU antes de selecionar.</strong></p>
+                                <small>Referência: Lei nº 8.245/1991, art. 22, VIII. A seleção registra a responsabilidade prevista no contrato.</small>
+                            </div>
                         @else
                             <label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label>
                         @endif
-                        @if($automatic)<p class="readonly-field" id="{{ $column }}">{{ $contract->exists ? $contract->displayField($source, $formActor) : 'Gerado ao salvar' }}</p>
+                        @if($contractorReadonly)
+                            <p class="readonly-field" id="{{ $column }}" @if($column === 'nome_fiscal') role="textbox" aria-readonly="true" aria-required="true" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif @endif @if(!$formActor->isAdmin() && in_array($column, \App\Support\ContractFields::PERSONAL)) data-contractor-private-field="{{ $column }}" @else data-contractor-field="{{ $column }}" @endif>{{ $contract->exists ? $contract->displayField($source, $formActor) : ($inputValue ?: 'Preenchido automaticamente') }}</p>
+                            @if($column === 'nome_fiscal')<p class="hint" data-inspector-status role="status" aria-live="polite"></p>@endif
+                        @elseif($automatic)<p class="readonly-field" id="{{ $column }}">{{ $contract->exists ? $contract->displayField($source, $formActor) : 'Gerado ao salvar' }}</p>
                         @elseif($derived || $protected)<p @class(['readonly-field', 'supplier-catalog-field' => $supplierReadonly]) data-derived-field="{{ $column }}">{{ $contract->exists ? $contract->displayField($source, $formActor) : ($column === 'legacy_id' ? 'Sem origem legada' : ($values[$column] ?? 'Preenchido pelo órgão selecionado')) }}</p>
                         @elseif($supplierReadonly)
                             @if($multiline)<textarea id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly rows="{{ $rows }}">{{ $inputValue }}</textarea>
                             @else<input id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly value="{{ $inputValue }}">@endif
+                        @elseif($column === 'escopo')
+                            <select id="escopo" name="escopo" @required($required) @if($errors->has('escopo')) aria-invalid="true" aria-describedby="escopo-error" @endif>
+                                <option value="">Selecione</option>
+                                @foreach(\App\Support\ContractFields::SCOPE_OPTIONS as $choice)<option value="{{ $choice }}" @selected($inputValue === $choice)>{{ $choice }}</option>@endforeach
+                                @if($contract->exists && filled($contract->escopo) && !in_array($contract->escopo, \App\Support\ContractFields::SCOPE_OPTIONS))<option value="{{ $contract->escopo }}" @selected($inputValue === $contract->escopo)>{{ $contract->escopo }} (histórico)</option>@endif
+                            </select>
                         @elseif($column === 'iptu')
                             <select id="iptu" name="iptu" x-data x-on:change="$el.title = $el.selectedOptions[0]?.title || ''" title="{{ \App\Support\ContractFields::IPTU_HELP[is_string($inputValue) ? $inputValue : ''] ?? '' }}" @if($errors->has('iptu')) aria-invalid="true" aria-describedby="iptu-error" @endif>
                                 <option value="">Selecione</option>
                                 @foreach(\App\Support\ContractFields::IPTU_RESPONSIBILITIES as $choice)<option value="{{ $choice }}" title="{{ \App\Support\ContractFields::IPTU_HELP[$choice] }}" @selected($inputValue === $choice)>{{ $choice }}</option>@endforeach
                                 @if($contract->exists && filled($contract->iptu) && !in_array($contract->iptu, \App\Support\ContractFields::IPTU_RESPONSIBILITIES))<option value="{{ $contract->iptu }}" @selected($inputValue === $contract->iptu)>{{ $contract->iptu }}</option>@endif
                             </select>
-                        @elseif($column === 'tipo')<input id="tipo" name="tipo" @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif list="contract-types" maxlength="15000" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($multiline)<textarea @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif rows="{{ $rows }}" maxlength="15000" @required($required)>{{ $inputValue }}</textarea>
@@ -75,11 +140,37 @@
                         @error($column)<p class="field-error" id="{{ $column }}-error">{{ $message }}</p>@enderror
                     </div>
                     @if($column === 'end_imovel')</div>@endif
+                    @if($column === 'areaconstruida')</div>@endif
+                    @if($column === 'proc_edital')</div>@endif
                 @endforeach
-            </div></section>
+            </div>
+                @if($contract->exists && $group === \App\Support\ContractFields::MAP['Final_Vig_Atualiz']['group'])
+                    <aside class="contract-execution-summary" aria-label="Resumo de execução e aditivos">
+                        <h3>Resumo de execução e aditivos</h3>
+                        <dl class="contract-fields">
+                            @foreach(\App\Support\ContractFields::EXECUTION_SUMMARY as $summarySource)
+                                <div><dt>{{ \App\Support\ContractFields::label($summarySource) }}</dt><dd>{{ $contract->displayField($summarySource, $formActor) }}</dd></div>
+                            @endforeach
+                        </dl>
+                    </aside>
+                @endif
+            </section>
         @endforeach
         @if($contract->exists)<section class="surface contract-section"><h2>Justificativa da alteração</h2><div class="field"><label for="reason">Motivo <x-required-mark :explain="true"/></label><textarea id="reason" name="reason" required minlength="5" maxlength="1000" rows="3">{{ old('reason', $values['reason'] ?? '') }}</textarea>@error('reason')<p class="field-error">{{ $message }}</p>@enderror</div></section>@endif
         </div>
-        <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ $contract->exists ? route('contracts.show', $contract) : route('contracts.index') }}">Cancelar</a><button class="primary-button compact" type="submit" @disabled($conflict)><x-nav-icon name="check"/>Salvar contrato</button></div>
+        <div class="form-actions sticky-actions contract-action-toolbar">
+            @if($contract->exists)
+                @can('delete', $contract)<a class="section-tab" href="{{ route('contracts.show', $contract) }}#delete-contract"><x-nav-icon name="trash"/>Excluir Contrato</a>@endcan
+            @else
+                <button class="section-tab" type="button" disabled><x-nav-icon name="trash"/>Excluir Contrato</button>
+            @endif
+            @can('create', \App\Models\Contract::class)<a class="section-tab" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo Contrato</a>@endcan
+            @if($contract->exists)
+                @can('update', $contract)<a class="section-tab" href="{{ route('contracts.edit', $contract) }}"><x-nav-icon name="edit"/>Editar Contrato</a>@endcan
+            @else
+                <button class="section-tab" type="button" disabled><x-nav-icon name="edit"/>Editar Contrato</button>
+            @endif
+            <button class="section-tab" type="submit" @disabled($conflict)><x-nav-icon name="save"/>Salvar contrato</button>
+        </div>
     </form>
 </x-layouts.app>

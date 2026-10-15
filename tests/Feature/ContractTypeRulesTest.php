@@ -24,6 +24,7 @@ class ContractTypeRulesTest extends TestCase
         $this->admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
         $this->fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
         DB::table('suppliers')->insert(['name' => 'Fornecedor', 'name_key' => 'FORNECEDOR', 'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
+        $this->seedContractInspector($this->fund);
         $this->actingAs($this->admin);
         $this->withSession(['fund_id' => $this->fund]);
     }

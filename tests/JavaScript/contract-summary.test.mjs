@@ -16,6 +16,9 @@ test('supplier summary follows edits and clearing without interpreting HTML or c
     controls.fornecedor_nome_snapshot.value = '<script>alert(1)</script>';
     listeners.input();
     assert.equal(outputs[0].textContent, '<script>alert(1)</script>');
+    controls.fornecedor_nome_snapshot.value = '';
+    listeners.input();
+    assert.equal(outputs[0].textContent, 'Nome / Razão Social');
     controls.end_fornec.value = '   ';
     listeners.change();
     assert.equal(outputs[1].textContent, 'Não informado');

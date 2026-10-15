@@ -39,6 +39,7 @@ class AuditCorrectionsTest extends TestCase
         $this->admin = User::create(['name' => 'Admin', 'username' => 'AUDIT_ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
         $this->regular = User::create(['name' => 'Regular', 'username' => 'AUDIT_REGULAR', 'password' => 'TestPassword12345']);
         $fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
+        $this->seedContractInspector($fund);
         $scope = AccessScope::create(['scope_key' => hash('sha256', 'audit-regression'), 'fund' => 'Fundo', 'fund_id' => $fund]);
         $this->regular->scopes()->attach($scope);
         $this->contract = Contract::create(['numero' => 'AUDIT/26', 'processo' => 'PROC', 'fund_id' => $fund, 'ownership_resolved' => true,

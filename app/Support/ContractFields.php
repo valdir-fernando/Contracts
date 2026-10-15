@@ -10,6 +10,20 @@ class ContractFields
 
     public const GENERATED = ['numero', 'cont_inteiro'];
 
+    public const EXECUTION_SUMMARY = ['Final_Vig_Atualiz', 'N_Aditivo', 'Proc_Aditivo', 'N_OS', 'Data_OS'];
+
+    public const SCOPE_OPTIONS = ['Escopo', 'Contínuo'];
+
+    public const CONTRACTOR_CATALOG = ['fundo_documento_snapshot', 'fundo_nome_snapshot', 'end_fundo',
+        'cpf_gestor', 'nome_gestor', 'rg_gestor', 'cargo_gestor', 'secretaria_nome_snapshot',
+        'cpf_fiscal', 'nome_fiscal', 'rg_fiscal', 'decreto_fiscal'];
+
+    public const CONTRACT_TYPES = [
+        'Serviços Diversos', 'Fornecimento', 'Credenciamento', 'Show',
+        'Locação de Imóvel', 'Locação de Veículo', 'Locação de Equipamento',
+        'Obras', 'Transporte Diversos', 'Transporte Pessoas', 'Transporte Escolar',
+    ];
+
     public const IPTU_RESPONSIBILITIES = ['Locador(a)', 'Locatário'];
 
     public const IPTU_HELP = [
@@ -21,39 +35,39 @@ class ContractFields
         'end_fornec', 'socio', 'cpf_socio', 'rg_socio'];
 
     public const MAP = [
-        'ID_Contrato' => ['column' => 'legacy_id', 'type' => 'id', 'group' => 'Identificação e licitação'],
-        'Contrato' => ['column' => 'numero', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'Cont_Inteiro' => ['column' => 'cont_inteiro', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'Data_Cont' => ['column' => 'data_contrato', 'type' => 'date', 'group' => 'Identificação e licitação'],
-        'Data_Cont_Verd' => ['column' => 'data_cont_verd', 'type' => 'date', 'group' => 'Identificação e licitação'],
-        'Processo' => ['column' => 'processo', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'Licitacao' => ['column' => 'modalidade', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'N_Licit' => ['column' => 'n_licit', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'Proc_Edital' => ['column' => 'proc_edital', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'N_Edital' => ['column' => 'n_edital', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'Data_Licit' => ['column' => 'data_licit', 'type' => 'date', 'group' => 'Identificação e licitação'],
-        'N_Solicit' => ['column' => 'n_solicit', 'type' => 'text', 'group' => 'Identificação e licitação'],
-        'CPF_CNPJ' => ['column' => 'fornecedor_documento_snapshot', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'Fornecedor' => ['column' => 'fornecedor_nome_snapshot', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'RG_Fornec' => ['column' => 'rg_fornec', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'Doc_Prof' => ['column' => 'doc_prof', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'PIS_PASEP' => ['column' => 'pis_pasep', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'End_Fornec' => ['column' => 'end_fornec', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'Socio' => ['column' => 'socio', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'CPF_Socio' => ['column' => 'cpf_socio', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'RG_Socio' => ['column' => 'rg_socio', 'type' => 'text', 'group' => 'Fornecedor e representante'],
-        'CNPJ_Fundo' => ['column' => 'fundo_documento_snapshot', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'Fundo' => ['column' => 'fundo_nome_snapshot', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'End_Fundo' => ['column' => 'end_fundo', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'CPF_Gestor' => ['column' => 'cpf_gestor', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'Nome_Gestor' => ['column' => 'nome_gestor', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'RG_Gestor' => ['column' => 'rg_gestor', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'Cargo_Gestor' => ['column' => 'cargo_gestor', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'Secretaria' => ['column' => 'secretaria_nome_snapshot', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'CPF_Fiscal' => ['column' => 'cpf_fiscal', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'Nome_Fiscal' => ['column' => 'nome_fiscal', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'RG_Fiscal' => ['column' => 'rg_fiscal', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
-        'Decreto_Fiscal' => ['column' => 'decreto_fiscal', 'type' => 'text', 'group' => 'Contratante gestão e fiscalização'],
+        'ID_Contrato' => ['column' => 'legacy_id', 'type' => 'id', 'group' => 'Dados Processuais'],
+        'Contrato' => ['column' => 'numero', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'Cont_Inteiro' => ['column' => 'cont_inteiro', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'Data_Cont' => ['column' => 'data_contrato', 'type' => 'date', 'group' => 'Dados Processuais'],
+        'Data_Cont_Verd' => ['column' => 'data_cont_verd', 'type' => 'date', 'group' => 'Dados Processuais'],
+        'Processo' => ['column' => 'processo', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'Licitacao' => ['column' => 'modalidade', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'N_Licit' => ['column' => 'n_licit', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'Proc_Edital' => ['column' => 'proc_edital', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'N_Edital' => ['column' => 'n_edital', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'Data_Licit' => ['column' => 'data_licit', 'type' => 'date', 'group' => 'Dados Processuais'],
+        'N_Solicit' => ['column' => 'n_solicit', 'type' => 'text', 'group' => 'Dados Processuais'],
+        'CPF_CNPJ' => ['column' => 'fornecedor_documento_snapshot', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'Fornecedor' => ['column' => 'fornecedor_nome_snapshot', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'RG_Fornec' => ['column' => 'rg_fornec', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'Doc_Prof' => ['column' => 'doc_prof', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'PIS_PASEP' => ['column' => 'pis_pasep', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'End_Fornec' => ['column' => 'end_fornec', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'Socio' => ['column' => 'socio', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'CPF_Socio' => ['column' => 'cpf_socio', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'RG_Socio' => ['column' => 'rg_socio', 'type' => 'text', 'group' => 'Dados Fornecedor'],
+        'CNPJ_Fundo' => ['column' => 'fundo_documento_snapshot', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'Fundo' => ['column' => 'fundo_nome_snapshot', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'End_Fundo' => ['column' => 'end_fundo', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'CPF_Gestor' => ['column' => 'cpf_gestor', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'Nome_Gestor' => ['column' => 'nome_gestor', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'RG_Gestor' => ['column' => 'rg_gestor', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'Cargo_Gestor' => ['column' => 'cargo_gestor', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'Secretaria' => ['column' => 'secretaria_nome_snapshot', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'CPF_Fiscal' => ['column' => 'cpf_fiscal', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'Nome_Fiscal' => ['column' => 'nome_fiscal', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'RG_Fiscal' => ['column' => 'rg_fiscal', 'type' => 'text', 'group' => 'Dados Contratante'],
+        'Decreto_Fiscal' => ['column' => 'decreto_fiscal', 'type' => 'text', 'group' => 'Dados Contratante'],
         'Tipo_Contrato' => ['column' => 'tipo', 'type' => 'text', 'group' => 'Objeto e dados especiais'],
         'Escopo' => ['column' => 'escopo', 'type' => 'text', 'group' => 'Objeto e dados especiais'],
         'Tipo_Veiculo' => ['column' => 'tipo_veiculo', 'type' => 'text', 'group' => 'Objeto e dados especiais'],
@@ -138,7 +152,7 @@ class ContractFields
         'RG_Gestor' => 'RG do gestor', 'Cargo_Gestor' => 'Cargo do gestor', 'CPF_Fiscal' => 'CPF do fiscal',
         'Nome_Fiscal' => 'Fiscal', 'RG_Fiscal' => 'RG do fiscal', 'Decreto_Fiscal' => 'Decreto do fiscal',
         'Tipo_Contrato' => 'Tipo de contrato', 'Tipo_Veiculo' => 'Tipo de veículo', 'Dados_Veiculo' => 'Dados do veículo',
-        'End_Imovel' => 'Endereço do imóvel', 'Cargo_Credenc' => 'Cargo de credenciamento',
+        'End_Imovel' => 'Endereço do imóvel', 'Cargo_Credenc' => 'Cargo Credenciamento - Saúde',
         'Local_Servico' => 'Local do serviço', 'IPTU' => 'IPTU por conta do(a)>', 'Instalacoes' => 'Instalações', 'AreaTerreno' => 'Área do terreno',
         'AreaConstruida' => 'Área construída', 'Objeto' => 'Objeto', 'Tipo_Fornecimento' => 'Tipo de fornecimento',
         'Vigencia' => 'Vigência por extenso', 'Inicio_Vig' => 'Início da vigência',

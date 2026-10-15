@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Security;
 
+use App\Infrastructure\Persistence\TransactionGuard;
 use App\Models\User;
 use App\Services\Legacy\Normalizer;
 use Illuminate\Support\Collection;
@@ -41,8 +42,11 @@ final class SelectedFund
         return DB::table('contract_funds')->where('id', $fundId)->first();
     }
 
-    public function defaults(User $actor, int $fundId): array
+    public function defaults(User $actor, int $fundId, bool $forPersistence = false): array
     {
+        if ($forPersistence) {
+            TransactionGuard::requireActive();
+        }
         $fund = $this->current($actor, $fundId);
         if (! $fund) {
             return [];
@@ -56,7 +60,7 @@ final class SelectedFund
         $values = ['fund_id' => $fund->id, 'fundo_nome_snapshot' => $fund->name,
             'fundo_documento_snapshot' => $fund->document, 'end_fundo' => $legacy['End_Fundo'] ?? null,
             'nome_gestor' => $manager['Nome_Gestor'] ?? null, 'cargo_gestor' => $manager['Cargo'] ?? null];
-        if ($actor->isAdmin()) {
+        if ($actor->isAdmin() || $forPersistence) {
             $cpf = Normalizer::document($manager['CPF_Gestor'] ?? '');
             $values += ['cpf_gestor' => strlen($cpf) === 11 && Normalizer::validDocument($cpf) ? $cpf : null,
                 'rg_gestor' => $manager['RG_Gestor'] ?? null];

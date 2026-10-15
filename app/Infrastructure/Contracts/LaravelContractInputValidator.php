@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
 /** Contextual validation for HTTP and CLI; always called with locked current state. */
 final class LaravelContractInputValidator implements ContractInputValidator
 {
-    public function __construct(private Request $request, private SelectedFund $selectedFund) {}
+    public function __construct(private Request $request, private SelectedFund $selectedFund, private InspectorCatalog $inspectors) {}
 
     public function validate(AuthorizedContract $context, array $input): ValidatedContractInput
     {
@@ -78,8 +78,13 @@ final class LaravelContractInputValidator implements ContractInputValidator
             $required = array_merge($required, ContractTypeRule::where('name_key', Normalizer::name($type))->value('required_fields') ?? []);
         }
         $writable = [];
-        foreach (ContractFields::MAP as $definition) {
+        foreach (ContractFields::MAP as $source => $definition) {
             $column = $definition['column'];
+            if ($this->request->routeIs('contracts.store', 'contracts.update') && in_array($source, ContractFields::EXECUTION_SUMMARY)) {
+                $rules[$column] = 'prohibited';
+
+                continue;
+            }
             if (in_array($column, ContractFields::GENERATED) && (! $updating || $contract->number_sequence !== null)) {
                 // Old clients may still submit these controls; they never enter the writable patch.
                 $rules[$column] = 'sometimes|nullable|string|max:15000';
@@ -112,6 +117,13 @@ final class LaravelContractInputValidator implements ContractInputValidator
                 $choices = ContractFields::IPTU_RESPONSIBILITIES;
                 if ($updating && $contract->iptu !== null) {
                     $choices[] = $contract->iptu;
+                }
+                $rules[$column][] = Rule::in($choices);
+            }
+            if ($column === 'escopo') {
+                $choices = ContractFields::SCOPE_OPTIONS;
+                if ($updating && $contract->escopo !== null) {
+                    $choices[] = $contract->escopo;
                 }
                 $rules[$column][] = Rule::in($choices);
             }
@@ -169,6 +181,26 @@ final class LaravelContractInputValidator implements ContractInputValidator
                 foreach (array_intersect(ContractFields::SUPPLIER_CATALOG, ContractFields::PERSONAL) as $column) {
                     $fields[$column] = null;
                 }
+            }
+        }
+
+        if ($this->request->routeIs('contracts.store', 'contracts.update')) {
+            $fields = array_diff_key($fields, array_flip(ContractFields::CONTRACTOR_CATALOG));
+            $actor = User::findOrFail($context->actor->id);
+            $fundId = (int) ($data['fund_id'] ?? $contract->fund_id);
+            $departmentId = array_key_exists('department_id', $data) ? $data['department_id'] : $contract->department_id;
+            $departmentId = $departmentId === null ? null : (int) $departmentId;
+            if (! $updating) {
+                $defaults = $this->selectedFund->defaults($actor, $fundId, forPersistence: true);
+                $fields += array_intersect_key($defaults, array_flip(ContractFields::CONTRACTOR_CATALOG));
+            }
+            $contextChanged = ! $updating || $fundId !== (int) $contract->fund_id || $departmentId !== $contract->department_id;
+            if ($contextChanged || ! filled($contract->nome_fiscal)) {
+                $fields = array_replace($fields, $this->inspectors->defaults($actor, $fundId, $departmentId, forSave: true));
+            }
+            $inspector = array_key_exists('nome_fiscal', $fields) ? $fields['nome_fiscal'] : $contract->nome_fiscal;
+            if (! filled($inspector)) {
+                throw new InputRejected(['nome_fiscal' => 'Fiscal é obrigatório. Selecione uma Secretaria com fiscal cadastrado ou confira o cadastro de fiscais do Fundo.']);
             }
         }
 

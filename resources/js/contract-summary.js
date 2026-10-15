@@ -3,7 +3,7 @@ export function refreshContractSummary(form) {
     if (!workspace) return;
     workspace.querySelectorAll('[data-contract-summary-field]').forEach((output) => {
         const control = form.elements.namedItem(output.dataset.contractSummaryField);
-        if (control) output.textContent = control.value.trim() || 'Não informado';
+        if (control) output.textContent = control.value.trim() || (output.dataset.contractSummaryField === 'fornecedor_nome_snapshot' ? 'Nome / Razão Social' : 'Não informado');
     });
 }
 

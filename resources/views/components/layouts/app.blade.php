@@ -3,6 +3,9 @@
 <x-layouts.auth :title="$title">
     <a class="skip-link" href="#main-content">Ir para o conteúdo</a>
     <script>
+        if (window.self !== window.top && window.name === 'contracts-supplier-catalog') {
+            document.documentElement.dataset.supplierCatalog = 'true';
+        }
         try { document.documentElement.dataset.sidebarCollapsed = String(localStorage.getItem('contracts.sidebar-collapsed') === 'true'); } catch {}
     </script>
     <div @class(['workspace', 'workspace-contract-editor' => $contractEditor])>
@@ -53,23 +56,13 @@
                 @else
                     <span>Gestão de contratos @unless($summaryInHeader)<span class="breadcrumb-divider" aria-hidden="true">/</span><strong>{{ $title }}</strong>@endunless</span>
                 @endif
+                @isset($fundSupplier){{ $fundSupplier }}@endisset
                 @isset($headerBack)</div>@endisset
                 @unless($summaryInHeader)<div class="topbar-account"><span class="workspace-date"><x-nav-icon name="calendar"/>{{ today()->format('d/m/Y') }}</span><a class="account-avatar" href="{{ route('account.edit') }}" aria-label="Abrir minha conta" title="{{ auth()->user()->name }}">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</a></div>@endunless
                 @if($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endif
             </header>
             @unless($contractEditor)
             @isset($contractSummary)<div class="contract-context-row">@endisset
-            <form class="fund-session-form" method="POST" action="{{ route('session.fund') }}" data-fund-switch @if(request()->routeIs('dashboard')) data-preserve-dashboard-year @endif>
-                @csrf
-                <input type="hidden" name="year" value="{{ request()->routeIs('dashboard') ? request()->query('year', '') : '' }}">
-                <div class="field"><label for="session-fund">Fundo selecionado</label><select id="session-fund" name="fund_id" required>
-                    @unless($selectedFund)<option value="">Selecione o Fundo</option>@endunless
-                    @foreach(request()->attributes->get('available_funds', collect()) as $fund)
-                        <option value="{{ $fund->id }}" @selected((int) ($selectedFund['id'] ?? 0) === $fund->id)>{{ $fund->name }}</option>
-                    @endforeach
-                </select></div>
-                <button class="secondary-button" type="submit">Alterar Fundo</button>
-            </form>
             @isset($contractSummary)@unless($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endunless</div>@endisset
             @endunless
             @if(session('status'))<div class="notice" role="status">{{ session('status') }}</div>@endif

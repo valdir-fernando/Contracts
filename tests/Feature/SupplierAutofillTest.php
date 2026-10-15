@@ -33,6 +33,7 @@ class SupplierAutofillTest extends TestCase
         $this->user->scopes()->attach($scope);
         $this->supplier = $this->supplier('Empresa cadastrada', '11222333000181');
         Contract::create(['supplier_id' => $this->supplier, 'fund_id' => $this->fund, 'ownership_resolved' => true, 'quality_issues' => []]);
+        $this->seedContractInspector($this->fund);
         $this->actingAs($this->admin);
         $this->withSession(['fund_id' => $this->fund]);
     }
@@ -51,6 +52,20 @@ class SupplierAutofillTest extends TestCase
         return array_replace(['fund_id' => $this->fund, 'processo' => 'CATALOG-ONLY', 'fornecedor_documento_snapshot' => '11222333000181',
             'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço', 'valor_total' => '100.0000',
             'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13', 'vigencia_fim_original' => '2027-10-13'], $extra);
+    }
+
+    public function test_original_catalog_selection_keeps_scope_and_personal_data_protection(): void
+    {
+        $hidden = $this->supplier('Fornecedor fora do escopo', '19131243000197');
+        $this->actingAs($this->user)->get('/suppliers?q=Empresa')->assertOk()
+            ->assertSee('Empresa cadastrada')->assertSee('Usar no novo contrato')->assertDontSee('UNEXPOSED');
+        $this->get('/suppliers?q=Fornecedor')->assertOk()->assertDontSee('Fornecedor fora do escopo');
+        $this->get('/contracts/create?supplier='.$hidden)->assertNotFound();
+        $this->get('/contracts/create?supplier='.$this->supplier)->assertOk()
+            ->assertSee('data-supplier-prefill', false)->assertSee('Empresa cadastrada')
+            ->assertDontSee('52998224725')->assertDontSee('UNEXPOSED');
+        $this->actingAs($this->admin)->get('/contracts/create?supplier='.$this->supplier)->assertOk()
+            ->assertSee('52998224725')->assertDontSee('UNEXPOSED');
     }
 
     public function test_supplier_controls_are_readonly_and_never_restore_client_values(): void
@@ -153,7 +168,8 @@ class SupplierAutofillTest extends TestCase
         $this->withSession(['fund_id' => $this->fund])->get('/contracts/create?supplier='.$this->supplier)->assertOk()
             ->assertViewHas('values', fn ($selected) => $selected === ['fund_id' => $this->fund, 'fundo_nome_snapshot' => 'Fundo',
                 'fundo_documento_snapshot' => null, 'end_fundo' => null, 'nome_gestor' => null, 'cargo_gestor' => null,
-                'cpf_gestor' => null, 'rg_gestor' => null, 'supplier_id' => $this->supplier] + $values)
+                'cpf_gestor' => null, 'rg_gestor' => null, 'nome_fiscal' => 'Fiscal fictício', 'decreto_fiscal' => '001/26',
+                'cpf_fiscal' => null, 'rg_fiscal' => null, 'supplier_id' => $this->supplier] + $values)
             ->assertSee('data-supplier-lookup-url', false)->assertDontSee('UNEXPOSED');
         $this->withSession(['_old_input' => ['socio' => 'Representante digitado']])->get('/contracts/create?supplier='.$this->supplier)
             ->assertOk()->assertDontSee('value="Representante digitado"', false)->assertSee('value="Representante cadastrado"', false);
@@ -169,7 +185,8 @@ class SupplierAutofillTest extends TestCase
         }
         $this->get('/contracts/create?supplier='.$this->supplier)->assertOk()->assertViewHas('values', fn ($values) => $values === [
             'fund_id' => $this->fund, 'fundo_nome_snapshot' => 'Fundo', 'fundo_documento_snapshot' => null,
-            'end_fundo' => null, 'nome_gestor' => null, 'cargo_gestor' => null, 'supplier_id' => $this->supplier,
+            'end_fundo' => null, 'nome_gestor' => null, 'cargo_gestor' => null,
+            'nome_fiscal' => 'Fiscal fictício', 'decreto_fiscal' => '001/26', 'supplier_id' => $this->supplier,
         ] + $response->json('values'))
             ->assertDontSee('RG-FORNECEDOR')->assertDontSee('PIS-PRIVATE')->assertDontSee('52998224725')->assertDontSee('RG-SOCIO')->assertDontSee('UNEXPOSED');
         $hidden = $this->supplier('Empresa restrita', '19131243000197');

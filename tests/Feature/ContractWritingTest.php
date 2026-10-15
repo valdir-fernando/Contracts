@@ -37,6 +37,7 @@ class ContractWritingTest extends TestCase
                 'document' => $document, 'document_key' => $document,
                 'raw_payload' => json_encode(['Endereco' => 'Rua do fornecedor', 'RG' => 'RG-PRIVADO', 'CPF_Socio' => '52998224725'], JSON_THROW_ON_ERROR)]);
         }
+        $this->seedContractInspector($this->fund, $this->department);
         $this->actingAs($this->admin);
         $this->withSession(['fund_id' => $this->fund]);
     }
@@ -49,22 +50,202 @@ class ContractWritingTest extends TestCase
             'valor_total' => '1.908,6300', 'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'fund_id' => $this->fund, 'department_id' => $this->department], $extra);
     }
 
+    public function test_contract_type_select_uses_fixed_options_ordered_by_character_count_and_preserves_history(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['tipo' => 'Tipo importado']));
+        $this->actingAs($this->regular());
+        $response = $this->get('/contracts/create')->assertOk()
+            ->assertSee('<select id="tipo" name="tipo"', false)
+            ->assertViewHas('contractTypes', fn ($types) => $types->all() === [
+                'Locação de Equipamento', 'Transporte Diversos', 'Locação de Veículo', 'Transporte Pessoas',
+                'Transporte Escolar', 'Serviços Diversos', 'Locação de Imóvel', 'Credenciamento',
+                'Fornecimento', 'Obras', 'Show',
+            ])->assertDontSee('value="Tipo importado"', false);
+        foreach (ContractFields::CONTRACT_TYPES as $type) {
+            $this->assertSame(1, substr_count($response->getContent(), 'value="'.$type.'"'));
+        }
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('value="Tipo importado" selected', false);
+    }
+
+    public function test_editor_initializes_first_panel_and_focuses_the_enabled_administration_field(): void
+    {
+        $response = $this->get('/contracts/create')->assertOk()
+            ->assertSee('x-data="{ step: 0, all: false }"', false)
+            ->assertSee("x-init=\"\$nextTick(() => (\$el.querySelector('#department_id:not(:disabled)') || \$el.querySelector('#tipo'))?.focus({ preventScroll: true }))\"", false)
+            ->assertDontSee('name="department_id" disabled', false);
+        $this->assertStringContainsString(route('contracts.create'), $response->getContent());
+
+        $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo de Saúde', 'name_key' => 'FUNDO DE SAUDE', 'raw_payload' => '{}']);
+        $this->withSession(['fund_id' => $otherFund])->get('/contracts/create')->assertOk()
+            ->assertSee('x-data="{ step: 0, all: false }"', false)
+            ->assertSee('name="department_id" disabled', false)
+            ->assertSee('<select id="tipo" name="tipo"', false);
+
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('x-data="{ step: 0, all: false }"', false)
+            ->assertSee('name="department_id" disabled', false);
+    }
+
+    public function test_editor_action_toolbar_respects_persistence_and_delete_permission(): void
+    {
+        $response = $this->get('/contracts/create')->assertOk()
+            ->assertSee('contract-action-toolbar', false)
+            ->assertSee('Novo Contrato')->assertDontSee('>Cancelar</a>', false);
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($html);
+        foreach (['Excluir Contrato', 'Editar Contrato'] as $label) {
+            $buttons = $xpath->query('//button[@type="button" and @disabled and normalize-space(.)="'.$label.'"]');
+            $this->assertSame(1, $buttons->length);
+            $this->assertSame(1, $buttons->item(0)->getElementsByTagName('svg')->length);
+        }
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('href="'.route('contracts.show', $contract).'#delete-contract"', false)
+            ->assertSee('href="'.route('contracts.edit', $contract).'"', false);
+        $this->get('/contracts/'.$contract->id)->assertOk()->assertSee('id="delete-contract"', false);
+        $this->actingAs($this->regular())->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertDontSee('Excluir Contrato')->assertSee('Novo Contrato')->assertSee('Editar Contrato');
+    }
+
+    public function test_execution_summary_is_readonly_and_rejects_changes_from_contract_form(): void
+    {
+        $history = ['vigencia_fim_atual' => '2028-10-01', 'n_aditivo' => 'ADITIVO-RESUMO',
+            'proc_aditivo' => 'PROCESSO-RESUMO', 'n_os' => 'ORDEM-RESUMO', 'data_os' => '2026-10-05'];
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data($history));
+        $create = $this->get('/contracts/create')->assertOk()->assertDontSee('contract-execution-summary', false);
+        foreach (array_keys($history) as $column) {
+            $create->assertDontSee('name="'.$column.'"', false);
+        }
+        $this->post('/contracts', $this->data($history))->assertSessionHasErrors(array_keys($history));
+        $this->assertDatabaseCount('contracts', 1);
+        $edit = $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('aria-label="Resumo de execução e aditivos"', false)
+            ->assertSee('ADITIVO-RESUMO')->assertSee('PROCESSO-RESUMO')->assertSee('ORDEM-RESUMO')
+            ->assertSee('01/10/2028')->assertSee('05/10/2026');
+        foreach (array_keys($history) as $column) {
+            $edit->assertDontSee('name="'.$column.'"', false);
+        }
+        $changes = ['vigencia_fim_atual' => '2029-10-01', 'n_aditivo' => 'ALTERADO',
+            'proc_aditivo' => 'ALTERADO', 'n_os' => 'ALTERADO', 'data_os' => '2026-10-06'];
+        $this->put('/contracts/'.$contract->id, $changes + ['version' => $contract->version, 'reason' => 'Tentativa de alteração'])
+            ->assertSessionHasErrors(array_keys($history));
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'objeto' => 'Objeto revisado', 'reason' => 'Revisão de descrição'])->assertRedirect();
+        foreach ($history as $column => $value) {
+            $actual = in_array($column, ['vigencia_fim_atual', 'data_os']) ? $contract->fresh()->$column->format('Y-m-d') : $contract->fresh()->$column;
+            $this->assertSame($value, $actual);
+        }
+    }
+
+    public function test_header_lookup_limits_results_to_selected_fund_and_current_actor_scope(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro Fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
+        $other = $contract->replicate(['number_year', 'number_sequence']);
+        $other->fund_id = $otherFund;
+        $other->numero = 'OUTRO-999';
+        $other->save();
+        $hidden = $contract->replicate(['number_year', 'number_sequence']);
+        $hidden->ownership_resolved = false;
+        $hidden->numero = 'RESTRITO-999';
+        $hidden->save();
+        $deleted = $contract->replicate(['number_year', 'number_sequence']);
+        $deleted->save();
+        $deleted->delete();
+
+        $this->actingAs($this->regular());
+        $response = $this->getJson(route('contracts.lookup'))->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonCount(1, 'contracts')
+            ->assertJsonPath('contracts.0.number', $contract->numero)
+            ->assertJsonPath('contracts.0.url', route('contracts.edit', $contract));
+        $this->assertSame(['number', 'process', 'url'], array_keys($response->json('contracts.0')));
+        $this->getJson(route('contracts.lookup', ['q' => 'OUTRO']))->assertOk()->assertJsonCount(0, 'contracts');
+        $this->getJson(route('contracts.lookup', ['q' => '%']))->assertOk()->assertJsonCount(0, 'contracts');
+        $this->getJson(route('contracts.lookup', ['q' => $contract->numero, 'fund' => $otherFund]))->assertOk()->assertJsonCount(1, 'contracts');
+        $this->getJson(route('contracts.lookup', ['page' => 0]))->assertUnprocessable();
+        $this->withSession(['fund_id' => $otherFund])->getJson(route('contracts.lookup'))->assertUnauthorized();
+    }
+
+    public function test_supplier_panel_omits_name_field_and_keeps_header_catalog_value(): void
+    {
+        $this->get('/contracts/create')->assertOk()
+            ->assertDontSee('for="fornecedor_nome_snapshot"', false)
+            ->assertSee('type="hidden" name="fornecedor_nome_snapshot" id="fornecedor_nome_snapshot" readonly', false)
+            ->assertSee('data-contract-summary-field="fornecedor_nome_snapshot"', false);
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertDontSee('for="fornecedor_nome_snapshot"', false)
+            ->assertSee('Fornecedor fictício');
+    }
+
+    public function test_notice_fields_are_editable_next_to_service_fields_in_special_data_panel(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['n_edital' => 'EDITAL-ANTIGO', 'proc_edital' => 'PROCESSO-ANTIGO']));
+        foreach (['/contracts/create', '/contracts/'.$contract->id.'/edit'] as $url) {
+            $response = $this->get($url)->assertOk()
+                ->assertSeeInOrder(['for="cargo_credenc"', 'for="local_servico"', 'for="n_edital"', 'for="proc_edital"'], false);
+            $html = new \DOMDocument;
+            @$html->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($html);
+            $this->assertSame(2, $xpath->query('//section[@data-editor-section="3"]//input[@name="n_edital" or @name="proc_edital"]')->length);
+        }
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'n_edital' => 'EDITAL-NOVO', 'proc_edital' => 'PROCESSO-NOVO', 'reason' => 'Correção dos dados do edital'])->assertRedirect();
+        $this->assertSame('EDITAL-NOVO', $contract->fresh()->n_edital);
+        $this->assertSame('PROCESSO-NOVO', $contract->fresh()->proc_edital);
+    }
+
+    public function test_scope_select_accepts_defined_options_and_preserves_existing_history(): void
+    {
+        $this->get('/contracts/create')->assertOk()->assertSee('<select id="escopo" name="escopo"', false)
+            ->assertSee('value="Escopo"', false)->assertSee('value="Contínuo"', false)
+            ->assertSee('aria-describedby="scope-help"', false)->assertSee('id="scope-help" class="field-help-popover" popover', false)
+            ->assertSee('Tabela Comparativa')->assertSee('Contrato por Escopo')->assertSee('Contrato Continuado')
+            ->assertSee('Objetivo Principal')->assertSee('Vigência e Prazos')->assertSee('necessidade permanente ou prolongada');
+        $this->post('/contracts', $this->data(['escopo' => 'Inválido']))->assertSessionHasErrors('escopo');
+        foreach (['Escopo', 'Contínuo'] as $scope) {
+            $this->post('/contracts', $this->data(['escopo' => $scope, 'duplicate_confirmation' => true]))->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertSame($scope, Contract::latest('id')->firstOrFail()->escopo);
+        }
+        $contract = Contract::firstOrFail();
+        $contract->update(['escopo' => 'Descrição histórica']);
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertSee('value="Descrição histórica" selected', false);
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Preservar escopo histórico', 'objeto' => 'Objeto atualizado'])->assertRedirect();
+        $this->assertSame('Descrição histórica', $contract->fresh()->escopo);
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->fresh()->version, 'reason' => 'Corrigir escopo informado', 'escopo' => 'Inválido'])->assertSessionHasErrors('escopo');
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->fresh()->version, 'reason' => 'Selecionar escopo contínuo', 'escopo' => 'Contínuo'])->assertRedirect();
+        $this->assertSame('Contínuo', $contract->fresh()->escopo);
+    }
+
     public function test_identification_form_hides_unused_controls_and_preserves_their_historical_values(): void
     {
-        $historical = ['proc_edital' => 'PROC-LEGADO', 'n_edital' => 'EDITAL-LEGADO', 'data_licit' => '2026-09-01', 'n_solicit' => 'SOL-LEGADA'];
         $response = $this->get('/contracts/create')->assertOk();
-        foreach (array_keys($historical) as $column) {
+        foreach (['Código de origem', 'Identificação completa'] as $label) {
+            $response->assertDontSee($label);
+        }
+        $historical = ['proc_edital' => 'PROC-LEGADO', 'n_edital' => 'EDITAL-LEGADO', 'data_licit' => '2026-09-01', 'data_cont_verd' => '2026-09-02', 'n_solicit' => 'SOL-LEGADA', 'tipo_fornecimento' => 'Fornecimento legado', 'tipo_obra' => 'Obra legada', 'reforma' => 'Reforma histórica'];
+        $response = $this->get('/contracts/create')->assertOk();
+        foreach (array_diff(array_keys($historical), ['proc_edital', 'n_edital']) as $column) {
             $response->assertDontSee('name="'.$column.'"', false);
         }
         $response->assertSee('id="modalidade"', false)->assertSee('id="n_licit"', false);
         $contract = app(ContractWriter::class)->save($this->admin, $this->data($historical));
         $response = $this->get('/contracts/'.$contract->id.'/edit')->assertOk();
-        foreach (array_keys($historical) as $column) {
+        foreach (['legacy_id', 'numero', 'cont_inteiro'] as $column) {
+            $response->assertDontSee('id="'.$column.'"', false)->assertDontSee('name="'.$column.'"', false);
+        }
+        $number = $contract->numero;
+        $identification = $contract->cont_inteiro;
+        foreach (array_diff(array_keys($historical), ['proc_edital', 'n_edital']) as $column) {
             $response->assertDontSee('name="'.$column.'"', false);
         }
         $this->put('/contracts/'.$contract->id, ['version' => 1, 'reason' => 'Correção de descrição', 'objeto' => 'Objeto corrigido'])->assertRedirect();
+        $this->assertSame($number, $contract->fresh()->numero);
+        $this->assertSame($identification, $contract->fresh()->cont_inteiro);
         foreach ($historical as $column => $value) {
-            $actual = $column === 'data_licit' ? $contract->fresh()->$column->format('Y-m-d') : $contract->fresh()->$column;
+            $actual = in_array($column, ['data_licit', 'data_cont_verd']) ? $contract->fresh()->$column->format('Y-m-d') : $contract->fresh()->$column;
             $this->assertSame($value, $actual);
         }
     }
@@ -104,7 +285,11 @@ class ContractWritingTest extends TestCase
 
     public function test_iptu_has_two_choices_and_rejects_other_new_values(): void
     {
-        $response = $this->get('/contracts/create')->assertOk()->assertSee('IPTU por conta do(a)>');
+        $response = $this->get('/contracts/create')->assertOk()->assertSee('IPTU por conta do(a)>')
+            ->assertSee('aria-describedby="iptu-help"', false)
+            ->assertSee('data-field-help="iptu-help"', false)
+            ->assertSee('id="iptu-help" class="field-help-popover" popover', false)
+            ->assertSee('Locador(a) ou Locatário?')->assertSee('cláusula expressa');
         $html = new \DOMDocument;
         @$html->loadHTML($response->getContent());
         $control = $html->getElementById('iptu');
@@ -149,7 +334,7 @@ class ContractWritingTest extends TestCase
         $xpath = new \DOMXPath($html);
         $this->assertSame(1, $xpath->query('//*[@id="tipo"]')->length);
         $type = $html->getElementById('tipo');
-        $this->assertSame('input', $type->tagName);
+        $this->assertSame('select', $type->tagName);
         $this->assertTrue($type->hasAttribute('required'));
         $this->assertSame(1, $xpath->query('//section[contains(@class,"contract-administration-fields")]//*[@id="tipo"]')->length);
         $this->assertSame(0, $xpath->query('//section[contains(@class,"contract-administration-fields")]/h2')->length);
@@ -173,6 +358,7 @@ class ContractWritingTest extends TestCase
     public function test_session_fund_cannot_be_overridden_and_non_municipality_rejects_department(): void
     {
         $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro Fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
+        $this->seedContractInspector($otherFund);
         $this->post('/contracts', $this->data(['fund_id' => $otherFund]))->assertForbidden();
         $this->withSession(['fund_id' => $otherFund]);
         $this->post('/contracts', $this->data(['fund_id' => $otherFund]))->assertSessionHasErrors('department_id');
@@ -220,7 +406,7 @@ class ContractWritingTest extends TestCase
 
     public function test_heading_shows_generated_number_after_save_and_supplier_and_instructions_are_positioned(): void
     {
-        $this->withSession(['fund_id' => $this->fund])->get('/contracts/create')->assertOk()->assertSee('Gerado ao salvar')
+        $this->withSession(['fund_id' => $this->fund])->get('/contracts/create')->assertOk()
             ->assertSeeInOrder(['fund-header-back', 'selected-fund-name', 'contract-context-heading'], false)
             ->assertDontSee('id="session-fund"', false)
             ->assertDontSee('Alterar Fundo')
@@ -230,7 +416,9 @@ class ContractWritingTest extends TestCase
             ->assertDontSee('breadcrumb-divider', false)
             ->assertSee('aria-label="Resumo do contrato e fornecedor"', false)
             ->assertSee('data-contract-summary-field="fornecedor_nome_snapshot"', false)
-            ->assertSeeInOrder(['contract-context-heading', '<h1>Novo contrato', 'Não informado', 'Selecionar fornecedor cadastrado'], false)
+            ->assertSeeInOrder(['selected-fund-name', 'contract-heading-supplier', 'Nome / Razão Social', 'contract-context-heading', 'Nº do Contrato', 'Selecionar fornecedor cadastrado'], false)
+            ->assertSee('value="" placeholder="N° do Contrato"', false)
+            ->assertSee('data-modal-open="contract-search-dialog"', false)
             ->assertDontSee('Preencha as seções abaixo.')
             ->assertDontSee('Campos com')
             ->assertDontSee('Disponível somente para o Fundo')
@@ -245,13 +433,15 @@ class ContractWritingTest extends TestCase
             $response = $this->get($url)->assertOk()->assertSee('Rua do fornecedor');
             if (str_ends_with($url, '/edit')) {
                 $response->assertDontSee('id="session-fund"', false)->assertDontSee('Alterar Fundo')
-                    ->assertSeeInOrder(['contract-number-highlight', 'Fornecedor fictício'], false);
+                    ->assertSeeInOrder(['selected-fund-name', 'contract-heading-supplier', 'Fornecedor fictício', 'contract-number-highlight'], false);
             } else {
-                $response->assertSeeInOrder(['Alterar Fundo', 'contract-number-highlight', 'Fornecedor fictício'], false);
+                $response->assertDontSee('Alterar Fundo')->assertDontSee('id="session-fund"', false)
+                    ->assertSeeInOrder(['selected-fund-name', 'contract-number-highlight', 'Fornecedor fictício'], false);
             }
-            $this->assertStringContainsString('<strong class="contract-number-highlight">'.$contract->numero.'</strong>', $response->getContent());
+            $this->assertStringContainsString('value="'.$contract->numero.'" placeholder="N° do Contrato"', $response->getContent());
             $heading = str_ends_with($url, '/edit') ? 'Editar contrato' : 'Novo contrato';
-            $response->assertSee('<h1>'.$heading.' <strong class="contract-number-highlight">', false);
+            $response->assertSee('<h1 class="sr-only">'.$heading.'</h1>', false)
+                ->assertSee('<label for="contract-summary-number">Nº do Contrato</label>', false);
         }
     }
 
@@ -427,7 +617,8 @@ class ContractWritingTest extends TestCase
     {
         app(ContractWriter::class)->save($this->admin, $this->data());
         $this->post('/contracts', $this->data(['processo' => 'OUTRO-PROCESSO']))->assertRedirect()->assertSessionMissing('warning');
-        $otherDepartment = DB::table('contract_departments')->insertGetId(['name' => 'Outra secretaria', 'name_key' => 'OUTRA', 'raw_payload' => '{}']);
+        $otherDepartment = DB::table('contract_departments')->insertGetId(['name' => 'Outra secretaria', 'name_key' => 'OUTRA SECRETARIA', 'raw_payload' => '{}']);
+        $this->seedContractInspector($this->fund, $otherDepartment);
         $user = $this->regular();
         app(ContractWriter::class)->save($this->admin, $this->data(['numero' => 'HIDDEN/26', 'department_id' => $otherDepartment]));
         $this->actingAs($user)->post('/contracts', $this->data(['numero' => 'HIDDEN/26']))->assertRedirect()->assertSessionMissing('warning');

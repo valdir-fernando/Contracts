@@ -3,14 +3,14 @@ import './report-generation';
 import './count-up';
 import './contract-summary';
 import './supplier-assistance';
+import './supplier-picker';
+import './supplier-registration';
 import './fund-heading';
+import './contract-search';
+import './field-help';
+import './inspector-assistance';
 import { scrollContractSection } from './contract-panel-scroll';
-
-document.querySelectorAll('[data-fund-switch][data-preserve-dashboard-year]').forEach((form) => {
-    form.addEventListener('submit', () => {
-        form.elements.namedItem('year').value = new URL(window.location.href).searchParams.get('year') ?? '';
-    });
-});
+import { attachMask, maskDate, isoDate, dateInputAllowed } from './input-masks';
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -202,15 +202,7 @@ document.querySelectorAll('.catalog-modal').forEach((dialog) => {
 
 // Brazilian dates stay readable even when the browser uses another locale.
 // FormData carries ISO dates to preserve the server and API contracts.
-const brazilianDate = (value) => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) value = displayBrazilianDate(value);
-    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
-    if (!match) return null;
-    const [, day, month, year] = match;
-    const iso = `${year}-${month}-${day}`;
-    const parsed = new Date(`${iso}T12:00:00Z`);
-    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
-};
+const brazilianDate = isoDate;
 const displayBrazilianDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? value.split('-').reverse().join('/') : value;
 document.querySelectorAll('input[type="date"]').forEach((input) => {
@@ -219,6 +211,8 @@ document.querySelectorAll('input[type="date"]').forEach((input) => {
     input.inputMode = 'numeric';
     input.placeholder = 'dd/mm/aaaa';
     input.value = displayBrazilianDate(input.value);
+    input.maxLength = 10;
+    attachMask(input, maskDate, /^[\d/-]*$/, dateInputAllowed);
     const validate = () => {
         input.setCustomValidity(input.value && (!brazilianDate(input.value) || (input.min && brazilianDate(input.value) < input.min) || (input.max && brazilianDate(input.value) > input.max)) ? 'Informe uma data válida no formato dd/mm/aaaa, dentro do período permitido.' : '');
     };

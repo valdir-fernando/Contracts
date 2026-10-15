@@ -27,6 +27,7 @@ class ContractImporter
         'tb_Secretaria' => ['table' => 'contract_departments', 'id' => 'ID_Secretaria', 'name' => 'Secretaria'],
         'tb_Fornecedor' => ['table' => 'suppliers', 'id' => 'ID_Fornecedor', 'name' => 'Nome_Fornecedor', 'document' => 'CPF_CNPJ'],
         'tb_Gestor' => ['table' => 'contract_managers', 'id' => 'ID_Gestor', 'name' => 'Nome_Gestor', 'document' => 'CPF_Gestor'],
+        'tb_Fiscal' => ['table' => 'contract_inspectors', 'id' => 'ID_Fiscal', 'name' => 'Nome_Fiscal'],
     ];
 
     public function import(string $path, bool $dryRun = false): ImportRun
@@ -147,6 +148,10 @@ class ContractImporter
         }
         if ($source === 'tb_Gestor') {
             $attributes['fund_name_key'] = Normalizer::name($raw['Fundo'] ?? '');
+        }
+        if ($source === 'tb_Fiscal') {
+            $attributes['fund_name_key'] = Normalizer::name($raw['Fundo'] ?? '');
+            $attributes['department_name_key'] = Normalizer::name($raw['Secretaria'] ?? '');
         }
         DB::table($config['table'])->insert($attributes);
         $record->update(['status' => 'imported']);

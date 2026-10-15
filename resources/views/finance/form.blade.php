@@ -30,6 +30,6 @@
 @endforeach</select></label>
 @else<p>Usuários preparam rascunhos; o administrador registra após conferência.</p>
 @endif
-        <label class="field field-wide"><span class="field-caption">Justificativa <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required>{{ $read('reason') }}</textarea></label></div><div class="form-actions"><a class="secondary-button" href="{{ route('contracts.finance.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)>Salvar registro financeiro</button></div>
+        <label class="field field-wide"><span class="field-caption">Justificativa <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required>{{ $read('reason') }}</textarea></label></div><div class="form-actions"><a class="secondary-button" href="{{ route('contracts.finance.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)><x-nav-icon name="save"/>Salvar registro financeiro</button></div>
     </form>
 </x-layouts.app>

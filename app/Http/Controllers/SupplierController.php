@@ -6,11 +6,36 @@ use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Services\Legacy\Normalizer;
 use App\Services\SupplierCatalog;
+use App\Support\SupplierFields;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class SupplierController extends Controller
 {
+    public function registrationLookup(Request $request, LockActor $actors)
+    {
+        $actor = $actors->current($request->user());
+        abort_unless($actor->isAdmin(), 403);
+        $data = $request->validate(['document' => ['required', 'string', 'max:32', function ($attribute, $value, $fail) {
+            if (! preg_match('/^[\d\s.\/\-]+$/D', $value) || ! Normalizer::validDocument(Normalizer::document($value))) {
+                $fail('Informe um CPF ou CNPJ válido.');
+            }
+        }]]);
+        $suppliers = SupplierCatalog::visibleTo($actor)->where('document_key', Normalizer::document($data['document']))
+            ->select(['name', 'document_key', 'raw_payload'])->limit(2)->get();
+        abort_if($suppliers->count() > 1, 409, 'Há mais de um fornecedor com este documento. Consulte o catálogo.');
+        $values = null;
+        if ($supplier = $suppliers->first()) {
+            $raw = json_decode($supplier->raw_payload, true, 512, JSON_THROW_ON_ERROR);
+            $values = ['name' => $supplier->name, 'document' => $supplier->document_key];
+            foreach (SupplierFields::fields() as $field => $definition) {
+                $values[$field] = is_string($raw[$field] ?? null) ? $raw[$field] : '';
+            }
+        }
+
+        return response()->json(['found' => $values !== null, 'values' => $values], headers: ['Cache-Control' => 'private, no-store']);
+    }
+
     public function lookup(Request $request, LockActor $actors)
     {
         $actor = $actors->current($request->user());

@@ -28,6 +28,6 @@
             @endforeach
         </div></section>@endforeach
         <section class="surface contract-section"><label><span class="field-caption">Justificativa desta operação <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required>{{ old('reason', $values['reason'] ?? '') }}</textarea></label></section>
-        <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)>Salvar aditivo</button></div>
+        <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)><x-nav-icon name="save"/>Salvar aditivo</button></div>
     </form>
 </x-layouts.app>

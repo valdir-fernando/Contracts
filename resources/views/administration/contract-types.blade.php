@@ -10,7 +10,7 @@
             </fieldset>
             <label><span class="field-caption">Justificativa <x-required-mark/></span><textarea name="reason" minlength="10" maxlength="1000" required>{{ old('reason') }}</textarea></label>
             <p class="muted">O nome identifica o tipo, ignorando maiúsculas e acentos. Usar um nome já cadastrado substitui os requisitos anteriores. Deixe todos desmarcados para retirar os requisitos adicionais.</p>
-            <button class="secondary-button">Salvar requisitos</button>
+            <button class="secondary-button"><x-nav-icon name="save"/>Salvar requisitos</button>
         </form>
     </section>
     <section class="surface contract-section"><h2>Requisitos cadastrados</h2>

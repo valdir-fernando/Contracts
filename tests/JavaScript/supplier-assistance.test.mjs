@@ -22,6 +22,32 @@ function fixture(values = {}, prefill = {}) {
 const response = (values, status = 200) => ({ ok: status === 200, status, json: async () => ({ values }) });
 const defer = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
 
+test('explicit supplier selection preserves contract input and ignores an older document lookup', async () => {
+    const setup = fixture({ fornecedor_documento_snapshot: '11222333000181' });
+    const contractFields = { processo: { value: '123/2026' }, objeto: { value: 'Objeto digitado' }, valor_total: { value: '1234,56' } };
+    const namedItem = setup.form.elements.namedItem;
+    setup.form.elements.namedItem = (name) => contractFields[name] ?? namedItem(name);
+    const request = defer();
+    initializeSupplierAssistance(setup.form, () => request.promise);
+    const pending = setup.blur();
+    setup.form.listeners['supplier-selected']({ detail: { id: 42, values: {
+        fornecedor_documento_snapshot: '19131243000197', fornecedor_nome_snapshot: 'Selecionado',
+        cpf_socio: '52998224725', objeto: 'Não aplicar',
+    } } });
+    request.resolve(response({ fornecedor_nome_snapshot: 'Resposta antiga' }));
+    await pending;
+    assert.equal(setup.controls.supplier_id.value, '42');
+    assert.equal(setup.controls.fornecedor_nome_snapshot.value, 'Selecionado');
+    assert.equal(setup.controls.fornecedor_documento_snapshot.value, '19.131.243/0001-97');
+    assert.equal(setup.controls.cpf_socio.value, '529.982.247-25');
+    assert.equal(contractFields.processo.value, '123/2026');
+    assert.equal(contractFields.objeto.value, 'Objeto digitado');
+    assert.equal(contractFields.valor_total.value, '1234,56');
+    let prevented = false;
+    setup.form.listeners.submit({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, false);
+});
+
 test('CPF and CNPJ are masked without altering invalid or multiple documents', () => {
     assert.equal(formatSupplierDocument('52998224725'), '529.982.247-25');
     assert.equal(formatSupplierDocument('11222333000181'), '11.222.333/0001-81');
@@ -60,7 +86,7 @@ test('catalog prefill is masked immediately and clears old automatic values when
     assert.equal(setup.controls.fornecedor_nome_snapshot.value, '');
     assert.equal(setup.controls.cpf_socio.value, '');
     assert.equal(setup.controls.end_fornec.value, '');
-    assert.equal(setup.summary.find((output) => output.dataset.contractSummaryField === 'fornecedor_nome_snapshot').textContent, 'Não informado');
+    assert.equal(setup.summary.find((output) => output.dataset.contractSummaryField === 'fornecedor_nome_snapshot').textContent, 'Nome / Razão Social');
 });
 
 test('a delayed old response cannot overwrite the newly selected supplier', async () => {

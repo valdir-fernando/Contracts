@@ -50,6 +50,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/catalogs/{kind}/{catalog}', [CatalogController::class, 'show'])->whereIn('kind', ['fund', 'department'])->whereNumber('catalog')->name('catalogs.show');
     Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
     Route::post('/suppliers/lookup', [SupplierController::class, 'lookup'])->middleware('throttle:60,1')->name('suppliers.lookup');
+    Route::post('/suppliers/registration-lookup', [SupplierController::class, 'registrationLookup'])->middleware('throttle:60,1')->name('suppliers.registration-lookup');
     Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->whereNumber('supplier')->name('suppliers.show');
     Route::get('/contract-types', [ContractTypeRuleController::class, 'index'])->name('contract-types.index');
     Route::post('/contract-types', [ContractTypeRuleController::class, 'store'])->name('contract-types.store');
@@ -79,6 +80,8 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/contracts/{contract}/attachments/{attachment}', [ContractAttachmentController::class, 'download'])->name('contracts.attachments.download');
     Route::delete('/contracts/{contract}/attachments/{attachment}', [ContractAttachmentController::class, 'destroy'])->name('contracts.attachments.destroy');
     Route::post('/contracts/{contract}/attachments/{attachment}/restore', [ContractAttachmentController::class, 'restore'])->name('contracts.attachments.restore');
+    Route::get('/contracts/lookup', [ContractController::class, 'lookup'])->middleware('throttle:60,1')->name('contracts.lookup');
+    Route::get('/contracts/inspector-defaults', [ContractController::class, 'inspectorDefaults'])->middleware('throttle:60,1')->name('contracts.inspector-defaults');
     Route::resource('contracts', ContractController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::post('/contracts/{contract}/restore', [ContractController::class, 'restore'])->withTrashed()->name('contracts.restore');
     Route::middleware('can:viewAny,App\Models\User')->group(function () {

@@ -106,12 +106,12 @@ class FundSwitchingTest extends TestCase
             ->assertSee('B-CURRENT')->assertDontSee('B-EXPIRED')->assertDontSee('A-CURRENT');
     }
 
-    public function test_switcher_only_lists_authorized_funds_and_rejects_unauthorized_and_missing_targets(): void
+    public function test_hidden_switcher_and_endpoint_reject_unauthorized_and_missing_targets(): void
     {
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
         $this->grant($user, $this->fundA);
         $response = $this->actingAs($user)->get('/dashboard')->assertOk();
-        $response->assertSee('Alterar Fundo')->assertDontSee('Fundo B');
+        $response->assertDontSee('Alterar Fundo')->assertDontSee('id="session-fund"', false)->assertDontSee('Fundo B');
         $this->post('/session/fund', ['fund_id' => $this->fundB])->assertForbidden()->assertSessionHas('fund_id', $this->fundA);
         $this->post('/session/fund', ['fund_id' => 9999])->assertSessionHasErrors('fund_id')->assertSessionHas('fund_id', $this->fundA);
         $this->post('/session/fund', ['year' => 'all'])->assertSessionHasErrors('fund_id');
