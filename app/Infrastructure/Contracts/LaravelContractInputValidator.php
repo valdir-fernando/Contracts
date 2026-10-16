@@ -65,6 +65,15 @@ final class LaravelContractInputValidator implements ContractInputValidator
             }
         }
         $input = $this->supplierInput($context, $contract, $input);
+        if ($updating && $contract->items_managed) {
+            foreach (['processo', 'fornecedor_documento_snapshot'] as $field) {
+                if (array_key_exists($field, $input) && $input[$field] !== $contract->$field) {
+                    throw new InputRejected([$field => 'Este contrato possui distribuição de produtos. Preserve o processo e o fornecedor de origem.']);
+                }
+            }
+            // Total is exclusively maintained by transactional product distribution.
+            unset($input['valor_total']);
+        }
         $rules = ['fund_id' => [$updating ? 'sometimes' : 'required', 'nullable', 'integer', 'exists:contract_funds,id'],
             'department_id' => 'sometimes|nullable|integer|exists:contract_departments,id',
             'version' => $updating ? 'required|integer|min:1' : 'prohibited',

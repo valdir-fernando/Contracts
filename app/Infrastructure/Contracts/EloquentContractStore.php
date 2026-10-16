@@ -4,6 +4,7 @@ namespace App\Infrastructure\Contracts;
 
 use App\Application\Contracts\AuthorizedContract;
 use App\Application\Contracts\Ports\ContractStore;
+use App\Application\Exceptions\InputRejected;
 use App\Domain\Contracts\ContractState;
 use App\Infrastructure\Persistence\TransactionGuard;
 use App\Models\Contract;
@@ -32,6 +33,13 @@ final class EloquentContractStore implements ContractStore
             throw new LogicException('O contrato gravado deve corresponder ao contrato autorizado.');
         }
         $model = ContractMapper::toModel($contract);
+        if ($contract->id !== null && $context->contract->get('items_managed')) {
+            foreach (['processo', 'fornecedor_documento_snapshot', 'valor_total', 'items_managed'] as $field) {
+                if ($context->contract->get($field) !== $model->$field) {
+                    throw new InputRejected([$field => 'Campo controlado pela distribuição de produtos.']);
+                }
+            }
+        }
         $before = $contract->original();
         $changes = [];
         foreach ($model->getDirty() as $column => $value) {

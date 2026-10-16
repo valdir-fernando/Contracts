@@ -32,7 +32,7 @@
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
         </div>
-        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
+        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration + ($loop->index >= 5 ? 1 : 0) }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@if($group === 'Vigência execução e aditivos')<button type="button" class="section-tab" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">6. Cad.Prod</button>@endif@endforeach<button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
@@ -183,10 +183,17 @@
         @endforeach
         @if($contract->exists)<input type="hidden" name="reason" value="Atualização cadastral pelo formulário de contratos.">@endif
         </div>
+        <dialog id="contract-products-dialog" class="catalog-modal contract-products-dialog" data-contract-products-dialog aria-labelledby="contract-products-title">
+            <div class="modal-header">
+                <h2 id="contract-products-title" tabindex="-1">Cadastro de produtos</h2>
+                <button type="button" class="modal-close" data-contract-products-close aria-label="Fechar cadastro de produtos">×</button>
+            </div>
+            <div class="contract-section"><x-contract-products :contract="$contract"/></div>
+        </dialog>
         <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
             <div class="field contract-items-total">
                 <label for="contract-items-total">Valor do contrato</label>
-                <input id="contract-items-total" readonly aria-readonly="true" placeholder="A calcular" value="">
+                <input id="contract-items-total" readonly aria-readonly="true" placeholder="A calcular" value="{{ $contract->exists ? \App\Models\Contract::moneyLabel($contract->valor_total) : '' }}">
             </div>
             @if($contract->exists)
                 @can('delete', $contract)<a class="section-tab" href="{{ route('contracts.show', $contract) }}#delete-contract"><x-nav-icon name="trash"/>Excluir</a>@endcan

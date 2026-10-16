@@ -6,6 +6,7 @@ import './supplier-assistance';
 import './supplier-picker';
 import './supplier-registration';
 import './service-orders';
+import './contract-products';
 import './guarantee-message';
 import './contract-object';
 import './fund-heading';

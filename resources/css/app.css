@@ -12,6 +12,7 @@
     color: #26364b;
     background: #f4f7fb;
     --primary: #3267c8;
+    --supplier-name-color: #f5a3a3;
     --primary-hover: #2454ad;
     --muted: #64748b;
     --border: #e1e7f0;
@@ -105,7 +106,7 @@ p { margin-block: 0 16px; }
 .contract-search-controls input { min-width: 0; flex: 1; }
 .contract-search-results { list-style: none; padding: 0; margin: 12px 0; }
 .contract-search-results a { display: block; padding: 10px; border-bottom: 1px solid var(--border); }
-.contract-heading-supplier { margin: 4px 0 0; font-size: clamp(20px, 2vw, 28px); font-weight: 750; color: #f5a3a3; line-height: 1.3; overflow-wrap: anywhere; text-align: left; }
+.contract-heading-supplier { margin: 4px 0 0; font-size: clamp(20px, 2vw, 28px); font-weight: 750; color: var(--supplier-name-color); line-height: 1.3; overflow-wrap: anywhere; text-align: left; }
 .workspace-top-contract { column-gap: 8px; min-height: 0; }
 .workspace-top-contract .fund-header-group { padding-block: 0; }
 .workspace-top-contract > .contract-context-heading { flex: 0 1 auto; max-width: 50%; padding-block: 0; }
@@ -267,7 +268,7 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 [data-contract-editor] .contract-section .panel-header { margin-bottom: 8px; }
 [data-contract-editor] .contract-section .section-tabs { margin-top: 8px; }
 :is([data-contract-form], [data-supplier-form]) { --contract-single-line-height: calc(13px * 1.6 + 14px); }
-:is([data-contract-form], [data-supplier-form]) .field :is(input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not(.date-native-picker), select:not([multiple]), textarea[rows="1"]) { height: var(--contract-single-line-height); min-height: var(--contract-single-line-height); padding-block: 6px; }
+:is([data-contract-form], [data-supplier-form]) .field :is(input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not(.date-native-picker), select:not([multiple]), textarea[rows="1"]), [data-contract-form] [data-contract-products] input:not([type=checkbox]):not([type=hidden]) { height: var(--contract-single-line-height); min-height: var(--contract-single-line-height); padding-block: 6px; }
 [data-contract-form] .field > .readonly-field { min-height: var(--contract-single-line-height); padding-block: 6px; }
 :is([data-contract-form], [data-supplier-form]) .date-picker-button { width: 30px; height: 30px; padding: 5px; }
 @media (max-width: 600px) { :is([data-contract-form], [data-supplier-form]) { --contract-single-line-height: calc(16px * 1.6 + 14px); } }
@@ -296,7 +297,7 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .section-tab { min-height: 40px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: #f6f8fc; color: var(--muted); font-size: 11px; text-align: left; }
 .section-tab.active { border-color: #c8d9f3; background: #edf3fd; color: var(--primary); }
 [data-contract-editor] .contract-section-navigation { margin: 0 0 var(--section-gap); }
-.section-tabs.contract-section-navigation { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: clamp(3px, .5vw, 8px); padding-bottom: 0; overflow: visible; }
+.section-tabs.contract-section-navigation { display: grid; grid-auto-flow: column; grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 1.35fr) minmax(0, 1fr); gap: clamp(3px, .5vw, 8px); padding-bottom: 0; overflow: visible; }
 .contract-section-navigation .section-tab { min-width: 0; padding-inline: 4px; font-size: clamp(10px, .8vw, 11px); text-align: center; overflow-wrap: anywhere; }
 :is(.contract-section-navigation, .action-toolbar) .section-tab { background-color: #163b65; border-color: #163b65; color: #7dbbff; }
 :is(.contract-section-navigation, .action-toolbar) .section-tab:hover, :is(.contract-section-navigation, .action-toolbar) .section-tab:focus-visible, :is(.contract-section-navigation, .action-toolbar) .section-tab.active { background-color: #a9c9ed; border-color: #a9c9ed; color: #000000; }
@@ -309,6 +310,72 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .contract-section-navigation .expand-all-button { text-align: center; background-color: #b8860b; border-color: #b8860b; color: #000000; }
 .contract-section-navigation .expand-all-button:hover, .contract-section-navigation .expand-all-button:focus-visible, .contract-section-navigation .expand-all-button.active { background-color: #f5a3a3; border-color: #f5a3a3; color: #000000; }
 .contract-section-navigation .section-tab.active { background-color: var(--canvas); border-color: var(--border); color: #000000; }
+[data-contract-products] { min-width: 0; }
+[data-contract-products] h3 { margin: 18px 0 8px; }
+.product-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin-block: 12px; }
+.product-actions label { flex: 1; min-width: 180px; }
+.product-list-scroll { overflow-x: auto; max-height: 360px; overflow-y: auto; margin-block: 12px; }
+.product-list-scroll table { width: 100%; min-width: 720px; }
+.product-list-scroll th { position: sticky; top: 0; background: var(--canvas); }
+.product-list-scroll td { vertical-align: top; }
+.product-list-scroll input { min-width: 90px; }
+.product-confirm { display: flex; align-items: center; gap: 8px; margin-block: 10px; }
+.product-confirm input { width: auto; }
+.product-entry-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); align-items: start; gap: 12px; }
+.product-entry-main { min-width: 0; }
+[data-contract-products] label:not(.product-confirm) { display: grid; align-content: start; gap: 3px; min-width: 0; color: #4b5f7c; font-size: 12px; font-weight: 600; }
+.product-entry-heading, .product-entry-actions, .product-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.product-entry-heading { justify-content: space-between; margin-bottom: 10px; }
+.product-manual-option { font-size: 11px; color: var(--muted); margin-right: auto; }
+.product-entry-actions { margin: 0; }
+.product-item-warning { width: min(440px, calc(100% - 32px)); }
+.catalog-modal.product-picker-dialog { width: min(1300px, calc(100vw - 32px)); max-width: none; }
+.product-picker-list { max-height: 55dvh; }
+.product-picker-list tr[data-selectable] { cursor: pointer; }
+.product-picker-list tr[data-selectable]:hover { background: #edf3fd; }
+.catalog-modal.contract-products-dialog { width: min(1600px, calc(100vw - 32px)); max-width: none; height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); padding: 20px 24px; border-radius: 12px; }
+.contract-products-dialog > .contract-section { padding: 0; }
+.product-budget-row { display: grid; grid-template-columns: calc(10ch + 26px) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-bottom: 10px; }
+.product-budget-row > label:first-child { width: calc(10ch + 26px); max-width: 100%; }
+.product-entry-fields { display: grid; grid-template-columns: calc(7ch + 52px) calc(7ch + 14px) minmax(0, 1fr) minmax(45px, .6fr) minmax(75px, .8fr) minmax(55px, .6fr) minmax(85px, .9fr) minmax(85px, 1fr); gap: 6px; margin-top: 10px; }
+.product-item-search { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 6px; min-width: 0; }
+.product-item-search-button { display: grid; place-items: center; width: 32px; height: var(--contract-single-line-height, 35px); padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: #163b65; color: #7dbbff; }
+.product-item-search-button:hover, .product-item-search-button:focus-visible { background: #a9c9ed; color: #000; }
+.product-item-search-button:disabled { opacity: .5; cursor: default; }
+.product-item-search-button svg { width: 18px; height: 18px; }
+.product-selected-description { grid-column: 1 / -1; }
+.product-selected-description textarea { display: block; width: 100%; min-height: 35px; max-height: calc(5 * 1.6em + 14px); padding: 6px; line-height: 1.6; resize: none; overflow-y: auto; overflow-wrap: anywhere; }
+.product-entry-fields label { min-width: 0; font-size: 11px; }
+.product-entry-fields input { min-width: 0; padding-inline: 6px; }
+.product-entry-layout input[readonly], .product-entry-layout textarea[readonly] { background: #f6f8fc; }
+.product-entry-layout input[data-product-field="disp"] { background: var(--supplier-name-color) !important; color: #26364b !important; }
+.product-budget-summary { justify-self: end; width: min(100%, 320px); margin-top: calc(12px * 1.6 + 3px); padding: 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 0; }
+.product-budget-summary .product-list-scroll table { min-width: 0; }
+.product-budget-summary .data-table :is(th, td) { padding: 8px; }
+[data-contract-products] > h3 { margin-bottom: 4px; }
+.product-contract-list { min-height: 180px; margin-top: 0; }
+.product-contract-list .data-table { table-layout: fixed; width: 100%; min-width: 1000px; }
+.product-contract-list .data-table :is(th, td) { padding: 8px; border: 1px solid var(--border); overflow-wrap: anywhere; white-space: normal; }
+.product-contract-list .data-table tr:last-child td { border-bottom: 1px solid var(--border); }
+.product-contract-list .data-table :is(th, td):nth-child(1) { width: 50px; }
+.product-contract-list .data-table :is(th, td):nth-child(2) { width: 54px; }
+.product-contract-list .data-table th:nth-child(2) { white-space: nowrap; }
+.product-contract-list .data-table :is(th, td):nth-child(4) { width: 55px; }
+.product-contract-list .data-table :is(th, td):nth-child(6) { width: 120px; }
+.product-contract-list .data-table :is(th, td):is(:nth-child(5), :nth-child(7), :nth-child(8)) { width: 100px; text-align: right; }
+.product-contract-list .data-table :is(th, td):nth-child(5) { width: 94px; }
+.product-contract-list .data-table :is(th, td):nth-child(9) { width: 80px; }
+.product-contract-list .data-table :is(th, td):nth-child(10) { width: 80px; }
+.product-contract-list .data-table td { font-size: 13px; }
+.product-panel-total { display: flex; justify-content: flex-end; margin-top: 10px; }
+.product-panel-total input { text-align: right; font-weight: 650; }
+[data-product-catalog][hidden] { display: none; }
+@media (max-width: 900px) {
+    .product-entry-layout { grid-template-columns: minmax(0, 1fr); }
+    .product-budget-summary { margin-top: 0; }
+    .product-entry-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .product-selected-description { grid-column: 1 / -1; }
+}
 
 /* Filter and registry tables */
 .filter-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: end; padding: 22px 24px; }

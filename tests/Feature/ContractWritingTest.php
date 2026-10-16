@@ -469,6 +469,10 @@ class ContractWritingTest extends TestCase
         $this->assertSame(0, $xpath->query('//*[@name="fund_id" or @name="administrative_status"]')->length);
         $this->assertSame(1, $xpath->query('//*[@data-contract-panels-scroll]')->length);
         $this->assertSame(count(collect(ContractFields::MAP)->groupBy('group')), $xpath->query('//*[@data-contract-panels-scroll]//*[@data-editor-section]')->length);
+        $this->assertSame(1, $xpath->query('//dialog[@data-contract-products-dialog]')->length);
+        $this->assertSame(1, $xpath->query('//button[@data-contract-products-open and @aria-controls="contract-products-dialog"]')->length);
+        $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//dialog[@data-contract-products-dialog]')->length);
+        $response->assertSeeInOrder(['5. Vigência', '6. Cad.Prod', '7. Financeiro', '8.Distrato/Paralização']);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//*[@id="department_id" or @id="tipo"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//nav[@aria-label="Seções do contrato"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//button[@type="submit"]')->length);
