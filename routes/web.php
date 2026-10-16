@@ -10,6 +10,7 @@ use App\Http\Controllers\ContractAttachmentController;
 use App\Http\Controllers\ContractController;
 use App\Http\Controllers\ContractFinanceController;
 use App\Http\Controllers\ContractReviewController;
+use App\Http\Controllers\ContractServiceOrderController;
 use App\Http\Controllers\ContractTypeRuleController;
 use App\Http\Controllers\InternalApiController;
 use App\Http\Controllers\ReportController;
@@ -75,6 +76,8 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::put('/contracts/{contract}/review', [ContractReviewController::class, 'update'])->name('contracts.review.update');
     Route::post('/contracts/{contract}/finance/{finance}/restore', [ContractFinanceController::class, 'restore'])->name('contracts.finance.restore');
     Route::resource('contracts.amendments', ContractAmendmentController::class)->parameters(['amendments' => 'amendment']);
+    Route::get('/contracts/{contract}/service-orders', [ContractServiceOrderController::class, 'index'])->name('contracts.service-orders.index');
+    Route::post('/contracts/{contract}/service-orders', [ContractServiceOrderController::class, 'store'])->middleware('throttle:30,1')->name('contracts.service-orders.store');
     Route::post('/contracts/{contract}/amendments/{amendment}/restore', [ContractAmendmentController::class, 'restore'])->name('contracts.amendments.restore');
     Route::post('/contracts/{contract}/attachments', [ContractAttachmentController::class, 'store'])->middleware('throttle:20,1')->name('contracts.attachments.store');
     Route::get('/contracts/{contract}/attachments/{attachment}', [ContractAttachmentController::class, 'download'])->name('contracts.attachments.download');

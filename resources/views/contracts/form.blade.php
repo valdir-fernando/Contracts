@@ -5,6 +5,7 @@
     @if($conflict)<div class="notice notice-error" role="alert">O contrato foi alterado por outra pessoa. Seus valores estão abaixo para consulta; recarregue os dados e revise as diferenças antes de salvar. <a class="text-link" href="{{ route('contracts.edit', $contract) }}">Recarregar contrato</a></div>@endif
     <form data-contract-form data-supplier-original-document="{{ ($contract->exists && ($formActor->isAdmin() || strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot)) === 14)) ? \App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot) : '' }}" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" x-data="{ step: 0, all: false }" x-init="$nextTick(() => ($el.querySelector('#department_id:not(:disabled)') || $el.querySelector('#tipo'))?.focus({ preventScroll: true }))" method="POST" novalidate @unless($contract->exists) data-supplier-prefill="{{ json_encode(array_intersect_key($values, array_flip(['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio'])), JSON_THROW_ON_ERROR) }}" @endunless action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
         @csrf @if($contract->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $contract->version }}">@endif
+        @if($contract->exists)<span hidden data-supplier-document-type="{{ match (strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot))) { 11 => 'CPF', 14 => 'CNPJ', default => '' } }}"></span>@endif
         @if(!$contract->exists || (int) $contract->fund_id === (int) (request()->attributes->get('selected_fund')['id'] ?? 0))
             <span hidden data-inspector-assistance data-url="{{ route('contracts.inspector-defaults') }}" data-contract-id="{{ $contract->exists ? $contract->id : '' }}" data-preserve-fiscal="{{ $contract->exists && filled($contract->nome_fiscal) && (string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $contract->department_id ? 'true' : 'false' }}"></span>
         @endif
@@ -31,13 +32,15 @@
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
         </div>
-        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}. {{ $group }}</button>@endforeach<button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
+        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
             <section class="surface contract-section contract-editor-section" data-editor-section="{{ $loop->index }}" x-show="all || step === {{ $loop->index }}"><h2 tabindex="-1">{{ $group }}</h2><div class="form-grid">
                 @foreach($fields as $source => $definition)
                     @continue(in_array($source, \App\Support\ContractFields::EXECUTION_SUMMARY))
+                    @continue($source === 'Ext_Garantia')
+                    @continue(in_array($source, ['VL_Saldo_Disp', 'VL_Saldo_Contrato', 'Ext_Parcial', 'Ext_Total', 'Ext_Acumulado', 'Ficha', 'Empenho']))
                     @php
                         $column = $definition['column'];
                         $supplierReadonly = in_array($column, \App\Support\ContractFields::SUPPLIER_CATALOG);
@@ -63,6 +66,8 @@
                     @if($column === 'iptu')<div class="property-field-pair">@endif
                     @if($column === 'instalacoes')<div class="property-area-row">@endif
                     @if($column === 'cargo_credenc')<div class="contract-service-notice-row">@endif
+                    @if($column === 'vigencia_fim_original')<div class="contract-validity-end-row">@endif
+                    @if($column === 'tipo_garantia')<div class="contract-guarantee-row">@endif
                     <div @class(['field', 'field-iptu' => $column === 'iptu', 'field-wide' => $multiline && !$derived && !$protected && !in_array($column, ['escopo', 'tipo_veiculo', 'iptu', 'end_imovel', 'cargo_credenc', 'local_servico', 'instalacoes'])])>
                         @if(!$contract->exists && $column === 'fornecedor_documento_snapshot')
                             <div class="field-label-row"><label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label><span class="field-label-divider" aria-hidden="true">|</span><button type="button" class="text-link" data-supplier-picker-open data-supplier-list-url="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</button></div>
@@ -111,9 +116,15 @@
                                 <small>Referência: Lei nº 8.245/1991, art. 22, VIII. A seleção registra a responsabilidade prevista no contrato.</small>
                             </div>
                         @else
-                            <label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label>
+                            <label for="{{ $column }}">{{ match ($column) { 'vigencia_fim_original' => 'Final da Vigência', 'garantia' => '(%) Garantia', 'vl_parcial' => 'Valor_Mensal', 'valor_total' => 'Valor do Contrato', 'valor_acumulado' => 'Valor acumulado Aditivo', default => \App\Support\ContractFields::label($source) } }}<x-required-mark :explain="true" :when="$required && !in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado'])"/></label>
                         @endif
-                        @if($contractorReadonly)
+                        @if(in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado']))
+                            <p class="readonly-field" id="{{ $column }}" role="textbox" aria-readonly="true">{{ $contract->exists ? $contract->displayField($source, $formActor) : 'A calcular' }}</p>
+                            @php($wordsColumn = ['vl_parcial' => 'ext_parcial', 'valor_total' => 'ext_total', 'valor_acumulado' => 'ext_acumulado'][$column])
+                            @if($contract->exists && $contract->$column !== null)
+                                <p class="contract-financial-message" data-financial-words="{{ $column }}">{{ filled($contract->$wordsColumn) ? $contract->$wordsColumn : 'Valor por extenso não informado.' }}</p>
+                            @endif
+                        @elseif($contractorReadonly)
                             <p class="readonly-field" id="{{ $column }}" @if($column === 'nome_fiscal') role="textbox" aria-readonly="true" aria-required="true" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif @endif @if(!$formActor->isAdmin() && in_array($column, \App\Support\ContractFields::PERSONAL)) data-contractor-private-field="{{ $column }}" @else data-contractor-field="{{ $column }}" @endif>{{ $contract->exists ? $contract->displayField($source, $formActor) : ($inputValue ?: 'Preenchido automaticamente') }}</p>
                             @if($column === 'nome_fiscal')<p class="hint" data-inspector-status role="status" aria-live="polite"></p>@endif
                         @elseif($automatic)<p class="readonly-field" id="{{ $column }}">{{ $contract->exists ? $contract->displayField($source, $formActor) : 'Gerado ao salvar' }}</p>
@@ -133,44 +144,58 @@
                                 @foreach(\App\Support\ContractFields::IPTU_RESPONSIBILITIES as $choice)<option value="{{ $choice }}" title="{{ \App\Support\ContractFields::IPTU_HELP[$choice] }}" @selected($inputValue === $choice)>{{ $choice }}</option>@endforeach
                                 @if($contract->exists && filled($contract->iptu) && !in_array($contract->iptu, \App\Support\ContractFields::IPTU_RESPONSIBILITIES))<option value="{{ $contract->iptu }}" @selected($inputValue === $contract->iptu)>{{ $contract->iptu }}</option>@endif
                             </select>
+                        @elseif($column === 'prazo_obra')
+                            <div class="service-order-input-control">
+                                <input id="prazo_obra" name="prazo_obra" maxlength="15000" value="{{ $inputValue }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="prazo_obra-error" @endif>
+                                <button type="button" class="service-order-open-button" data-service-orders-open aria-label="Cadastrar ordens de serviço" title="{{ $contract->exists ? 'Cadastrar ordens de serviço' : 'Salve o contrato antes de cadastrar ordens de serviço' }}" @disabled(!$contract->exists || $conflict)><x-nav-icon name="plus"/></button>
+                            </div>
                         @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
                         @elseif($multiline)<textarea @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif rows="{{ $rows }}" maxlength="15000" @required($required)>{{ $inputValue }}</textarea>
                         @else<input @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif maxlength="15000" value="{{ $inputValue }}" @required($required)>@endif
                         @error($column)<p class="field-error" id="{{ $column }}-error">{{ $message }}</p>@enderror
+                        @if($column === 'vl_garantia')
+                            <p class="contract-guarantee-message" data-guarantee-message hidden>{{ filled($contract->ext_garantia) ? $contract->ext_garantia : 'Garantia por extenso não informada.' }}</p>
+                        @endif
                     </div>
+                    @if($column === 'vigencia_fim_original')
+                        <div class="field">
+                            <label for="vigencia_fim_atual">Final_Vig_Atualizada</label>
+                            <p class="readonly-field" id="vigencia_fim_atual" role="textbox" aria-readonly="true" data-derived-field="vigencia_fim_atual">{{ $contract->exists ? $contract->displayField('Final_Vig_Atualiz', $formActor) : 'Não informado' }}</p>
+                        </div>
+                        <div class="field">
+                            <label for="n_aditivo">Nº Aditivo</label>
+                            <p class="readonly-field" id="n_aditivo" role="textbox" aria-readonly="true" data-derived-field="n_aditivo">{{ $contract->exists ? $contract->displayField('N_Aditivo', $formActor) : 'Não informado' }}</p>
+                        </div>
+                        <div class="field">
+                            <label for="proc_aditivo">Proc_Aditivo</label>
+                            <p class="readonly-field" id="proc_aditivo" role="textbox" aria-readonly="true" data-derived-field="proc_aditivo">{{ $contract->exists ? $contract->displayField('Proc_Aditivo', $formActor) : 'Não informado' }}</p>
+                        </div>
+                        </div>
+                    @endif
+                    @if($column === 'prazo_obra')</div>@endif
                     @if($column === 'end_imovel')</div>@endif
                     @if($column === 'areaconstruida')</div>@endif
                     @if($column === 'proc_edital')</div>@endif
                 @endforeach
             </div>
-                @if($contract->exists && $group === \App\Support\ContractFields::MAP['Final_Vig_Atualiz']['group'])
-                    <aside class="contract-execution-summary" aria-label="Resumo de execução e aditivos">
-                        <h3>Resumo de execução e aditivos</h3>
-                        <dl class="contract-fields">
-                            @foreach(\App\Support\ContractFields::EXECUTION_SUMMARY as $summarySource)
-                                <div><dt>{{ \App\Support\ContractFields::label($summarySource) }}</dt><dd>{{ $contract->displayField($summarySource, $formActor) }}</dd></div>
-                            @endforeach
-                        </dl>
-                    </aside>
-                @endif
             </section>
         @endforeach
-        @if($contract->exists)<section class="surface contract-section"><h2>Justificativa da alteração</h2><div class="field"><label for="reason">Motivo <x-required-mark :explain="true"/></label><textarea id="reason" name="reason" required minlength="5" maxlength="1000" rows="3">{{ old('reason', $values['reason'] ?? '') }}</textarea>@error('reason')<p class="field-error">{{ $message }}</p>@enderror</div></section>@endif
+        @if($contract->exists)<input type="hidden" name="reason" value="Atualização cadastral pelo formulário de contratos.">@endif
         </div>
-        <div class="form-actions sticky-actions contract-action-toolbar">
+        <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
+            <div class="field contract-items-total">
+                <label for="contract-items-total">Valor do contrato</label>
+                <input id="contract-items-total" readonly aria-readonly="true" placeholder="A calcular" value="">
+            </div>
             @if($contract->exists)
-                @can('delete', $contract)<a class="section-tab" href="{{ route('contracts.show', $contract) }}#delete-contract"><x-nav-icon name="trash"/>Excluir Contrato</a>@endcan
+                @can('delete', $contract)<a class="section-tab" href="{{ route('contracts.show', $contract) }}#delete-contract"><x-nav-icon name="trash"/>Excluir</a>@endcan
             @else
-                <button class="section-tab" type="button" disabled><x-nav-icon name="trash"/>Excluir Contrato</button>
+                <button class="section-tab" type="button" disabled><x-nav-icon name="trash"/>Excluir</button>
             @endif
-            @can('create', \App\Models\Contract::class)<a class="section-tab" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo Contrato</a>@endcan
-            @if($contract->exists)
-                @can('update', $contract)<a class="section-tab" href="{{ route('contracts.edit', $contract) }}"><x-nav-icon name="edit"/>Editar Contrato</a>@endcan
-            @else
-                <button class="section-tab" type="button" disabled><x-nav-icon name="edit"/>Editar Contrato</button>
-            @endif
-            <button class="section-tab" type="submit" @disabled($conflict)><x-nav-icon name="save"/>Salvar contrato</button>
+            @can('create', \App\Models\Contract::class)<a class="section-tab" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo</a>@endcan
+            <button class="section-tab" type="submit" @disabled($conflict)><x-nav-icon name="save"/>Salvar</button>
         </div>
     </form>
+    @if($contract->exists)<x-service-orders-dialog :contract="$contract"/>@endif
 </x-layouts.app>

@@ -5,7 +5,7 @@
             <label for="contract-summary-number">Nº do Contrato</label>
             <div class="contract-number-control">
                 <input id="contract-summary-number" class="contract-number-highlight" type="text" maxlength="100" value="{{ $contract->exists ? $contract->numero : '' }}" placeholder="N° do Contrato" aria-label="Número do contrato para busca" data-contract-number-search>
-                <button type="button" class="contract-number-search" data-modal-open="contract-search-dialog" aria-label="Buscar contratos do Fundo selecionado" title="Buscar contratos"><x-nav-icon name="search"/></button>
+                <button type="button" class="contract-number-search" data-contract-search-open aria-label="Buscar contratos do Fundo selecionado" title="Buscar contratos"><x-nav-icon name="search"/></button>
             </div>
         </div>
         @if($showSupplier)<x-contract-supplier-heading :contract="$contract" :values="$values" :editable="$editable"/>@endif

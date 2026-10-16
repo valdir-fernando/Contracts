@@ -4,6 +4,7 @@
     <form method="POST" action="{{ $amendment->exists ? route('contracts.amendments.update', [$contract,$amendment->id]) : route('contracts.amendments.store', $contract) }}">
         @csrf @if($amendment->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $amendment->version }}">@endif
         <input type="hidden" name="contract_version" value="{{ $values['contract_version'] ?? $contract->version }}">
+        <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-service-orders-open @disabled(!$amendment->exists || $conflict) title="{{ $amendment->exists ? 'Cadastrar ordens de serviço deste aditivo' : 'Salve o aditivo antes de cadastrar suas ordens de serviço' }}"><x-nav-icon name="plus"/>Ordens de Serviço</button></div>
         <section class="surface contract-section"><h2>Conferência e documento</h2>
             @if(auth()->user()->isAdmin())<label>Estado do registro<select name="status">@foreach(\App\Models\ContractAmendment::STATUSES as $status=>$label)<option value="{{ $status }}" @selected(old('status', $values['status'] ?? $amendment->status) === $status)>{{ $label }}</option>@endforeach</select></label><p class="muted">Registrar exige conferência administrativa e sinaliza revisão da vigência. A operação não aplica datas nem recalcula valores.</p>
             @else<p>Usuários comuns preparam rascunhos. O registro após conferência cabe ao administrador.</p>@endif
@@ -30,4 +31,5 @@
         <section class="surface contract-section"><label><span class="field-caption">Justificativa desta operação <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required>{{ old('reason', $values['reason'] ?? '') }}</textarea></label></section>
         <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)><x-nav-icon name="save"/>Salvar aditivo</button></div>
     </form>
+    @if($amendment->exists)<x-service-orders-dialog :contract="$contract" :amendment="$amendment"/>@endif
 </x-layouts.app>

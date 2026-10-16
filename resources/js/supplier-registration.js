@@ -1,7 +1,61 @@
 import { formatSupplierDocument } from './supplier-assistance.js';
 import { attachMask, maskPhone, maskPis } from './input-masks.js';
 
-export function initializeSupplierRegistration(form, fetcher = fetch) {
+const initializedForms = new WeakSet();
+
+export function navigateSupplierFields(event, form) {
+    if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+    const fields = [...form.querySelectorAll('input[name]:not([type="hidden"]), select[name], textarea[name]')]
+        .filter((field) => !field.disabled && field.getClientRects().length > 0);
+    const current = fields.indexOf(event.target);
+    if (current === -1) return;
+    const next = fields[current + (event.shiftKey ? -1 : 1)];
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
+}
+
+export function showSupplierDocumentWarning(message, ownerDocument = document) {
+    let dialog = ownerDocument.querySelector('[data-supplier-document-warning]');
+    if (!dialog) {
+        dialog = ownerDocument.createElement('dialog');
+        dialog.className = 'catalog-modal supplier-document-warning';
+        dialog.setAttribute('data-supplier-document-warning', '');
+        dialog.setAttribute('role', 'alertdialog');
+        dialog.setAttribute('aria-labelledby', 'supplier-document-warning-title');
+        dialog.setAttribute('aria-describedby', 'supplier-document-warning-message');
+        dialog.innerHTML = '<div class="modal-header"><h2 id="supplier-document-warning-title">Gestão Sistem informa:</h2></div>'
+            + '<p id="supplier-document-warning-message"></p>'
+            + '<form method="dialog" class="form-actions modal-actions"><button type="submit" class="primary-button" autofocus>OK</button></form>';
+        ownerDocument.body.append(dialog);
+    }
+    dialog.querySelector('p').textContent = message;
+    if (!dialog.open) dialog.showModal();
+}
+
+export function validSupplierDocument(value) {
+    if (!/^[\d\s.\/-]+$/.test(value)) return false;
+    const digits = value.replace(/\D/g, '');
+    if (![11, 14].includes(digits.length) || /^(\d)\1+$/.test(digits)) return false;
+    const base = digits.length === 11 ? 9 : 12;
+    for (let round = 0; round < 2; round++) {
+        let sum = 0;
+        for (let i = 0; i < base + round; i++) {
+            const weight = base === 9 ? base + round + 1 - i : ((base + round - 1 - i) % 8) + 2;
+            sum += Number(digits[i]) * weight;
+        }
+        const check = sum % 11 < 2 ? 0 : 11 - sum % 11;
+        if (Number(digits[base + round]) !== check) return false;
+    }
+    return true;
+}
+
+export function initializeSupplierRegistration(form, fetcher = fetch, notify = (message) => {
+    if (typeof document !== 'undefined') showSupplierDocumentWarning(message);
+}) {
+    if (initializedForms.has(form)) return;
+    initializedForms.add(form);
+    form.addEventListener('keydown', (event) => navigateSupplierFields(event, form));
     const documentField = form.elements.namedItem('document');
     const status = form.querySelector('[data-registration-lookup-status]');
     const fields = [form.elements.namedItem('name'), ...form.querySelectorAll('.supplier-registration-group [name]')];
@@ -17,21 +71,32 @@ export function initializeSupplierRegistration(form, fetcher = fetch) {
         request?.abort();
         request = null;
         status.textContent = '';
+        status.className = 'hint';
+        documentField.setCustomValidity?.('');
+        documentField.removeAttribute?.('aria-invalid');
         for (const [field, { before, automatic }] of filled) {
             if (field.value === automatic) field.value = before;
         }
         filled.clear();
     };
-    const lookup = async () => {
+    const lookup = async (showWarning = true) => {
         request?.abort();
         const attempt = new AbortController();
         request = attempt;
         documentField.value = formatSupplierDocument(documentField.value);
         const document = digits();
-        if (!/^[\d\s.\/-]+$/.test(documentField.value) || ![11, 14].includes(document.length)) {
-            status.textContent = 'Informe um CPF ou CNPJ válido para consultar o cadastro.';
+        if (!validSupplierDocument(documentField.value)) {
+            documentField.setAttribute?.('aria-invalid', 'true');
+            const type = document.length === 11 ? 'CPF' : document.length === 14 ? 'CNPJ' : 'CPF/CNPJ';
+            const message = `${type} ${documentField.value} é um ${type} inválido. Verifique antes de efetuar o registro.`;
+            documentField.setCustomValidity?.(message);
+            status.textContent = '';
+            if (showWarning && documentField.value.trim()) notify(message);
             return;
         }
+        documentField.setCustomValidity?.('');
+        documentField.removeAttribute?.('aria-invalid');
+        status.className = 'hint';
         status.textContent = 'Verificando se o fornecedor já está cadastrado…';
         try {
             const response = await fetcher(form.dataset.registrationLookupUrl, {
@@ -84,9 +149,13 @@ export function initializeSupplierRegistration(form, fetcher = fetch) {
         form.scrollTop = 0;
         form.elements.namedItem('name').focus?.({ preventScroll: true });
     });
-    if (documentField.value) lookup();
+    if (documentField.value) lookup(false);
 }
 
 if (typeof document !== 'undefined') {
     document.querySelectorAll('[data-registration-lookup-url]').forEach((form) => initializeSupplierRegistration(form));
+    document.addEventListener('focusin', (event) => {
+        const form = event.target.closest?.('[data-registration-lookup-url]');
+        if (form) initializeSupplierRegistration(form);
+    });
 }

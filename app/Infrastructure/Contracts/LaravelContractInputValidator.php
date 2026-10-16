@@ -73,6 +73,10 @@ final class LaravelContractInputValidator implements ContractInputValidator
             'duplicate_confirmation' => 'sometimes|boolean', 'number_year' => 'prohibited', 'number_sequence' => 'prohibited'];
         $required = ['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot', 'objeto',
             'data_contrato', 'vigencia_inicio', 'vigencia_fim_original', 'tipo', 'valor_total', 'modalidade', 'n_licit'];
+        if (! $updating && $this->request->routeIs('contracts.store') && ! array_key_exists('valor_total', $input)) {
+            // The editor displays this total; item registration will supply it later.
+            $required = array_values(array_diff($required, ['valor_total']));
+        }
         $type = $input['tipo'] ?? $contract->tipo;
         if (is_string($type) && (! $updating || $type !== $contract->tipo)) {
             $required = array_merge($required, ContractTypeRule::where('name_key', Normalizer::name($type))->value('required_fields') ?? []);

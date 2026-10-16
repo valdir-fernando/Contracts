@@ -1,11 +1,69 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initializeSupplierRegistration } from '../../resources/js/supplier-registration.js';
+import { initializeSupplierRegistration, validSupplierDocument, showSupplierDocumentWarning, navigateSupplierFields } from '../../resources/js/supplier-registration.js';
+
+test('Tab follows supplier fields in row order and Shift+Tab reverses, skipping unavailable fields', () => {
+    let focused;
+    const field = (name, visible = true, disabled = false) => ({
+        name, disabled, getClientRects: () => visible ? [{}] : [], focus() { focused = name; },
+    });
+    const fields = [field('name'), field('document'), field('hidden', false), field('disabled', true, true), field('Nome_Fantasia'), field('RG'), field('Data_Nasc'), field('Sexo')];
+    const form = { querySelectorAll: () => fields };
+    let prevented = false;
+    const move = (target, shiftKey = false, key = 'Tab') => {
+        prevented = false;
+        navigateSupplierFields({ target, key, shiftKey, preventDefault() { prevented = true; } }, form);
+    };
+    move(fields[1]);
+    assert.equal(focused, 'Nome_Fantasia');
+    assert.equal(prevented, true);
+    move(fields[6]);
+    assert.equal(focused, 'Sexo');
+    move(fields[7], true);
+    assert.equal(focused, 'Data_Nasc');
+    move(fields[0], true);
+    assert.equal(prevented, false);
+    move(fields[7]);
+    assert.equal(prevented, false);
+    move(fields[1], false, 'Enter');
+    assert.equal(prevented, false);
+});
+
+test('document warning uses the requested title and accessible modal, reusing it with safe text', () => {
+    const message = { textContent: '' };
+    const attributes = {};
+    let created = 0;
+    let current;
+    const dialog = {
+        open: false,
+        setAttribute(name, value) { attributes[name] = value; },
+        querySelector: () => message,
+        showModal() { this.open = true; },
+    };
+    const doc = {
+        querySelector: () => current,
+        createElement(tag) { assert.equal(tag, 'dialog'); created++; return dialog; },
+        body: { append(element) { current = element; } },
+    };
+    showSupplierDocumentWarning('CPF inválido', doc);
+    assert.match(dialog.innerHTML, /Gestão Sistem informa:/);
+    assert.equal(attributes.role, 'alertdialog');
+    assert.equal(attributes['aria-labelledby'], 'supplier-document-warning-title');
+    assert.equal(attributes['aria-describedby'], 'supplier-document-warning-message');
+    assert.equal(dialog.open, true);
+    assert.equal(message.textContent, 'CPF inválido');
+    dialog.open = false;
+    showSupplierDocumentWarning('<b>outro documento</b>', doc);
+    assert.equal(message.textContent, '<b>outro documento</b>');
+    assert.equal(created, 1);
+    assert.equal(dialog.open, true);
+});
 
 function fixture() {
     const controls = Object.fromEntries(['name', 'document', '_token', 'Email_Contato', 'Data_Nasc'].map((name) => [name, {
         name, value: '', dataset: name === 'Data_Nasc' ? { brazilianDate: 'true' } : {}, listeners: {},
         addEventListener(event, callback) { this.listeners[event] = callback; },
+        setCustomValidity(message) { this.validationMessage = message; },
     }]));
     const save = { disabled: false };
     const status = { textContent: '' };
@@ -21,6 +79,44 @@ function fixture() {
 }
 const response = (found, values = null, status = 200) => ({ ok: status === 200, status, json: async () => ({ found, values }) });
 const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
+
+test('validates both check digits, repeated digits, length and unexpected characters', () => {
+    for (const value of ['52998224725', '529.982.247-25', '11222333000181', '11.222.333/0001-81']) {
+        assert.equal(validSupplierDocument(value), true, value);
+    }
+    for (const value of ['', '123', '52998224715', '52998224724', '11222333000171', '11222333000180', '11111111111', '00000000000000', 'a52998224725']) {
+        assert.equal(validSupplierDocument(value), false, value);
+    }
+});
+
+test('blur immediately warns about invalid CPF/CNPJ without querying; editing clears the warning', async () => {
+    const setup = fixture();
+    let calls = 0;
+    const messages = [];
+    initializeSupplierRegistration(setup.form, async () => { calls++; return response(false); }, (message) => messages.push(message));
+    for (const value of ['63374102116', '52998224724', '11222333000180', '11111111111', '123']) {
+        setup.input(value);
+        assert.equal(setup.status.textContent, '');
+        await setup.blur();
+        assert.equal(setup.status.textContent, '');
+        assert.match(messages.at(-1), /inválido\. Verifique antes de efetuar o registro\./);
+        assert.equal(setup.controls.document.validationMessage, messages.at(-1));
+    }
+    assert.equal(messages[0], 'CPF 633.741.021-16 é um CPF inválido. Verifique antes de efetuar o registro.');
+    assert.equal(messages[2], 'CNPJ 11.222.333/0001-80 é um CNPJ inválido. Verifique antes de efetuar o registro.');
+    assert.equal(messages.length, 5);
+    setup.input('');
+    await setup.blur();
+    assert.equal(messages.length, 5);
+    assert.equal(calls, 0);
+    setup.input('52998224725');
+    assert.equal(setup.status.textContent, '');
+    assert.equal(setup.controls.document.validationMessage, '');
+    await setup.blur();
+    assert.equal(calls, 1);
+    assert.equal(messages.length, 5);
+    assert.match(setup.status.textContent, /Fornecedor não cadastrado/);
+});
 
 test('Novo clears restored values and cancels a pending lookup without clearing the CSRF token', async () => {
     const setup = fixture();

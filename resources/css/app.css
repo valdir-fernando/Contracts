@@ -167,7 +167,7 @@ p { margin-block: 0 16px; }
 .secondary-button:hover { background: #f6f8fc; border-color: #b5c7e3; }
 .danger-button { color: white; background: var(--danger); border-color: var(--danger); }
 .compact { width: fit-content; max-width: 100%; }
-.primary-button svg, .secondary-button svg, .danger-button svg, .contract-action-toolbar .section-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+.primary-button svg, .secondary-button svg, .danger-button svg, .action-toolbar .section-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
 .text-link { color: var(--primary); font-size: 12px; font-weight: 550; text-decoration: none; cursor: pointer; }
 .text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .surface { margin-bottom: var(--section-gap); min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: #ffffff; box-shadow: var(--shadow); }
@@ -218,6 +218,16 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .field.field-iptu { width: min(100%, 12rem); }
 .property-field-pair { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: 24px; width: 100%; align-items: start; }
 .property-field-pair > .field { width: 100%; margin-bottom: 0; }
+.contract-validity-end-row, .contract-guarantee-row { display: grid; grid-column: 1 / -1; gap: 20px 24px; align-items: end; min-width: 0; }
+.contract-validity-end-row { grid-template-columns: minmax(0, 5fr) max-content max-content minmax(0, 3fr); }
+.contract-validity-end-row > .field:nth-child(3) { white-space: nowrap; }
+.contract-validity-end-row > .field:nth-child(2) > label { white-space: nowrap; }
+.contract-validity-end-row > .field > label { overflow-wrap: anywhere; }
+.contract-guarantee-row { grid-template-columns: minmax(0, 36fr) minmax(0, 15fr) minmax(0, 65fr) minmax(0, 84fr); align-items: start; }
+.contract-validity-end-row > .field, .contract-guarantee-row > .field { min-width: 0; margin-bottom: 0; }
+.contract-guarantee-row > .field { grid-column: auto; }
+.contract-guarantee-message, .contract-financial-message { margin: 4px 0 0; color: #1b3b6f; font-weight: 700; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .contract-validity-end-row, .contract-guarantee-row { grid-template-columns: minmax(0, 1fr); } }
 .property-area-row { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 20px 24px; align-items: start; }
 .property-area-row > .field { min-width: 0; margin-bottom: 0; }
 .property-area-row :is(input, textarea) { height: calc(1lh + 14px); min-height: calc(1lh + 14px); padding-block: 6px; }
@@ -286,12 +296,19 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .section-tab { min-height: 40px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: #f6f8fc; color: var(--muted); font-size: 11px; text-align: left; }
 .section-tab.active { border-color: #c8d9f3; background: #edf3fd; color: var(--primary); }
 [data-contract-editor] .contract-section-navigation { margin: 0 0 var(--section-gap); }
-:is(.contract-section-navigation, .contract-action-toolbar) .section-tab { background-color: #163b65; border-color: #163b65; color: #7dbbff; }
-:is(.contract-section-navigation, .contract-action-toolbar) .section-tab:hover, :is(.contract-section-navigation, .contract-action-toolbar) .section-tab:focus-visible, :is(.contract-section-navigation, .contract-action-toolbar) .section-tab.active { background-color: #a9c9ed; border-color: #a9c9ed; color: #000000; }
-.contract-action-toolbar .section-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
-.contract-action-toolbar .section-tab:disabled { opacity: .5; pointer-events: none; }
-.contract-section-navigation .expand-all-button { flex: 1 0 auto; text-align: center; background-color: #b8860b; border-color: #b8860b; color: #000000; }
+.section-tabs.contract-section-navigation { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: clamp(3px, .5vw, 8px); padding-bottom: 0; overflow: visible; }
+.contract-section-navigation .section-tab { min-width: 0; padding-inline: 4px; font-size: clamp(10px, .8vw, 11px); text-align: center; overflow-wrap: anywhere; }
+:is(.contract-section-navigation, .action-toolbar) .section-tab { background-color: #163b65; border-color: #163b65; color: #7dbbff; }
+:is(.contract-section-navigation, .action-toolbar) .section-tab:hover, :is(.contract-section-navigation, .action-toolbar) .section-tab:focus-visible, :is(.contract-section-navigation, .action-toolbar) .section-tab.active { background-color: #a9c9ed; border-color: #a9c9ed; color: #000000; }
+.action-toolbar .section-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+.action-toolbar .section-tab:disabled { opacity: .5; pointer-events: none; }
+.contract-action-toolbar .contract-items-total { flex: 0 1 260px; min-width: 0; margin-right: auto; margin-bottom: 0; }
+.contract-items-total > label { display: block; margin-bottom: 3px; font-size: 11px; font-weight: 600; }
+.contract-items-total > input { background: var(--canvas); font-weight: 600; }
+@media (max-width: 600px) { .contract-action-toolbar .contract-items-total { flex-basis: 100%; } }
+.contract-section-navigation .expand-all-button { text-align: center; background-color: #b8860b; border-color: #b8860b; color: #000000; }
 .contract-section-navigation .expand-all-button:hover, .contract-section-navigation .expand-all-button:focus-visible, .contract-section-navigation .expand-all-button.active { background-color: #f5a3a3; border-color: #f5a3a3; color: #000000; }
+.contract-section-navigation .section-tab.active { background-color: var(--canvas); border-color: var(--border); color: #000000; }
 
 /* Filter and registry tables */
 .filter-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: end; padding: 22px 24px; }
@@ -839,7 +856,6 @@ body.modal-open { overflow: hidden; }
 .supplier-registration-modal .modal-header { align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .supplier-registration-modal .modal-header h2 { margin-top: 2px; }
 .supplier-registration-modal > .modal-description { margin-bottom: 8px; line-height: 1.4; }
-.supplier-registration-modal .supplier-header-actions > button { min-height: 36px; padding-block: 6px; }
 .supplier-header-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .supplier-header-actions > :disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 600px) { .supplier-header-actions { order: 1; width: 100%; } .supplier-header-actions > button { flex: 1; } }
@@ -897,6 +913,16 @@ body.modal-open { overflow: hidden; }
 .catalog-modal[open] { animation: modal-appear .18s ease-out; }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
 .modal-header h2 { margin: 6px 0 0; font-size: 24px; font-weight: 650; line-height: 1.3; letter-spacing: -.6px; }
+.supplier-document-warning .modal-header h2 { color: #1b3b6f; }
+.service-order-input-control { position: relative; }
+.service-order-input-control > input { padding-right: 40px; }
+.service-order-open-button { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 30px; height: 30px; padding: 5px; border: 1px solid var(--border); border-radius: 5px; background: var(--canvas); color: #163b65; }
+.service-order-open-button > svg { width: 18px; height: 18px; }
+.service-orders-dialog { width: min(1000px, calc(100% - 32px)); }
+.service-orders-dialog h2 { color: #1b3b6f; }
+.service-orders-dialog > h3 { margin-top: 24px; }
+.service-orders-table-scroll { overflow-x: auto; }
+.service-orders-table-scroll td { white-space: normal; overflow-wrap: anywhere; }
 .modal-close { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; margin: -8px -8px 0 0; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--muted); }
 .modal-close:hover { background: #f0f4fa; color: #26364b; }
 .modal-description { color: var(--muted); font-size: 13px; margin-bottom: 24px; }

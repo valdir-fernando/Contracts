@@ -13,10 +13,10 @@
     <div class="modal-header">
         <div><span class="section-label">Cadastro</span><h2 id="catalog-{{ $kind }}-title">{{ $title }}</h2></div>
         @if($kind === 'supplier')
-            <div class="supplier-header-actions">
-                <button class="primary-button" type="submit" form="catalog-supplier-form"><x-nav-icon name="save"/>Salvar</button>
-                <button class="secondary-button" type="reset" form="catalog-supplier-form"><x-nav-icon name="plus"/>Novo</button>
-                <button class="danger-button" type="button" disabled title="Não há fornecedor salvo selecionado para excluir."><x-nav-icon name="trash"/>Excluir</button>
+            <div class="supplier-header-actions action-toolbar">
+                <button class="section-tab" type="submit" form="catalog-supplier-form"><x-nav-icon name="save"/>Salvar</button>
+                <button class="section-tab" type="reset" form="catalog-supplier-form"><x-nav-icon name="plus"/>Novo</button>
+                <button class="section-tab" type="button" disabled title="Não há fornecedor salvo selecionado para excluir."><x-nav-icon name="trash"/>Excluir</button>
             </div>
         @endif
         <button class="modal-close" type="button" data-modal-close aria-label="Fechar {{ mb_strtolower($title) }}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>

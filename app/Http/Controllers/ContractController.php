@@ -79,12 +79,16 @@ class ContractController extends Controller
     {
         $actor = app(LockActor::class)->current($request->user());
         Gate::forUser($actor)->authorize('viewAny', Contract::class);
-        $data = $request->validate(['q' => 'nullable|string|max:100', 'page' => 'nullable|integer|min:1']);
+        $data = $request->validate(['q' => 'nullable|string|max:100', 'page' => 'nullable|integer|min:1', 'exact' => 'sometimes|boolean']);
         $fundId = $request->session()->get('fund_id');
         abort_unless(is_numeric($fundId) && $context->allows($actor, (int) $fundId), 403);
         $query = Contract::visibleTo($actor)->where('fund_id', (int) $fundId);
         if (filled($data['q'] ?? null)) {
-            $query->whereRaw("numero LIKE ? ESCAPE '!'", ['%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], trim($data['q'])).'%']);
+            if ($data['exact'] ?? false) {
+                $query->where('numero', trim($data['q']));
+            } else {
+                $query->whereRaw("numero LIKE ? ESCAPE '!'", ['%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], trim($data['q'])).'%']);
+            }
         }
         $contracts = $query->orderByDesc('id')->paginate(15, ['id', 'numero', 'processo']);
 
