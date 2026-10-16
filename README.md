@@ -1,5 +1,7 @@
 # Contracts
 
+O botão **6. Cad.Prod** abre uma janela ampla para buscar por Item os produtos já existentes na `tb_Produtos` e lançá-los nos contratos. A opção **Exibir produtos do processo** permite compartilhar o saldo entre fornecedores de um credenciamento; desmarcada, filtra pelo fornecedor. Inclui ficha opcional, estorno e recálculo do valor. [Instalação e regras](docs/contract-products-2026-10-16.md).
+
 O painel **5. Vigência** permite abrir as [Ordens de Serviço](docs/service-orders-2026-10-15.md) pelo ícone em **Prazo da obra**, com múltiplas ordens por contrato e vínculo opcional a aditivos. Exige a migration aditiva indicada no guia.
 
 Dados Contratante permanece somente para consulta, com fiscal automático por Fundo ou Secretaria do Município. [Importação de `tb_Fiscal`, comportamento e validação](docs/inspector-autofill-2026-10-15.md).
