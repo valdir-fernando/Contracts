@@ -1,5 +1,51 @@
 # Formulário de contratos — 14/10/2026
 
+## Verificação final antes dos commits
+
+Na consolidação das alterações de contratos, fornecedores e Ordens de Serviço, foram executados pelo Docker: `composer check` (Pint passou; 366 testes, 3346 asserções, 1 ignorado), `composer check:architecture` (3 testes), `composer test:unit` (57 testes), `npm test` (39 testes) e `npm run build`, todos com sucesso. A suíte PHP usou SQLite em memória e storage/cache temporários, sem testes no banco instalado. `git diff --check` passou. A única migration aplicada nesta sessão foi a aditiva de Ordens de Serviço, no MySQL local; a nova soma de produtos/serviços ainda não foi implementada. Não houve implantação em hospedagem externa.
+
+## Sugestão de Objeto ao alterar os campos de origem
+
+Alterar Tipo de contrato, Endereço do imóvel, Instalações, Cargo Credenciamento - Saúde, Local do serviço ou CPF/CNPJ do fornecedor atualiza Objeto nas seguintes condições: Locação de Imóvel com Endereço do imóvel e Instalações preenchidos gera “Locação do imóvel situado no(a) [endereço] destinado as instalações do(a) [instalações].”; Credenciamento com Cargo Credenciamento - Saúde e Local do serviço preenchidos gera “Prestação de Serviços como [cargo] para trabalhar no(a) [local] ...” para CPF e limpa Objeto para CNPJ. Sem os dados exigidos, ou para outros tipos, a descrição atual permanece. Os gatilhos são input, change e saída de foco dos campos de origem, além da seleção de fornecedor pelo catálogo; não se aplica retroativamente ao abrir a página. Não emite nova alteração se o texto já for igual.
+
+Na edição com documento pessoal protegido, o HTML expõe apenas a classificação CPF/CNPJ, sem revelar o documento para permitir a sugestão. A descrição gerada continua editável e passa pela validação, autorização e auditoria habituais ao salvar. Trata-se de assistência de preenchimento; nenhuma regra jurídica é inferida.
+
+Validação: `npm test` pelo Docker passou (39 testes); build passou; teste PHP filtrado da proteção do resumo passou (44 asserções), `view:clear` executado e `git diff --check` passou. Sem ensaio interativo no navegador nesta alteração.
+
+O painel **Justificativa da alteração** foi removido do formulário de contratos. Na edição, um campo oculto envia o motivo padrão “Atualização cadastral pelo formulário de contratos.”. A validação existente de motivo e a auditoria transacional de ator/diferenças permanecem ativas; o texto é uma descrição, sem efeito de autorização. Validação: teste `test_editor_omits_reason_panel_and_submits_default_audit_reason` passou (8 asserções, SQLite em memória), Pint passou, `view:clear` executado e `git diff --check` passou. Sem build adicional por ser alteração apenas de view e teste.
+
+## Indicadores financeiros somente para leitura
+
+Cada indicador salvo exibe abaixo seu texto por extenso correspondente (`ext_parcial`, `ext_total` e `ext_acumulado`), em negrito e azul Del Rey. Sem texto registrado, aparece “Valor por extenso não informado.”; sem valor monetário, não há mensagem. Os textos não são editáveis, enviados ou recalculados. Validação desta apresentação: teste filtrado dos indicadores passou (28 asserções), Pint passou, build passou, `view:clear` executado e `git diff --check` passou. Sem inspeção interativa no navegador nesta alteração.
+
+O painel Financeiro apresenta **Valor_Mensal**, **Valor do Contrato** e **Valor acumulado Aditivo**, usando os valores persistidos de `vl_parcial`, `valor_total` e `valor_acumulado`, sem controles editáveis ou campos enviados no POST. Contratos novos exibem A calcular. Saldo do contrato informado também foi removido da exibição; sua coluna permanece preservada.
+
+O POST de criação aceita a ausência de `valor_total` enquanto o cadastro de itens não existir, armazenando-o como não informado. Se um cliente existente enviar esse campo, continuam valendo as validações monetárias e a obrigatoriedade de conteúdo; os contratos HTTP anteriores que enviam valores permanecem aceitos. As interfaces internas/CLI não mudam. A edição pela tela omite esses indicadores e preserva os valores históricos. Não há cálculo de mensalidade ou soma de aditivos nesta etapa.
+
+Validação: `ContractWritingTest` passou (33 testes, 542 asserções), Pint nos arquivos PHP alterados passou, `composer check:architecture` passou, `view:clear` executado e `git diff --check` passou. Testes usam SQLite em memória. Sem build adicional ou ensaio interativo no navegador nesta alteração de view e validação contextual.
+
+O painel Financeiro omite os controles Saldo disponível informado, os três valores por extenso, Ficha e Empenho no cadastro e na edição. Colunas, registros históricos e dados omitidos na gravação permanecem preservados. Validação: teste `test_removed_financial_controls_preserve_stored_history` passou (25 asserções, SQLite em memória), Pint passou, `view:clear` executado e `git diff --check` passou. Sem build adicional, pois somente a view e o teste foram alterados nesta etapa.
+
+## Vigência e garantia
+
+O painel inferior **Resumo de execução e aditivos** foi removido da tela. Dados históricos de execução permanecem no banco e protegidos contra edição pelo formulário. Os três indicadores de término atualizado, número e processo do aditivo continuam na linha de vigência. Validação desta remoção: teste filtrado do resumo passou (44 asserções), `view:clear` executado e `git diff --check` passou; sem build adicional por ser mudança apenas de view e teste.
+
+A linha de término agora contém Final da Vigência, Final_Vig_Atualizada, Nº Aditivo e Proc_Aditivo nas proporções 50:10:10:30 do espaço útil. O término atualizado ocupa 20% da largura anterior. Número e processo vêm de `n_aditivo` e `proc_aditivo` do contrato, correspondentes a `N_Aditivo` e `Proc_Aditivo`, sem edição nem envio HTTP. São os resumos persistidos, sem seleção automática de um aditivo mais recente. O resumo inferior não repete esses campos. Validação desta disposição: teste filtrado de proteção do resumo passou (45 asserções), Pint e build passaram, `view:clear` executado e `git diff --check` passou. Sem ensaio interativo no navegador nesta etapa.
+
+A mensagem por extenso inicia oculta, mesmo quando há valor salvo. Só aparece ao sair de Valor da garantia com conteúdo preenchido; editar o valor oculta novamente, e sair com campo vazio mantém a mensagem oculta. Validação desta interação: `npm test` pelo Docker passou (36 testes), teste PHP filtrado da mensagem passou (8 asserções), build passou e `view:clear` foi executado. Sem ensaio interativo no navegador nesta etapa.
+
+**Final da Vigência** (antigo Término original) e **Final_Vig_Atualizada** ficam na mesma linha. O segundo exibe exclusivamente `Final_Vig_Atualiz`/`vigencia_fim_atual` persistido, somente para leitura e sem atributo `name`; entradas HTTP ou old input não substituem esse valor. A proteção de escrita do resumo de execução permanece no validador. Sem data persistida, exibe Não informado. O resumo inferior mantém apenas os demais dados de execução, evitando repetir o término atualizado.
+
+Na linha seguinte, Tipo de garantia, **(%) Garantia**, Valor da garantia e Prazo da obra ficam juntos, nas proporções 18:7,5:32,5:42 do espaço útil. Tipo e percentual ficaram respectivamente 10% e 50% menores que na disposição anterior. Até 600 pixels, os campos passam para uma coluna para manter a leitura. O ícone de Ordens de Serviço permanece no prazo.
+
+Garantia por extenso deixa de ser um campo editável e exibe o texto `ext_garantia` persistido abaixo de Valor da garantia, em negrito e azul Del Rey (`#1b3b6f`). Sem conteúdo salvo, mostra “Garantia por extenso não informada.”. A mensagem não é enviada pelo formulário nem recalculada; valores históricos omitidos são preservados na edição. Validação: `ContractWritingTest` passou (31 testes, 494 asserções); Pint no teste, build pelo Docker e `git diff --check` passaram; cache de views limpo. Sem ensaio interativo de navegador nesta alteração.
+
+## Abertura direta pela lupa
+
+Quando Nº do Contrato estiver preenchido, clicar na lupa (ou pressionar Enter) consulta `GET /contracts/lookup` com `exact=1`. O servidor usa igualdade do número e o Fundo autorizado da sessão, mantendo `visibleTo`, revalidação do ator e projeção restrita a número, processo e URL autorizada. Um único resultado abre diretamente a edição do contrato, sem exibir a janela de consulta. Número vazio, ausente ou ambíguo abre a consulta habitual; duplicidades históricas nunca selecionam arbitrariamente um contrato. Alterar o número cancela a busca pendente. A requisição padrão sem `exact` mantém a busca parcial anterior.
+
+Validação: `docker compose exec -T app php artisan test --filter=ContractWritingTest` passou (30 testes, 476 asserções, SQLite em memória); `docker compose run --rm --no-deps node npm test` passou (35 testes); Pint nos dois arquivos PHP alterados e build pelo Docker passaram; `view:clear` executado e `git diff --check` passou. Os testes cobrem número exato, Fundo da sessão, escopos, duplicidade, abertura direta, consulta alternativa, resposta obsoleta e falha de rede. Sem ensaio interativo de navegador nesta alteração.
+
 ## Apresentação final
 
 Os campos editáveis do sistema usam fundo #808080, com texto e placeholder escuros para leitura. A regra se aplica a inputs de dados, selects e textareas habilitados; controles somente leitura e desabilitados mantêm sua aparência anterior. Botões, checkboxes e rádios preservam seus estilos.
@@ -122,3 +168,8 @@ Verificação geral: docker compose exec -T -e QUEUE_CONNECTION=database app com
 Após restaurar o catálogo original: npm test passou (16 testes), npm run build passou, SupplierAutofillTest passou (12 testes, 165 asserções), Pint nos dois arquivos PHP envolvidos passou e git diff --check não apontou erros de whitespace. A suíte completa acima refere-se à implementação anterior; não foi repetida para esta troca de apresentação. Sem validação interativa do iframe em navegador.
 
 O iframe do seletor agora se identifica como contracts-supplier-catalog. O layout oculta a barra lateral somente nesse contexto e deixa o catálogo ocupar toda a largura; a identificação permanece ao navegar entre busca, paginação e detalhes. Acesso normal ao catálogo mantém o menu. Validação: npm run build pelo Docker passou; php artisan view:clear executado; git diff --check sem erros de whitespace. Sem inspeção visual em navegador ou repetição da suíte PHP para esta alteração de apresentação.
+# Valor dos produtos e serviços na barra de ações
+
+O formulário exibe **Valor do contrato** à esquerda dos botões Excluir, Novo e Salvar. Por enquanto, o campo é somente leitura e mostra **A calcular**, sem enviar valor no POST. Ele será alimentado pela soma do futuro cadastro de produtos/serviços, cujos registros deverão ser armazenados em `tb_Produtos_Contratos`. Esta etapa não cria esse cadastro nem calcula totais; os valores financeiros existentes permanecem preservados.
+
+Validação desta alteração: teste filtrado `test_editor_action_toolbar_respects_persistence_and_delete_permission` passou (21 asserções, SQLite em memória), Pint no teste passou, `npm run build` pelo Docker passou, `view:clear` executado e `git diff --check` passou. Sem inspeção interativa de navegador nesta etapa.

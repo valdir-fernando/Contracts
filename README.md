@@ -1,5 +1,7 @@
 # Contracts
 
+O painel **5. Vigência** permite abrir as [Ordens de Serviço](docs/service-orders-2026-10-15.md) pelo ícone em **Prazo da obra**, com múltiplas ordens por contrato e vínculo opcional a aditivos. Exige a migration aditiva indicada no guia.
+
 Dados Contratante permanece somente para consulta, com fiscal automático por Fundo ou Secretaria do Município. [Importação de `tb_Fiscal`, comportamento e validação](docs/inspector-autofill-2026-10-15.md).
 
 Banco de desenvolvimento na Hostinger: [criação das tabelas, conexão remota, importação e preparação da hospedagem](docs/hostinger-development.md). A configuração opcional `compose.hostinger-dev.yaml` preserva o banco local e usa storage/cache separados.
