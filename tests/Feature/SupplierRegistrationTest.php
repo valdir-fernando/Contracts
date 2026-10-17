@@ -92,11 +92,49 @@ class SupplierRegistrationTest extends TestCase
 
     public function test_person_type_is_derived_and_extra_fields_remain_optional(): void
     {
-        $this->post('/catalogs', ['kind' => 'supplier', 'name' => 'Pessoa fictícia', 'document' => '52998224725'])
+        $this->post('/catalogs', ['kind' => 'supplier', 'name' => 'Pessoa fictícia', 'document' => '52998224725', 'Endereco' => 'Rua de teste'])
             ->assertSessionHasNoErrors();
         $raw = json_decode(DB::table('suppliers')->sole()->raw_payload, true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('PF', $raw['PF_PJ']);
-        $this->assertSame('', $raw['Endereco']);
+        $this->assertSame('Rua de teste', $raw['Endereco']);
+        $this->assertSame('', $raw['Email_Fornecedor']);
+    }
+
+    public function test_hidden_fields_can_be_omitted_for_both_document_types(): void
+    {
+        foreach (['52998224725' => ['Nome_Fantasia', ...array_keys(SupplierFields::GROUPS['Sócio'])],
+            '11222333000181' => ['Data_Nasc', 'Sexo', 'PIS_PASEP', 'Doc_Prof']] as $document => $hidden) {
+            $input = array_replace($this->input(), ['document' => (string) $document]);
+            foreach ($hidden as $field) {
+                unset($input[$field]);
+            }
+            $this->post('/catalogs', $input)->assertSessionHasNoErrors();
+            $raw = json_decode(DB::table('suppliers')->where('document_key', (string) $document)->value('raw_payload'), true);
+            foreach ($hidden as $field) {
+                $this->assertSame('', $raw[$field], $field);
+            }
+        }
+        $this->assertDatabaseCount('suppliers', 2);
+        $this->assertDatabaseCount('activity_events', 2);
+    }
+
+    public function test_address_is_required_for_cpf_and_cnpj_and_has_its_own_warning(): void
+    {
+        foreach (['52998224725', '11222333000181'] as $document) {
+            foreach ([null, '', '   '] as $address) {
+                $this->from('/suppliers')->post('/catalogs', array_replace($this->input(), ['document' => $document, 'Endereco' => $address]))
+                    ->assertRedirect('/suppliers')->assertSessionHasErrors(['Endereco'], null, 'catalog-supplier');
+                $this->get('/suppliers')->assertOk()
+                    ->assertSee('id="supplier-registration-required"', false)
+                    ->assertSee('Confira os campos indicados para concluir o cadastro.')
+                    ->assertDontSee('id="supplier-registration-errors"', false);
+            }
+        }
+        $this->assertDatabaseCount('suppliers', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+        $html = new \DOMDocument;
+        @$html->loadHTML($this->get('/suppliers')->getContent());
+        $this->assertTrue($html->getElementById('catalog-supplier-Endereco')->hasAttribute('required'));
     }
 
     public function test_masked_phone_whatsapp_and_pis_are_validated_and_stored_as_digits(): void
@@ -160,6 +198,12 @@ class SupplierRegistrationTest extends TestCase
         }
         $this->from('/suppliers')->post('/catalogs', $input)->assertRedirect('/suppliers')
             ->assertSessionHasErrors(['document'], null, 'catalog-supplier');
+        $this->get('/suppliers')->assertOk()
+            ->assertSee('id="supplier-registration-errors"', false)
+            ->assertSee('aria-describedby="supplier-registration-errors-message" data-modal-auto-open', false)
+            ->assertDontSee('Confira os campos indicados para concluir o cadastro.')
+            ->assertSee('Fornecedor já cadastrado para este CPF/CNPJ. Consulte o catálogo.')
+            ->assertSee('data-modal-close autofocus>OK', false);
         $this->assertDatabaseCount('suppliers', 1);
         $this->assertDatabaseCount('activity_events', 0);
     }

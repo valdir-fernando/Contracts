@@ -62,12 +62,12 @@ class ContractProductsTest extends TestCase
         return $this->postJson($this->url($contract).'/products', $this->data($extra + ['product_id' => $this->productId, 'quantity' => $quantity], $contract));
     }
 
-    public function test_ficha_values_match_all_four_identifiers_and_require_contract_access(): void
+    public function test_ficha_values_match_contract_fund_and_process_and_require_contract_access(): void
     {
-        $row = ['Ficha' => '00123', 'Fundo' => ' fms ', 'Contrato' => '001/26', 'CPF_CNPJ' => '11.222.333/0001-81', 'Valor' => '1.234,5678'];
+        $row = ['Ficha' => '00123', 'Fundo' => ' fms ', 'Contrato' => '001/26', 'Proc_Cont' => ' 123/2026 ', 'CPF_CNPJ' => '11.222.333/0001-81', 'Valor' => '1.234,5678'];
         DB::table('tb_ValorFicha')->insert($row);
         DB::table('tb_ValorFicha')->insert(array_replace($row, ['Valor' => '0,0001']));
-        foreach (['Ficha' => '123', 'Fundo' => 'Outro Fundo', 'Contrato' => '002/26', 'CPF_CNPJ' => '52998224725'] as $field => $value) {
+        foreach (['Ficha' => '123', 'Fundo' => 'Outro Fundo', 'Contrato' => '002/26', 'Proc_Cont' => 'OTHER'] as $field => $value) {
             DB::table('tb_ValorFicha')->insert(array_replace($row, [$field => $value, 'Valor' => '9999']));
         }
         $url = $this->url().'/products/budget-lookup?ficha=00123';
@@ -77,6 +77,9 @@ class ContractProductsTest extends TestCase
             ->assertJsonMissingPath('ficha_values.0.CPF_CNPJ')
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->getJson($this->url().'/products/budget-lookup?ficha=999')->assertJsonCount(0, 'ficha_values');
+        DB::table('tb_ValorFicha')->insert(array_replace($row, ['Ficha' => '0008', 'CPF_CNPJ' => '52998224725']));
+        $this->getJson($this->url().'/products')->assertOk()->assertJsonCount(4, 'ficha_values')
+            ->assertJsonPath('ficha_values.3.label', '0008');
         $user = User::create(['name' => 'Sem acesso', 'username' => 'NO_FICHA', 'password' => 'TestPassword12345']);
         $this->actingAs($user)->getJson($url)->assertForbidden()->assertJsonMissingPath('ficha_values');
     }

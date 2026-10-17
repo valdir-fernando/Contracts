@@ -3,15 +3,20 @@
     <nav aria-label="Emissão de documentos do contrato">
         @foreach(['contract' => ['Contrato', 'contracts'], 'extract' => ['Extrato', 'document-extract'], 'publication' => ['Publicação', 'document-publication'], 'termination' => ['Distrato', 'document-termination']] as $kind => [$label, $icon])
             @php
+                $ready = $contract->exists && (
+                    ($kind === 'extract' && \App\Services\Legacy\Normalizer::name($contract->tipo) === 'FORNECIMENTO')
+                    || $kind === 'publication'
+                );
                 $message = $contract->exists
                     ? 'A emissão de '.$label.' depende da configuração do modelo desse documento.'
                     : 'Salve o contrato antes de emitir '.$label.'.';
             @endphp
-            <button type="button" class="document-action" aria-label="Emitir {{ $label }}" aria-describedby="document-tip-{{ $kind }}" aria-disabled="true" data-document-kind="{{ $kind }}" data-document-state="{{ $contract->exists ? 'model-pending' : 'save-required' }}" data-message="{{ $message }}" @click="message = $el.dataset.message">
+            <button type="button" class="document-action" aria-label="Emitir {{ $label }}" aria-describedby="document-tip-{{ $kind }}" aria-disabled="{{ $ready ? 'false' : 'true' }}" data-document-kind="{{ $kind }}" data-document-state="{{ $ready ? 'ready' : ($contract->exists ? 'model-pending' : 'save-required') }}" data-message="{{ $message }}" @if($ready && $kind === 'extract') data-extract-url="{{ route('contracts.extract', ['contract' => $contract->id, 'version' => $contract->version]) }}" @elseif($ready && $kind === 'publication') data-publication-url="{{ route('contracts.publication', ['contract' => $contract->id, 'version' => $contract->version]) }}" @endif @click="message = $el.dataset.documentState === 'ready' ? '' : $el.dataset.message">
                 <x-nav-icon :name="$icon"/><span>{{ $label }}</span>
-                <span class="document-action-tooltip" role="tooltip" id="document-tip-{{ $kind }}">{{ $message }}</span>
+                <span class="document-action-tooltip" role="tooltip" id="document-tip-{{ $kind }}">{{ $ready ? ($kind === 'extract' ? 'Abrir extrato de fornecimento em PDF.' : 'Abrir publicação do contrato em PDF.') : $message }}</span>
             </button>
         @endforeach
     </nav>
     <p class="document-action-message" role="status" x-show="message" x-text="message" x-cloak></p>
+    <p class="document-action-message" role="status" data-extract-feedback hidden></p>
 </div>

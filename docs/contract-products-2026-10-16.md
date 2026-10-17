@@ -207,3 +207,14 @@ Mantidas as larguras de Item 50, Código 54, UND 55, Marca 120, Ficha 80 e Açã
 Removido apenas o título visível Valores por ficha, preservando a tabela e sua identificação acessível.
 
 Comandos executados via Docker: `composer check` aprovou Pint (225 arquivos) e 393 testes, com 3.650 asserções e 1 teste ignorado por exigir MySQL isolado; `composer check:architecture` passou (3 testes, 4 asserções); `composer test:unit` passou (57 testes, 129 asserções); `npm test` passou (44 testes); `npm run build` passou. `git diff --check` e `git diff --cached --check` passaram. Testes PHP usaram SQLite em memória e armazenamento temporário. Navegador e concorrência MySQL não foram repetidos nesta preparação.
+### Consulta por contrato, fundo e processo — 17/10/2026
+
+O painel lista todas as fichas correspondentes a Contrato, Fundo e Proc_Cont do contrato autorizado. Não depende da ficha digitada nem do CPF/CNPJ. Reconsulta ao abrir o cadastro e após salvar/excluir produtos; limpar o formulário ou consultar dotações não limpa a lista. Esta regra substitui a consulta anterior por quatro identificadores. A atualização financeira permanece pendente da regra para produtos sem ficha.
+
+Validação: PHPUnit ContractProductsTest passou (28 testes, 303 asserções), composer check:architecture passou (3 testes, 4 asserções), npm test passou (44 testes), npm run build e git diff --check passaram. Testes PHP em SQLite em memória e storage temporário. Não houve alteração de dados financeiros, teste em navegador ou execução da suíte completa.
+
+### Espaçamento da janela sem produtos — 17/10/2026
+
+Reduzidos os espaçamentos do cabeçalho e dos campos. A lista vazia deixa de reservar 180 px, mantendo o cabeçalho das colunas; listas com itens continuam com rolagem. A lista lateral de fichas tem altura limitada e rolagem própria para não alongar todo o formulário.
+
+Validação: npm run build e git diff --check passaram. Conferência em Edge headless com fixture Blade sem acesso ao banco, nas resoluções 1280x720, 1366x768 e 1600x900, verificou ausência de rolagem vertical na janela sem produtos e visibilidade do total, inclusive com 25 fichas. Com 20 produtos, a rolagem da lista foi preservada. Playwright instalado apenas em diretório temporário para essa conferência. Não foram executados testes PHP ou navegação autenticada nesta alteração de CSS.

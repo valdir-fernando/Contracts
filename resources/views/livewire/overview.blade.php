@@ -56,8 +56,8 @@
                     <div class="month-column" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos"><strong class="month-count">{{ $metric['count'] }}</strong><div class="month-track" aria-hidden="true"><div class="month-bar" style="--bar-height: {{ $metric['count'] / $maxMonth * 100 }}%; --chart-delay: {{ $loop->index * 65 }}ms"></div></div><span>{{ $metric['label'] }}</span></div>
                 @endforeach
             </div>
-            <div class="portfolio-summary"><span>Valor inicial dos contratos do Fundo</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['summary']['total']) }}</strong></div>
-            <p class="chart-note">{{ $metrics['summary']['missing'] }} sem valor inicial informado. Vigências em revisão ou indeterminadas ficam fora dos vencimentos.</p>
+            <div class="portfolio-summary"><span>Valor dos contratos do Fundo</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['portfolioValue']['total']) }}</strong></div>
+            <p class="chart-note">Valor acumulado; quando não informado, considera o valor inicial. {{ $metrics['portfolioValue']['missing'] }} sem ambos os valores informados. Vigências em revisão ou indeterminadas ficam fora dos vencimentos.</p>
         </section>
     </div>
 

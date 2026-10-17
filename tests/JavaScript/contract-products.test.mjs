@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { productLineTotal, productBudgetTotals, advanceProductVersion, formatProductPrice, exceedsProductBalance } from '../../resources/js/contract-products.js';
+import { productLineTotal, productBudgetTotals, advanceProductVersion, formatProductPrice, formatFichaValue, exceedsProductBalance } from '../../resources/js/contract-products.js';
+
+test('ficha values display thousands and four decimal places without losing precision', () => {
+    assert.equal(formatFichaValue('2530.9200'), '2.530,9200');
+    assert.equal(formatFichaValue('99999999999999.9999'), '99.999.999.999.999,9999');
+    assert.equal(formatFichaValue('-2530.9200'), '-2.530,9200');
+    assert.equal(formatFichaValue('0'), '0,0000');
+    assert.equal(formatFichaValue('12.3'), '12,3000');
+    assert.equal(formatFichaValue(null), '—');
+});
 
 test('quantity cannot exceed the available balance, including four decimal places', () => {
     assert.equal(exceedsProductBalance('100,0001', '100.0000'), true);

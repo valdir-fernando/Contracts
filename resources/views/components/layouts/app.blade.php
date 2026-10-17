@@ -42,7 +42,7 @@
             <div class="nav-bottom">
                 <a href="{{ route('account.edit') }}" aria-label="Minha conta" data-nav-label="Minha conta" @class(['nav-link', 'selected' => request()->routeIs('account.*')]) @if(request()->routeIs('account.*')) aria-current="page" @endif><x-nav-icon name="account"/><span>Minha conta</span></a>
                 <div class="nav-account">
-                    <span class="account-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
+                    <x-account-avatar :user="auth()->user()"/>
                     <div><strong>{{ auth()->user()->username }}</strong><span>{{ auth()->user()->isAdmin() ? 'Administrador' : 'Usuário' }}</span></div>
                     <form method="POST" action="{{ route('logout') }}">@csrf<button class="logout-button" type="submit" aria-label="Sair" title="Sair"><x-nav-icon name="logout"/></button></form>
                 </div>
@@ -58,7 +58,7 @@
                 @endif
                 @isset($fundSupplier){{ $fundSupplier }}@endisset
                 @isset($headerBack)</div>@endisset
-                @unless($summaryInHeader)<div class="topbar-account"><span class="workspace-date"><x-nav-icon name="calendar"/>{{ today()->format('d/m/Y') }}</span><a class="account-avatar" href="{{ route('account.edit') }}" aria-label="Abrir minha conta" title="{{ auth()->user()->name }}">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</a></div>@endunless
+                @unless($summaryInHeader)<div class="topbar-account"><span class="workspace-date"><x-nav-icon name="calendar"/>{{ today()->format('d/m/Y') }}</span><a class="account-avatar-link" href="{{ route('account.edit') }}" aria-label="Abrir minha conta" title="{{ auth()->user()->name }}"><x-account-avatar :user="auth()->user()"/></a></div>@endunless
                 @if($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endif
             </header>
             @unless($contractEditor)

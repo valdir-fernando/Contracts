@@ -14,7 +14,7 @@ class User extends Authenticatable
 
     protected $fillable = ['name', 'username', 'email', 'password', 'reference_user_id', 'user_type', 'fund', 'department'];
 
-    protected $hidden = ['password', 'remember_token', 'session_version'];
+    protected $hidden = ['password', 'remember_token', 'session_version', 'avatar_path', 'avatar_sha256'];
 
     protected $attributes = ['is_active' => true, 'session_version' => 0, 'user_type' => 'Usuario'];
 

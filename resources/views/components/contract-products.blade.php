@@ -22,11 +22,16 @@
     <div class="product-entry-heading">
                 <label class="product-confirm"><input type="checkbox" data-products-show> Exibir produtos do processo</label>
                 <label class="product-confirm product-manual-option"><input type="checkbox" data-products-manual> Lançamento manual</label>
-                <div>
+                <div class="product-contract-heading">
                     <x-contract-supplier-heading :contract="$contract"/>
+                </div>
+                <div class="product-contract-summary">
+                    <span>Valor total do contrato: <strong data-product-heading-total>{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}</strong></span>
+                    <span>
                     <span>Contrato: <strong>{{ $contract->numero ?: 'Não informado' }}</strong></span>
                     <span aria-hidden="true"> · </span>
                     <span>Processo: <strong>{{ $contract->processo ?: 'Não informado' }}</strong></span>
+                    </span>
                 </div>
     </div>
     <div class="product-entry-layout">

@@ -52,7 +52,7 @@ class ContractCompletionTest extends TestCase
         $this->delete($url, $this->confirmation() + [])->assertRedirect('/contracts');
         $this->assertSoftDeleted($this->contract);
         $this->get($url)->assertNotFound();
-        $this->get('/contracts?deleted=1')->assertOk()->assertSee('Restaurar');
+        $this->get('/contracts?deleted=1&year=')->assertOk()->assertSee('Restaurar');
         $this->post($url.'/restore', ['version' => 1, 'confirmation' => '001/26', 'reason' => 'Restaurar registro'])->assertStatus(409);
         $this->post($url.'/restore', $this->confirmation())->assertRedirect($url);
         $this->assertNotSoftDeleted($this->contract);

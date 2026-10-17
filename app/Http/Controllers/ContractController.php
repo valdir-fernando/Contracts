@@ -28,6 +28,10 @@ class ContractController extends Controller
     public function index(Request $request, ContractListingQuery $listing)
     {
         Gate::authorize('viewAny', Contract::class);
+        $currentYear = now()->year;
+        if (! $request->query->has('year')) {
+            $request->query->set('year', (string) $currentYear);
+        }
         $filters = $request->validate([
             'q' => 'nullable|string|max:255', 'fund' => 'nullable|integer|min:1',
             'department' => 'nullable|integer|min:1', 'year' => 'nullable|integer|min:1|max:9999',
@@ -38,7 +42,10 @@ class ContractController extends Controller
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ] + ContractSearch::rules($request->all()));
 
-        return view('contracts.index', $listing->for($request->user(), $filters));
+        $data = $listing->for($request->user(), $filters);
+        $data['years'] = $data['years']->push($currentYear)->unique()->sortDesc()->values();
+
+        return view('contracts.index', $data);
     }
 
     public function show(Contract $contract)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Infrastructure\Security\LockActor;
+use App\Infrastructure\Suppliers\UpdateSupplier;
 use App\Models\Contract;
 use App\Services\Legacy\Normalizer;
 use App\Services\SupplierCatalog;
@@ -56,11 +57,34 @@ class SupplierController extends Controller
     public function show(Request $request, int $supplier)
     {
         Gate::authorize('create', Contract::class);
-        $record = SupplierCatalog::visibleTo($request->user())->select(['id', 'name', 'document', 'document_key'])->where('id', $supplier)->first();
+        $actor = (new LockActor)->current($request->user());
+        $query = SupplierCatalog::visibleTo($actor)->select(['id', 'name', 'document', 'document_key']);
+        if ($actor->isAdmin()) {
+            $query->addSelect(['raw_payload', 'updated_at']);
+        }
+        $record = $query->where('id', $supplier)->first();
         abort_unless($record, 404);
+        $values = [];
+        $revision = null;
+        if ($actor->isAdmin()) {
+            $raw = json_decode($record->raw_payload, true, 512, JSON_THROW_ON_ERROR);
+            $values = ['name' => $record->name, 'document' => $record->document_key ?: $record->document];
+            foreach (SupplierFields::fields() as $field => $definition) {
+                $values[$field] = is_string($raw[$field] ?? null) ? $raw[$field] : '';
+            }
+            $revision = UpdateSupplier::revision($record);
+        }
 
         return view('suppliers.show', ['supplier' => $record,
+            'supplierValues' => $values, 'supplierRevision' => $revision, 'canEditSupplier' => $actor->isAdmin(),
             'contracts' => Contract::visibleTo($request->user())->where('supplier_id', $record->id)->latest('id')->paginate(20)]);
+    }
+
+    public function update(Request $request, int $supplier, UpdateSupplier $writer)
+    {
+        $writer->save($request->user(), $supplier, $request->all());
+
+        return redirect()->route('suppliers.show', $supplier)->with('status', 'Fornecedor atualizado.');
     }
 
     public function index(Request $request)

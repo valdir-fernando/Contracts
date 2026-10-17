@@ -10,16 +10,15 @@ use Illuminate\Support\Facades\DB;
 final class FichaValuesCatalog
 {
     /** Called only after authorization of the current contract. */
-    public function lookup(Contract $contract, string $ficha): array
+    public function lookup(Contract $contract, ?string $ficha = null): array
     {
-        $document = Normalizer::document($contract->fornecedor_documento_snapshot);
         $fund = Normalizer::name($contract->fundo_nome_snapshot);
-        if ($ficha === '' || $fund === '' || ! filled($contract->numero) || ! Normalizer::validDocument($document)) {
+        if ($ficha === '' || $fund === '' || ! filled($contract->numero) || ! filled($contract->processo)) {
             return [];
         }
-        $rows = DB::table('tb_ValorFicha')->whereRaw('TRIM(Ficha) = ?', [$ficha])
+        $rows = DB::table('tb_ValorFicha')->when($ficha !== null, fn ($query) => $query->whereRaw('TRIM(Ficha) = ?', [$ficha]))
             ->whereRaw('TRIM(Contrato) = ?', [trim($contract->numero)])
-            ->whereRaw("REPLACE(REPLACE(REPLACE(REPLACE(CPF_CNPJ, '.', ''), '/', ''), '-', ''), ' ', '') = ?", [$document])
+            ->whereRaw('TRIM(Proc_Cont) = ?', [trim($contract->processo)])
             ->orderBy('ID_Ficha')->get(['Ficha', 'Valor', 'Fundo']);
         $result = [];
         foreach ($rows as $row) {

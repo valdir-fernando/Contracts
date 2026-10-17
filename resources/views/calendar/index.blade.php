@@ -1,5 +1,5 @@
 <x-layouts.app title="Calendário e alertas">
-    <div class="page-heading"><div><h1>Calendário de vencimentos</h1><p>Datas conhecidas dos contratos dos seus órgãos. Referência: {{ today()->format('d/m/Y') }}.</p></div></div>
+    <div class="page-heading"><div><h1>Calendário de vencimentos</h1><p>Datas conhecidas dos contratos do Fundo selecionado no login, dentro dos seus órgãos autorizados. Referência: {{ today()->format('d/m/Y') }}.</p></div></div>
     <section class="surface contract-section calendar-panel">
         <div class="calendar-month-toolbar">
             <div class="calendar-month-heading"><span class="catalog-icon"><x-nav-icon name="calendar"/></span><div><span class="section-label">Agenda de contratos</span><h2>{{ $month->translatedFormat('F \d\e Y') }}</h2></div></div>
@@ -36,7 +36,7 @@
             @endfor
         </tbody></table></div>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>Vencimento</th><th>Contrato</th><th>Fornecedor</th><th>Órgão</th><th>Situação administrativa</th></tr></thead><tbody>
-            @forelse($contracts as $contract)<tr data-row-href="{{ route('contracts.show', $contract) }}"><td>{{ $contract->end_date->format('d/m/Y') }}</td><td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: 'Sem número' }}</a></td><td>{{ $contract->fornecedor_nome_snapshot }}</td><td>{{ $contract->fundo_nome_snapshot }}</td><td>{{ \App\Models\Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada' }}</td></tr>
+            @forelse($contracts as $contract)<tr data-row-href="{{ route('contracts.show', $contract) }}"><td>{{ $contract->end_date->format('d/m/Y') }}</td><td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: 'Sem número' }}</a></td><td>{{ $contract->fornecedor_nome_snapshot }}</td><td>{{ $showDepartment ? ($contract->secretaria_nome_snapshot ?: 'Secretaria não informada') : $contract->fundo_nome_snapshot }}</td><td>{{ \App\Models\Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada' }}</td></tr>
             @empty<tr><td colspan="5">Nenhum vencimento conhecido neste mês.</td></tr>@endforelse
         </tbody></table></div>
         {{ $contracts->links() }}

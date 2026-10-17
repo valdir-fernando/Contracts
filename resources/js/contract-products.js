@@ -25,6 +25,14 @@ export function formatProductPrice(value) {
     return units === null ? null : decimalText(units).replace('.', ',');
 }
 
+export function formatFichaValue(value) {
+    const match = /^(-?)(\d+)(?:\.(\d{1,4}))?$/.exec(String(value ?? '').trim());
+    if (!match) return '—';
+    const [, sign, integer, fraction = ''] = match;
+    const grouped = integer.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${sign}${grouped},${fraction.padEnd(4, '0')}`;
+}
+
 export function exceedsProductBalance(quantity, remaining) {
     const requested = decimalUnits(quantity);
     const available = decimalUnits(remaining);
@@ -184,7 +192,6 @@ export function initializeContractProducts(root, fetcher = fetch) {
         find('[data-product-budget-description]').value = '';
         find('[data-product-budget-allocation]').value = '';
         find('[data-product-budget-status]').textContent = '';
-        renderFichaValues([]);
     }
     function renderFichaValues(rows) {
         const summary = find('[data-product-budget-totals]');
@@ -192,7 +199,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         for (const row of rows) {
             const tr = element('tr');
             cell(tr, row.label);
-            cell(tr, display(row.total));
+            cell(tr, formatFichaValue(row.total));
             summary.append(tr);
         }
     }
@@ -209,7 +216,6 @@ export function initializeContractProducts(root, fetcher = fetch) {
             if (department && !department.disabled) params.set('department_id', department.value);
             const data = await request(`${base}/budget-lookup?${params}`, 'GET', null, budgetRequest.signal);
             if (sequence !== budgetSequence || ficha !== budget.value.trim()) return;
-            renderFichaValues(data.ficha_values ?? []);
             if (data.status === 'found') {
                 const confirmed = data.scope_matches === true || window.confirm(`Ficha ${ficha} encontrada com Fundo ou Secretaria diferente dos selecionados.\n\nFundo da ficha: ${data.fund || 'Não informado'}\nSecretaria da ficha: ${data.department || 'Não informada'}\nDescrição: ${data.description}\nDotação: ${data.allocation}\n\nDeseja preencher os campos com estes dados?`);
                 if (!confirmed) {
@@ -366,6 +372,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
     function updateTotal(label) {
         document.getElementById('contract-items-total').value = label;
         find('[data-product-contract-total]').value = label;
+        const headingTotal = find('[data-product-heading-total]');
+        if (headingTotal) headingTotal.textContent = label;
         const financialTotal = document.getElementById('valor_total');
         if (financialTotal) financialTotal.textContent = label;
     }
@@ -383,6 +391,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
                 message('O contrato mudou. Recarregue a página antes de alterar os produtos.', true);
             }
             updateTotal(data.total_label);
+            renderFichaValues(data.ficha_values ?? []);
             const list = find('[data-contract-product-list]');
             list.replaceChildren();
             for (const item of data.items) {
@@ -443,6 +452,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         }
     }
     const refresh = () => { if (!busy) load().catch((e) => message(e.message, true)); };
+    form.querySelector('[data-contract-products-open]')?.addEventListener('click', refresh);
     manual.addEventListener('change', () => {
         const enabled = manual.checked;
         invalidateItem();

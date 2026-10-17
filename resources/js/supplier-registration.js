@@ -56,7 +56,42 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
     if (initializedForms.has(form)) return;
     initializedForms.add(form);
     form.addEventListener('keydown', (event) => navigateSupplierFields(event, form));
+    let requiredWarningPending = false;
+    form.addEventListener('invalid', (event) => {
+        if (!event.target.validity.valueMissing) return;
+        event.preventDefault();
+        event.target.setAttribute?.('aria-invalid', 'true');
+        if (requiredWarningPending) return;
+        requiredWarningPending = true;
+        queueMicrotask(() => {
+            requiredWarningPending = false;
+            notify('Confira os campos indicados para concluir o cadastro.');
+        });
+    }, true);
+    form.addEventListener('input', (event) => {
+        if (event.target.required && !event.target.validity.valueMissing) event.target.removeAttribute('aria-invalid');
+    });
     const documentField = form.elements.namedItem('document');
+    const updateDocumentFields = () => {
+        const document = documentField.value;
+        const length = document.replace(/\D/g, '').length;
+        const type = validSupplierDocument(document) ? (length === 11 ? 'cpf' : 'cnpj') : null;
+        const tradeNameInput = form.elements.namedItem('Nome_Fantasia');
+        const tradeName = tradeNameInput?.closest('.field');
+        if (tradeName) tradeName.hidden = type === 'cpf';
+        if (tradeNameInput) tradeNameInput.disabled = type === 'cpf';
+        const partner = form.elements.namedItem('Nome_Socio')?.closest('fieldset');
+        if (partner) {
+            partner.hidden = type === 'cpf';
+            partner.disabled = type === 'cpf';
+        }
+        for (const name of ['Data_Nasc', 'Sexo', 'PIS_PASEP', 'Doc_Prof']) {
+            const input = form.elements.namedItem(name);
+            const field = input?.closest?.('.field');
+            if (field) field.hidden = type === 'cnpj';
+            if (input) input.disabled = type === 'cnpj';
+        }
+    };
     const status = form.querySelector('[data-registration-lookup-status]');
     const fields = [form.elements.namedItem('name'), ...form.querySelectorAll('.supplier-registration-group [name]')];
     const maskFor = (field) => field.dataset.phoneMask !== undefined ? maskPhone : (field.dataset.pisMask !== undefined ? maskPis : null);
@@ -84,6 +119,7 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         const attempt = new AbortController();
         request = attempt;
         documentField.value = formatSupplierDocument(documentField.value);
+        updateDocumentFields();
         const document = digits();
         if (!validSupplierDocument(documentField.value)) {
             documentField.setAttribute?.('aria-invalid', 'true');
@@ -97,6 +133,10 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         documentField.setCustomValidity?.('');
         documentField.removeAttribute?.('aria-invalid');
         status.className = 'hint';
+        if (form.dataset.supplierEditing === 'true') {
+            status.textContent = '';
+            return;
+        }
         status.textContent = 'Verificando se o fornecedor já está cadastrado…';
         try {
             const response = await fetcher(form.dataset.registrationLookupUrl, {
@@ -134,7 +174,10 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
             if (request === attempt && error.name !== 'AbortError') status.textContent = 'Não foi possível verificar o cadastro. Saia do campo para tentar novamente.';
         }
     };
-    documentField.addEventListener('input', reset);
+    documentField.addEventListener('input', () => {
+        reset();
+        updateDocumentFields();
+    });
     documentField.addEventListener('focusout', lookup);
     form.addEventListener('reset', (event) => {
         event.preventDefault();
@@ -145,10 +188,12 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
             field.removeAttribute?.('aria-invalid');
             field.removeAttribute?.('aria-describedby');
         });
+        updateDocumentFields();
         form.querySelectorAll('.field-error, .notice-error').forEach((message) => { message.hidden = true; });
         form.scrollTop = 0;
-        form.elements.namedItem('name').focus?.({ preventScroll: true });
+        documentField.focus?.({ preventScroll: true });
     });
+    updateDocumentFields();
     if (documentField.value) lookup(false);
 }
 

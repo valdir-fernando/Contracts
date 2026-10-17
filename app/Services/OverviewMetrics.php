@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Contract;
 use App\Models\User;
 use App\Services\Reports\ContractReport;
+use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\Gate;
 
 class OverviewMetrics
@@ -38,8 +39,16 @@ class OverviewMetrics
         }
         $summary = app(ContractReport::class)->summary($actor, ['report' => 'fund']
             + ($year === null ? [] : ['year' => $year]) + ($fundId === null ? [] : ['fund' => $fundId]));
+        $portfolioTotal = BigDecimal::of('0.0000');
+        $missingValue = 0;
+        foreach ((clone $visible)->select(['valor_acumulado', 'valor_total'])->cursor() as $contract) {
+            $value = $contract->valor_acumulado ?? $contract->valor_total;
+            $missingValue += $value === null ? 1 : 0;
+            $portfolioTotal = $portfolioTotal->plus($value ?? '0');
+        }
 
         return ['validities' => $validities, 'months' => $months, 'summary' => $summary,
+            'portfolioValue' => ['total' => (string) $portfolioTotal, 'missing' => $missingValue],
             'funds' => collect($summary['groups'])->sortByDesc('count')->take(10)->values()->all()];
     }
 }

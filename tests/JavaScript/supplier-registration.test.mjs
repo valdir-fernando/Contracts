@@ -60,25 +60,100 @@ test('document warning uses the requested title and accessible modal, reusing it
 });
 
 function fixture() {
-    const controls = Object.fromEntries(['name', 'document', '_token', 'Email_Contato', 'Data_Nasc'].map((name) => [name, {
+    const partner = { hidden: false };
+    const wrappers = {};
+    const controls = Object.fromEntries(['name', 'document', '_token', 'Email_Contato', 'Data_Nasc', 'Nome_Fantasia', 'Nome_Socio', 'Sexo', 'PIS_PASEP', 'Doc_Prof'].map((name) => [name, {
         name, value: '', dataset: name === 'Data_Nasc' ? { brazilianDate: 'true' } : {}, listeners: {},
         addEventListener(event, callback) { this.listeners[event] = callback; },
         setCustomValidity(message) { this.validationMessage = message; },
+        closest(selector) { return selector === 'fieldset' ? partner : (wrappers[name] ??= { hidden: false }); },
     }]));
     const save = { disabled: false };
     const status = { textContent: '' };
     const form = { dataset: { registrationLookupUrl: '/suppliers/registration-lookup' }, listeners: {},
         elements: { namedItem: (name) => controls[name] },
         querySelector: (selector) => selector.startsWith('button') ? save : status,
-        querySelectorAll: (selector) => selector.startsWith('.supplier-registration-group') ? [controls.Email_Contato, controls.Data_Nasc] : [],
+        querySelectorAll: (selector) => selector.startsWith('.supplier-registration-group') ? Object.values(controls).filter((field) => !['name', 'document', '_token'].includes(field.name)) : [],
         addEventListener(event, callback) { this.listeners[event] = callback; } };
-    return { controls, save, status, form,
+    return { controls, save, status, form, wrappers, partner,
         input(value) { controls.document.value = value; controls.document.listeners.input(); },
         blur: () => controls.document.listeners.focusout(),
         submit() { let blocked = false; form.listeners.submit?.({ preventDefault() { blocked = true; } }); return blocked; } };
 }
 const response = (found, values = null, status = 200) => ({ ok: status === 200, status, json: async () => ({ found, values }) });
 const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
+
+test('editing keeps the selected supplier values without replacing them through document lookup', async () => {
+    const setup = fixture();
+    setup.form.dataset.supplierEditing = 'true';
+    setup.controls.document.value = '11222333000181';
+    setup.controls.name.value = 'Fornecedor selecionado';
+    setup.controls.Email_Contato.value = 'editado@example.com';
+    let calls = 0;
+    initializeSupplierRegistration(setup.form, async () => { calls++; return response(true, { name: 'Outro fornecedor' }); });
+    await setup.blur();
+    setup.input('52998224725');
+    await setup.blur();
+    assert.equal(calls, 0);
+    assert.equal(setup.controls.name.value, 'Fornecedor selecionado');
+    assert.equal(setup.controls.Email_Contato.value, 'editado@example.com');
+});
+
+test('missing required fields show one dedicated warning while other invalid fields do not', async () => {
+    const setup = fixture();
+    const messages = [];
+    initializeSupplierRegistration(setup.form, async () => response(false), (message) => messages.push(message));
+    let prevented = 0;
+    const invalid = (valueMissing) => setup.form.listeners.invalid({ target: { validity: { valueMissing } }, preventDefault() { prevented++; } });
+    invalid(false);
+    await Promise.resolve();
+    assert.deepEqual(messages, []);
+    invalid(true);
+    invalid(true);
+    await Promise.resolve();
+    assert.equal(prevented, 2);
+    assert.deepEqual(messages, ['Confira os campos indicados para concluir o cadastro.']);
+});
+
+test('CPF and CNPJ toggle their fields and clearing or Novo restores every field', async () => {
+    const setup = fixture();
+    initializeSupplierRegistration(setup.form, async () => response(false));
+    const personal = ['Data_Nasc', 'Sexo', 'PIS_PASEP', 'Doc_Prof'];
+    const assertVisible = () => {
+        for (const name of ['Nome_Fantasia', ...personal]) assert.equal(setup.wrappers[name].hidden, false, name);
+        assert.equal(setup.partner.hidden, false);
+        assert.equal(setup.partner.disabled, false);
+        for (const name of ['Nome_Fantasia', ...personal]) assert.equal(setup.controls[name].disabled, false, name);
+    };
+    assertVisible();
+    setup.controls.Nome_Fantasia.value = 'Nome preservado';
+    setup.input('529.982.247-25');
+    await setup.blur();
+    assert.equal(setup.wrappers.Nome_Fantasia.hidden, true);
+    assert.equal(setup.partner.hidden, true);
+    assert.equal(setup.partner.disabled, true);
+    assert.equal(setup.controls.Nome_Fantasia.disabled, true);
+    for (const name of personal) assert.equal(setup.wrappers[name].hidden, false);
+    setup.input('11.222.333/0001-81');
+    await setup.blur();
+    assert.equal(setup.wrappers.Nome_Fantasia.hidden, false);
+    assert.equal(setup.partner.hidden, false);
+    for (const name of personal) {
+        assert.equal(setup.wrappers[name].hidden, true, name);
+        assert.equal(setup.controls[name].disabled, true, name);
+    }
+    assert.equal(setup.controls.Nome_Fantasia.value, 'Nome preservado');
+    setup.input('');
+    assertVisible();
+    setup.input('123');
+    assertVisible();
+    for (const document of ['52998224725', '11222333000181']) {
+        setup.input(document);
+        setup.form.listeners.reset({ preventDefault() {} });
+        assertVisible();
+        assert.equal(setup.controls.document.value, '');
+    }
+});
 
 test('validates both check digits, repeated digits, length and unexpected characters', () => {
     for (const value of ['52998224725', '529.982.247-25', '11222333000181', '11.222.333/0001-81']) {

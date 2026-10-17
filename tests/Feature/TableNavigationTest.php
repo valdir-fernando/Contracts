@@ -76,11 +76,11 @@ class TableNavigationTest extends TestCase
     {
         $contract = $this->contract();
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
-        foreach (['/contracts', '/reports', '/dashboard?year=all', '/calendar?month=2026-12'] as $url) {
+        foreach (['/contracts?year=', '/reports', '/dashboard?year=all', '/calendar?month=2026-12'] as $url) {
             $this->get($url)->assertOk()->assertSee('data-row-href="'.route('contracts.show', $contract).'"', false);
         }
         $contract->delete();
-        $this->get('/contracts?deleted=1')->assertOk()->assertSee('Restaurar')->assertDontSee('data-row-href="'.route('contracts.show', $contract).'"', false);
+        $this->get('/contracts?deleted=1&year=')->assertOk()->assertSee('Restaurar')->assertDontSee('data-row-href="'.route('contracts.show', $contract).'"', false);
     }
 
     public function test_administrative_record_details_require_admin_and_project_event_metadata(): void

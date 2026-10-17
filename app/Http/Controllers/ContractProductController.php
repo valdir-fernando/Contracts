@@ -117,6 +117,7 @@ class ContractProductController extends Controller
                 'description' => $b->payload['Descricao'] ?? '', 'allocation' => $b->payload['Dotacao'] ?? '']);
 
         return $this->json(['products' => $rows, 'items' => $items, 'budgets' => $budgets,
+            'ficha_values' => (new FichaValuesCatalog)->lookup($contract),
             'page' => $products->currentPage(), 'last_page' => $products->lastPage(),
             'contract_version' => $contract->version, 'total' => $contract->valor_total, 'total_label' => Contract::moneyLabel($contract->valor_total)]);
     }

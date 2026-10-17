@@ -47,13 +47,13 @@ class SupplierAssistanceTest extends TestCase
         $this->withoutVite();
         $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
         $this->actingAs($admin)->from('/suppliers')->post('/catalogs', [
-            'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '123', 'return_to' => 'suppliers.index',
+            'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '123', 'return_to' => 'suppliers.index', 'Endereco' => 'Rua de teste',
         ])->assertRedirect('/suppliers')->assertSessionHasErrors(['document'], null, 'catalog-supplier');
         $this->get('/suppliers')->assertOk()->assertSee('data-modal-auto-open', false)->assertSee('Fornecedor novo');
         $this->assertDatabaseMissing('suppliers', ['name' => 'Fornecedor novo']);
 
         $this->post('/catalogs', [
-            'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '11.222.333/0001-81', 'return_to' => 'suppliers.index',
+            'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '11.222.333/0001-81', 'return_to' => 'suppliers.index', 'Endereco' => 'Rua de teste',
         ])->assertRedirect('/suppliers')->assertSessionHasNoErrors();
         $this->assertDatabaseHas('suppliers', ['name' => 'Fornecedor novo', 'document_key' => '11222333000181']);
         $this->get('/suppliers')->assertSee('Fornecedor novo');

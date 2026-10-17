@@ -1,5 +1,19 @@
 # Contracts
 
+O botão **Publicação** gera um PDF para contratos salvos com o modelo do Diário Público. [Campos e emissão](docs/contract-publication-2026-10-17.md).
+
+O botão **Extrato** gera o PDF de contratos salvos de **Fornecimento**, usando o modelo Word fornecido e a administração configurada. [Campos, segurança e validação](docs/supply-contract-extract-2026-10-17.md).
+
+A administração dos documentos inicia em **2025/2028** e pode ser alterada por um administrador em **Órgãos e permissões → Administração nos documentos**. [Configuração e validação](docs/document-administration-2026-10-17.md).
+
+Em **Minha conta**, o usuário pode escolher, visualizar, salvar ou remover sua **foto de perfil**, exibida nos círculos do cabeçalho e do menu lateral. [Instalação, privacidade e validação](docs/profile-photo-2026-10-17.md).
+
+O **Acervo Contratual** abre com o exercício do ano atual selecionado e a lista filtrada. É possível escolher exercícios anteriores ou **Todos**. [Comportamento e validação](docs/contract-archive-2026-10-17.md).
+
+No Início, **Valor dos contratos do Fundo** usa o valor acumulado e, quando ausente, o valor inicial de cada contrato, respeitando Fundo e exercício selecionados. [Regra e validação](docs/overview-contract-value-2026-10-17.md).
+
+O **Calendário de vencimentos** mostra somente contratos do Fundo selecionado no login, incluindo lista e contagens. [Regra e validação](docs/calendar-selected-fund-2026-10-17.md).
+
 O botão **6. Cad.Prod** abre uma janela ampla para buscar por Item os produtos já existentes na `tb_Produtos` e lançá-los nos contratos. A opção **Exibir produtos do processo** permite compartilhar o saldo entre fornecedores de um credenciamento; desmarcada, filtra pelo fornecedor. Inclui ficha opcional, estorno e recálculo do valor. [Instalação e regras](docs/contract-products-2026-10-16.md).
 
 O painel **5. Vigência** permite abrir as [Ordens de Serviço](docs/service-orders-2026-10-15.md) pelo ícone em **Prazo da obra**, com múltiplas ordens por contrato e vínculo opcional a aditivos. Exige a migration aditiva indicada no guia.

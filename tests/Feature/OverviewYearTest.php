@@ -88,6 +88,38 @@ class OverviewYearTest extends TestCase
             ->assertViewHas('years', fn ($years) => $years->all() === [2026])->assertDontSee('PREVIOUS-A');
     }
 
+    public function test_portfolio_value_prefers_accumulated_and_falls_back_per_contract_without_replacing_zero(): void
+    {
+        $this->contract(['valor_acumulado' => '100.1234', 'valor_total' => '999.0000']);
+        $this->contract(['valor_acumulado' => null, 'valor_total' => '7.0001']);
+        $this->contract(['valor_acumulado' => '0.0000', 'valor_total' => '8000.0000']);
+        $this->contract(['valor_acumulado' => null, 'valor_total' => null]);
+        $this->contract(['exercicio' => 2025, 'valor_acumulado' => '777.0000']);
+        $this->contract(['fund_id' => null, 'valor_acumulado' => '999999.0000']);
+        $deleted = $this->contract(['valor_acumulado' => '444.0000']);
+        $deleted->delete();
+        Livewire::test(Overview::class)
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '120.4236', 'missing' => 1]
+                && $metrics['summary']['total'] === '9019.3002')
+            ->assertSee('Valor dos contratos do Fundo')->assertSee('R$ 120,42')
+            ->set('year', '2025')
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '877.0000', 'missing' => 0])
+            ->set('year', 'all')
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '1997.4236', 'missing' => 1]);
+    }
+
+    public function test_portfolio_value_keeps_selected_fund_filter_for_administrators(): void
+    {
+        $fundB = DB::table('contract_funds')->insertGetId(['name' => 'Fundo B', 'name_key' => 'FUNDO B', 'raw_payload' => '{}']);
+        $this->contract(['fund_id' => $fundB, 'valor_acumulado' => '999999.0000']);
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SyntheticPassword123', 'user_type' => 'Administrador']);
+        Livewire::actingAs($admin)->test(Overview::class)
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '13.3001', 'missing' => 0]);
+        $this->withSession(['fund_id' => null]);
+        Livewire::test(Overview::class)
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '0.0000', 'missing' => 0]);
+    }
+
     public function test_selected_year_is_restored_from_url(): void
     {
         Livewire::withQueryParams(['year' => '2025'])->test(Overview::class)->assertSet('year', '2025')->assertViewHas('count', 1);

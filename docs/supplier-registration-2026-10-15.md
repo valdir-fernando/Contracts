@@ -103,3 +103,41 @@ A separação entre as seções foi aumentada em 6 px (margem superior de 16 px;
 Correção do bloqueio imediato de datas: a máscara agora rejeita mês 13, dia 00 e combinações impossíveis já no beforeinput; em colagem ou input de fallback, restaura o último valor permitido. Anos incompletos permitem 29/02 até ser possível validar o ano completo; anos não bissextos são rejeitados quando completos. Datas recebidas por preenchimento automático passam pelo mesmo evento de validação. Validação: npm test passou (25 testes, incluindo digitação do mês 13, colagem de 12/13/2026, 31/04 e fevereiro bissexto), build final passou e git diff --check sem erros de whitespace. Sem alterações no backend nem repetição da suíte PHP; sem inspeção visual em navegador.
 
 Verificação antes dos commits e push: composer check:architecture (3 testes), composer test:unit (57 testes), composer check com QUEUE_CONNECTION=database apenas no comando (Pint; 355 testes, 3175 asserções, 1 ignorado), npm test (25 testes), npm run build e git diff --check passaram. Comandos executados no Docker; testes PHP em SQLite e storage/cache isolados. Sem ensaio MySQL concorrente ou inspeção visual em navegador. O Git estava sincronizado com origin/main antes da criação dos commits.
+
+### Campos conforme CPF/CNPJ — 17/10/2026
+
+Ao reconhecer CPF válido, o formulário oculta Nome fantasia e o grupo Sócio. Com CNPJ válido, oculta Data de nascimento, Sexo, PIS/PASEP e Documento profissional. Documento vazio, incompleto ou inválido apresenta todos os campos. A regra aplica-se à digitação, saída do campo e valores restaurados; Novo limpa o formulário e restaura todos os campos. A ocultação preserva os valores digitados e não modifica o contrato HTTP ou a validação do servidor. A navegação por Tab já ignora campos invisíveis.
+
+Validação: npm test passou (46 testes), incluindo alternância CPF/CNPJ, restauração ao apagar/Novo e preservação de valores; npm run build e git diff --check passaram. Não houve teste em navegador nem alteração no banco ou nas regras de persistência.
+
+### Avisos de validação em janela própria — 17/10/2026
+
+Após uma tentativa de cadastro com erros, uma janela nativa acessível exibe a orientação Confira os campos indicados para concluir o cadastro e as mensagens de validação, incluindo fornecedor já cadastrado para o CPF/CNPJ. O botão OK fecha o aviso; o formulário continua aberto com os dados preenchidos e as indicações nos campos. Mantidos o bloqueio de duplicidade, error bag e redirecionamento existentes.
+
+Validação: PHPUnit SupplierRegistrationTest passou (10 testes, 177 asserções, SQLite em memória e storage temporário), incluindo renderização do aviso de duplicidade com abertura automática e botão OK; Pint, php artisan view:cache e git diff --check passaram. Sem alteração de banco, JavaScript ou assets; não houve teste em navegador nesta revisão.
+
+### Campos ocultos dispensados no envio — 17/10/2026
+
+Os controles ocultos conforme CPF/CNPJ ficam desabilitados: não participam do envio nem da validação nativa do navegador. O grupo Sócio usa o disabled do fieldset. Ao trocar o tipo, apagar o documento ou clicar Novo, os controles voltam a ser habilitados. Valores digitados permanecem disponíveis ao alternar o tipo, até Novo limpar o formulário. O servidor já aceita esses campos omitidos como opcionais; teste de integração confirma cadastro de PF e PJ com os respectivos campos ocultos ausentes e auditoria persistida.
+
+Validação: SupplierRegistrationTest passou (11 testes, 193 asserções, SQLite em memória e storage temporário), npm test passou (46 testes), npm run build, Pint e git diff --check passaram. Não houve alteração de regras PHP ou banco, nem teste em navegador nesta revisão.
+
+### Endereço obrigatório e aviso exclusivo — 17/10/2026
+
+Endereço completo é obrigatório para PF e PJ no HTML e na validação inicial do servidor, junto de nome e documento. Campos específicos ocultos continuam opcionais. O aviso Confira os campos indicados para concluir o cadastro aparece em janela própria somente quando falta um obrigatório. O navegador marca os campos vazios e evita avisos repetidos na mesma tentativa; preenchê-los remove a indicação. Na resposta do servidor, a janela de obrigatórios é separada da janela dos demais erros. Duplicidade e formato inválido apresentam apenas seus próprios detalhes, sem a orientação de campo obrigatório.
+
+Testes específicos: SupplierRegistrationTest e SupplierAssistanceTest passaram (15 testes, 285 asserções), com cobertura de endereço nulo/vazio/espaços para CPF/CNPJ, ausência de gravação/auditoria em falhas, atributo required e separação do aviso de duplicidade. npm test passou (47 testes), npm run build, Pint dos arquivos PHP alterados e php artisan view:cache passaram. Testes PHP usam SQLite em memória e storage temporário; não houve alteração de dados existentes ou teste em navegador nesta revisão.
+
+Validação ampliada: composer check passou (Pint em 225 arquivos; 396 testes, 395 aprovados e 1 ignorado por exigir MySQL isolado; 3.727 asserções). git diff --check passou.
+
+### Edição do fornecedor pelo resumo — 17/10/2026
+
+Administradores veem Editar fornecedor ao lado de Usar no novo contrato. O botão abre o mesmo componente de cadastro em modo de edição, preenchido somente com nome, documento e campos ativos de SupplierFields. Dados pessoais completos não são projetados para usuários comuns. A consulta automática por documento fica desligada durante a edição para não substituir o fornecedor selecionado ou alterações digitadas. As máscaras e regras de campos ocultos continuam aplicadas.
+
+PUT /suppliers/{supplier} é uma rota nova, com autenticação/CSRF existentes. UpdateSupplier revalida e bloqueia o ator antes do fornecedor, exige administrador atual, valida revisão, documento, endereço e detalhes, recusa documento usado por outro fornecedor e persiste atualização e ActivityEvent supplier_updated na mesma transação. A revisão HMAC detecta alterações desde a abertura, sem exigir migration; conflitos mantêm a revisão antiga no formulário até recarregar a página. Metadados da auditoria identificam fornecedor e revisões anterior/posterior, sem copiar dados pessoais para a resposta. Falha na auditoria reverte a gravação.
+
+SupplierRegistrationInput centraliza a validação dos campos ativos, compartilhada com o cadastro existente. Campos omitidos são preservados na edição; null explícito limpa o campo. O payload legado é preservado e o cliente não pode alterar campos internos. Atualizar fornecedor não reescreve snapshots nem versões dos contratos associados. Salvar retorna ao resumo atualizado. Novo, no modo de edição, abre o cadastro vazio na lista, evitando limpar os dados e gravá-los acidentalmente sobre o fornecedor existente.
+
+Validação específica: SupplierEditingTest passou (6 testes, 65 asserções), cobrindo preenchimento/projeção, gravação, preservação de legado e snapshots, campos omitidos/null, duplicidade, validação, revisão desatualizada, permissões e rollback por falha de auditoria. Testes anteriores de cadastro/consulta passaram (15 testes, 285 asserções); arquitetura passou (3 testes, 4 asserções); npm test passou (48 testes), npm run build e php artisan view:cache passaram. Edge headless com fixture Blade sem banco confirmou abertura/preenchimento, alternância CPF/CNPJ, envio PUT com revisão, preservação da edição sem consulta automática e fechamento da janela. Testes PHP usam SQLite em memória e storage temporário; nenhuma migration ou escrita no banco instalado foi executada.
+
+Verificação final: composer check passou (Pint em 228 arquivos; 402 testes, 401 aprovados e 1 ignorado por exigir MySQL isolado; 3.792 asserções). composer check:static passou sem erros. git diff --check passou.

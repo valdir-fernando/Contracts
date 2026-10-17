@@ -6,6 +6,7 @@ use App\Models\Contract;
 use App\Models\User;
 use App\Support\BrazilianLocale;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
@@ -36,8 +37,9 @@ class BrazilianLocalizationTest extends TestCase
     {
         $this->withoutVite();
         $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
-        Contract::create(['numero' => 'DEZEMBRO', 'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-12-31', 'quality_issues' => []]);
-        $this->actingAs($admin)->get('/calendar?month_number=12&calendar_year=2026')->assertOk()->assertSee('Dezembro')->assertSee('DEZEMBRO')->assertSee('31/12/2026')->assertDontSee('type="month"', false);
+        $fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo teste', 'name_key' => 'FUNDO TESTE', 'raw_payload' => '{}']);
+        Contract::create(['numero' => 'DEZEMBRO', 'fund_id' => $fund, 'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-12-31', 'quality_issues' => []]);
+        $this->actingAs($admin)->withSession(['fund_id' => $fund])->get('/calendar?month_number=12&calendar_year=2026')->assertOk()->assertSee('Dezembro')->assertSee('DEZEMBRO')->assertSee('31/12/2026')->assertDontSee('type="month"', false);
         $this->get('/calendar?month_number=13&calendar_year=2026')->assertSessionHasErrors('month_number');
         $this->get('/calendar?month_number=12&calendar_year=2200')->assertSessionHasErrors('calendar_year');
         $this->get('/calendar?month_number=12')->assertSessionHasErrors('calendar_year');

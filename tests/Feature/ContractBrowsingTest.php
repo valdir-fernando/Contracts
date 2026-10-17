@@ -68,7 +68,7 @@ class ContractBrowsingTest extends TestCase
         $department = $this->catalog('contract_departments', 'Secretaria A');
         $one = $this->contract(['fund_id' => $fund, 'department_id' => $department]);
         $two = $this->contract(['fornecedor_nome_snapshot' => 'Outro fornecedor', 'exercicio' => 2025]);
-        $this->actingAs($this->user())->get('/contracts?q=019%2F26')->assertOk()
+        $this->actingAs($this->user())->get('/contracts?q=019%2F26&year=')->assertOk()
             ->assertViewHas('contracts', fn ($rows) => $rows->total() === 2);
         foreach (['PROCESSO-TESTE', 'Fornecedor fictício', '11222333000181', '11.222.333/0001-81'] as $search) {
             $this->get('/contracts?'.http_build_query(['q' => $search, 'fund' => $fund, 'department' => $department,
@@ -77,6 +77,46 @@ class ContractBrowsingTest extends TestCase
         }
         $this->get('/contracts?year=2025')->assertViewHas('contracts', fn ($rows) => $rows->first()->id === $two->id);
         $this->get('/contracts?validity=invalido')->assertSessionHasErrors('validity');
+    }
+
+    public function test_archive_defaults_to_current_year_and_keeps_all_years_available(): void
+    {
+        $current = $this->contract(['numero' => 'ATUAL-2026']);
+        $previous = $this->contract(['numero' => 'ANTERIOR-2025', 'exercicio' => 2025]);
+        $undated = $this->contract(['numero' => 'SEM-EXERCICIO', 'exercicio' => null]);
+        $response = $this->actingAs($this->user())->get('/contracts')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $current->id)
+            ->assertDontSee('ANTERIOR-2025')->assertDontSee('SEM-EXERCICIO')
+            ->assertSee('year=2026', false);
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($html);
+        $this->assertSame('2026', $xpath->query('//select[@id="year"]/option[@selected]')->item(0)->getAttribute('value'));
+        $this->get('/contracts?year=')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 3)
+            ->assertSee($previous->numero)->assertSee($undated->numero);
+        $this->get('/contracts?year=2025')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $previous->id);
+    }
+
+    public function test_archive_current_year_tracks_clock_even_when_it_has_no_contracts(): void
+    {
+        $this->contract();
+        $this->travelTo(now()->setDate(2027, 1, 1));
+        $this->actingAs($this->user())->get('/contracts')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)
+            ->assertViewHas('years', fn ($years) => $years->all() === [2027, 2026]);
+        $this->get('/contracts?year=invalid')->assertSessionHasErrors('year');
+    }
+
+    public function test_archive_pagination_and_reports_keep_the_default_year_filter(): void
+    {
+        for ($i = 0; $i < 21; $i++) {
+            $this->contract();
+        }
+        $this->actingAs($this->user())->get('/contracts')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 21 && str_contains($rows->nextPageUrl(), 'year=2026'))
+            ->assertSee(route('reports.index', ['year' => 2026]));
+        $this->get('/contracts?page=2')->assertViewHas('contracts', fn ($rows) => $rows->count() === 1);
     }
 
     public function test_scope_limits_rows_filter_options_and_direct_urls(): void

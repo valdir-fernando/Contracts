@@ -1,5 +1,17 @@
 <x-layouts.app title="Órgãos e permissões">
-    <div class="page-heading"><div><span class="section-label">Cadastros e acesso</span><h1>Órgãos e permissões</h1><p>Organize fundos e órgãos e defina os escopos de acesso aos contratos.</p></div></div>
+    <div class="page-heading catalogs-page-heading"><div><span class="section-label">Cadastros e acesso</span><h1>Órgãos e permissões</h1><p>Organize fundos e órgãos e defina os escopos de acesso aos contratos.</p></div></div>
+    <section class="surface contract-section document-settings-panel" id="document-settings">
+        <div class="panel-header"><div><h2>Administração nos documentos</h2><p>Período vigente usado nos cabeçalhos dos documentos, para todos os Fundos.</p></div><strong>{{ $documentSettings->administration_start_year }}/{{ $documentSettings->administration_end_year }}</strong></div>
+        @if($errors->getBag('document-settings')->any())<div class="notice notice-error" role="alert"><ul>@foreach($errors->getBag('document-settings')->all() as $message)<li>{{ $message }}</li>@endforeach</ul></div>@endif
+        <form method="POST" action="{{ route('document-settings.update') }}" class="form-grid">
+            @csrf @method('PUT')
+            <input type="hidden" name="settings_version" value="{{ old('settings_version', $documentSettings->version) }}">
+            <label><span class="field-caption">Ano inicial <x-required-mark/></span><input type="number" name="administration_start_year" value="{{ old('administration_start_year', $documentSettings->administration_start_year) }}" min="1900" max="9999" required></label>
+            <label><span class="field-caption">Ano final <x-required-mark/></span><input type="number" name="administration_end_year" value="{{ old('administration_end_year', $documentSettings->administration_end_year) }}" min="1900" max="9999" required></label>
+            <label><span class="field-caption">Justificativa da alteração <x-required-mark/></span><textarea name="settings_reason" rows="1" minlength="10" maxlength="1000" required>{{ old('settings_reason') }}</textarea></label>
+            <div class="filter-actions"><button class="primary-button compact" type="submit"><x-nav-icon name="save"/>Salvar administração</button></div>
+        </form>
+    </section>
     <div class="catalog-grid">
         <section class="surface catalog-section" aria-labelledby="funds-title">
             <div class="panel-header"><div><span class="catalog-icon"><x-nav-icon name="catalogs"/></span><h2 id="funds-title">Fundos <span class="catalog-count">{{ $funds->count() }}</span></h2><p>Responsáveis pelos contratos e seus recursos.</p></div><button class="primary-button" type="button" data-modal-open="catalog-fund"><x-nav-icon name="plus"/>Novo fundo</button></div>

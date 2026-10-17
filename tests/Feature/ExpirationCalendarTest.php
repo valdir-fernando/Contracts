@@ -52,6 +52,73 @@ class ExpirationCalendarTest extends TestCase
         $this->get('/calendar?month=2026-10')->assertRedirect('/login');
     }
 
+    public function test_calendar_is_limited_to_selected_fund_even_with_other_authorized_funds_or_admin_role(): void
+    {
+        $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro Fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
+        $scope = AccessScope::create(['scope_key' => 'calendar-other-fund', 'fund' => 'Outro Fundo', 'fund_id' => $otherFund]);
+        $this->user->scopes()->attach($scope);
+        foreach ([['numero' => 'OUTRO-VENCIMENTO'], ['numero' => 'OUTRO-REVISAO', 'vigencia_em_revisao' => true],
+            ['numero' => 'OUTRO-INDETERMINADO', 'vigencia_fim_original' => null]] as $changes) {
+            $copy = $this->contract->replicate();
+            $copy->fill($changes + ['fund_id' => $otherFund])->save();
+        }
+        $this->get('/calendar?month=2026-10&fund='.$otherFund.'&fund_id='.$otherFund)->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id)
+            ->assertViewHas('counts', fn ($counts) => $counts->all() === ['2026-10-31' => 1])
+            ->assertViewHas('reviewCount', 0)->assertViewHas('unknownCount', 0)->assertDontSee('OUTRO-VENCIMENTO');
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
+        $this->actingAs($admin)->get('/calendar?month=2026-10')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->fund_id === $this->contract->fund_id)
+            ->assertViewHas('reviewCount', 0)->assertViewHas('unknownCount', 0);
+        $this->withSession(['fund_id' => $otherFund])->get('/calendar?month_number=10&calendar_year=2026')->assertOk()
+            ->assertSee('OUTRO-VENCIMENTO')->assertDontSee('VISIVEL-CALENDARIO')
+            ->assertViewHas('counts', fn ($counts) => $counts->all() === ['2026-10-31' => 1])
+            ->assertViewHas('reviewCount', 1)->assertViewHas('unknownCount', 1);
+    }
+
+    public function test_calendar_without_selected_fund_does_not_list_any_contracts(): void
+    {
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
+        $this->actingAs($admin)->withSession(['fund_id' => null])->get('/calendar?month=2026-10&fund='.$this->contract->fund_id)->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)
+            ->assertViewHas('counts', fn ($counts) => $counts->isEmpty())
+            ->assertViewHas('reviewCount', 0)->assertViewHas('unknownCount', 0)->assertDontSee('VISIVEL-CALENDARIO');
+    }
+
+    public function test_calendar_pagination_keeps_the_selected_fund(): void
+    {
+        for ($i = 0; $i < 31; $i++) {
+            $this->contract->replicate()->save();
+        }
+        $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro Fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
+        $copy = $this->contract->replicate();
+        $copy->fill(['fund_id' => $otherFund, 'numero' => 'OUTRO-FUNDO'])->save();
+        $this->actingAs($admin)->get('/calendar?month=2026-10&page=2')->assertOk()
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 32 && $rows->count() === 2
+                && $rows->every(fn ($row) => $row->fund_id === $this->contract->fund_id))
+            ->assertViewHas('counts', fn ($counts) => $counts->all() === ['2026-10-31' => 32])->assertDontSee('OUTRO-FUNDO');
+    }
+
+    public function test_calendar_organization_column_uses_department_only_for_selected_municipal_fund(): void
+    {
+        $this->contract->update(['fundo_nome_snapshot' => 'Fundo do contrato', 'secretaria_nome_snapshot' => 'Secretaria de Saúde']);
+        $organization = function ($response): string {
+            $html = new \DOMDocument;
+            @$html->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($html);
+
+            return trim($xpath->query('//tr[@data-row-href="'.route('contracts.show', $this->contract).'"]/td[4]')->item(0)->textContent);
+        };
+        $this->assertSame('Fundo do contrato', $organization($this->get('/calendar?month=2026-10')->assertOk()));
+        foreach (['MUNICIPIO DE NIQUELÂNDIA', '  município de niquelândia  '] as $name) {
+            DB::table('contract_funds')->where('id', $this->contract->fund_id)->update(['name' => $name]);
+            $this->assertSame('Secretaria de Saúde', $organization($this->get('/calendar?month=2026-10')->assertOk()));
+        }
+        $this->contract->update(['secretaria_nome_snapshot' => null]);
+        $this->assertSame('Secretaria não informada', $organization($this->get('/calendar?month=2026-10')->assertOk()));
+    }
+
     public function test_month_and_alert_boundaries_updated_date_and_soft_delete(): void
     {
         $this->get('/calendar?month=2026-11')->assertDontSee('VISIVEL-CALENDARIO');
