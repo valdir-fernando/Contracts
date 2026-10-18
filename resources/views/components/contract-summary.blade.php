@@ -3,7 +3,7 @@
         <h1 class="sr-only">{{ $heading }}</h1>
         <div class="contract-number-field">
             <label for="contract-summary-number">Nº do Contrato</label>
-            <div class="contract-number-control">
+            <div class="contract-number-control" data-enter-scope>
                 <input id="contract-summary-number" class="contract-number-highlight" type="text" maxlength="100" value="{{ $contract->exists ? $contract->numero : '' }}" placeholder="N° do Contrato" aria-label="Número do contrato para busca" data-contract-number-search>
                 <button type="button" class="contract-number-search" data-contract-search-open aria-label="Buscar contratos do Fundo selecionado" title="Buscar contratos"><x-nav-icon name="search"/></button>
             </div>

@@ -27,6 +27,56 @@ class ReportSnapshotTest extends TestCase
     }
 
     #[DataProvider('formats')]
+    public function test_report_dates_are_brazilian_in_every_format_and_storage_remains_iso(string $format): void
+    {
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaFicticia123', 'user_type' => 'Administrador']);
+        $contract = Contract::create(['numero' => 'DATAS', 'data_contrato' => '2026-02-01', 'vigencia_inicio' => '2026-02-03',
+            'vigencia_fim_original' => '2026-12-30', 'quality_issues' => []]);
+        $storedDates = $contract->fresh()->only(['data_contrato', 'vigencia_inicio', 'vigencia_fim_original']);
+        $original = $contract->fresh()->getRawOriginal();
+        $filters = ['columns' => ['ends_at', 'number', 'signed_at', 'starts_at'], 'reference' => '2026-03-04'];
+        $expected = ['30/12/2026', 'DATAS', '01/02/2026', '03/02/2026'];
+        $pdfInspected = false;
+        if ($format === 'pdf') {
+            View::composer('reports.pdf', function ($view) use ($expected, &$pdfInspected) {
+                $pdfInspected = true;
+                $this->assertSame($expected, $view->getData()['rows'][0]);
+                $this->assertStringContainsString('04/03/2026', $view->getData()['metadata']['Filtros']);
+                $this->assertMatchesRegularExpression('/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}/', $view->getData()['metadata']['Emitido em']);
+            });
+        }
+        $path = tempnam(sys_get_temp_dir(), 'report-dates-');
+        try {
+            app(ReportRenderer::class)->write($admin, $filters, $format, $path);
+            if ($format === 'csv') {
+                $content = file_get_contents($path);
+                foreach ($expected as $value) {
+                    $this->assertStringContainsString($value, $content);
+                }
+                $this->assertStringContainsString('04/03/2026', $content);
+                $this->assertStringNotContainsString('2026-02-01', $content);
+                $this->assertStringNotContainsString('2026-12-30', $content);
+            } elseif ($format === 'xlsx') {
+                $book = IOFactory::load($path);
+                $sheet = $book->getActiveSheet();
+                $this->assertSame($expected, $sheet->rangeToArray('A10:D10')[0]);
+                $this->assertStringContainsString('04/03/2026', $sheet->getCell('B4')->getValue());
+                $book->disconnectWorksheets();
+            } else {
+                $this->assertTrue($pdfInspected);
+                $this->assertStringStartsWith('%PDF-', file_get_contents($path));
+            }
+            $contract->refresh();
+            foreach ($storedDates as $field => $date) {
+                $this->assertSame($original[$field], $contract->getRawOriginal($field));
+                $this->assertSame($date->format('Y-m-d'), $contract->$field->format('Y-m-d'));
+            }
+        } finally {
+            unlink($path);
+        }
+    }
+
+    #[DataProvider('formats')]
     public function test_rows_and_totals_are_captured_once_and_rendered_after_commit(string $format): void
     {
         $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaFicticia123', 'user_type' => 'Administrador']);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Infrastructure\Documents\DocumentSettings;
+use App\Infrastructure\Funds\FundRegistration;
 use App\Infrastructure\Security\LockActor;
 use App\Infrastructure\Suppliers\SupplierRegistrationInput;
 use App\Models\AccessScope;
@@ -17,13 +18,13 @@ use Illuminate\Validation\ValidationException;
 
 class CatalogController extends Controller
 {
-    public function __construct(private LockActor $actors) {}
+    public function __construct(private LockActor $actors, private FundRegistration $fundRegistration) {}
 
     public function index(Request $request)
     {
         abort_unless($request->user()->isAdmin(), 403);
 
-        return view('administration.catalogs', ['funds' => DB::table('contract_funds')->orderBy('name')->get(),
+        return view('administration.catalogs', ['funds' => DB::table('contract_funds')->whereNull('deleted_at')->orderBy('name')->get(),
             'departments' => DB::table('contract_departments')->orderBy('name')->get(),
             'documentSettings' => app(DocumentSettings::class)->current(),
             'scopes' => AccessScope::orderBy('fund')->orderBy('department')->get()]);
@@ -35,7 +36,7 @@ class CatalogController extends Controller
         abort_unless(in_array($kind, ['fund', 'department'], true), 404);
         $table = $kind === 'fund' ? 'contract_funds' : 'contract_departments';
         $columns = $kind === 'fund' ? ['id', 'name', 'document'] : ['id', 'name'];
-        $record = DB::table($table)->select($columns)->where('id', $catalog)->first();
+        $record = DB::table($table)->when($kind === 'fund', fn ($query) => $query->whereNull('deleted_at'))->select($columns)->where('id', $catalog)->first();
         abort_unless($record, 404);
 
         return view('administration.catalog-detail', ['record' => $record, 'kind' => $kind,
@@ -43,10 +44,36 @@ class CatalogController extends Controller
                 ->where($kind === 'fund' ? 'fund_id' : 'department_id', $record->id)->latest('id')->paginate(20)]);
     }
 
+    public function listing(Request $request, string $kind)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+        [$table, $title, $columns] = match ($kind) {
+            'inspector' => ['contract_inspectors', 'Fiscal', ['name' => 'Nome', 'fund_name_key' => 'Fundo', 'department_name_key' => 'Secretaria']],
+            'manager' => ['contract_managers', 'Gestor', ['name' => 'Nome', 'fund_name_key' => 'Fundo']],
+            'manager-fund' => ['contract_managers', 'Gestor_Fundo', ['fund_name_key' => 'Fundo', 'name' => 'Gestor']],
+            'budget' => ['tb_Dotacao', 'Dotação', ['Ficha' => 'Ficha', 'Descricao' => 'Descrição', 'Dotacao' => 'Dotação', 'Fundo' => 'Fundo', 'Secretaria' => 'Secretaria']],
+            default => abort(404),
+        };
+
+        return response()->view('administration.catalog-list', [
+            'title' => $title, 'columns' => $columns,
+            'records' => DB::table($table)->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
+        ])->header('Cache-Control', 'private, no-store');
+    }
+
     public function store(Request $request)
     {
         abort_unless($request->user()->isAdmin(), 403);
         $kind = $request->input('kind');
+        if ($kind === 'fund') {
+            try {
+                $this->fundRegistration->save($request->user(), null, $request->all());
+            } catch (ValidationException $error) {
+                throw $error->errorBag('catalog-fund');
+            }
+
+            return redirect()->route('catalogs.index')->with('status', 'Cadastro salvo.');
+        }
         $bag = in_array($kind, ['fund', 'department', 'supplier']) ? 'catalog-'.$kind : 'default';
         $data = $request->validateWithBag($bag, ['kind' => ['required', Rule::in(['fund', 'department', 'supplier', 'scope'])],
             'return_to' => ['nullable', Rule::in(['catalogs.index', 'suppliers.index'])],
@@ -61,7 +88,8 @@ class CatalogController extends Controller
             $actor = $this->actors->lock($request->user());
             abort_unless($actor->isAdmin(), 403);
             if ($data['kind'] === 'scope') {
-                $fund = DB::table('contract_funds')->find($data['fund_id']);
+                $fund = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $data['fund_id'])->lockForUpdate()->first();
+                abort_unless($fund, 422, 'Selecione um Fundo disponível.');
                 $department = empty($data['department_id']) ? null : DB::table('contract_departments')->find($data['department_id']);
                 $record = AccessScope::firstOrCreate(['scope_key' => hash('sha256', 'native:'.$fund->id.':'.($department?->id ?? 'all'))],
                     ['fund_id' => $fund->id, 'department_id' => $department?->id, 'fund' => $fund->name, 'department' => $department?->name]);

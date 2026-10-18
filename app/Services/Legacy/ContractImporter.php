@@ -162,7 +162,7 @@ class ContractImporter
     {
         foreach (self::CATALOGS as $config) {
             $this->catalogs[$config['table']] = ['name' => [], 'document' => []];
-            foreach (DB::table($config['table'])->get() as $row) {
+            foreach (DB::table($config['table'])->when($config['table'] === 'contract_funds', fn ($query) => $query->whereNull('deleted_at'))->get() as $row) {
                 $this->catalogs[$config['table']]['name'][$row->name_key][] = $row;
                 if (isset($row->document_key) && Normalizer::validDocument($row->document_key)) {
                     $this->catalogs[$config['table']]['document'][$row->document_key][] = $row;
@@ -264,7 +264,7 @@ class ContractImporter
             $year = (int) substr($attributes['data_contrato'], 0, 4);
         }
         if ($fund) {
-            DB::table('contract_funds')->where('id', $fund->id)->lockForUpdate()->firstOrFail();
+            DB::table('contract_funds')->whereNull('deleted_at')->where('id', $fund->id)->lockForUpdate()->firstOrFail();
             $sequence = $year ? ContractNumber::sequenceIn($attributes['numero'] ?? '', $year) : null;
             if ($sequence !== null && Contract::withTrashed()->where('fund_id', $fund->id)->where('number_year', $year)->where('number_sequence', $sequence)->lockForUpdate()->exists()) {
                 $this->issue($record, 'Contrato', 'allocated_number_collision', 'Número já atribuído a um contrato nativo. Origem preservada para conciliação.', 'error');

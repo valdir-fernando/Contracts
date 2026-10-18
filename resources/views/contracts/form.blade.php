@@ -40,6 +40,7 @@
                 @foreach($fields as $source => $definition)
                     @continue(in_array($source, \App\Support\ContractFields::EXECUTION_SUMMARY))
                     @continue($source === 'Ext_Garantia')
+                    @continue($source === 'Secretaria')
                     @continue(in_array($source, ['VL_Saldo_Disp', 'VL_Saldo_Contrato', 'Ext_Parcial', 'Ext_Total', 'Ext_Acumulado', 'Ficha', 'Empenho']))
                     @php
                         $column = $definition['column'];
@@ -116,7 +117,7 @@
                                 <small>Referência: Lei nº 8.245/1991, art. 22, VIII. A seleção registra a responsabilidade prevista no contrato.</small>
                             </div>
                         @else
-                            <label for="{{ $column }}">{{ match ($column) { 'vigencia_fim_original' => 'Final da Vigência', 'garantia' => '(%) Garantia', 'vl_parcial' => 'Valor_Mensal', 'valor_total' => 'Valor do Contrato', 'valor_acumulado' => 'Valor acumulado Aditivo', default => \App\Support\ContractFields::label($source) } }}<x-required-mark :explain="true" :when="$required && !in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado'])"/></label>
+                            <label for="{{ $column }}">{{ match ($column) { 'vigencia_fim_original' => 'Final da Vigência', 'garantia' => '(%) Garantia', 'vl_parcial' => 'Valor_Mensal', 'valor_total' => 'Valor do Contrato', 'valor_acumulado' => 'Valor acumulado Aditivo', default => \App\Support\ContractFields::label($source) } }}<x-required-mark :explain="true" :when="$required && !in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado', 'nome_fiscal'])"/></label>
                         @endif
                         @if(in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado']))
                             <p class="readonly-field" id="{{ $column }}" role="textbox" aria-readonly="true">{{ $contract->exists ? $contract->displayField($source, $formActor) : 'A calcular' }}</p>

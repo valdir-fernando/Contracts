@@ -1,5 +1,8 @@
+import { showSupplierDocumentWarning } from './system-message.js';
+export { showSupplierDocumentWarning } from './system-message.js';
 import { formatSupplierDocument } from './supplier-assistance.js';
 import { attachMask, maskPhone, maskPis } from './input-masks.js';
+import { consultCompany } from './cnpj-lookup.js';
 
 const initializedForms = new WeakSet();
 
@@ -13,24 +16,6 @@ export function navigateSupplierFields(event, form) {
     if (!next) return;
     event.preventDefault();
     next.focus();
-}
-
-export function showSupplierDocumentWarning(message, ownerDocument = document) {
-    let dialog = ownerDocument.querySelector('[data-supplier-document-warning]');
-    if (!dialog) {
-        dialog = ownerDocument.createElement('dialog');
-        dialog.className = 'catalog-modal supplier-document-warning';
-        dialog.setAttribute('data-supplier-document-warning', '');
-        dialog.setAttribute('role', 'alertdialog');
-        dialog.setAttribute('aria-labelledby', 'supplier-document-warning-title');
-        dialog.setAttribute('aria-describedby', 'supplier-document-warning-message');
-        dialog.innerHTML = '<div class="modal-header"><h2 id="supplier-document-warning-title">Gestão Sistem informa:</h2></div>'
-            + '<p id="supplier-document-warning-message"></p>'
-            + '<form method="dialog" class="form-actions modal-actions"><button type="submit" class="primary-button" autofocus>OK</button></form>';
-        ownerDocument.body.append(dialog);
-    }
-    dialog.querySelector('p').textContent = message;
-    if (!dialog.open) dialog.showModal();
 }
 
 export function validSupplierDocument(value) {
@@ -135,6 +120,10 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         status.className = 'hint';
         if (form.dataset.supplierEditing === 'true') {
             status.textContent = '';
+            if (showWarning && document.length === 14) await consultCompany(form, {
+                cnpj: document, kind: 'supplier', existing: true, signal: attempt.signal,
+                isCurrent: () => request === attempt && digits() === document,
+            }, fetcher);
             return;
         }
         status.textContent = 'Verificando se o fornecedor já está cadastrado…';
@@ -170,6 +159,13 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
             } else {
                 status.textContent = 'Fornecedor não cadastrado. Preencha os dados e salve.';
             }
+            if (document.length === 14) {
+                const changed = await consultCompany(form, {
+                    cnpj: document, kind: 'supplier', existing: data.found, signal: attempt.signal,
+                    isCurrent: () => request === attempt && digits() === document,
+                }, fetcher);
+                for (const [field, value] of changed ?? []) filled.set(field, value);
+            }
         } catch (error) {
             if (request === attempt && error.name !== 'AbortError') status.textContent = 'Não foi possível verificar o cadastro. Saia do campo para tentar novamente.';
         }
@@ -178,7 +174,26 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         reset();
         updateDocumentFields();
     });
-    documentField.addEventListener('focusout', lookup);
+    let pendingLookup;
+    const runLookup = (...args) => {
+        pendingLookup = lookup(...args);
+        return pendingLookup;
+    };
+    documentField.addEventListener('focusout', runLookup);
+    let resuming = false;
+    form.addEventListener('submit', (event) => {
+        if (!form.dataset.cnpjLookupUrl || !pendingLookup || resuming || event.defaultPrevented) return;
+        event.preventDefault();
+        if (form.dataset.cnpjWaiting === 'true') return;
+        form.dataset.cnpjWaiting = 'true';
+        const document = digits();
+        pendingLookup.finally(() => {
+            delete form.dataset.cnpjWaiting;
+            if (document !== digits()) return;
+            resuming = true;
+            try { form.requestSubmit(event.submitter ?? undefined); } finally { resuming = false; }
+        });
+    });
     form.addEventListener('reset', (event) => {
         event.preventDefault();
         reset();
@@ -194,7 +209,7 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         documentField.focus?.({ preventScroll: true });
     });
     updateDocumentFields();
-    if (documentField.value) lookup(false);
+    if (documentField.value) runLookup(false);
 }
 
 if (typeof document !== 'undefined') {

@@ -35,7 +35,7 @@ final class LaravelContractInputValidator implements ContractInputValidator
             $actor = User::findOrFail($context->actor->id);
             $sessionFundId = $this->request->session()->get('fund_id');
             $fund = is_numeric($sessionFundId) && $this->selectedFund->allows($actor, (int) $sessionFundId)
-                ? DB::table('contract_funds')->where('id', (int) $sessionFundId)->lockForUpdate()->first() : null;
+                ? DB::table('contract_funds')->whereNull('deleted_at')->where('id', (int) $sessionFundId)->lockForUpdate()->first() : null;
             if (! $fund) {
                 throw new InputRejected(['fund_id' => 'Selecione um Fundo autorizado ao entrar no sistema.']);
             }
@@ -59,7 +59,7 @@ final class LaravelContractInputValidator implements ContractInputValidator
             $actor = User::findOrFail($context->actor->id);
             $sessionFundId = $this->request->session()->get('fund_id');
             $fund = is_numeric($sessionFundId) && $this->selectedFund->allows($actor, (int) $sessionFundId)
-                ? DB::table('contract_funds')->where('id', (int) $sessionFundId)->lockForUpdate()->first() : null;
+                ? DB::table('contract_funds')->whereNull('deleted_at')->where('id', (int) $sessionFundId)->lockForUpdate()->first() : null;
             if (! $fund || (int) $fund->id !== (int) $contract->fund_id || Normalizer::name($fund->name) !== 'MUNICIPIO DE NIQUELANDIA') {
                 throw new InputRejected(['department_id' => 'O Fundo da sessão não permite selecionar uma secretaria.']);
             }

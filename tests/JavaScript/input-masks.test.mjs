@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { attachMask, maskPhone, maskPis, maskDate, isoDate, dateInputAllowed } from '../../resources/js/input-masks.js';
+import { attachMask, maskCpf, maskCnpj, maskPhone, maskPis, maskDate, isoDate, dateInputAllowed } from '../../resources/js/input-masks.js';
+
+test('CNPJ mask preserves leading zeroes and supports partial typing and formatted paste', () => {
+    assert.equal(maskCnpj('02215895000121'), '02.215.895/0001-21');
+    assert.equal(maskCnpj('02.215.895/0001-21'), '02.215.895/0001-21');
+    assert.equal(maskCnpj('02215'), '02.215');
+    assert.equal(maskCnpj('0221589500'), '02.215.895/00');
+    assert.equal(maskCnpj(''), '');
+});
+
+test('CPF mask formats initial values, pasted punctuation and partial input without accepting extra digits', () => {
+    assert.equal(maskCpf('52998224725'), '529.982.247-25');
+    assert.equal(maskCpf('529.982.247-25'), '529.982.247-25');
+    assert.equal(maskCpf('52998'), '529.98');
+    assert.equal(maskCpf(''), '');
+    assert.equal(maskCpf('abc52998224725123'), '529.982.247-25');
+});
 
 test('phone and WhatsApp masks support landlines and mobiles with DDD and partial input', () => {
     assert.equal(maskPhone('6233334444'), '(62) 3333-4444');

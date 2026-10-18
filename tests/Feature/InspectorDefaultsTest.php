@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Infrastructure\Inspectors\InspectorRegistration;
 use App\Models\AccessScope;
 use App\Models\Contract;
 use App\Models\ContractAudit;
@@ -165,6 +166,30 @@ class InspectorDefaultsTest extends TestCase
         $this->withSession(['fund_id' => $this->municipality]);
         $this->post('/contracts', $this->data())->assertSessionHasErrors('nome_fiscal');
         $this->post('/contracts', $this->data(['department_id' => $this->department]))->assertSessionHasErrors('nome_fiscal');
+    }
+
+    public function test_inactive_inspectors_are_not_suggested_and_saved_contracts_keep_their_history(): void
+    {
+        $this->post('/contracts', $this->data())->assertRedirect();
+        $contract = Contract::firstOrFail();
+        DB::table('contract_inspectors')->where('legacy_id', 1)->update(['raw_payload->Situacao' => 'Inativo']);
+        $this->getJson('/contracts/inspector-defaults')->assertOk()->assertJsonPath('values.nome_fiscal', null);
+        $this->post('/contracts', $this->data(['processo' => 'NOVO']))->assertSessionHasErrors('nome_fiscal');
+        $this->assertSame('Fiscal Saúde', $contract->fresh()->nome_fiscal);
+        DB::table('contract_inspectors')->where('legacy_id', 1)->update(['raw_payload->Situacao' => 'Ativo']);
+        $this->getJson('/contracts/inspector-defaults')->assertOk()->assertJsonPath('values.nome_fiscal', 'Fiscal Saúde');
+    }
+
+    public function test_deleted_inspector_is_not_suggested_and_contract_history_is_preserved(): void
+    {
+        $this->post('/contracts', $this->data())->assertRedirect();
+        $contract = Contract::firstOrFail();
+        $record = DB::table('contract_inspectors')->where('legacy_id', 1)->first();
+        $registration = app(InspectorRegistration::class);
+        $registration->delete($this->admin, $record->id, ['revision' => $registration->revision($record), 'confirmation' => 1]);
+        $this->getJson('/contracts/inspector-defaults')->assertOk()->assertJsonPath('values.nome_fiscal', null);
+        $this->assertSame('Fiscal Saúde', $contract->fresh()->nome_fiscal);
+        $this->post('/contracts', $this->data(['processo' => 'NOVO']))->assertSessionHasErrors('nome_fiscal');
     }
 
     public function test_inspector_import_is_idempotent_preserves_conflicts_and_rolls_back_invalid_data(): void

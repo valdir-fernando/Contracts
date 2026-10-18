@@ -10,7 +10,7 @@ final class EloquentContractCatalog implements ContractCatalog
 {
     public function ownership(int $fundId, ?int $departmentId): array
     {
-        $fund = DB::table('contract_funds')->find($fundId);
+        $fund = DB::table('contract_funds')->whereNull('deleted_at')->find($fundId);
         $department = $departmentId ? DB::table('contract_departments')->find($departmentId) : null;
         if (! $fund) {
             throw new InputRejected(['fund_id' => 'Selecione um fundo cadastrado.']);

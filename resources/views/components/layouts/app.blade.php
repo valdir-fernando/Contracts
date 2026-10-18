@@ -21,11 +21,28 @@
                 @foreach([
                     ['dashboard', 'dashboard', 'Início', 'dashboard'],
                     ['contracts.index', 'contracts.*', 'Contratos', 'contracts'],
-                    ['suppliers.index', 'suppliers.*', 'Fornecedores', 'suppliers'],
                     ['reports.index', 'reports.*', 'Relatórios', 'reports'],
                     ['calendar.index', 'calendar.*', 'Calendário e alertas', 'calendar'],
                 ] as [$route, $pattern, $label, $icon])
+                    @if($route === 'contracts.index')
+                        <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
+                        <details class="nav-catalogs" @if(request()->routeIs('catalogs.*', 'suppliers.*', 'funds.*')) open @endif>
+                            <summary class="nav-link" aria-label="Cadastros" data-nav-label="Cadastros"><x-nav-icon name="catalogs"/><span>Cadastros</span></summary>
+                            <div class="nav-submenu">
+                                @if(auth()->user()->isAdmin())
+                                    @foreach(['inspector' => 'Fiscal', 'manager' => 'Gestor', 'manager-fund' => 'Gestor_Fundo'] as $kind => $name)
+                                        <a class="nav-link" href="{{ route('catalogs.list', $kind) }}" @if(request()->routeIs('catalogs.list', 'catalogs.inspectors') && request()->route('kind') === $kind) aria-current="page" @endif><x-nav-icon name="users"/><span>{{ $name }}</span></a>
+                                    @endforeach
+                                    <a class="nav-link" href="{{ route('funds.index') }}" @if(request()->routeIs('funds.*')) aria-current="page" @endif><x-nav-icon name="catalogs"/><span>Fundo</span></a>
+                                    <a class="nav-link" href="{{ route('catalogs.index') }}#departments"><x-nav-icon name="catalogs"/><span>Secretaria</span></a>
+                                    <a class="nav-link" href="{{ route('catalogs.list', 'budget') }}" @if(request()->routeIs('catalogs.list') && request()->route('kind') === 'budget') aria-current="page" @endif><x-nav-icon name="reports"/><span>Dotação</span></a>
+                                @endif
+                                <a class="nav-link" href="{{ route('suppliers.index') }}" @if(request()->routeIs('suppliers.*')) aria-current="page" @endif><x-nav-icon name="suppliers"/><span>Fornecedor</span></a>
+                            </div>
+                        </details>
+                    @else
                     <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
+                    @endif
                 @endforeach
                 @if(auth()->user()->isAdmin())
                     <div class="nav-section-label">Administração</div>

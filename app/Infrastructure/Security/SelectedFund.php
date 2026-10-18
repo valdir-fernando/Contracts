@@ -12,7 +12,7 @@ final class SelectedFund
 {
     public function options(User $actor): Collection
     {
-        $query = DB::table('contract_funds');
+        $query = DB::table('contract_funds')->whereNull('deleted_at');
         if (! $actor->is_active || $actor->trashed()) {
             return collect();
         }
@@ -27,7 +27,7 @@ final class SelectedFund
 
     public function allows(User $actor, int $fundId): bool
     {
-        return $actor->is_active && ! $actor->trashed() && ($actor->isAdmin()
+        return $actor->is_active && ! $actor->trashed() && DB::table('contract_funds')->where('id', $fundId)->whereNull('deleted_at')->exists() && ($actor->isAdmin()
             || $actor->scopes()->where('fund_id', $fundId)->where(function ($query) {
                 $query->whereNull('department')->orWhere('department', '')->orWhereNotNull('department_id');
             })->exists());
@@ -39,7 +39,7 @@ final class SelectedFund
             return null;
         }
 
-        return DB::table('contract_funds')->where('id', $fundId)->first();
+        return DB::table('contract_funds')->whereNull('deleted_at')->where('id', $fundId)->first();
     }
 
     public function defaults(User $actor, int $fundId, bool $forPersistence = false): array
@@ -55,7 +55,7 @@ final class SelectedFund
         $fundKey = Normalizer::name($fund->name);
         $managers = DB::table('contract_managers')->where('fund_name_key', $fundKey)->limit(2)->get();
         // Names in the legacy source are not foreign keys: ambiguous links stay empty.
-        $uniqueFund = DB::table('contract_funds')->where('name_key', $fundKey)->count() === 1;
+        $uniqueFund = DB::table('contract_funds')->whereNull('deleted_at')->where('name_key', $fundKey)->count() === 1;
         $manager = $uniqueFund && $managers->count() === 1 ? json_decode($managers->first()->raw_payload, true) : [];
         $values = ['fund_id' => $fund->id, 'fundo_nome_snapshot' => $fund->name,
             'fundo_documento_snapshot' => $fund->document, 'end_fundo' => $legacy['End_Fundo'] ?? null,

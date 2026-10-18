@@ -20,12 +20,15 @@ final class InspectorCatalog
         $fund = $this->funds->current($actor, $fundId);
         abort_unless($fund, 403);
         $fundKey = Normalizer::name($fund->name);
-        $query = DB::table('contract_inspectors')->where('fund_name_key', $fundKey);
+        $query = DB::table('contract_inspectors')->whereNull('deleted_at')->where('fund_name_key', $fundKey)
+            ->where(function ($query) {
+                $query->whereNull('raw_payload->Situacao')->orWhere('raw_payload->Situacao', 'Ativo');
+            });
         $values = ['nome_fiscal' => null, 'decreto_fiscal' => null];
         if ($actor->isAdmin() || $forSave) {
             $values += ['cpf_fiscal' => null, 'rg_fiscal' => null];
         }
-        if (DB::table('contract_funds')->where('name_key', $fundKey)->count() !== 1) {
+        if (DB::table('contract_funds')->whereNull('deleted_at')->where('name_key', $fundKey)->count() !== 1) {
             return $values;
         }
         if ($fundKey === 'MUNICIPIO DE NIQUELANDIA') {

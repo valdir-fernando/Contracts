@@ -19,7 +19,7 @@ class LoginController extends Controller
 {
     public function create()
     {
-        return view('auth.login', ['funds' => DB::table('contract_funds')->orderBy('name')->get(['id', 'name'])]);
+        return view('auth.login', ['funds' => DB::table('contract_funds')->whereNull('deleted_at')->orderBy('name')->get(['id', 'name'])]);
     }
 
     public function store(Request $request): RedirectResponse

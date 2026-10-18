@@ -23,7 +23,7 @@ class AuditReportTest extends TestCase
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SenhaSegura12345']);
         $contract = Contract::create(['numero' => '001/26', 'quality_issues' => []]);
         ContractAudit::create(['actor_id' => $admin->id, 'contract_id' => $contract->id, 'action' => 'updated', 'reason' => 'Correção documentada',
-            'changes' => ['cpf_gestor' => ['before' => '52998224725', 'after' => '12345678901']], 'created_at' => now()]);
+            'changes' => ['cpf_gestor' => ['before' => '52998224725', 'after' => '12345678901']], 'created_at' => '2026-10-18 14:35:22']);
         ActivityEvent::create(['actor_id' => $admin->id, 'action' => 'login', 'metadata' => [], 'created_at' => now()]);
         foreach (['csv', 'xlsx', 'pdf'] as $format) {
             $this->actingAs($user)->get('/administration/export/'.$format)->assertForbidden();
@@ -32,10 +32,12 @@ class AuditReportTest extends TestCase
             $this->assertStringNotContainsString('52998224725', file_get_contents($path));
             if ($format === 'csv') {
                 $this->assertStringContainsString('Correção documentada', file_get_contents($path));
+                $this->assertStringContainsString('18/10/2026 14:35:22', file_get_contents($path));
                 $this->assertStringNotContainsString(';login;', file_get_contents($path));
             } elseif ($format === 'xlsx') {
                 $book = IOFactory::load($path);
                 $this->assertSame('Cadastro atualizado', $book->getActiveSheet()->getCell('E9')->getValue());
+                $this->assertSame('18/10/2026 14:35:22', $book->getActiveSheet()->getCell('C9')->getValue());
                 $book->disconnectWorksheets();
             } else {
                 $this->assertStringStartsWith('%PDF-', file_get_contents($path));

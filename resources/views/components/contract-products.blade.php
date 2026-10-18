@@ -1,6 +1,6 @@
 @props(['contract'])
 @if($contract->exists)
-<div data-contract-products data-base="{{ route('contracts.products.index', $contract) }}">
+<div data-contract-products data-enter-scope data-base="{{ route('contracts.products.index', $contract) }}">
     <p data-product-feedback role="status" aria-live="polite"></p>
     <dialog class="catalog-modal product-picker-dialog" data-product-picker aria-labelledby="product-picker-title">
         <div class="modal-header"><h2 id="product-picker-title">Selecionar produto</h2></div>

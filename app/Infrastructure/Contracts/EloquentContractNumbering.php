@@ -20,7 +20,7 @@ final class EloquentContractNumbering implements ContractNumbering
         if ($context->contract->id !== null) {
             throw new LogicException('A numeração automática só pode ser atribuída na criação.');
         }
-        $fund = DB::table('contract_funds')->where('id', $fundId)->lockForUpdate()->firstOrFail();
+        $fund = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $fundId)->lockForUpdate()->firstOrFail();
         $year = today()->year;
         $row = DB::table('tb_N_Contrato')->where('fund_id', $fundId)->where('ANO', $year)->lockForUpdate()->first();
         if (! $row) {

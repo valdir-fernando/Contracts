@@ -512,13 +512,6 @@ export function initializeContractProducts(root, fetcher = fetch) {
     budget.addEventListener('input', clearBudgetLookup);
     budget.addEventListener('blur', lookupBudget);
     department?.addEventListener('change', lookupBudget);
-    root.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
-            event.preventDefault();
-            if (event.target === itemInput) lookupItem();
-            else if (event.target === quantity) mutate();
-        }
-    });
     form.addEventListener('submit', (event) => {
         if (busy || stale) {
             event.preventDefault();

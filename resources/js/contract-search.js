@@ -69,9 +69,6 @@ export function initializeContractSearch(dialog, ownerDocument = document, fetch
         return search();
     });
     number.addEventListener('input', () => { request?.abort(); opener.disabled = false; });
-    number.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') { event.preventDefault(); opener.click(); }
-    });
     form.addEventListener('submit', (event) => { event.preventDefault(); searchTerm = query.value; search(); });
     previous.addEventListener('click', () => search(page - 1));
     next.addEventListener('click', () => search(page + 1));

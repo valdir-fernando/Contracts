@@ -20,7 +20,7 @@ class ContractListingQuery
             $visible->onlyTrashed();
         }
         // Filter choices come only from accessible contracts, never from all catalogs.
-        $funds = DB::table('contract_funds')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(['id', 'name']);
+        $funds = DB::table('contract_funds')->whereNull('deleted_at')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(['id', 'name']);
         $departments = DB::table('contract_departments')->whereIn('id', (clone $visible)->select('department_id'))->orderBy('name')->get(['id', 'name']);
         $years = (clone $visible)->whereNotNull('exercicio')->distinct()->orderByDesc('exercicio')->pluck('exercicio');
         $types = (clone $visible)->whereNotNull('tipo')->distinct()->orderBy('tipo')->pluck('tipo');

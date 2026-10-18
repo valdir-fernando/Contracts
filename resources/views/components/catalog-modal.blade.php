@@ -36,7 +36,7 @@
         <button class="modal-close" type="button" data-modal-close aria-label="Fechar {{ mb_strtolower($title) }}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </div>
     @if($description)<p id="catalog-{{ $kind }}-description" class="modal-description">{{ $description }}</p>@endif
-    <form method="POST" action="{{ $editing ? route('suppliers.update', $supplierId) : route('catalogs.store') }}" @if($kind === 'supplier') id="catalog-supplier-form" data-supplier-form data-supplier-editing="{{ $editing ? 'true' : 'false' }}" data-registration-lookup-url="{{ route('suppliers.registration-lookup') }}" @endif>
+    <form method="POST" action="{{ $editing ? route('suppliers.update', $supplierId) : route('catalogs.store') }}" @if($kind === 'supplier') id="catalog-supplier-form" data-supplier-form data-supplier-editing="{{ $editing ? 'true' : 'false' }}" data-cnpj-lookup-url="{{ route('cnpj.lookup') }}" data-registration-lookup-url="{{ route('suppliers.registration-lookup') }}" @endif>
         @csrf
         @if($editing)
             @method('PUT')

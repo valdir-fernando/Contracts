@@ -15,7 +15,7 @@ final class BudgetCatalog
     /** Comparison informs the confirmation only; it never filters the catalog result. */
     public function matchesScope(array $result, ?int $fundId, ?int $departmentId): bool
     {
-        $fund = $fundId ? DB::table('contract_funds')->find($fundId) : null;
+        $fund = $fundId ? DB::table('contract_funds')->whereNull('deleted_at')->find($fundId) : null;
         $department = $departmentId ? DB::table('contract_departments')->find($departmentId) : null;
 
         return $fund && (! $departmentId || $department)

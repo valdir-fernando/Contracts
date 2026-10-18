@@ -162,7 +162,7 @@ class ContractController extends Controller
                 }
             }
         }
-        $funds = DB::table('contract_funds');
+        $funds = DB::table('contract_funds')->whereNull('deleted_at');
         $departments = DB::table('contract_departments');
         if (! $user->isAdmin()) {
             $scopes = $user->scopes()->whereNotNull('fund_id')->get();

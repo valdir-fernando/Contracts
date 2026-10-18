@@ -18,7 +18,7 @@ final class EloquentContractStore implements ContractStore
     public function hasDuplicate(AuthorizedContract $context, ContractState $contract): bool
     {
         TransactionGuard::requireActive();
-        DB::table('contract_funds')->where('id', $contract->get('fund_id'))->lockForUpdate()->firstOrFail();
+        DB::table('contract_funds')->whereNull('deleted_at')->where('id', $contract->get('fund_id'))->lockForUpdate()->firstOrFail();
         $actor = User::findOrFail($context->actor->id);
 
         return Contract::visibleTo($actor)->where('numero', $contract->get('numero'))

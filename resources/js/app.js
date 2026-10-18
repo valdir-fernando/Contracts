@@ -1,4 +1,5 @@
 import './table-navigation';
+import './enter-navigation';
 import './report-generation';
 import './count-up';
 import './contract-summary';
@@ -15,6 +16,8 @@ import './fund-heading';
 import './contract-search';
 import './field-help';
 import './inspector-assistance';
+import './inspector-registration';
+import './fund-registration';
 import { scrollContractSection } from './contract-panel-scroll';
 import { attachMask, maskDate, isoDate, dateInputAllowed } from './input-masks';
 

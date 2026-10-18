@@ -22,7 +22,7 @@ final class ContractCounterImporter
         foreach ((new SqlDumpReader)->rows($path, ['tb_N_Contrato']) as $source) {
             $raw = $source['data'];
             $key = Normalizer::name($raw['FUNDO'] ?? '');
-            $funds = DB::table('contract_funds')->where('name_key', $key)->limit(2)->get(['id']);
+            $funds = DB::table('contract_funds')->whereNull('deleted_at')->where('name_key', $key)->limit(2)->get(['id']);
             if ($funds->count() !== 1 || ! ctype_digit($raw['ID'] ?? '') || (int) $raw['ID'] < 1) {
                 throw new RuntimeException('Contador com identificador inválido ou Fundo sem correspondência única. Nenhuma alteração foi aplicada.');
             }
@@ -41,7 +41,7 @@ final class ContractCounterImporter
             $run = ImportRun::create(['source_hash' => hash_file('sha256', $path), 'status' => 'running', 'started_at' => now()]);
             $summary = [];
             foreach ($rows as $fundId => $source) {
-                $fund = DB::table('contract_funds')->where('id', $fundId)->lockForUpdate()->firstOrFail();
+                $fund = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $fundId)->lockForUpdate()->firstOrFail();
                 if ($fund->name_key !== $source['fund_key']) {
                     throw new RuntimeException('O cadastro do Fundo mudou durante a importação. Tente novamente.');
                 }
