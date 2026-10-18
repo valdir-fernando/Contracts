@@ -28,3 +28,11 @@ A suíte PHP cobre localização das validações, seleção e limites do mês/a
 O fluxo completo de navegador também foi validado em uma instância isolada com dados sintéticos, incluindo cadastros, permissões, documentos, aditivos, registros financeiros, relatórios e exportações.
 
 Resultado final: 98 testes PHP aprovados, com 1.268 asserções; fluxo completo e teste específico de localização aprovados no navegador; build dos assets e compilação Blade concluídos; formatação PHP e diferenças sem erros.
+
+## Datas em relatórios — verificação de 18/10/2026
+
+O padrão vale também para os relatórios e exportações: PDF, Excel e CSV exibem datas `DD/MM/AAAA`; períodos, referência e emissão seguem a mesma convenção, com horas quando aplicável. Auditoria usa `DD/MM/AAAA HH:mm:ss`. Armazenamento, filtros recebidos e APIs permanecem ISO. O fluxo já fazia essa conversão em `BrazilianLocale::reportRow`, `BrazilianLocale::filters` e `AuditReportRenderer`; não foi necessário modificar os renderizadores.
+
+Acrescentados testes de integração dos três formatos com colunas reordenadas, datas de assinatura/início/término, referência e emissão. Para PDF, os dados efetivamente entregues à view são verificados e o arquivo gerado precisa ter assinatura PDF. CSV é inspecionado como texto e XLSX é reaberto com PhpSpreadsheet. Os valores originais do banco são comparados antes/depois da exportação. Também foram acrescentadas asserções do timestamp brasileiro nos arquivos CSV/XLSX de auditoria.
+
+Executado `docker compose exec -T app php vendor/bin/phpunit --filter 'ReportSnapshotTest|BrazilianLocalizationTest|AuditReportTest' --do-not-cache-result`: 13 testes, 114 asserções, sucesso. Pint dos dois testes e `git diff --check` aprovados. A primeira execução dos novos testes esperava uma string DATE pura no SQLite; os casts existentes do Eloquent armazenam ali também meia-noite. Após conferir os casts e a migration de tipo DATE, a asserção passou a comparar o valor bruto anterior/posterior e a data civil, verificando que a exportação não altera o armazenamento. Testes usam SQLite/storage/cache isolados; não houve acesso ao banco remoto, alteração de dados reais ou necessidade de build.

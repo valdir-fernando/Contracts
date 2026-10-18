@@ -2,6 +2,8 @@
 
 ## O que muda no banco
 
+Datas de calendário usam `AAAA-MM-DD` na gravação (por exemplo, `1971-12-30`) e `DD/MM/AAAA` nos campos da interface (`30/12/1971`). Os formulários convertem antes do envio e o servidor valida ISO, sem depender do idioma ou formato regional do MySQL. Isso vale também para nascimento e decreto de fiscais: datas brasileiras importadas são reconhecidas na leitura e gravadas em ISO ao salvar a ficha. A importação original permanece preservada na trilha, sem atualização em massa do histórico. Datas de calendário não recebem conversão de fuso horário.
+
 Crie um banco separado, inicialmente vazio, para o Contracts. O banco original permanece como fonte de importação. Não execute as migrations diretamente no banco legado: a tabela `tb_N_Contrato` já existente colidiria com a migration de criação, e acrescentar campos às tabelas antigas não as transforma na estrutura usada pelo Laravel.
 
 | Origem legada | Destino do Contracts | Melhoria atendida |

@@ -1,5 +1,15 @@
 # Contracts
 
+Fornecedor e Fundo consultam dados públicos do CNPJ em JSON para preencher novos cadastros e comparar cadastros existentes antes de salvar. [Fonte, comportamento e validação](docs/cnpj-consultation-2026-10-18.md).
+
+O **Cadastro de Fundo** reúne os campos de `tb_Fundo`, busca da ficha existente pelo CNPJ, edição, validação e exclusão lógica protegida, no padrão visual de Novo contrato. [Campos, instalação e validação](docs/fund-registration-2026-10-18.md).
+
+Datas aparecem como **dia/mês/ano** na interface e nos relatórios **PDF, Excel e CSV** e são enviadas e gravadas como **ano-mês-dia**, inclusive na hospedagem Hostinger.
+
+Nos campos de preenchimento, **Enter** avança ao próximo campo sem salvar. Botões selecionados mantêm sua ação por Enter. [Regras e validação](docs/enter-navigation-2026-10-18.md).
+
+O menu **Cadastros → Fiscal** possui ficha com os campos do cadastro legado no padrão de Novo contrato, edição e auditoria transacional. [Instalação e validação](docs/inspector-registration-2026-10-18.md).
+
 O botão **Publicação** gera um PDF para contratos salvos com o modelo do Diário Público. [Campos e emissão](docs/contract-publication-2026-10-17.md).
 
 O botão **Extrato** gera o PDF de contratos salvos de **Fornecimento**, usando o modelo Word fornecido e a administração configurada. [Campos, segurança e validação](docs/supply-contract-extract-2026-10-17.md).
