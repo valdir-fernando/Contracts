@@ -1,5 +1,13 @@
 # Cadastro de fiscal de contrato
 
+## CPF único no cadastro
+
+CPF preenchido identifica um único fiscal entre registros não excluídos, inclusive inativos e vinculados a outros Fundos. Criação e edição normalizam os dígitos e recusam duplicidade no backend com erro de validação em `CPF_Fiscal`. A edição pode manter o próprio CPF; excluir logicamente o cadastro libera o CPF para outro registro. CPF continua opcional nesta ficha. Duplicidades históricas não são apagadas nem combinadas automaticamente; o cadastro exige correção, e a consulta mantém a recusa de seleção ambígua.
+
+Na gravação, a ordem atual de locks é ator, Fundos ordenados por ID, fiscal e órgãos do vínculo, seguida da verificação dos demais fiscais não excluídos. O bloqueio compartilhado dos Fundos serializa gravações cadastrais de CPFs entre administradores e Fundos diferentes; a validação não depende da consulta JavaScript. Importações e SQL direto não são reescritos por esta alteração.
+
+Validação: `docker compose exec -T app php vendor/bin/phpunit tests/Feature/InspectorRegistrationTest.php tests/Feature/InspectorDecreeTest.php --do-not-cache-result`: 24 testes, 191 asserções aprovados em SQLite em memória. Pint dos dois arquivos PHP aprovado. Sem build por não haver alteração em assets; concorrência real MySQL não executada.
+
 O menu **Cadastros → Fiscal** mantém `/catalogs/list/inspector` e passa a abrir uma ficha no padrão de Novo contrato: painéis compactos, abas Dados do fiscal/Vínculo e decreto, Expandir Tudo e barra Novo/Salvar. A lista paginada abaixo permite abrir um fiscal para edição. A tela é responsiva e exibe erros de validação com os dois painéis abertos.
 
 Os campos da referência são CPF, RG/CIC, nascimento, sexo, nome, celular, WhatsApp, decreto, data do decreto, endereço, Fundo e Secretaria/Setor. Código é gerado pelo servidor. Contatos usam as chaves legadas `Celular` e `WhatsApp`; endereço usa `Endereco`, sem adicionar coluna à tabela importada. Somente a ficha selecionada projeta os campos pessoais permitidos; a listagem não inclui CPF, RG ou payload completo. Respostas são `private, no-store` e exigem administrador.

@@ -428,6 +428,31 @@
 | `WhatsApp` | `text NOT NULL` |
 | `Cod_Prodata` | `int(11) NOT NULL` |
 
+### `tb_Gestor_Cont` — cadastro adicional da aplicação
+
+Criada para Gestor de Contratos, com os campos equivalentes de `tb_Fiscal`. Não representa Gestor do Fundo (`tb_Gestor`).
+
+| Campo | Tipo e finalidade |
+|---|---|
+| `ID_Gestor_Cont` | Inteiro autoincremental, chave primária própria |
+| `CPF_Gestor` | Texto, equivalente a CPF_Fiscal |
+| `RG_Gestor` | Texto, equivalente a RG_Fiscal |
+| `Data_Nasc` | Texto |
+| `Sexo` | Texto |
+| `Nome_Gestor` | Texto, equivalente a Nome_Fiscal |
+| `Email` | Texto |
+| `Fundo` | Texto |
+| `Secretaria` | Texto |
+| `Decreto` | Texto |
+| `Data_Decreto` | Texto |
+| `Celular` | Texto |
+| `WhatsApp` | Texto |
+| `Cod_Prodata` | Inteiro, null quando desconhecido |
+| `contract_steward_id` | FK única para a projeção interna contract_stewards |
+| `created_at`, `updated_at`, `deleted_at` | Timestamps de criação, edição e exclusão lógica |
+
+Campos pessoais e contextuais desconhecidos admitem null. A aplicação mantém tabela, projeção interna e auditoria na mesma transação. [Instalação e cópia da origem](contract-steward-registration-2026-10-18.md).
+
 ### `tb_Fornecedor` — 39 campos, 1175 registros
 
 | Campo | Tipo SQL e restrição |
@@ -523,6 +548,8 @@
 | `Fundo` | `text NOT NULL` |
 
 ### `tb_Gestor` — 17 campos, 8 registros
+
+Esta seção descreve a origem do dump legado. No banco da aplicação, a tabela anteriormente chamada `contract_managers` passou a se chamar `tb_Gestor` pela migration 000013. A tabela da aplicação conserva as colunas Laravel (`id`, `legacy_id`, `name`, chaves normalizadas, `raw_payload`, timestamps e exclusão lógica); os 17 campos originais são preservados no payload importado.
 
 | Campo | Tipo SQL e restrição |
 |---|---|

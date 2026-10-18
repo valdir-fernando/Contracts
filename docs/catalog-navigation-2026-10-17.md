@@ -2,7 +2,7 @@
 
 O menu Cadastros reúne Fiscal, Gestor, Fundo, Secretaria, Dotação e Fornecedor. **Contratos** mantém o acesso à listagem de contratos no menu principal, imediatamente abaixo de **Início**, fora do submenu Cadastros (ajuste de 18/10/2026). Fundo e Secretaria apontam às seções existentes de Órgãos e permissões; Fornecedor mantém sua tela e suas permissões.
 
-O submenu adicional **Gestor_Fundo** consulta `/catalogs/list/manager-fund`: apresenta Fundo e Gestor, ordenados por Fundo, a partir das associações existentes em `contract_managers`. Mantém a restrição administrativa, a projeção explícita sem dados pessoais e o cache privado das demais listas. Não cria uma nova origem de dados nem altera vínculos.
+O submenu adicional **Gestor_Fundo** consulta `/catalogs/list/manager-fund`: apresenta Fundo e Gestor, ordenados por Fundo, a partir das associações existentes em `tb_Gestor`. Mantém a restrição administrativa, a projeção explícita sem dados pessoais e o cache privado das demais listas. Não cria uma nova origem de dados nem altera vínculos.
 
 Fiscal, Gestor e Dotação possuem listas paginadas de consulta dos catálogos existentes. Não foram adicionadas operações de gravação nesses três cadastros. As rotas `/catalogs/list/inspector`, `/catalogs/list/manager` e `/catalogs/list/budget` exigem administrador no servidor, projetam colunas explícitas e retornam cache privado sem armazenamento. Não expõem payloads nem documentos pessoais de fiscais/gestores.
 

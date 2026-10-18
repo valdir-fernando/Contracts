@@ -1,6 +1,6 @@
 # Cadastro de Fundo
 
-O menu **Cadastros → Fundo** abre `/funds`, uma ficha compacta no padrão dos formulários de contratos/fiscais. Usa os oito campos da referência `Cadastro_Fundo.jpg`: código interno somente leitura, CNPJ, nome do Fundo, endereço completo, abreviatura, código de gestão, telefone e nome do contato. Endereço inicia com uma linha e cresce/reduz conforme o texto. Alturas dos controles acompanham Novo contrato; a grade adapta-se ao celular e a lista usa rolagem horizontal sem quebrar documentos e telefones.
+O menu **Cadastros → Fundo** abre `/funds`, uma ficha compacta no padrão dos formulários de contratos/fiscais. Usa os campos da referência `Cadastro_Fundo.jpg`: CNPJ, nome do Fundo, endereço completo, abreviatura, código de gestão, telefone e nome do contato. Endereço inicia com uma linha e cresce/reduz conforme o texto. Alturas dos controles acompanham Novo contrato; a grade adapta-se ao celular e a lista usa rolagem horizontal sem quebrar documentos e telefones.
 
 O catálogo existente `contract_funds` é reutilizado. No ambiente disponível já havia oito Fundos importados; nenhum novo Fundo real foi criado. Os detalhes permanecem em JSON com as chaves originais de `tb_Fundo`: `End_Fundo`, `Abreviatuda` (grafia legada), `Codigo`, `Telefone` e `Nome`. `Fundo` e `CNPJ_Fundo` acompanham as colunas normalizadas. Campos omitidos preservam os valores anteriores e campos explicitamente vazios podem ser limpos; dados desconhecidos e `legacy_id` permanecem intactos.
 

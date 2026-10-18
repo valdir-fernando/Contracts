@@ -1,5 +1,11 @@
 # Contracts
 
+O botão **Decreto** do **Fiscal_Contrato** reúne automaticamente os fiscais do mesmo número/data de decreto e gera o PDF individual ou coletivo com nome e Secretaria/Fundo, sempre com dados do Município e assinatura do Prefeito. [Operação e validação](docs/inspector-decrees-2026-10-18.md).
+
+O menu **Cadastros → Gestor_Contrato** abre o cadastro de **Gestor de Contratos**, separado de Fiscal_Contrato e Gestor_Fundo. [Campos, instalação e segurança](docs/contract-steward-registration-2026-10-18.md).
+
+O menu **Cadastros → Gestor_Fundo** permite cadastrar, editar e excluir logicamente gestores com os campos do legado, no padrão visual do sistema. [Instalação, segurança e validação](docs/manager-fund-registration-2026-10-18.md).
+
 Fornecedor e Fundo consultam dados públicos do CNPJ em JSON para preencher novos cadastros e comparar cadastros existentes antes de salvar. [Fonte, comportamento e validação](docs/cnpj-consultation-2026-10-18.md).
 
 O **Cadastro de Fundo** reúne os campos de `tb_Fundo`, busca da ficha existente pelo CNPJ, edição, validação e exclusão lógica protegida, no padrão visual de Novo contrato. [Campos, instalação e validação](docs/fund-registration-2026-10-18.md).
@@ -8,7 +14,7 @@ Datas aparecem como **dia/mês/ano** na interface e nos relatórios **PDF, Excel
 
 Nos campos de preenchimento, **Enter** avança ao próximo campo sem salvar. Botões selecionados mantêm sua ação por Enter. [Regras e validação](docs/enter-navigation-2026-10-18.md).
 
-O menu **Cadastros → Fiscal** possui ficha com os campos do cadastro legado no padrão de Novo contrato, edição e auditoria transacional. [Instalação e validação](docs/inspector-registration-2026-10-18.md).
+O menu **Cadastros → Fiscal_Contrato** possui ficha com os campos do cadastro legado no padrão de Novo contrato, edição e auditoria transacional. [Instalação e validação](docs/inspector-registration-2026-10-18.md).
 
 O botão **Publicação** gera um PDF para contratos salvos com o modelo do Diário Público. [Campos e emissão](docs/contract-publication-2026-10-17.md).
 

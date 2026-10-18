@@ -1,5 +1,7 @@
 # Fundo no login e dados do gestor — 13/10/2026
 
+Atualização de 18/10/2026: a tabela originalmente criada como `contract_managers` foi renomeada para `tb_Gestor` pela migration 000013, preservando sua estrutura Laravel e dados. Para instalar a versão atual, execute todas as migrations com `php artisan migrate --force`; os comandos com `--path` abaixo registram a instalação histórica.
+
 O login exige escolher um Fundo cadastrado e autorizado para a conta. O cabeçalho do Início apresenta o nome atual do Fundo selecionado. Novos contratos sugerem Fundo, documento, endereço e dados do gestor provenientes de `tb_Gestor`. CPF/RG são sugeridos somente para administradores. Campos já digitados prevalecem sobre sugestões, e a edição de contratos existentes preserva seus dados históricos.
 
 A migration adiciona somente `contract_managers`. O comando de importação preserva os oito registros de `tb_Gestor` do dump local, sem alterar contratos. Todos os oito gestores encontraram Fundo correspondente. Vínculos ambíguos não são escolhidos automaticamente. A seleção não modifica a matriz de permissões. A evolução posterior limita os indicadores e contratos recentes do Início ao Fundo da sessão e oferece troca de Fundo autenticada no cabeçalho.

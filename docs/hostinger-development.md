@@ -10,7 +10,7 @@ Crie um banco separado, inicialmente vazio, para o Contracts. O banco original p
 | --- | --- | --- |
 | `tb_Fundo` | `contract_funds` | Login por fundo, alternância e dados cadastrais |
 | `tb_Secretaria` | `contract_departments` | Secretarias e escopos de acesso |
-| `tb_Gestor` | `contract_managers` | Sugestões do gestor no contrato |
+| `tb_Gestor` | `tb_Gestor` | Sugestões do gestor no contrato |
 | `tb_Fornecedor` | `suppliers` | Busca por CPF/CNPJ e preenchimento automático |
 | `TB_Contratos` | `contracts` | Contratos, filtros por ano/fundo e edição auditada |
 | `tb_N_Contrato` | `tb_N_Contrato` no NOVO banco | Contador independente por fundo e ano |
