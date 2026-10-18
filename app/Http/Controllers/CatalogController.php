@@ -49,15 +49,15 @@ class CatalogController extends Controller
         abort_unless($request->user()->isAdmin(), 403);
         [$table, $title, $columns] = match ($kind) {
             'inspector' => ['contract_inspectors', 'Fiscal', ['name' => 'Nome', 'fund_name_key' => 'Fundo', 'department_name_key' => 'Secretaria']],
-            'manager' => ['contract_managers', 'Gestor', ['name' => 'Nome', 'fund_name_key' => 'Fundo']],
-            'manager-fund' => ['contract_managers', 'Gestor_Fundo', ['fund_name_key' => 'Fundo', 'name' => 'Gestor']],
+            'manager' => ['tb_Gestor', 'Gestor', ['name' => 'Nome', 'fund_name_key' => 'Fundo']],
+            'manager-fund' => ['tb_Gestor', 'Gestor_Fundo', ['fund_name_key' => 'Fundo', 'name' => 'Gestor']],
             'budget' => ['tb_Dotacao', 'Dotação', ['Ficha' => 'Ficha', 'Descricao' => 'Descrição', 'Dotacao' => 'Dotação', 'Fundo' => 'Fundo', 'Secretaria' => 'Secretaria']],
             default => abort(404),
         };
 
         return response()->view('administration.catalog-list', [
             'title' => $title, 'columns' => $columns,
-            'records' => DB::table($table)->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
+            'records' => DB::table($table)->when($table === 'tb_Gestor', fn ($query) => $query->whereNull('deleted_at'))->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
         ])->header('Cache-Control', 'private, no-store');
     }
 

@@ -30,8 +30,8 @@
                             <summary class="nav-link" aria-label="Cadastros" data-nav-label="Cadastros"><x-nav-icon name="catalogs"/><span>Cadastros</span></summary>
                             <div class="nav-submenu">
                                 @if(auth()->user()->isAdmin())
-                                    @foreach(['inspector' => 'Fiscal', 'manager' => 'Gestor', 'manager-fund' => 'Gestor_Fundo'] as $kind => $name)
-                                        <a class="nav-link" href="{{ route('catalogs.list', $kind) }}" @if(request()->routeIs('catalogs.list', 'catalogs.inspectors') && request()->route('kind') === $kind) aria-current="page" @endif><x-nav-icon name="users"/><span>{{ $name }}</span></a>
+                                    @foreach(['inspector' => 'Fiscal_Contrato', 'contract-steward' => 'Gestor_Contrato', 'manager-fund' => 'Gestor_Fundo'] as $kind => $name)
+                                        <a class="nav-link" href="{{ route('catalogs.list', $kind) }}" @if(request()->routeIs('catalogs.list', 'catalogs.inspectors', 'catalogs.contract-stewards', 'catalogs.managers') && request()->route('kind') === $kind) aria-current="page" @endif><x-nav-icon name="users"/><span>{{ $name }}</span></a>
                                     @endforeach
                                     <a class="nav-link" href="{{ route('funds.index') }}" @if(request()->routeIs('funds.*')) aria-current="page" @endif><x-nav-icon name="catalogs"/><span>Fundo</span></a>
                                     <a class="nav-link" href="{{ route('catalogs.index') }}#departments"><x-nav-icon name="catalogs"/><span>Secretaria</span></a>

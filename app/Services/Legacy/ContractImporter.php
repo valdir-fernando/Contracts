@@ -26,7 +26,7 @@ class ContractImporter
         'tb_Fundo' => ['table' => 'contract_funds', 'id' => 'ID_Fundo', 'name' => 'Fundo', 'document' => 'CNPJ_Fundo'],
         'tb_Secretaria' => ['table' => 'contract_departments', 'id' => 'ID_Secretaria', 'name' => 'Secretaria'],
         'tb_Fornecedor' => ['table' => 'suppliers', 'id' => 'ID_Fornecedor', 'name' => 'Nome_Fornecedor', 'document' => 'CPF_CNPJ'],
-        'tb_Gestor' => ['table' => 'contract_managers', 'id' => 'ID_Gestor', 'name' => 'Nome_Gestor', 'document' => 'CPF_Gestor'],
+        'tb_Gestor' => ['table' => 'tb_Gestor', 'id' => 'ID_Gestor', 'name' => 'Nome_Gestor', 'document' => 'CPF_Gestor'],
         'tb_Fiscal' => ['table' => 'contract_inspectors', 'id' => 'ID_Fiscal', 'name' => 'Nome_Fiscal'],
     ];
 

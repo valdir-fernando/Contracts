@@ -156,10 +156,34 @@ class InspectorRegistrationTest extends TestCase
             $this->postJson('/inspectors/lookup', ['cpf' => $cpf])->assertUnprocessable()->assertJsonValidationErrors('cpf');
         }
         $this->post('/inspectors', $this->data())->assertRedirect();
-        $this->post('/inspectors', $this->data())->assertRedirect();
+        // Preserve coverage of historical duplicates, which can no longer be created through registration.
+        $legacy = (array) DB::table('contract_inspectors')->first();
+        unset($legacy['id']);
+        DB::table('contract_inspectors')->insert($legacy);
         $this->postJson('/inspectors/lookup', ['cpf' => '52998224725'])->assertStatus(409)->assertDontSee('FISCAL EXEMPLO');
         $user = User::create(['name' => 'Usuário', 'username' => 'USER', 'password' => 'SenhaSegura123']);
         $this->actingAs($user)->postJson('/inspectors/lookup', ['cpf' => '52998224725'])->assertForbidden();
+    }
+
+    public function test_cpf_is_unique_across_funds_and_inactive_records_and_update_keeps_own_cpf(): void
+    {
+        $this->post('/inspectors', $this->data(['Situacao' => 'Inativo']))->assertRedirect();
+        $first = DB::table('contract_inspectors')->first();
+        DB::table('contract_inspectors')->where('id', $first->id)->update(['raw_payload->CPF_Fiscal' => ' 529.982.247-25 ']);
+        $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro Fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
+        $this->postJson('/inspectors', $this->data(['CPF_Fiscal' => '52998224725', 'fund_id' => $otherFund]))
+            ->assertUnprocessable()->assertJsonValidationErrors('CPF_Fiscal');
+        $this->assertDatabaseCount('contract_inspectors', 1);
+        $first = DB::table('contract_inspectors')->find($first->id);
+        $revision = app(InspectorRegistration::class)->revision($first);
+        $this->put('/inspectors/'.$first->id, $this->data(['revision' => $revision]))->assertRedirect();
+        $this->post('/inspectors', $this->data(['CPF_Fiscal' => '12345678909']))->assertRedirect();
+        $second = DB::table('contract_inspectors')->orderByDesc('id')->first();
+        $this->putJson('/inspectors/'.$second->id, $this->data(['revision' => app(InspectorRegistration::class)->revision($second)]))
+            ->assertUnprocessable()->assertJsonValidationErrors('CPF_Fiscal');
+        $this->assertSame('12345678909', json_decode(DB::table('contract_inspectors')->find($second->id)->raw_payload, true)['CPF_Fiscal']);
+        DB::table('contract_inspectors')->where('id', $first->id)->update(['deleted_at' => now()]);
+        $this->post('/inspectors', $this->data())->assertRedirect();
     }
 
     public function test_brazilian_legacy_dates_fill_the_form_and_save_dates_in_iso_format(): void

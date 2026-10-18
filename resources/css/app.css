@@ -1237,13 +1237,18 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-registers { margin-top: 12px; }
 .inspector-org-row { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 .inspector-org-row > .field { min-width: 0; margin-bottom: 0; }
-.inspector-editor textarea[data-inspector-address] { overflow-y: hidden; resize: none; }
+.inspector-editor textarea:is([data-inspector-address], [data-contract-steward-address]) { overflow-y: hidden; resize: none; }
 .inspector-editor input[name="Nome_Fiscal"] { text-transform: uppercase; }
+.inspector-editor input[name="Nome_Gestor"] { text-transform: uppercase; }
+.manager-email { grid-column: span 2; }
+.action-toolbar .registration-decree { margin-inline-end: auto; }
+.registration-decree .document-action-tooltip { inset-inline-start: 0; inset-inline-end: auto; }
+@media (max-width: 600px) { .manager-email { grid-column: auto; } }
 .workspace-content:has(> .fund-page) > .workspace-top { margin-bottom: 8px; }
 .fund-page .page-heading { margin-bottom: 8px; gap: 12px; }
 .fund-page .page-heading h1 { margin-block: 2px 4px; }
 .fund-page .contract-section > h2 { margin-bottom: 10px; }
-.fund-identity-row { display: grid; grid-template-columns: 90px minmax(220px, .65fr) minmax(0, 2fr); gap: 14px 12px; }
+.fund-identity-row { display: grid; grid-template-columns: minmax(220px, .65fr) minmax(0, 2fr); gap: 14px 12px; }
 .fund-contact-row { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(80px, .65fr) minmax(160px, 1.25fr) minmax(0, 2fr); gap: 14px 12px; }
 .fund-page .field { min-width: 0; margin-bottom: 0; }
 [data-contract-editor].fund-page .contract-section > .fund-address { margin-block: 14px 22px; }
@@ -1258,7 +1263,7 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .fund-registers .data-table { min-width: 1250px; table-layout: auto; }
 .fund-registers .data-table :is(th, td) { white-space: nowrap; }
 .fund-registers .data-table td { max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 1100px) { .fund-identity-row { grid-template-columns: 90px minmax(0, 1fr); } .fund-identity-row > .field:last-child { grid-column: 1 / -1; } .fund-contact-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .fund-identity-row { grid-template-columns: minmax(180px, .65fr) minmax(0, 2fr); } .fund-contact-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .fund-identity-row, .fund-contact-row { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .inspector-org-row { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 1000px) { .inspector-page .contract-section .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

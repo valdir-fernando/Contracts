@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Infrastructure\Managers\ManagerSignatory;
 use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
@@ -27,6 +28,9 @@ class AmendmentWriter
         foreach (AmendmentFields::MAP as $field => $definition) {
             $payload[$field] = isset($definition['column']) ? $contract->{$definition['column']} : null;
         }
+        $signer = (new ManagerSignatory)->forContract($contract);
+        $payload = array_replace($payload, ['Gestor' => $signer['Nome_Gestor'], 'CPF_Gestor' => $signer['CPF_Gestor'],
+            'RG_Gestor' => $signer['RG_Gestor'], 'Cargo_Gestor' => $signer['Cargo']]);
 
         return $payload;
     }
@@ -84,6 +88,14 @@ class AmendmentWriter
                     continue;
                 }
                 $payload[$field] = AmendmentFields::MAP[$field]['type'] === 'money' ? Normalizer::money($value) : $value;
+            }
+            if (! $id) {
+                $fund = $contract->fund_id ? DB::table('contract_funds')->where('id', $contract->fund_id)->first() : null;
+                if ($fund && ManagerSignatory::isMunicipal($fund->name)) {
+                    $signer = (new ManagerSignatory)->forContract($contract);
+                    $payload = array_replace($payload, ['Gestor' => $signer['Nome_Gestor'], 'CPF_Gestor' => $signer['CPF_Gestor'],
+                        'RG_Gestor' => $signer['RG_Gestor'], 'Cargo_Gestor' => $signer['Cargo']]);
+                }
             }
             $payload['N_ADT'] = trim($payload['N_ADT']);
             if ($payload['N_ADT'] === '') {

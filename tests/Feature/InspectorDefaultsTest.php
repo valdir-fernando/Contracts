@@ -37,7 +37,7 @@ class InspectorDefaultsTest extends TestCase
         $this->department = DB::table('contract_departments')->insertGetId(['name' => 'Educação', 'name_key' => 'EDUCACAO', 'raw_payload' => '{}']);
         $this->otherDepartment = DB::table('contract_departments')->insertGetId(['name' => 'Obras', 'name_key' => 'OBRAS', 'raw_payload' => '{}']);
         DB::table('suppliers')->insert(['name' => 'Empresa', 'name_key' => 'EMPRESA', 'document' => '11222333000181', 'document_key' => '11222333000181', 'raw_payload' => '{}']);
-        DB::table('contract_managers')->insert(['legacy_id' => 1, 'name' => 'Gestor oficial', 'name_key' => 'GESTOR OFICIAL', 'fund_name_key' => 'FUNDO SAUDE',
+        DB::table('tb_Gestor')->insert(['legacy_id' => 1, 'name' => 'Gestor oficial', 'name_key' => 'GESTOR OFICIAL', 'fund_name_key' => 'FUNDO SAUDE',
             'raw_payload' => json_encode(['Nome_Gestor' => 'Gestor oficial', 'Cargo' => 'Presidente', 'CPF_Gestor' => '11144477735', 'RG_Gestor' => 'RG GESTOR'])]);
         $this->inspector(1, 'Fundo Saúde', '', 'Fiscal Saúde');
         $this->inspector(2, 'MUNICIPIO DE NIQUELÂNDIA', 'Educação', 'Fiscal Educação');

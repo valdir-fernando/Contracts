@@ -39,7 +39,7 @@ class SelectedFundTest extends TestCase
 
     private function manager(int $id = 1): void
     {
-        DB::table('contract_managers')->insert(['legacy_id' => $id, 'name' => 'Gestor do Fundo', 'name_key' => 'GESTOR DO FUNDO',
+        DB::table('tb_Gestor')->insert(['legacy_id' => $id, 'name' => 'Gestor do Fundo', 'name_key' => 'GESTOR DO FUNDO',
             'fund_name_key' => 'FUNDO A', 'raw_payload' => json_encode(['Nome_Gestor' => 'Gestor do Fundo', 'Cargo' => 'Presidente',
                 'CPF_Gestor' => '52998224725', 'RG_Gestor' => 'RG PRIVATE', 'Email' => 'PRIVATE EMAIL', 'Endereco' => 'PRIVATE ADDRESS'])]);
     }
@@ -156,11 +156,11 @@ class SelectedFundTest extends TestCase
             $importer = app(ManagerImporter::class);
             $this->assertSame(1, $importer->import($path)['imported_count']);
             $this->assertSame(1, $importer->import($path)['skipped_count']);
-            $this->assertDatabaseCount('contract_managers', 1);
+            $this->assertDatabaseCount('tb_Gestor', 1);
             $this->assertDatabaseHas('legacy_records', ['source_table' => 'tb_Gestor', 'legacy_id' => '1']);
             file_put_contents($path, str_replace('Gestor importado', 'Gestor alterado', $sql));
             $this->assertSame(1, $importer->import($path)['rejected_count']);
-            $this->assertDatabaseHas('contract_managers', ['name' => 'Gestor importado']);
+            $this->assertDatabaseHas('tb_Gestor', ['name' => 'Gestor importado']);
             $this->assertDatabaseHas('legacy_records', ['source_table' => 'tb_Gestor', 'status' => 'conflict']);
             $this->assertDatabaseCount('contracts', 0);
         } finally {

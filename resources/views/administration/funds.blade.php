@@ -7,7 +7,6 @@
             <section class="surface contract-section">
                 <h2>Dados do Fundo</h2>
                 <div class="fund-identity-row">
-                    <div class="field"><label for="fund-id">Código</label><input id="fund-id" readonly value="{{ $record?->id ?? 'Automático' }}"></div>
                     <div class="field">
                         <div class="field-label-row"><label for="fund-document">CNPJ do Fundo<x-required-mark/></label><a class="text-link" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-nacional-de-pessoas-juridicas" target="_blank" rel="noopener noreferrer">Dados Online</a></div>
                         <input id="fund-document" name="document" data-fund-cnpj type="text" inputmode="numeric" maxlength="18" required value="{{ old('document', $values['document'] ?? '') }}" aria-describedby="fund-document-error" @if($errors->has('document')) aria-invalid="true" @endif>
@@ -36,9 +35,9 @@
             </dialog>
         @endif
         <section class="surface contract-section fund-registers"><h2>Fundos cadastrados</h2>
-            <div class="table-scroll"><table class="data-table"><thead><tr><th>Código</th><th>CNPJ</th><th>Fundo</th><th>Endereço</th><th>Abreviatura</th><th>Código de gestão</th><th>Telefone</th><th>Contato</th><th>Ações</th></tr></thead><tbody>
-                @forelse($records as $item)<tr data-row-href="{{ route('funds.index', ['edit' => $item->id, 'page' => $records->currentPage()]) }}"><td>{{ $item->id }}</td><td>{{ $item->document ?: 'Não informado' }}</td><td><a class="text-link" href="{{ route('funds.index', ['edit' => $item->id]) }}">{{ $item->name }}</a></td><td>{{ $item->End_Fundo ?? 'Não informado' }}</td><td>{{ $item->Abreviatuda ?? 'Não informado' }}</td><td>{{ $item->Codigo ?? 'Não informado' }}</td><td>{{ $item->Telefone ?? 'Não informado' }}</td><td>{{ $item->Nome ?? 'Não informado' }}</td><td><a class="text-link" href="{{ route('funds.index', ['edit' => $item->id]) }}">Editar</a></td></tr>
-                @empty<tr><td colspan="9" class="empty-state">Nenhum Fundo cadastrado.</td></tr>@endforelse
+            <div class="table-scroll"><table class="data-table"><thead><tr><th>CNPJ</th><th>Fundo</th><th>Endereço</th><th>Abreviatura</th><th>Código de gestão</th><th>Telefone</th><th>Contato</th><th>Ações</th></tr></thead><tbody>
+                @forelse($records as $item)<tr data-row-href="{{ route('funds.index', ['edit' => $item->id, 'page' => $records->currentPage()]) }}"><td>{{ $item->document ?: 'Não informado' }}</td><td><a class="text-link" href="{{ route('funds.index', ['edit' => $item->id]) }}">{{ $item->name }}</a></td><td>{{ $item->End_Fundo ?? 'Não informado' }}</td><td>{{ $item->Abreviatuda ?? 'Não informado' }}</td><td>{{ $item->Codigo ?? 'Não informado' }}</td><td>{{ $item->Telefone ?? 'Não informado' }}</td><td>{{ $item->Nome ?? 'Não informado' }}</td><td><a class="text-link" href="{{ route('funds.index', ['edit' => $item->id]) }}">Editar</a></td></tr>
+                @empty<tr><td colspan="8" class="empty-state">Nenhum Fundo cadastrado.</td></tr>@endforelse
             </tbody></table></div>{{ $records->links() }}
         </section>
     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Security;
 
+use App\Infrastructure\Managers\ManagerSignatory;
 use App\Infrastructure\Persistence\TransactionGuard;
 use App\Models\User;
 use App\Services\Legacy\Normalizer;
@@ -52,11 +53,7 @@ final class SelectedFund
             return [];
         }
         $legacy = json_decode($fund->raw_payload, true) ?? [];
-        $fundKey = Normalizer::name($fund->name);
-        $managers = DB::table('contract_managers')->where('fund_name_key', $fundKey)->limit(2)->get();
-        // Names in the legacy source are not foreign keys: ambiguous links stay empty.
-        $uniqueFund = DB::table('contract_funds')->whereNull('deleted_at')->where('name_key', $fundKey)->count() === 1;
-        $manager = $uniqueFund && $managers->count() === 1 ? json_decode($managers->first()->raw_payload, true) : [];
+        $manager = (new ManagerSignatory)->forFund($fund);
         $values = ['fund_id' => $fund->id, 'fundo_nome_snapshot' => $fund->name,
             'fundo_documento_snapshot' => $fund->document, 'end_fundo' => $legacy['End_Fundo'] ?? null,
             'nome_gestor' => $manager['Nome_Gestor'] ?? null, 'cargo_gestor' => $manager['Cargo'] ?? null];

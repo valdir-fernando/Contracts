@@ -30,7 +30,7 @@ final class ManagerImporter
                 $json = json_encode($raw, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
                 $record = LegacyRecord::firstOrCreate(['source_table' => 'tb_Gestor', 'legacy_id' => $id, 'source_hash' => hash('sha256', $json)],
                     ['raw_payload' => $raw, 'import_run_id' => $run->id]);
-                $existing = DB::table('contract_managers')->where('legacy_id', (int) $id)->lockForUpdate()->first();
+                $existing = DB::table('tb_Gestor')->where('legacy_id', (int) $id)->lockForUpdate()->first();
                 if ($existing) {
                     $unchanged = json_decode($existing->raw_payload, true) === $raw;
                     $record->update(['status' => $unchanged ? 'imported' : 'conflict']);
@@ -39,7 +39,7 @@ final class ManagerImporter
                     continue;
                 }
                 $document = Normalizer::document($raw['CPF_Gestor'] ?? '');
-                DB::table('contract_managers')->insert(['legacy_id' => (int) $id, 'name' => $name, 'name_key' => Normalizer::name($name),
+                DB::table('tb_Gestor')->insert(['legacy_id' => (int) $id, 'name' => $name, 'name_key' => Normalizer::name($name),
                     'document' => $raw['CPF_Gestor'] ?? null, 'document_key' => strlen($document) <= 32 ? ($document ?: null) : null,
                     'fund_name_key' => $fundKey, 'raw_payload' => $json, 'created_at' => now(), 'updated_at' => now()]);
                 $record->update(['status' => 'imported']);

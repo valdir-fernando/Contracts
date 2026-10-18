@@ -20,7 +20,7 @@ class CatalogNavigationTest extends TestCase
             ->assertSee('Fiscal cadastrado')->assertSeeInOrder(['data-nav-label="Início"', 'data-nav-label="Contratos"', 'data-nav-label="Cadastros"'], false)
             ->assertDontSee('52998224725')->assertDontSee('privado@example.com');
         $this->get('/catalogs/list/manager')->assertOk();
-        DB::table('contract_managers')->insert(['legacy_id' => 1, 'name' => 'Gestor cadastrado', 'name_key' => 'GESTOR CADASTRADO', 'fund_name_key' => 'FUNDO SAUDE', 'raw_payload' => '{"CPF_Gestor":"52998224725","Email":"gestor-privado@example.com"}']);
+        DB::table('tb_Gestor')->insert(['legacy_id' => 1, 'name' => 'Gestor cadastrado', 'name_key' => 'GESTOR CADASTRADO', 'fund_name_key' => 'FUNDO SAUDE', 'raw_payload' => '{"CPF_Gestor":"52998224725","Email":"gestor-privado@example.com"}']);
         $this->get('/catalogs/list/manager-fund')->assertOk()
             ->assertSee('Gestor_Fundo')->assertSee('Gestor cadastrado')->assertSee('FUNDO SAUDE')
             ->assertSee('href="'.route('catalogs.list', 'manager-fund').'"', false)

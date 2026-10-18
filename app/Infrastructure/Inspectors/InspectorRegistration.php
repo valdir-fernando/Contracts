@@ -65,6 +65,8 @@ final class InspectorRegistration
         return DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
             abort_unless($actor->isAdmin(), 403);
+            // Serialize CPF checks across funds, including concurrent writes by different administrators.
+            DB::table('contract_funds')->orderBy('id')->lockForUpdate()->get(['id']);
             $record = $id ? DB::table('contract_inspectors')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
             abort_if($id && ! $record, 404);
             if ($record) {
@@ -98,6 +100,15 @@ final class InspectorRegistration
             $department = empty($data['department_id']) ? null : DB::table('contract_departments')->where('id', $data['department_id'])->lockForUpdate()->first();
             if (! empty($data['department_id']) && (! $department || Normalizer::name($fund->name) !== 'MUNICIPIO DE NIQUELANDIA')) {
                 throw ValidationException::withMessages(['department_id' => 'Selecione uma secretaria somente para o Município de Niquelândia.']);
+            }
+            $effectiveCpf = Normalizer::document($data['CPF_Fiscal'] ?? (array_key_exists('CPF_Fiscal', $data) ? '' : ($raw['CPF_Fiscal'] ?? '')));
+            if ($effectiveCpf !== '') {
+                $duplicate = DB::table('contract_inspectors')->whereNull('deleted_at')
+                    ->when($id, fn ($query) => $query->where('id', '!=', $id))->orderBy('id')->lockForUpdate()->get(['raw_payload'])
+                    ->contains(fn ($candidate) => Normalizer::document(json_decode($candidate->raw_payload, true, 512, JSON_THROW_ON_ERROR)['CPF_Fiscal'] ?? '') === $effectiveCpf);
+                if ($duplicate) {
+                    throw ValidationException::withMessages(['CPF_Fiscal' => 'Este CPF já pertence a outro cadastro de fiscal. Abra o cadastro existente ou corrija o CPF.']);
+                }
             }
             foreach (self::FIELDS as $key => $_) {
                 if (array_key_exists($key, $data)) {

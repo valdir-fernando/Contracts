@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Documents;
 
+use App\Infrastructure\Managers\ManagerSignatory;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\Contract;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Gate;
 
 class SupplyContractExtract
 {
-    public function __construct(private LockActor $actors, private DocumentSettings $settings, private SupplyExtractTemplate $template) {}
+    public function __construct(private LockActor $actors, private DocumentSettings $settings, private SupplyExtractTemplate $template, private ManagerSignatory $signatories = new ManagerSignatory) {}
 
     public function generate(User $expected, int $id, int $version): string
     {
@@ -25,9 +26,10 @@ class SupplyContractExtract
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir o extrato.');
             abort_unless(Normalizer::name($contract->tipo) === 'FORNECIMENTO', 422, 'Este modelo de extrato está disponível somente para Fornecimento.');
             $settings = $this->settings->current();
+            $signer = $this->signatories->forContract($contract);
 
-            return ['fields' => $this->fields($contract, $actor, $settings->administration_start_year.'/'.$settings->administration_end_year),
-                'version' => (int) $contract->version, 'role' => $actor->user_type, 'settingsVersion' => (int) $settings->version];
+            return ['fields' => $this->fields($contract, $actor, $settings->administration_start_year.'/'.$settings->administration_end_year, $signer),
+                'signer' => $this->signatories->fingerprint($signer), 'version' => (int) $contract->version, 'role' => $actor->user_type, 'settingsVersion' => (int) $settings->version];
         });
         $html = $this->template->render($snapshot['fields']);
         $bytes = $this->render($html);
@@ -38,13 +40,14 @@ class SupplyContractExtract
             Gate::forUser($actor)->authorize('view', $contract);
             abort_unless($actor->user_type === $snapshot['role'], 403);
             abort_unless((int) $contract->version === $snapshot['version'], 409, 'O contrato mudou durante a emissão. Gere o extrato novamente.');
+            $this->signatories->assertUnchanged($contract, $snapshot['signer']);
             $settings = DB::table('document_settings')->where('id', 1)->lockForUpdate()->firstOrFail();
             abort_unless((int) $settings->version === $snapshot['settingsVersion'], 409, 'A administração mudou durante a emissão. Gere o extrato novamente.');
             abort_unless(hash_equals($templateHash, hash_file('sha256', $this->template->path())), 409, 'O modelo foi atualizado. Gere o extrato novamente.');
             ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'contract_extract_generated',
                 'metadata' => ['contract_id' => $id, 'contract_version' => $snapshot['version'], 'model' => 'supply',
                     'model_sha256' => $templateHash, 'document_settings_version' => $snapshot['settingsVersion'],
-                    'administration' => $snapshot['fields']['#ADM'], 'sha256' => hash('sha256', $bytes)], 'created_at' => now()]);
+                    'signatory_fingerprint' => $snapshot['signer'], 'administration' => $snapshot['fields']['#ADM'], 'sha256' => hash('sha256', $bytes)], 'created_at' => now()]);
         });
 
         return $bytes;
@@ -60,7 +63,7 @@ class SupplyContractExtract
         return $pdf->output();
     }
 
-    private function fields(Contract $contract, User $actor, string $administration): array
+    private function fields(Contract $contract, User $actor, string $administration, array $signer): array
     {
         $text = static fn ($value) => filled($value) ? (string) $value : 'Não informado';
         $document = Normalizer::document($contract->fornecedor_documento_snapshot);
@@ -74,8 +77,8 @@ class SupplyContractExtract
             '#Início' => $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado',
             '#Final' => $contract->end_date?->format('d/m/Y') ?? 'Não informado',
             '#ExtTotal' => $text($contract->ext_total), '#VLTotal' => str_replace('R$ ', '', Contract::moneyLabel($contract->valor_total)),
-            '#NomeGestor' => $text($contract->nome_gestor), '#CPFGestor' => $this->document(Normalizer::document($contract->cpf_gestor), $actor),
-            '#Cargo' => $text($contract->cargo_gestor), '#DataContrato' => $contract->data_contrato?->format('d/m/Y') ?? 'Não informado',
+            '#NomeGestor' => $text($signer['Nome_Gestor']), '#CPFGestor' => $this->document(Normalizer::document($signer['CPF_Gestor']), $actor),
+            '#Cargo' => $text($signer['Cargo']), '#DataContrato' => $contract->data_contrato?->format('d/m/Y') ?? 'Não informado',
         ];
     }
 

@@ -31,7 +31,8 @@ final class FundRegistration
                 $query->where('fund_id', $record->id)->orWhereIn('fund', [$record->name, $record->name_key]);
             })->exists()
             || DB::table('tb_N_Contrato')->where('fund_id', $record->id)->exists()
-            || DB::table('contract_managers')->where('fund_name_key', $record->name_key)->exists()
+            || DB::table('tb_Gestor')->where('fund_name_key', $record->name_key)->exists()
+            || DB::table('contract_stewards')->where('fund_name_key', $record->name_key)->exists()
             || DB::table('contract_inspectors')->where('fund_name_key', $record->name_key)->exists();
     }
 
