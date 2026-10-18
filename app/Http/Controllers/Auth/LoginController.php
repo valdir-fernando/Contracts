@@ -78,7 +78,9 @@ class LoginController extends Controller
         $request->session()->put('auth_version', Auth::user()->session_version);
         $request->session()->put('fund_id', (int) $credentials['fund_id']);
 
-        return redirect()->intended(route('dashboard'));
+        $request->session()->forget('url.intended');
+
+        return redirect()->route('dashboard');
     }
 
     public function destroy(Request $request): RedirectResponse

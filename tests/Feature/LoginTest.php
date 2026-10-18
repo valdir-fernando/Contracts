@@ -51,6 +51,20 @@ class LoginTest extends TestCase
         $this->get('/dashboard')->assertRedirect('/login');
     }
 
+    public function test_login_always_opens_dashboard_after_accessing_a_protected_page(): void
+    {
+        $user = $this->createUser();
+        $this->get('/contracts')->assertRedirect('/login');
+        $this->assertSame(url('/contracts'), session('url.intended'));
+
+        $this->post('/login', ['fund_id' => $this->fund, 'username' => $user->username, 'password' => 'SenhaSegura!123'])
+            ->assertRedirect('/dashboard')
+            ->assertSessionMissing('url.intended')
+            ->assertSessionHas('fund_id', $this->fund);
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_wrong_password_is_rejected_and_not_flashed(): void
     {
         $user = $this->createUser();
