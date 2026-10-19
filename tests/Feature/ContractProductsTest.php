@@ -62,6 +62,49 @@ class ContractProductsTest extends TestCase
         return $this->postJson($this->url($contract).'/products', $this->data($extra + ['product_id' => $this->productId, 'quantity' => $quantity], $contract));
     }
 
+    public function test_ficha_selection_tracks_allocations_edits_and_last_reversal_and_filters_exactly(): void
+    {
+        $base = $this->url().'/products';
+        $this->getJson($base)->assertOk()->assertJsonPath('fichas', []);
+        $this->add('1', null, ['ficha' => '001'])->assertCreated();
+        $first = ContractProduct::sole();
+        $this->add('2', null, ['ficha' => '1'])->assertCreated();
+        $second = ContractProduct::orderByDesc('id')->first();
+        $this->add('1', null, ['ficha' => '001'])->assertCreated();
+        $this->add('1', null, ['ficha' => '0'])->assertCreated();
+        $this->add('1')->assertCreated();
+        $this->getJson($base)->assertOk()->assertJsonPath('fichas', ['0', '001', '1'])->assertJsonCount(5, 'items');
+        $this->getJson($base.'?ficha=001')->assertOk()->assertJsonCount(2, 'items')->assertJsonPath('items.0.id', $first->id)
+            ->assertJsonPath('items.0.Ficha', '001')->assertJsonPath('items.1.Ficha', '001')->assertJsonCount(3, 'fichas');
+        $this->getJson($base.'?ficha=1')->assertJsonCount(1, 'items')->assertJsonPath('items.0.id', $second->id);
+        $this->getJson($base.'?ficha=0')->assertJsonCount(1, 'items')->assertJsonPath('items.0.Ficha', '0');
+        $this->putJson($base.'/'.$second->id, $this->data(['quantity' => '2', 'ficha' => '0007']))->assertOk();
+        $this->getJson($base)->assertJsonPath('fichas', ['0', '001', '0007']);
+        $this->deleteJson($base.'/'.$second->id, $this->data())->assertOk();
+        $this->getJson($base.'?ficha=0007')->assertJsonPath('fichas', ['0', '001'])->assertJsonCount(0, 'items');
+        $this->getJson($base.'?ficha='.str_repeat('1', 65))->assertUnprocessable();
+        $this->blade('<x-contract-products :contract="$contract"/>', ['contract' => $this->contract])
+            ->assertSee('data-product-budget list="contract-product-fichas-', false)
+            ->assertSee('<option value="001">', false)->assertSee('<option value="0">', false)
+            ->assertDontSee('Nova ficha')->assertDontSee('data-product-new-ficha', false);
+    }
+
+    public function test_ficha_options_and_filter_never_include_another_contract_or_expand_user_access(): void
+    {
+        $this->add('1', null, ['ficha' => 'OWN'])->assertCreated();
+        $other = $this->contract->replicate();
+        $other->numero = '099/26';
+        $other->save();
+        $this->add('1', $other, ['ficha' => 'PRIVATE-OTHER'])->assertCreated();
+        $this->get($this->url().'/edit')->assertOk()
+            ->assertSee('id="contract-product-fichas-'.$this->contract->id.'"', false)
+            ->assertSee('<option value="OWN">', false)->assertDontSee('<option value="PRIVATE-OTHER">', false)
+            ->assertDontSee('Nova ficha');
+        $this->getJson($this->url().'/products?ficha=PRIVATE-OTHER')->assertOk()->assertJsonPath('fichas', ['OWN'])->assertJsonCount(0, 'items');
+        $user = User::create(['name' => 'Sem acesso', 'username' => 'NO_PRODUCT_FICHAS', 'password' => 'TestPassword12345']);
+        $this->actingAs($user)->getJson($this->url().'/products?ficha=OWN')->assertForbidden()->assertJsonMissingPath('fichas');
+    }
+
     public function test_ficha_values_match_contract_fund_and_process_and_require_contract_access(): void
     {
         $row = ['Ficha' => '00123', 'Fundo' => ' fms ', 'Contrato' => '001/26', 'Proc_Cont' => ' 123/2026 ', 'CPF_CNPJ' => '11.222.333/0001-81', 'Valor' => '1.234,5678'];

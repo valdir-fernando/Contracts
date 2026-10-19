@@ -66,6 +66,18 @@ class Contract extends Model
         });
     }
 
+    public function productFichas(): array
+    {
+        if (! $this->exists) {
+            return [];
+        }
+        $fichas = ContractProduct::where('contract_id', $this->id)->pluck('Ficha')
+            ->map(fn ($ficha) => trim((string) $ficha))->filter(fn ($ficha) => $ficha !== '')->uniqueStrict()->values()->all();
+        sort($fichas, SORT_NATURAL);
+
+        return $fichas;
+    }
+
     public function getEndDateAttribute()
     {
         return $this->vigencia_fim_atual ?? $this->vigencia_fim_original;

@@ -37,7 +37,7 @@
     <div class="product-entry-layout">
         <div class="product-entry-main">
             <div class="product-budget-row">
-                <label>Ficha<input type="text" data-product-budget maxlength="64"></label>
+                <label>Ficha<input type="text" data-product-budget list="contract-product-fichas-{{ $contract->id }}" maxlength="64" autocomplete="off" placeholder="Selecione ou digite" aria-label="Ficha dos produtos"><datalist id="contract-product-fichas-{{ $contract->id }}" data-product-fichas>@foreach($contract->productFichas() as $ficha)<option value="{{ $ficha }}"></option>@endforeach</datalist></label>
                 <label>Descrição<input type="text" data-product-budget-description readonly aria-readonly="true"></label>
                 <label>Dotação<input type="text" data-product-budget-allocation readonly aria-readonly="true"></label>
             </div>
@@ -68,6 +68,7 @@
         </aside>
     </div>
     <h3>Produtos do contrato</h3>
+    <p class="hint">Selecione uma ficha para carregar seus produtos. Sem seleção, todos os produtos do contrato são exibidos.</p>
     <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
     <div class="product-panel-total"><label>Total dos produtos<input data-product-contract-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label></div>
 </div>

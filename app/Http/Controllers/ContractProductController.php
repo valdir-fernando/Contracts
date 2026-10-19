@@ -103,20 +103,25 @@ class ContractProductController extends Controller
         $actor = $actors->current($request->user());
         $contract = Contract::findOrFail($contract->id);
         Gate::forUser($actor)->authorize('update', $contract);
-        $data = $request->validate(['search' => 'nullable|string|max:200', 'page' => 'sometimes|integer|min:1', 'process_catalog' => 'sometimes|boolean']);
+        $data = $request->validate(['search' => 'nullable|string|max:200', 'page' => 'sometimes|integer|min:1', 'process_catalog' => 'sometimes|boolean',
+            'ficha' => 'sometimes|nullable|string|max:64']);
         $products = $this->catalog($contract, (bool) ($data['process_catalog'] ?? false))
             ->when(filled($data['search'] ?? null), fn ($q) => $q->where(fn ($q) => $q
                 ->where('Discriminacao', 'like', '%'.$data['search'].'%')->orWhere('Cod_Prod', 'like', '%'.$data['search'].'%')->orWhere('item', $data['search'])))
             ->orderBy('id')->paginate(20);
         $rows = $products->map(fn ($product) => $this->productData($product, $contract, $actor));
-        $items = ContractProduct::where('contract_id', $contract->id)->orderBy('id')->get()->map(fn ($p) => $p->only([
+        $allItems = ContractProduct::where('contract_id', $contract->id)->orderBy('id')->get();
+        $fichas = $allItems->map(fn ($item) => trim((string) $item->Ficha))->filter(fn ($ficha) => $ficha !== '')->uniqueStrict()->values()->all();
+        sort($fichas, SORT_NATURAL);
+        $selectedFicha = trim($data['ficha'] ?? '');
+        $items = $allItems->filter(fn ($item) => $selectedFicha === '' || trim((string) $item->Ficha) === $selectedFicha)->values()->map(fn ($p) => $p->only([
             'id', 'product_id', 'item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total', 'budget_id', 'Ficha', 'process_catalog',
         ]));
         $budgets = ContractFinancialRecord::where('contract_id', $contract->id)->where('kind', 'dotacao')->orderBy('number')->get()
             ->map(fn ($b) => ['id' => $b->id, 'number' => $b->payload['Ficha'] ?? $b->number,
                 'description' => $b->payload['Descricao'] ?? '', 'allocation' => $b->payload['Dotacao'] ?? '']);
 
-        return $this->json(['products' => $rows, 'items' => $items, 'budgets' => $budgets,
+        return $this->json(['products' => $rows, 'items' => $items, 'fichas' => $fichas, 'budgets' => $budgets,
             'ficha_values' => (new FichaValuesCatalog)->lookup($contract),
             'page' => $products->currentPage(), 'last_page' => $products->lastPage(),
             'contract_version' => $contract->version, 'total' => $contract->valor_total, 'total_label' => Contract::moneyLabel($contract->valor_total)]);

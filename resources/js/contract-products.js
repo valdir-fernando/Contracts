@@ -57,6 +57,17 @@ export function productBudgetTotals(items) {
     return [...sums].map(([label, units]) => ({ label, total: decimalText(units) }));
 }
 
+export function synchronizeProductFichas(input, fichas) {
+    const values = [...new Set(fichas.map((value) => String(value ?? '').trim()).filter((value) => value !== ''))];
+    const option = (value) => {
+        const node = input.ownerDocument.createElement('option');
+        node.value = value;
+        node.textContent = value;
+        return node;
+    };
+    input.list.replaceChildren(...values.map(option));
+}
+
 export function initializeContractProducts(root, fetcher = fetch) {
     const form = root.closest('form');
     const version = form.elements.namedItem('version');
@@ -67,6 +78,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
     const quantity = find('[data-product-quantity]');
     const unitPrice = find('[data-product-field="unit_price"]');
     const budget = find('[data-product-budget]');
+    let fichas = [];
+    let fichaTimer;
     const itemInput = find('[data-product-field="item"]');
     const processCatalog = find('[data-products-show]');
     const manual = find('[data-products-manual]');
@@ -121,6 +134,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         remove.disabled = busy || loading || itemLoading || stale || !selected || !editing;
         manual.disabled = busy || editing;
         processCatalog.disabled = busy || manual.checked;
+        budget.disabled = busy || stale;
         const closeDialog = form.querySelector('[data-contract-products-close]');
         if (closeDialog) closeDialog.disabled = busy;
         find('[data-product-item-search]').disabled = busy || loading || itemLoading || stale || editing || manual.checked;
@@ -259,13 +273,14 @@ export function initializeContractProducts(root, fetcher = fetch) {
             input.value = ['unit_price', 'disp'].includes(field) ? formatProductPrice(product[field]) ?? '' : product[field] ?? '';
         });
         quantity.value = isEditing ? display(product.quantity) : '';
-        if (isEditing) budget.value = product.Ficha ?? '';
+        const previousFicha = budget.value;
+        if (isEditing) budget.value = (product.Ficha ?? '').trim();
         find('[data-product-balance]').textContent = isEditing ? 'Alterando um produto já lançado. A diferença da quantidade ajustará o saldo do processo.' : '';
         if (isEditing) lookupBudget();
         preview();
         controls();
         quantity.focus({ preventScroll: true });
-        if (previousMode !== processCatalog.checked) refresh();
+        if (previousMode !== processCatalog.checked || previousFicha !== budget.value) refresh();
     }
     function clear() {
         if (busy) return;
@@ -278,8 +293,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
         find('[data-product-description]').value = '';
         root.querySelectorAll('[data-product-field]').forEach((input) => { input.value = ''; });
         quantity.value = '';
-        budget.value = '';
         clearBudgetLookup();
+        if (budget.value) lookupBudget();
         preview();
         find('[data-product-balance]').textContent = 'Informe o Item para um novo lançamento.';
         controls();
@@ -384,12 +399,18 @@ export function initializeContractProducts(root, fetcher = fetch) {
         controls();
         try {
             const mode = processCatalog.checked;
-            const data = await request(`${base}?process_catalog=${mode ? '1' : '0'}`);
-            if (sequence !== loadSequence || expected !== version.value || mode !== processCatalog.checked) return;
+            const ficha = budget.value.trim();
+            const params = new URLSearchParams({ process_catalog: mode ? '1' : '0' });
+            if (ficha !== '') params.set('ficha', ficha);
+            const data = await request(`${base}?${params}`);
+            if (sequence !== loadSequence || expected !== version.value || mode !== processCatalog.checked || ficha !== budget.value.trim()) return;
             if (String(data.contract_version) !== version.value) {
                 stale = true;
                 message('O contrato mudou. Recarregue a página antes de alterar os produtos.', true);
+                return;
             }
+            fichas = data.fichas ?? [];
+            synchronizeProductFichas(budget, fichas);
             updateTotal(data.total_label);
             renderFichaValues(data.ficha_values ?? []);
             const list = find('[data-contract-product-list]');
@@ -413,6 +434,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         }
         if (isRemoval && (!editing || !window.confirm('Excluir este lançamento, devolver a quantidade ao saldo e recalcular o valor do contrato?'))) return;
         busy = true;
+        clearTimeout(fichaTimer);
         controls();
         const expected = version.value;
         const data = { contract_version: expected };
@@ -442,6 +464,11 @@ export function initializeContractProducts(root, fetcher = fetch) {
             clear();
             busy = true;
             await load();
+            if (isRemoval && budget.value.trim() !== '' && !fichas.includes(budget.value.trim())) {
+                budget.value = '';
+                clearBudgetLookup();
+                await load();
+            }
             message(isRemoval ? 'Produto excluído e quantidade devolvida ao saldo.' : 'Produto salvo. Valor do contrato atualizado.');
         } catch (error) {
             if (committed || error instanceof TypeError || error instanceof SyntaxError) stale = true;
@@ -509,8 +536,20 @@ export function initializeContractProducts(root, fetcher = fetch) {
     });
     find('[data-product-picker-previous]').addEventListener('click', () => { if (pickerPage > 1) { pickerPage--; loadPicker(); } });
     find('[data-product-picker-next]').addEventListener('click', () => { if (pickerPage < pickerLastPage) { pickerPage++; loadPicker(); } });
-    budget.addEventListener('input', clearBudgetLookup);
-    budget.addEventListener('blur', lookupBudget);
+    const refreshFicha = () => {
+        if (busy || stale) return;
+        clearTimeout(fichaTimer);
+        lookupBudget();
+        refresh();
+    };
+    budget.addEventListener('input', () => {
+        clearTimeout(fichaTimer);
+        clearBudgetLookup();
+        loadSequence++;
+        find('[data-contract-product-list]').replaceChildren();
+        fichaTimer = setTimeout(refreshFicha, 200);
+    });
+    budget.addEventListener('change', refreshFicha);
     department?.addEventListener('change', lookupBudget);
     form.addEventListener('submit', (event) => {
         if (busy || stale) {
