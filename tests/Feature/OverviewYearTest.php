@@ -101,10 +101,11 @@ class OverviewYearTest extends TestCase
         Livewire::test(Overview::class)
             ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '120.4236', 'missing' => 1]
                 && $metrics['summary']['total'] === '9019.3002')
-            ->assertSee('Valor dos contratos do Fundo')->assertSee('R$ 120,42')
+            ->assertSee('Valor de todos os contratos do Fundo realizados no exercício 2026.')->assertSee('R$ 120,42')
             ->set('year', '2025')
             ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '877.0000', 'missing' => 0])
             ->set('year', 'all')
+            ->assertSee('Valor de todos os contratos do Fundo realizados em todos os exercícios.')
             ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '1997.4236', 'missing' => 1]);
     }
 

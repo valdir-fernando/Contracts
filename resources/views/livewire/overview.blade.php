@@ -1,32 +1,38 @@
-<div>
+<div class="dashboard-overview">
     @php
         $current = collect($metrics['validities'])->firstWhere('key', 'vigente')['count'] ?? 0;
         $series = [
             'vigente' => '#10b981', 'vencido' => '#f43f5e', 'em_revisao' => '#f59e0b',
-            'a_iniciar' => '#0ea5e9', 'indeterminado' => '#94a3b8',
         ];
+        $temporalCount = collect($metrics['validities'])->whereIn('key', array_keys($series))->sum('count');
         $stops = [];
         $offset = 0;
         foreach ($series as $key => $color) {
             $value = collect($metrics['validities'])->firstWhere('key', $key)['count'] ?? 0;
-            $next = $offset + ($count ? $value / $count * 100 : 0);
+            $next = $offset + ($temporalCount ? $value / $temporalCount * 100 : 0);
             $stops[] = $color.' '.$offset.'% '.$next.'%';
             $offset = $next;
         }
-        $donut = $count ? 'conic-gradient('.implode(', ', $stops).')' : '#e5ebf4';
+        $donut = $temporalCount ? 'conic-gradient('.implode(', ', $stops).')' : '#e5ebf4';
         $maxMonth = max(1, collect($metrics['months'])->max('count'));
     @endphp
-    @unless($hasSelectedFund)<p class="notice" role="status">Selecione um Fundo acima para visualizar seus contratos e indicadores.</p>@endunless
+    <div class="page-heading dashboard-page-heading"><div><span class="section-label">PAINEL DE ACOMPANHAMENTO</span><div class="overview-heading-line"><h1>Visão geral</h1>
     @if($hasSelectedFund)
-    <div class="overview-year-filter">
-        <div class="field"><label for="overview-year">Ano dos contratos</label><select id="overview-year" wire:model.live="year">
+        <span class="overview-heading-divider" aria-hidden="true">/</span>
+        <div class="overview-heading-year"><label for="overview-year">Ano dos contratos</label><select id="overview-year" wire:model.live="year">
             @foreach($years as $option)<option value="{{ $option }}">{{ $option }}{{ $option === $currentYear ? ' (ano atual)' : '' }}</option>@endforeach
             <option value="all">Todos os anos</option>
         </select></div>
-        <p class="hint">{{ $year === 'all' ? 'Todos os exercícios, incluindo contratos sem ano informado.' : 'Indicadores e contratos do exercício '.$year.'.' }}</p>
         <span class="hint" wire:loading wire:target="year" role="status">Atualizando o ano…</span>
         @error('year')<p class="field-error" role="alert">{{ $message }}</p>@enderror
-    </div>
+    @endif
+</div><p>Olá, {{ auth()->user()->name }}. Acompanhe os contratos e os próximos prazos.</p></div><div class="quick-actions"><a class="secondary-button compact" href="{{ route('contracts.index') }}"><x-nav-icon name="search"/>Consultar contratos</a>@can('create', \App\Models\Contract::class)<a class="primary-button compact" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo contrato</a>@endcan</div></div>
+    @unless(auth()->user()->isAdmin())
+        <div class="dashboard-access"><span class="badge">Usuário · órgãos autorizados</span><details><summary>Ver meu escopo</summary><ul class="scope-list">@forelse(auth()->user()->scopes as $scope)<li>{{ $scope->label }}</li>@empty<li>Nenhum órgão vinculado. Entre em contato com um administrador.</li>@endforelse</ul></details></div>
+    @endunless
+
+    @unless($hasSelectedFund)<p class="notice" role="status">Selecione um Fundo acima para visualizar seus contratos e indicadores.</p>@endunless
+    @if($hasSelectedFund)
     <div class="overview-kpis" aria-label="Indicadores do Fundo selecionado">
         <a class="kpi-card" data-kpi="all" href="{{ route('contracts.index', $yearFilters) }}" aria-label="Ver todos os {{ $count }} contratos cadastrados"><span>Contratos cadastrados</span><div class="kpi-icon"><x-nav-icon name="contracts"/></div><strong data-count-up="{{ $count }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($count, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($count, 0, ',', '.') }}</span></strong><small>No seu escopo atual <x-nav-icon name="arrow"/></small></a>
         <a class="kpi-card kpi-success" data-kpi="current" href="{{ route('contracts.index', $yearFilters + ['validity' => 'vigente']) }}" aria-label="Ver {{ $current }} contratos vigentes"><span>Vigentes</span><div class="kpi-icon"><x-nav-icon name="check"/></div><strong data-count-up="{{ $current }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($current, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($current, 0, ',', '.') }}</span></strong><small>Com vigência conhecida <x-nav-icon name="arrow"/></small></a>
@@ -34,12 +40,12 @@
         <a class="kpi-card kpi-warning" data-kpi="review" href="{{ route('contracts.index', $yearFilters + ['review' => 1]) }}" aria-label="Ver {{ $review }} contratos em revisão"><span>Em revisão</span><div class="kpi-icon"><x-nav-icon name="warning"/></div><strong data-count-up="{{ $review }}"><span data-count-up-value aria-hidden="true" wire:ignore>{{ number_format($review, 0, ',', '.') }}</span><span class="sr-only">{{ number_format($review, 0, ',', '.') }}</span></strong><small>Vigências ou órgãos <x-nav-icon name="arrow"/></small></a>
     </div>
 
-    <div class="section-heading"><h2>Distribuição e vencimentos</h2><span>Indicadores temporais do Fundo selecionado</span></div>
+    <div class="section-heading"><h2>Distribuição e vencimentos</h2></div>
     <div class="overview-grid">
         <section class="surface contract-section">
             <header class="panel-header"><div><h2>Situação temporal</h2><p>Distribuição dos contratos por vigência</p></div><x-nav-icon name="reports"/></header>
             <div class="validity-chart">
-                <div class="donut-chart" style="--donut-fill: {{ $donut }}" role="img" aria-label="Distribuição temporal de {{ $count }} contratos, detalhada na legenda"><div class="donut-center"><strong>{{ number_format($count, 0, ',', '.') }}</strong><span>contratos</span></div></div>
+                <div class="donut-chart" style="--donut-fill: {{ $donut }}" role="img" aria-label="Distribuição temporal de {{ $temporalCount }} contratos, detalhada na legenda"><div class="donut-center"><strong>{{ number_format($temporalCount, 0, ',', '.') }}</strong><span>contratos</span></div></div>
                 <ul class="chart-legend">
                     @foreach($series as $key => $color)
                         @php($metric = collect($metrics['validities'])->firstWhere('key', $key))
@@ -47,7 +53,6 @@
                     @endforeach
                 </ul>
             </div>
-            <p class="chart-note">Indicadores temporais; não certificam situação jurídica.</p>
         </section>
         <section class="surface contract-section">
             <header class="panel-header"><div><h2>Próximos vencimentos</h2><p>Términos conhecidos nos próximos seis meses</p></div><a class="text-link" href="{{ route('calendar.index') }}">Ver calendário →</a></header>
@@ -56,8 +61,7 @@
                     <div class="month-column" aria-label="{{ $metric['label'] }}: {{ $metric['count'] }} contratos"><strong class="month-count">{{ $metric['count'] }}</strong><div class="month-track" aria-hidden="true"><div class="month-bar" style="--bar-height: {{ $metric['count'] / $maxMonth * 100 }}%; --chart-delay: {{ $loop->index * 65 }}ms"></div></div><span>{{ $metric['label'] }}</span></div>
                 @endforeach
             </div>
-            <div class="portfolio-summary"><span>Valor dos contratos do Fundo</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['portfolioValue']['total']) }}</strong></div>
-            <p class="chart-note">Valor acumulado; quando não informado, considera o valor inicial. {{ $metrics['portfolioValue']['missing'] }} sem ambos os valores informados. Vigências em revisão ou indeterminadas ficam fora dos vencimentos.</p>
+            <div class="portfolio-summary"><span>Valor de todos os contratos do Fundo realizados {{ $year === 'all' ? 'em todos os exercícios' : 'no exercício '.$year }}.</span><strong>{{ \App\Models\Contract::moneyLabel($metrics['portfolioValue']['total']) }}</strong></div>
         </section>
     </div>
 

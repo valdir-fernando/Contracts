@@ -1,5 +1,3 @@
 <x-layouts.app title="Início">
-    <div class="page-heading"><div><span class="section-label">PAINEL DE ACOMPANHAMENTO</span><h1>Visão geral</h1><p>Olá, {{ auth()->user()->name }}. Acompanhe os contratos e os próximos prazos.</p></div><div class="quick-actions"><a class="secondary-button" href="{{ route('contracts.index') }}">Consultar contratos</a>@can('create', \App\Models\Contract::class)<a class="primary-button compact" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo contrato</a>@endcan</div></div>
-    <div class="dashboard-access"><span class="badge">{{ auth()->user()->isAdmin() ? 'Administrador · todos os órgãos' : 'Usuário · órgãos autorizados' }}</span>@unless(auth()->user()->isAdmin())<details><summary>Ver meu escopo</summary><ul class="scope-list">@forelse(auth()->user()->scopes as $scope)<li>{{ $scope->label }}</li>@empty<li>Nenhum órgão vinculado. Entre em contato com um administrador.</li>@endforelse</ul></details>@endunless @can('viewAny', \App\Models\User::class)<a class="text-link" href="{{ route('users.index') }}">Gerenciar usuários</a>@endcan</div>
     <livewire:overview />
 </x-layouts.app>

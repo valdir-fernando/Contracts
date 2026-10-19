@@ -1,5 +1,5 @@
 <x-layouts.app title="Calendário e alertas">
-    <div class="page-heading"><div><h1>Calendário de vencimentos</h1><p>Datas conhecidas dos contratos do Fundo selecionado no login, dentro dos seus órgãos autorizados. Referência: {{ today()->format('d/m/Y') }}.</p></div></div>
+    <div class="page-heading calendar-page-heading"><div><h1>Calendário de vencimentos</h1><p>Datas conhecidas dos contratos do Fundo selecionado no login, dentro dos seus órgãos autorizados. Referência: {{ today()->format('d/m/Y') }}.</p></div></div>
     <section class="surface contract-section calendar-panel">
         <div class="calendar-month-toolbar">
             <div class="calendar-month-heading"><span class="catalog-icon"><x-nav-icon name="calendar"/></span><div><span class="section-label">Agenda de contratos</span><h2>{{ $month->translatedFormat('F \d\e Y') }}</h2></div></div>
