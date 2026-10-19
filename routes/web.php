@@ -10,6 +10,7 @@ use App\Http\Controllers\CnpjLookupController;
 use App\Http\Controllers\ContractAmendmentController;
 use App\Http\Controllers\ContractAttachmentController;
 use App\Http\Controllers\ContractController;
+use App\Http\Controllers\ContractDocumentController;
 use App\Http\Controllers\ContractExtractController;
 use App\Http\Controllers\ContractFinanceController;
 use App\Http\Controllers\ContractProductController;
@@ -109,6 +110,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/reports/export/{format}', [ReportController::class, 'export'])->middleware('throttle:10,1')->name('reports.export');
     Route::get('/contracts/{contract}/pdf', [ReportController::class, 'detail'])->name('contracts.pdf');
     Route::get('/contracts/{contract}/extract', [ContractExtractController::class, 'show'])->middleware('throttle:20,1')->name('contracts.extract');
+    Route::get('/contracts/{contract}/document', [ContractDocumentController::class, 'show'])->middleware('throttle:20,1')->name('contracts.document');
     Route::get('/contracts/{contract}/publication', [ContractExtractController::class, 'publication'])->middleware('throttle:20,1')->name('contracts.publication');
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
     Route::resource('contracts.finance', ContractFinanceController::class)->parameters(['finance' => 'finance']);

@@ -30,10 +30,15 @@ export function initializeContractPublication(button, openPdf = (url) => window.
     initializeContractPdf(button, 'publicationUrl', 'a publica\u00E7\u00E3o', openPdf);
 }
 
+export function initializeContractDocument(button, openPdf = (url) => window.open(url, '_blank', 'noopener')) {
+    initializeContractPdf(button, 'contractDocumentUrl', 'o contrato', openPdf);
+}
+
 if (typeof document !== 'undefined') {
     // Capture after the application's initial date/number formatting has run.
     queueMicrotask(() => {
         document.querySelectorAll('[data-extract-url]').forEach((button) => initializeContractExtract(button));
         document.querySelectorAll('[data-publication-url]').forEach((button) => initializeContractPublication(button));
+        document.querySelectorAll('[data-contract-document-url]').forEach((button) => initializeContractDocument(button));
     });
 }
