@@ -1,5 +1,13 @@
 # Contracts
 
+[Entrega de 19/10/2026 e validação antes do push](docs/delivery-2026-10-19.md).
+
+Importação dos produtos do banco de modelo: `contracts:import-contract-products --dry-run` confere os vínculos; sem `--dry-run`, importa os registros confirmados sem recalcular totais ou saldos. [Procedimento e resultados](docs/model-data-import-2026-10-19.md).
+
+No **Cadastro de produtos**, **Ficha** é uma seleção editável: já abre com as fichas dos produtos do contrato e permite digitar outra no mesmo campo. Salvar um produto acrescenta a nova ficha à lista; escolher uma ficha filtra **Produtos do contrato**. [Comportamento e validação](docs/product-ficha-selection-2026-10-19.md).
+
+O botão **Contrato** emite o PDF dos contratos salvos de **Fornecimento**, com tabela única de produtos agrupados por item, conferência dos totais, dotações somadas por ficha e assinaturas. Os demais tipos aguardam seus modelos. [Preenchimento, segurança e validação](docs/supply-contract-pdf-2026-10-19.md).
+
 Perfis de usuários: **Administrador Master** gerencia todos os perfis; **Administrador** gerencia apenas Usuários. FERNANDO foi promovido a Master no ambiente local. [Regras, segurança e promoção](docs/user-role-hierarchy-2026-10-18.md).
 
 O botão **Decreto** do **Fiscal_Contrato** reúne automaticamente os fiscais do mesmo número/data de decreto e gera o PDF individual ou coletivo com nome e Secretaria/Fundo, sempre com dados do Município e assinatura do Prefeito. [Operação e validação](docs/inspector-decrees-2026-10-18.md).

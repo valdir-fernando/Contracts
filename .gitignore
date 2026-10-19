@@ -37,4 +37,5 @@ contracts-*.tar.gz
 /phpunit.mysql.xml
 
 /build/coverage/
+/build/supply-preview/
 __pycache__/

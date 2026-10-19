@@ -1,5 +1,7 @@
 # Cadastro de produtos nos contratos
 
+Atualização de 19/10/2026: **Ficha** é uma seleção editável que já recebe as fichas dos produtos do contrato ao carregar a tela. É possível selecionar uma existente ou digitar uma nova no mesmo campo; salvar um produto nessa ficha inclui o valor na lista. A seleção filtra **Produtos do contrato**. Não existe controle separado Nova ficha. Este comportamento substitui as instruções anteriores de limpeza da ficha ao clicar em Novo/Salvar. [Operação, contrato HTTP e testes](product-ficha-selection-2026-10-19.md).
+
 O painel **6. Cad.Prod** segue a referência `Reference/Cad_Produto.jpg`: ficha/descrição no topo, item/código/marca/unidade/quantidade/preço/total, botões Salvar produto/Novo/Excluir e lista dos produtos lançados. A integração com IA foi retirada por solicitação do usuário. Não há upload de documentos, chamadas externas, chave de API ou cadastro do catálogo nesta tela.
 
 ## Operação
@@ -46,7 +48,7 @@ A migration `2026_10_16_000002_adapt_contract_products_for_existing_catalog` é 
 
 A migration anterior já aplicada permanece como histórico de schema; suas tabelas de importação/agrupamento não são usadas pelo fluxo atual. Os serviços, job, rotas e configurações de IA foram removidos. Não é necessário preencher chave/modelo nem executar fila para cadastrar produtos. O histórico legado de `contract_history_records` permanece separado e não entra automaticamente no saldo nem no total.
 
-Uma base bruta do sistema antigo, com somente as tabelas originais e sem o schema Laravel do Contracts, ainda exige conciliação/migração própria: não se deve executar o dump sobre o banco da aplicação nem substituir tabelas existentes.
+Uma base bruta do sistema antigo, com somente as tabelas originais e sem o schema Laravel do Contracts, exige conciliação: não se deve executar o dump sobre o banco da aplicação nem substituir tabelas existentes. Para importar os lançamentos de `tb_Produtos_Contratos`, use `contracts:import-contract-products --dry-run` e depois o mesmo comando sem a opção. A migration `2026_10_19_000001_track_imported_contract_products` adiciona a proveniência necessária. O vínculo exige número, Fundo, fornecedor e processo; não há nova baixa de saldo nem recálculo automático do contrato. [Procedimento e resultados](model-data-import-2026-10-19.md).
 
 ## Segurança e validação
 
