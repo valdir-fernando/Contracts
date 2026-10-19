@@ -57,8 +57,8 @@ class SupplierAssistanceTest extends TestCase
         $this->post('/catalogs', [
             'kind' => 'supplier', 'name' => 'Fornecedor novo', 'document' => '11.222.333/0001-81', 'return_to' => 'suppliers.index', 'Endereco' => 'Rua de teste',
         ])->assertRedirect('/suppliers')->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('suppliers', ['name' => 'Fornecedor novo', 'document_key' => '11222333000181']);
-        $this->get('/suppliers')->assertSee('Fornecedor novo');
+        $this->assertDatabaseHas('suppliers', ['name' => 'FORNECEDOR NOVO', 'document_key' => '11222333000181']);
+        $this->get('/suppliers')->assertSee('FORNECEDOR NOVO');
     }
 
     public function test_catalog_modal_creation_requires_admin_and_limits_return_destinations(): void

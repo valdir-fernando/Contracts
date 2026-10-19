@@ -124,6 +124,8 @@ class CatalogController extends Controller
                     if (DB::table('suppliers')->where('document_key', $record['document_key'])->lockForUpdate()->first(['id'])) {
                         throw ValidationException::withMessages(['document' => 'Fornecedor já cadastrado para este CPF/CNPJ. Consulte o catálogo.'])->errorBag($bag);
                     }
+                    $data['name'] = mb_strtoupper($data['name'], 'UTF-8');
+                    $record['name'] = $data['name'];
                     $details = (new SupplierRegistrationInput)->details($request->all(), $bag);
                     $payload = array_fill_keys(array_keys(SupplierFields::fields()), '');
                     $payload = array_replace($payload, $details, [

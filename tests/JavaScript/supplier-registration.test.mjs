@@ -95,7 +95,7 @@ test('editing keeps the selected supplier values without replacing them through 
     setup.input('52998224725');
     await setup.blur();
     assert.equal(calls, 0);
-    assert.equal(setup.controls.name.value, 'Fornecedor selecionado');
+    assert.equal(setup.controls.name.value, 'FORNECEDOR SELECIONADO');
     assert.equal(setup.controls.Email_Contato.value, 'editado@example.com');
 });
 
@@ -223,14 +223,14 @@ test('duplicate supplier fills active fields without locking save; changing docu
     setup.input('11222333000181');
     await setup.blur();
     assert.equal(setup.controls.document.value, '11.222.333/0001-81');
-    assert.equal(setup.controls.name.value, 'Cadastrado');
+    assert.equal(setup.controls.name.value, 'CADASTRADO');
     assert.equal(setup.controls.Email_Contato.value, 'contato@example.com');
     assert.equal(setup.controls.Data_Nasc.value, '20/05/1980');
     assert.equal(setup.controls._token.value, '');
     assert.equal(setup.save.disabled, false);
     assert.equal(setup.submit(), false);
     setup.input('52998224725');
-    assert.equal(setup.controls.name.value, 'Nome digitado');
+    assert.equal(setup.controls.name.value, 'NOME DIGITADO');
     assert.equal(setup.controls.Email_Contato.value, '');
     assert.equal(setup.submit(), false);
     await setup.blur();

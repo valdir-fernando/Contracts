@@ -61,7 +61,7 @@ class SupplierEditingTest extends TestCase
             'raw_payload' => 'forged', 'ID_Fornecedor' => 'forged']))->assertRedirect('/suppliers/'.$this->supplier)->assertSessionHasNoErrors();
         $row = DB::table('suppliers')->find($this->supplier);
         $raw = json_decode($row->raw_payload, true);
-        $this->assertSame('Fornecedor atualizado', $row->name);
+        $this->assertSame('FORNECEDOR ATUALIZADO', $row->name);
         $this->assertSame('Rua atualizada', $raw['Endereco']);
         $this->assertNull($raw['Email_Fornecedor']);
         $this->assertSame('Fantasia original', $raw['Nome_Fantasia']);

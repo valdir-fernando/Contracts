@@ -45,14 +45,17 @@ class SupplierRegistrationTest extends TestCase
         $raw = json_decode($supplier->raw_payload, true, 512, JSON_THROW_ON_ERROR);
         foreach (array_keys(SupplierFields::fields()) as $field) {
             $expected = match ($field) {
-                'CPF_Socio' => '52998224725', default => $input[$field],
+                'CPF_Socio' => '52998224725',
+                'Nome_Fantasia', 'Nome_Socio', 'Nome_Contato' => mb_strtoupper($input[$field], 'UTF-8'),
+                default => $input[$field],
             };
             $this->assertSame($expected, $raw[$field], $field);
         }
         $this->assertSame('PJ', $raw['PF_PJ']);
         $this->assertSame(now()->format('Y-m-d'), $raw['Data_Atualizacao']);
         $this->assertSame('11222333000181', $raw['CPF_CNPJ']);
-        $this->assertSame($input['name'], $raw['Nome_Fornecedor']);
+        $this->assertSame(mb_strtoupper($input['name'], 'UTF-8'), $raw['Nome_Fornecedor']);
+        $this->assertSame(mb_strtoupper($input['name'], 'UTF-8'), $supplier->name);
         $this->assertArrayNotHasKey('ID_Fornecedor', $raw);
         $this->assertArrayNotHasKey('raw_payload', $raw);
         $this->assertDatabaseHas('activity_events', ['action' => 'catalog_created']);
@@ -165,7 +168,7 @@ class SupplierRegistrationTest extends TestCase
             $html->assertDontSee('name="'.$field.'"', false);
         }
         $this->post('/catalogs', $this->input() + $retired)->assertSessionHasNoErrors();
-        $raw = json_decode(DB::table('suppliers')->where('name', 'Fornecedor completo')->value('raw_payload'), true);
+        $raw = json_decode(DB::table('suppliers')->where('name', 'FORNECEDOR COMPLETO')->value('raw_payload'), true);
         foreach (array_keys($retired) as $field) {
             $this->assertArrayNotHasKey($field, $raw);
         }

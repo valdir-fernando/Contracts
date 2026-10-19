@@ -37,6 +37,11 @@ final class SupplierRegistrationInput
                 $details[$field] = preg_replace('/\D/', '', $details[$field]);
             }
         }
+        foreach (['Nome_Fantasia', 'Nome_Socio', 'Nome_Contato'] as $field) {
+            if (isset($details[$field])) {
+                $details[$field] = mb_strtoupper($details[$field], 'UTF-8');
+            }
+        }
         if (! empty($details['CPF_Socio'])) {
             $cpf = Normalizer::document($details['CPF_Socio']);
             if (! preg_match('/^[\d\s.\/-]+$/D', $details['CPF_Socio']) || strlen($cpf) !== 11 || ! Normalizer::validDocument($cpf)) {

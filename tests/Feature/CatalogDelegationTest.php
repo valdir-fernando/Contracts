@@ -128,7 +128,7 @@ class CatalogDelegationTest extends TestCase
         $user->save();
         $this->actingAs($user)->withSession(['auth_version' => 0])->post('/catalogs', ['kind' => 'supplier', 'name' => 'Fornecedor próprio', 'document' => '11222333000181', 'Endereco' => 'Endereço completo de teste'])->assertRedirect('/suppliers');
         $supplier = DB::table('suppliers')->first();
-        $this->get('/suppliers')->assertOk()->assertSee('Fornecedor próprio');
+        $this->get('/suppliers')->assertOk()->assertSee('FORNECEDOR PRÓPRIO');
         $this->get('/suppliers/'.$supplier->id)->assertOk()->assertSee('Editar fornecedor');
         $foreign = DB::table('suppliers')->insertGetId(['name' => 'Fornecedor alheio', 'name_key' => 'FORNECEDOR ALHEIO', 'document_key' => '52998224725', 'raw_payload' => '{}']);
         $this->get('/suppliers')->assertOk()->assertDontSee('Fornecedor alheio');

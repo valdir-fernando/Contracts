@@ -1,4 +1,5 @@
 import './table-navigation';
+import './uppercase-fields';
 import './enter-navigation';
 import './report-generation';
 import './count-up';

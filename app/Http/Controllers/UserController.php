@@ -76,6 +76,9 @@ class UserController extends Controller
 
     private function validated(Request $request, ?User $user = null): array
     {
+        if (is_string($request->input('name'))) {
+            $request->merge(['name' => Str::upper($request->input('name'))]);
+        }
         if (is_string($request->input('username'))) {
             $request->merge(['username' => Str::upper(trim($request->input('username')))]);
         }

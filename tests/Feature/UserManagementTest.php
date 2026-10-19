@@ -44,6 +44,8 @@ class UserManagementTest extends TestCase
         $this->post('/users', ['name' => 'Maria', 'username' => ' maria ', 'user_type' => 'Usuario', 'is_active' => 1,
             'scope_ids' => [$scope->id], 'password' => 'NovaSenha!12345', 'password_confirmation' => 'NovaSenha!12345'])->assertRedirect('/users');
         $user = User::where('username', 'MARIA')->firstOrFail();
+        $this->assertSame('MARIA', $user->name);
+        $this->assertSame('MARIA', UserAudit::firstOrFail()->after['name']);
         $this->assertTrue(Hash::check('NovaSenha!12345', $user->password));
         $this->assertTrue($user->canAccessScope($scope->id));
         $this->get('/users?q=Maria&role=Usuario&status=active&scope='.$scope->id)->assertOk()->assertSee('MARIA')->assertDontSee('ADMIN</small>', false)->assertDontSee($user->password);

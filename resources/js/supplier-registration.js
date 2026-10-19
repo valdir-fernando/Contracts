@@ -5,6 +5,15 @@ import { attachMask, maskPhone, maskPis } from './input-masks.js';
 import { consultCompany } from './cnpj-lookup.js';
 
 const initializedForms = new WeakSet();
+const uppercaseNames = new Set(['name', 'Nome_Fantasia', 'Nome_Socio', 'Nome_Contato']);
+
+export function uppercaseSupplierName(field) {
+    if (!uppercaseNames.has(field.name)) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    field.value = field.value.toLocaleUpperCase('pt-BR');
+    if (start !== null && start !== undefined) field.setSelectionRange?.(start, end);
+}
 
 export function navigateSupplierFields(event, form) {
     if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
@@ -54,6 +63,7 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         });
     }, true);
     form.addEventListener('input', (event) => {
+        uppercaseSupplierName(event.target);
         if (event.target.required && !event.target.validity.valueMissing) event.target.removeAttribute('aria-invalid');
     });
     const documentField = form.elements.namedItem('document');
@@ -81,6 +91,7 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
     const fields = [form.elements.namedItem('name'), ...form.querySelectorAll('.supplier-registration-group [name]')];
     const maskFor = (field) => field.dataset.phoneMask !== undefined ? maskPhone : (field.dataset.pisMask !== undefined ? maskPis : null);
     fields.forEach((field) => {
+        uppercaseSupplierName(field);
         const formatter = maskFor(field);
         if (formatter) attachMask(field, formatter);
     });
@@ -152,6 +163,7 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
                     if (maskFor(field)) value = maskFor(field)(value);
                     if (field.dataset.brazilianDate) value = value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1');
                     field.value = value;
+                    uppercaseSupplierName(field);
                     if (field.dataset.brazilianDate) field.dispatchEvent?.(new Event('input', { bubbles: true }));
                     filled.set(field, { before, automatic: field.value });
                 });

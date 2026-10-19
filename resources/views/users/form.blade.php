@@ -5,8 +5,8 @@
         <form method="POST" action="{{ $user->exists ? route('users.update', $user) : route('users.store') }}" x-data="{ userRole: @js(old('user_type', $user->user_type)) }">
             @csrf @if($user->exists) @method('PUT') <input type="hidden" name="version" value="{{ old('version', $user->session_version) }}"> @endif
             <div class="form-grid">
-                <div class="field"><label for="name">Nome completo <x-required-mark/></label><input id="name" name="name" value="{{ old('name', $user->name) }}" maxlength="255" required></div>
-                <div class="field"><label for="username">Usuário / Apelido <x-required-mark/></label><input id="username" name="username" value="{{ old('username', $user->username) }}" maxlength="255" autocomplete="off" required><small class="hint">Letras sem acentos, números, ponto, hífen ou sublinhado.</small></div>
+                <div class="field"><label for="name">Nome completo <x-required-mark/></label><input id="name" name="name" data-uppercase value="{{ old('name', $user->name) }}" maxlength="255" required></div>
+                <div class="field"><label for="username">Usuário / Apelido <x-required-mark/></label><input id="username" name="username" data-uppercase value="{{ old('username', $user->username) }}" maxlength="255" autocomplete="off" required><small class="hint">Letras sem acentos, números, ponto, hífen ou sublinhado.</small></div>
                 <div class="field"><label for="email">E-mail <span class="muted">(opcional)</span></label><input id="email" name="email" type="email" value="{{ old('email', $user->email) }}" maxlength="255"></div>
                 <div class="field"><label for="user_type">Perfil <x-required-mark/></label><select id="user_type" name="user_type" x-model="userRole" required>@foreach(auth()->user()->isMaster() ? \App\Models\User::ROLES : ['Usuario'] as $role)<option value="{{ $role }}" @selected(old('user_type', $user->user_type) === $role)>{{ $role === 'Usuario' ? 'Usuário' : $role }}</option>@endforeach</select><small class="hint">Administradores gerenciam usuários e têm acesso a todos os órgãos.</small></div>
             </div>

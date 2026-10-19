@@ -119,7 +119,7 @@ class AuditCorrectionsTest extends TestCase
         $this->actingAs($second)->put('/users/'.$this->regular->id, array_replace($stale, ['scope_ids' => [$otherScope->id]]))->assertRedirect();
         $this->actingAs($this->admin)->put('/users/'.$this->regular->id, array_replace($stale, ['name' => 'Nome de formulário antigo']))->assertStatus(409);
         $this->assertSame([$otherScope->id], $this->regular->fresh()->scopes()->pluck('access_scopes.id')->all());
-        $this->assertSame('Regular', $this->regular->fresh()->name);
+        $this->assertSame('REGULAR', $this->regular->fresh()->name);
         $this->assertDatabaseCount('user_audits', 1);
     }
 

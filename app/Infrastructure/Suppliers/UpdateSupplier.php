@@ -41,6 +41,7 @@ final class UpdateSupplier
             if (! hash_equals(self::revision($supplier), $data['revision'])) {
                 throw ValidationException::withMessages(['revision' => 'O fornecedor foi alterado. Recarregue a página antes de editar novamente.'])->errorBag('catalog-supplier');
             }
+            $data['name'] = mb_strtoupper($data['name'], 'UTF-8');
             $details = $this->input->details($input);
             $document = Normalizer::document($data['document']);
             if (DB::table('suppliers')->where('id', '<>', $id)->where('document_key', $document)->lockForUpdate()->exists()) {

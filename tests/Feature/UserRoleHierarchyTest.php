@@ -11,6 +11,25 @@ class UserRoleHierarchyTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_administrator_cannot_select_or_submit_master_role_in_own_account(): void
+    {
+        $this->withoutVite();
+        $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'PasswordTest123', 'user_type' => 'Administrador']);
+        $version = $admin->session_version;
+        $this->actingAs($admin)->get('/account')->assertOk()
+            ->assertDontSee('value="Administrador Master"', false)
+            ->assertDontSee('name="user_type"', false);
+
+        $this->putJson('/account', ['name' => 'Admin', 'current_password' => 'PasswordTest123',
+            'version' => $version, 'user_type' => User::MASTER])
+            ->assertUnprocessable()->assertJsonValidationErrors('user_type');
+
+        $this->assertSame('Administrador', $admin->fresh()->user_type);
+        $this->assertSame($version, $admin->fresh()->session_version);
+        $this->assertDatabaseCount('user_audits', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_admin_cannot_create_promote_edit_reset_delete_or_restore_administrative_accounts(): void
     {
         $this->withoutVite();
