@@ -10,6 +10,15 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    public const MASTER = 'Administrador Master';
+
+    public const ROLES = [self::MASTER, 'Administrador', 'Usuario'];
+
+    public const CATALOGS = ['inspector' => 'Fiscal_Contrato', 'contract-steward' => 'Gestor_Contrato',
+        'manager-fund' => 'Gestor_Fundo', 'fund' => 'Fundo', 'department' => 'Secretaria', 'budget' => 'Dotação', 'supplier' => 'Fornecedor'];
+
+    public const DELEGATABLE_PERMISSIONS = self::CATALOGS + ['contract-issuance' => 'Emissão de contratos'];
+
     use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = ['name', 'username', 'email', 'password', 'reference_user_id', 'user_type', 'fund', 'department'];
@@ -25,7 +34,29 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->is_active && ! $this->trashed() && $this->user_type === 'Administrador';
+        return $this->is_active && ! $this->trashed() && in_array($this->user_type, [self::MASTER, 'Administrador'], true);
+    }
+
+    public function isMaster(): bool
+    {
+        return $this->is_active && ! $this->trashed() && $this->user_type === self::MASTER;
+    }
+
+    public function roleLabel(): string
+    {
+        return $this->user_type === 'Usuario' ? 'Usuário' : (string) $this->user_type;
+    }
+
+    public function canAccessCatalog(string $kind): bool
+    {
+        return array_key_exists($kind, self::CATALOGS) && $this->is_active && ! $this->trashed()
+            && ($this->isAdmin() || in_array($kind, $this->catalog_permissions ?? [], true));
+    }
+
+    public function canIssueContracts(): bool
+    {
+        return $this->is_active && ! $this->trashed()
+            && ($this->isAdmin() || in_array('contract-issuance', $this->catalog_permissions ?? [], true));
     }
 
     public function canAccessScope(int $scopeId): bool
@@ -44,6 +75,7 @@ class User extends Authenticatable
             'session_version' => 'integer',
             'expiration_alert_enabled' => 'boolean',
             'expiration_alert_days' => 'integer',
+            'catalog_permissions' => 'array',
         ];
     }
 }

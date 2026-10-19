@@ -31,6 +31,8 @@ class ContractCompletionTest extends TestCase
         $this->withoutVite();
         $this->admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaSegura12345', 'user_type' => 'Administrador']);
         $this->regular = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SenhaSegura12345']);
+        $this->regular->catalog_permissions = ['contract-issuance'];
+        $this->regular->save();
         $fund = DB::table('contract_funds')->insertGetId(['legacy_id' => 1, 'name' => 'Fundo Teste', 'name_key' => 'FUNDO TESTE', 'raw_payload' => '{}']);
         $scope = AccessScope::create(['scope_key' => hash('sha256', 'scope'), 'fund' => 'Fundo Teste', 'fund_id' => $fund]);
         $this->regular->scopes()->attach($scope);

@@ -109,6 +109,8 @@ class InspectorDefaultsTest extends TestCase
         $this->post('/contracts', $this->data())->assertRedirect();
         $contract = Contract::sole();
         $user = User::create(['name' => 'Usuário', 'username' => 'REGULAR', 'password' => 'SenhaSegura123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
         $this->withSession(['fund_id' => $this->municipality])->post('/contracts', $this->data(['department_id' => $this->department]))->assertRedirect();
         $scope = AccessScope::create(['scope_key' => 'educacao', 'fund' => 'MUNICIPIO DE NIQUELÂNDIA', 'fund_id' => $this->municipality, 'department' => 'Educação', 'department_id' => $this->department]);
         $user->scopes()->attach($scope);

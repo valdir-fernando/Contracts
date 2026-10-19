@@ -240,6 +240,8 @@ class ExecutiveSignatoryTest extends TestCase
     {
         $this->signature($this->delegate, 1);
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'Synthetic123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
         $scope = AccessScope::create(['scope_key' => 'municipal-scope', 'fund_id' => $this->fund, 'fund' => 'MUNICIPIO DE NIQUELÂNDIA']);
         $user->scopes()->attach($scope);
         foreach ([$this->extract(), $this->publication()] as $renderer) {

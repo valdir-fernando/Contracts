@@ -11,7 +11,8 @@ final class CnpjLookupController extends Controller
 {
     public function __invoke(Request $request, LockActor $actors, CnpjLookup $lookup)
     {
-        abort_unless($actors->current($request->user())->isAdmin(), 403);
+        $actor = $actors->current($request->user());
+        abort_unless($actor->canAccessCatalog('fund') || $actor->canAccessCatalog('supplier'), 403);
         $data = $request->validate(['cnpj' => ['bail', 'required', 'string', 'max:32', function ($attribute, $value, $fail) {
             if (! preg_match('/^[\d\s.\/\-]+$/D', $value) || strlen(Normalizer::document($value)) !== 14
                 || ! Normalizer::validDocument(Normalizer::document($value))) {
@@ -19,7 +20,8 @@ final class CnpjLookupController extends Controller
             }
         }]]);
         $result = $lookup->find(Normalizer::document($data['cnpj']));
-        abort_unless($actors->current($request->user())->isAdmin(), 403);
+        $actor = $actors->current($request->user());
+        abort_unless($actor->canAccessCatalog('fund') || $actor->canAccessCatalog('supplier'), 403);
 
         return response()->json($result, $result['status'] === 'unavailable' ? 503 : 200,
             ['Cache-Control' => 'private, no-store']);

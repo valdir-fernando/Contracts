@@ -22,7 +22,7 @@ class ContractPublicationPdf
         $snapshot = DB::transaction(function () use ($expected, $id, $version) {
             $actor = $this->actors->lock($expected);
             $contract = Contract::whereKey($id)->lockForUpdate()->firstOrFail();
-            Gate::forUser($actor)->authorize('view', $contract);
+            Gate::forUser($actor)->authorize('issue', $contract);
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir a publicação.');
             $settings = $this->settings->current();
             $signer = $this->signatories->forContract($contract);
@@ -36,7 +36,7 @@ class ContractPublicationPdf
         DB::transaction(function () use ($expected, $id, $snapshot, $templateHash, $bytes) {
             $actor = $this->actors->lock($expected);
             $contract = Contract::whereKey($id)->lockForUpdate()->firstOrFail();
-            Gate::forUser($actor)->authorize('view', $contract);
+            Gate::forUser($actor)->authorize('issue', $contract);
             abort_unless($actor->user_type === $snapshot['role'], 403);
             abort_unless((int) $contract->version === $snapshot['version'], 409, 'O contrato mudou durante a emissão. Gere a publicação novamente.');
             $this->signatories->assertUnchanged($contract, $snapshot['signer']);

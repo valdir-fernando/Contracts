@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Suppliers;
 
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\User;
@@ -24,8 +25,8 @@ final class UpdateSupplier
     {
         DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
-            $supplier = DB::table('suppliers')->where('id', $id)->lockForUpdate()->first();
+            CatalogAccess::authorize($actor, 'supplier');
+            $supplier = CatalogAccess::suppliers($actor)->where('id', $id)->lockForUpdate()->first();
             abort_unless($supplier, 404);
             try {
                 $data = Validator::make($input, ['name' => 'required|string|max:255',

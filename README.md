@@ -1,5 +1,7 @@
 # Contracts
 
+Perfis de usuários: **Administrador Master** gerencia todos os perfis; **Administrador** gerencia apenas Usuários. FERNANDO foi promovido a Master no ambiente local. [Regras, segurança e promoção](docs/user-role-hierarchy-2026-10-18.md).
+
 O botão **Decreto** do **Fiscal_Contrato** reúne automaticamente os fiscais do mesmo número/data de decreto e gera o PDF individual ou coletivo com nome e Secretaria/Fundo, sempre com dados do Município e assinatura do Prefeito. [Operação e validação](docs/inspector-decrees-2026-10-18.md).
 
 O menu **Cadastros → Gestor_Contrato** abre o cadastro de **Gestor de Contratos**, separado de Fiscal_Contrato e Gestor_Fundo. [Campos, instalação e segurança](docs/contract-steward-registration-2026-10-18.md).

@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Funds;
 
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\User;
@@ -40,8 +41,8 @@ final class FundRegistration
     {
         return DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
-            $record = $id ? DB::table('contract_funds')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
+            CatalogAccess::authorize($actor, 'fund');
+            $record = $id ? CatalogAccess::funds($actor)->where('id', $id)->lockForUpdate()->first() : null;
             abort_if($id && ! $record, 404);
             if ($record) {
                 $this->checkRevision($record, $input);
@@ -94,8 +95,8 @@ final class FundRegistration
     {
         DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
-            $record = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
+            CatalogAccess::authorize($actor, 'fund');
+            $record = CatalogAccess::funds($actor)->where('id', $id)->lockForUpdate()->first();
             abort_unless($record, 404);
             Validator::make($input, ['confirmation' => 'accepted'])->validate();
             $this->checkRevision($record, $input);

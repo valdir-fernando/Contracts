@@ -122,7 +122,7 @@ class ReportController extends Controller
     {
         $actor = $this->actors->current($request->user());
         $contract = Contract::findOrFail($contract->id);
-        Gate::forUser($actor)->authorize('view', $contract);
+        Gate::forUser($actor)->authorize('issue', $contract);
         $data = $request->validate(['include_personal' => 'nullable|boolean', 'reason' => 'required_if:include_personal,1|nullable|string|min:10|max:1000']);
         abort_if(! empty($data['include_personal']) && ! $actor->isAdmin(), 403);
         $displayActor = clone $actor;
@@ -140,7 +140,13 @@ class ReportController extends Controller
             $pdf->render();
             file_put_contents($path, $pdf->output());
             abort_unless(hash_equals($accessHash, ReportExport::accessHash($actor)), 403);
-            ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'contract_printed', 'metadata' => ['contract_id' => $contract->id, 'include_personal' => (bool) ($data['include_personal'] ?? false), 'reason' => $data['reason'] ?? null], 'created_at' => now()]);
+            DB::transaction(function () use ($actor, $contract, $data) {
+                $currentActor = $this->actors->lock($actor);
+                $currentContract = Contract::whereKey($contract->id)->lockForUpdate()->firstOrFail();
+                Gate::forUser($currentActor)->authorize('issue', $currentContract);
+                abort_unless((int) $currentContract->version === (int) $contract->version, 409);
+                ActivityEvent::create(['actor_id' => $currentActor->id, 'action' => 'contract_printed', 'metadata' => ['contract_id' => $contract->id, 'include_personal' => (bool) ($data['include_personal'] ?? false), 'reason' => $data['reason'] ?? null], 'created_at' => now()]);
+            });
         } catch (\Throwable $error) {
             @unlink($path);
             throw $error;

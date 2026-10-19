@@ -19,8 +19,18 @@ class ContractPolicy
 
     public function create(User $user): bool
     {
+        return $user->canIssueContracts() && $this->selectSupplier($user);
+    }
+
+    public function selectSupplier(User $user): bool
+    {
         return $this->viewAny($user) && ($user->isAdmin() || $user->scopes()->whereNotNull('fund_id')
             ->where(fn ($query) => $query->whereNull('department')->orWhere('department', '')->orWhereNotNull('department_id'))->exists());
+    }
+
+    public function issue(User $user, Contract $contract): bool
+    {
+        return $user->canIssueContracts() && $this->view($user, $contract);
     }
 
     public function delete(User $user, Contract $contract): bool

@@ -18,16 +18,21 @@ class UserPolicy
 
     public function update(User $actor, User $user): bool
     {
-        return $actor->isAdmin() && ! $user->trashed();
+        return $this->canManage($actor, $user) && ! $user->trashed();
     }
 
     public function delete(User $actor, User $user): bool
     {
-        return $actor->isAdmin() && ! $user->trashed();
+        return $this->canManage($actor, $user) && ! $user->trashed();
     }
 
     public function restore(User $actor, User $user): bool
     {
-        return $actor->isAdmin() && $user->trashed();
+        return $this->canManage($actor, $user) && $user->trashed();
+    }
+
+    private function canManage(User $actor, User $user): bool
+    {
+        return $actor->isMaster() || ($actor->isAdmin() && $user->user_type === 'Usuario');
     }
 }

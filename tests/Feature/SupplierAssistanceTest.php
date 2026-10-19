@@ -18,6 +18,8 @@ class SupplierAssistanceTest extends TestCase
         $this->withoutVite();
         $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'TestPassword12345', 'user_type' => 'Administrador']);
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'TestPassword12345']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
         $fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
         $scope = AccessScope::create(['scope_key' => hash('sha256', 'supplier-scope'), 'fund' => 'Fundo', 'fund_id' => $fund]);
         $user->scopes()->attach($scope);

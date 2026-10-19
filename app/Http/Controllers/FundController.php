@@ -3,16 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Infrastructure\Funds\FundRegistration;
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Services\Legacy\Normalizer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class FundController extends Controller
 {
     public function lookup(Request $request, LockActor $actors)
     {
-        abort_unless($actors->current($request->user())->isAdmin(), 403);
+        CatalogAccess::authorize($actors->current($request->user()), 'fund');
         $data = $request->validate(['cnpj' => ['bail', 'required', 'string', 'max:32', function ($attribute, $value, $fail) {
             $document = Normalizer::document($value);
             if (! preg_match('/^[\d\s.\/\-]+$/D', $value) || strlen($document) !== 14 || ! Normalizer::validDocument($document)) {
@@ -20,7 +20,7 @@ class FundController extends Controller
             }
         }]]);
         $document = Normalizer::document($data['cnpj']);
-        $matches = DB::table('contract_funds')->whereNull('deleted_at')->where(function ($query) use ($document) {
+        $matches = CatalogAccess::funds($request->user())->where(function ($query) use ($document) {
             $query->where('document_key', $document)
                 ->orWhereRaw("replace(replace(replace(replace(document, '.', ''), '/', ''), '-', ''), ' ', '') = ?", [$document]);
         })->orderBy('id')->limit(2)->pluck('id');
@@ -32,13 +32,13 @@ class FundController extends Controller
 
     public function index(Request $request, LockActor $actors, FundRegistration $registration)
     {
-        abort_unless($actors->current($request->user())->isAdmin(), 403);
+        CatalogAccess::authorize($actors->current($request->user()), 'fund');
         $id = $request->validate(['edit' => 'nullable|integer|min:1'])['edit'] ?? null;
-        $record = $id ? DB::table('contract_funds')->whereNull('deleted_at')->find($id) : null;
+        $record = $id ? CatalogAccess::funds($request->user())->find($id) : null;
         abort_if($id && ! $record, 404);
         $raw = $record ? json_decode($record->raw_payload, true, 512, JSON_THROW_ON_ERROR) : [];
         $values = ['name' => $record?->name, 'document' => $record?->document] + array_intersect_key($raw, FundRegistration::DETAILS);
-        $records = DB::table('contract_funds')->whereNull('deleted_at')->orderBy('name')->paginate(20);
+        $records = CatalogAccess::funds($request->user())->orderBy('name')->paginate(20);
         $records->through(function ($item) {
             $raw = json_decode($item->raw_payload, true, 512, JSON_THROW_ON_ERROR);
             $document = preg_replace('/\D/', '', $item->document ?? '');
@@ -56,7 +56,7 @@ class FundController extends Controller
     {
         $id = $registration->save($request->user(), null, $request->all());
 
-        return redirect()->route('funds.index', ['edit' => $id])->with('status', 'Fundo cadastrado.');
+        return redirect()->route('funds.index', $request->user()->isAdmin() ? ['edit' => $id] : [])->with('status', 'Fundo cadastrado.');
     }
 
     public function update(Request $request, int $fund, FundRegistration $registration)

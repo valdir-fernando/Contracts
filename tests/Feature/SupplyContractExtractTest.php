@@ -114,6 +114,8 @@ class SupplyContractExtractTest extends TestCase
     public function test_regular_user_projection_keeps_personal_fields_masked_and_scope_enforced(): void
     {
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
         $scope = AccessScope::create(['scope_key' => 'extract-scope', 'fund_id' => $this->contract->fund_id, 'fund' => 'Fundo de teste']);
         $user->scopes()->attach($scope);
         $renderer = $this->renderer();
@@ -134,6 +136,18 @@ class SupplyContractExtractTest extends TestCase
         $this->assertDatabaseCount('activity_events', 0);
         $this->contract->delete();
         $this->get($this->url(1))->assertNotFound();
+    }
+
+    public function test_revoking_issuance_during_rendering_prevents_delivery_and_audit(): void
+    {
+        $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
+        $scope = AccessScope::create(['scope_key' => 'issuer-scope', 'fund_id' => $this->contract->fund_id, 'fund' => 'Fundo de teste']);
+        $user->scopes()->attach($scope);
+        $this->renderer(fn () => DB::table('users')->where('id', $user->id)->update(['catalog_permissions' => '[]']));
+        $this->actingAs($user)->get($this->url())->assertForbidden();
+        $this->assertDatabaseCount('activity_events', 0);
     }
 
     public function test_change_during_rendering_prevents_delivery_and_audit(): void

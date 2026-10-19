@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Infrastructure\Security\LockActor;
+use App\Infrastructure\Security\UserAffiliation;
+use App\Infrastructure\Security\UserGovernance;
 use App\Models\AccessScope;
 use App\Models\User;
 use App\Models\UserAudit;
@@ -12,7 +14,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -22,7 +23,7 @@ class UserController extends Controller
     {
         Gate::authorize('viewAny', User::class);
         $filters = $request->validate([
-            'q' => 'nullable|string|max:255', 'role' => ['nullable', Rule::in(['Administrador', 'Usuario'])],
+            'q' => 'nullable|string|max:255', 'role' => ['nullable', Rule::in(User::ROLES)],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'deleted'])],
             'scope' => 'nullable|integer|exists:access_scopes,id',
             'sort' => ['nullable', Rule::in(['name', 'username', 'last_login_at'])],
@@ -68,6 +69,7 @@ class UserController extends Controller
     {
         return view('users.form', [
             'user' => $user->load('scopes'), 'scopes' => AccessScope::orderBy('fund')->orderBy('department')->get(),
+            'affiliationOptions' => (new UserAffiliation)->options(),
             'audits' => $user->exists ? UserAudit::with('actor')->where('user_id', $user->id)->latest('id')->limit(20)->get() : collect(),
         ]);
     }
@@ -77,15 +79,24 @@ class UserController extends Controller
         if (is_string($request->input('username'))) {
             $request->merge(['username' => Str::upper(trim($request->input('username')))]);
         }
+        if ($request->has('affiliations_present') && is_array($request->input('affiliations'))) {
+            $request->merge(['affiliations' => array_values(array_filter($request->input('affiliations'), fn ($value) => $value !== null && $value !== ''))]);
+        }
 
         return $request->validate([
             'name' => 'required|string|max:255',
             'username' => ['required', 'string', 'max:255', 'regex:/^[A-Z0-9._-]+$/', Rule::unique('users')->ignore($user?->id)],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users')->ignore($user?->id)],
-            'user_type' => ['required', Rule::in(['Administrador', 'Usuario'])],
+            'user_type' => ['required', Rule::in(User::ROLES)],
             'is_active' => 'required|boolean',
-            'scope_ids' => [Rule::requiredIf($request->input('user_type') === 'Usuario'), 'array'],
+            'scope_ids' => [Rule::requiredIf(($user === null || $request->input('user_type') === 'Usuario') && ! $request->has('affiliations_present')), 'array'],
             'scope_ids.*' => 'required|integer|distinct|exists:access_scopes,id',
+            'affiliations_present' => 'sometimes|accepted',
+            'affiliations' => [Rule::requiredIf(($user === null || $request->input('user_type') === 'Usuario') && $request->has('affiliations_present')), 'array', 'max:1'],
+            'affiliations.*' => ['required', 'string', 'distinct', 'regex:/^(fund|department|legacy):[1-9][0-9]*$/'],
+            'catalog_permissions_present' => 'sometimes|accepted',
+            'catalog_permissions' => 'sometimes|array',
+            'catalog_permissions.*' => ['required', 'string', 'distinct', Rule::in(array_keys(User::DELEGATABLE_PERMISSIONS))],
             'password' => $user ? ['prohibited'] : ['required', 'confirmed', Password::min(12)->letters()->numbers(), 'max:1024'],
         ], [
             'scope_ids.required' => 'Selecione pelo menos um fundo/secretaria para o usuário.',
@@ -98,7 +109,7 @@ class UserController extends Controller
 
     private function snapshot(User $user): array
     {
-        return $user->only(['name', 'username', 'email', 'user_type', 'is_active', 'deleted_at'])
+        return $user->only(['name', 'username', 'email', 'user_type', 'is_active', 'deleted_at', 'fund', 'department', 'catalog_permissions'])
             + ['scope_ids' => $user->scopes()->orderBy('access_scopes.id')->pluck('access_scopes.id')->all()];
     }
 
@@ -115,10 +126,16 @@ class UserController extends Controller
         DB::transaction(function () use ($request, $data) {
             $actor = $this->actors->lock($request->user());
             Gate::forUser($actor)->authorize('create', User::class);
-            $user = User::create(collect($data)->except(['scope_ids', 'is_active'])->all());
+            abort_unless($actor->isMaster() || $data['user_type'] === 'Usuario', 403);
+            $user = User::create(collect($data)->only(['name', 'username', 'email', 'password', 'user_type'])->all());
             $user->is_active = (bool) $data['is_active'];
+            $user->catalog_permissions = $data['catalog_permissions'] ?? [];
             $user->save();
-            $user->scopes()->sync($data['scope_ids'] ?? []);
+            if (isset($data['affiliations_present'])) {
+                (new UserAffiliation)->assign($user, $data['affiliations'] ?? []);
+            } else {
+                $user->scopes()->sync($data['scope_ids'] ?? []);
+            }
             $this->audit($request, $user, 'created', null);
         });
 
@@ -129,7 +146,7 @@ class UserController extends Controller
     {
         DB::transaction(function () use ($request, $target, $action, $change, $reason) {
             // Lock all active admins first, in a stable order, to protect concurrent changes.
-            $admins = User::where('user_type', 'Administrador')->where('is_active', true)->orderBy('id')->lockForUpdate()->get();
+            $admins = UserGovernance::lockAdministrators();
             $actor = $this->actors->lock($request->user());
             abort_unless($actor->isAdmin(), 403);
             $user = User::withTrashed()->whereKey($target->id)->lockForUpdate()->firstOrFail();
@@ -140,11 +157,10 @@ class UserController extends Controller
             abort_unless((int) $revision['version'] === $user->session_version, 409,
                 'Esta conta foi alterada por outra pessoa. Recarregue a página antes de salvar.');
             $before = $this->snapshot($user);
-            $wasAdmin = $user->isAdmin();
+            $previousUser = clone $user;
             $change($user);
-            if ($wasAdmin && ! $user->isAdmin() && $admins->count() <= 1) {
-                throw ValidationException::withMessages(['user_type' => 'O último administrador ativo não pode ser desativado, excluído ou ter seu perfil alterado.']);
-            }
+            abort_unless($actor->isMaster() || $user->user_type === 'Usuario', 403);
+            UserGovernance::protectLastAdministrator($previousUser, $user, $admins);
             $user->session_version++;
             $user->remember_token = null;
             $user->save();
@@ -165,7 +181,14 @@ class UserController extends Controller
         return $this->mutate($request, $user, 'updated', function (User $user) use ($data) {
             $user->fill(collect($data)->only(['name', 'username', 'email', 'user_type'])->all());
             $user->is_active = (bool) $data['is_active'];
-            $user->scopes()->sync($data['scope_ids'] ?? []);
+            if (isset($data['catalog_permissions_present']) || array_key_exists('catalog_permissions', $data)) {
+                $user->catalog_permissions = $data['catalog_permissions'] ?? [];
+            }
+            if (isset($data['affiliations_present'])) {
+                (new UserAffiliation)->assign($user, $data['affiliations'] ?? []);
+            } else {
+                $user->scopes()->sync($data['scope_ids'] ?? []);
+            }
         });
     }
 

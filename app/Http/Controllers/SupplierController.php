@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Infrastructure\Suppliers\UpdateSupplier;
 use App\Models\Contract;
@@ -16,13 +17,13 @@ class SupplierController extends Controller
     public function registrationLookup(Request $request, LockActor $actors)
     {
         $actor = $actors->current($request->user());
-        abort_unless($actor->isAdmin(), 403);
+        CatalogAccess::authorize($actor, 'supplier');
         $data = $request->validate(['document' => ['required', 'string', 'max:32', function ($attribute, $value, $fail) {
             if (! preg_match('/^[\d\s.\/\-]+$/D', $value) || ! Normalizer::validDocument(Normalizer::document($value))) {
                 $fail('Informe um CPF ou CNPJ válido.');
             }
         }]]);
-        $suppliers = SupplierCatalog::visibleTo($actor)->where('document_key', Normalizer::document($data['document']))
+        $suppliers = ($actor->canAccessCatalog('supplier') ? CatalogAccess::suppliers($actor) : SupplierCatalog::visibleTo($actor))->where('document_key', Normalizer::document($data['document']))
             ->select(['name', 'document_key', 'raw_payload'])->limit(2)->get();
         abort_if($suppliers->count() > 1, 409, 'Há mais de um fornecedor com este documento. Consulte o catálogo.');
         $values = null;
@@ -40,13 +41,13 @@ class SupplierController extends Controller
     public function lookup(Request $request, LockActor $actors)
     {
         $actor = $actors->current($request->user());
-        Gate::forUser($actor)->authorize('create', Contract::class);
+        Gate::forUser($actor)->authorize('selectSupplier', Contract::class);
         $data = $request->validate(['document' => ['required', 'string', 'max:32', function ($attribute, $value, $fail) {
             if (! preg_match('/^[\d\s.\/\-]+$/D', $value) || ! Normalizer::validDocument(Normalizer::document($value))) {
                 $fail('Informe um CPF ou CNPJ válido.');
             }
         }]]);
-        $suppliers = SupplierCatalog::visibleTo($actor)->where('document_key', Normalizer::document($data['document']))->limit(2)->get();
+        $suppliers = ($actor->canAccessCatalog('supplier') ? CatalogAccess::suppliers($actor) : SupplierCatalog::visibleTo($actor))->where('document_key', Normalizer::document($data['document']))->limit(2)->get();
         abort_unless($suppliers->count(), 404, 'Nenhum fornecedor disponível para este documento.');
         abort_if($suppliers->count() > 1, 409, 'Há mais de um cadastro para este documento. Use Selecionar fornecedor cadastrado.');
 
@@ -56,17 +57,17 @@ class SupplierController extends Controller
 
     public function show(Request $request, int $supplier)
     {
-        Gate::authorize('create', Contract::class);
+        Gate::authorize('selectSupplier', Contract::class);
         $actor = (new LockActor)->current($request->user());
-        $query = SupplierCatalog::visibleTo($actor)->select(['id', 'name', 'document', 'document_key']);
-        if ($actor->isAdmin()) {
+        $query = ($actor->canAccessCatalog('supplier') ? CatalogAccess::suppliers($actor) : SupplierCatalog::visibleTo($actor))->select(['id', 'name', 'document', 'document_key']);
+        if ($actor->canAccessCatalog('supplier')) {
             $query->addSelect(['raw_payload', 'updated_at']);
         }
         $record = $query->where('id', $supplier)->first();
         abort_unless($record, 404);
         $values = [];
         $revision = null;
-        if ($actor->isAdmin()) {
+        if ($actor->canAccessCatalog('supplier')) {
             $raw = json_decode($record->raw_payload, true, 512, JSON_THROW_ON_ERROR);
             $values = ['name' => $record->name, 'document' => $record->document_key ?: $record->document];
             foreach (SupplierFields::fields() as $field => $definition) {
@@ -76,7 +77,7 @@ class SupplierController extends Controller
         }
 
         return view('suppliers.show', ['supplier' => $record,
-            'supplierValues' => $values, 'supplierRevision' => $revision, 'canEditSupplier' => $actor->isAdmin(),
+            'supplierValues' => $values, 'supplierRevision' => $revision, 'canEditSupplier' => $actor->canAccessCatalog('supplier'),
             'contracts' => Contract::visibleTo($request->user())->where('supplier_id', $record->id)->latest('id')->paginate(20)]);
     }
 
@@ -89,9 +90,9 @@ class SupplierController extends Controller
 
     public function index(Request $request)
     {
-        Gate::authorize('create', Contract::class);
+        Gate::authorize('selectSupplier', Contract::class);
         $data = $request->validate(['q' => 'nullable|string|max:255', 'page' => 'nullable|integer|min:1']);
-        $query = SupplierCatalog::visibleTo($request->user());
+        $query = ($request->user()->canAccessCatalog('supplier') ? CatalogAccess::suppliers($request->user()) : SupplierCatalog::visibleTo($request->user()));
         if ($search = trim($data['q'] ?? '')) {
             $query->where(function ($query) use ($search) {
                 $query->whereLike('name', '%'.$search.'%');

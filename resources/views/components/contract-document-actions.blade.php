@@ -3,13 +3,14 @@
     <nav aria-label="Emissão de documentos do contrato">
         @foreach(['contract' => ['Contrato', 'contracts'], 'extract' => ['Extrato', 'document-extract'], 'publication' => ['Publicação', 'document-publication'], 'termination' => ['Distrato', 'document-termination']] as $kind => [$label, $icon])
             @php
-                $ready = $contract->exists && (
+                $authorized = auth()->user()->canIssueContracts();
+                $ready = $authorized && $contract->exists && (
                     ($kind === 'extract' && \App\Services\Legacy\Normalizer::name($contract->tipo) === 'FORNECIMENTO')
                     || $kind === 'publication'
                 );
-                $message = $contract->exists
+                $message = ! $authorized ? 'Você não possui autorização para emitir documentos de contratos.' : ($contract->exists
                     ? 'A emissão de '.$label.' depende da configuração do modelo desse documento.'
-                    : 'Salve o contrato antes de emitir '.$label.'.';
+                    : 'Salve o contrato antes de emitir '.$label.'.');
             @endphp
             <button type="button" class="document-action" aria-label="Emitir {{ $label }}" aria-describedby="document-tip-{{ $kind }}" aria-disabled="{{ $ready ? 'false' : 'true' }}" data-document-kind="{{ $kind }}" data-document-state="{{ $ready ? 'ready' : ($contract->exists ? 'model-pending' : 'save-required') }}" data-message="{{ $message }}" @if($ready && $kind === 'extract') data-extract-url="{{ route('contracts.extract', ['contract' => $contract->id, 'version' => $contract->version]) }}" @elseif($ready && $kind === 'publication') data-publication-url="{{ route('contracts.publication', ['contract' => $contract->id, 'version' => $contract->version]) }}" @endif @click="message = $el.dataset.documentState === 'ready' ? '' : $el.dataset.message">
                 <x-nav-icon :name="$icon"/><span>{{ $label }}</span>

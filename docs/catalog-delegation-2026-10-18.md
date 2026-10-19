@@ -1,0 +1,19 @@
+# Autorizações individuais de cadastros
+
+Em **Cadastros → Usuários → Novo/Editar usuário**, Administrador e Administrador Master podem marcar cada autorização separadamente: Fiscal_Contrato, Gestor_Contrato, Gestor_Fundo, Fundo, Secretaria, Dotação e Fornecedor. A hierarquia de contas permanece: Administrador altera somente contas Usuario; Master pode alterar todos os perfis. A delegação não permite gerenciar usuários, escopos, configurações documentais ou emitir decretos administrativos.
+
+O usuário autorizado pode consultar e executar as operações já disponíveis naquele cadastro. Dotação continua somente consulta; Secretaria conserva consulta/criação; Fornecedor conserva consulta/criação/edição. Não foram introduzidas exclusões onde não existiam. A consulta básica de fornecedores já usada no preenchimento de contratos permanece disponível dentro dos limites anteriores, sem permissão de manutenção.
+
+Os checkboxes correspondem a `users.catalog_permissions` (JSON nullable). Novas permissões são negadas por padrão. Marcadores de presença distinguem campos omitidos de revogação explícita. `catalog_permissions` não é mass assignable e é proibido no endpoint Minha conta. Alterações de autorização são auditadas junto com o usuário na mesma transação e incrementam `session_version`, recusando sessões/formulários antigos.
+
+`User::canAccessCatalog` verifica conta ativa/perfil e tipo permitido. `Infrastructure/Security/CatalogAccess` aplica escopos atuais no backend e nos adaptadores, inclusive buscas por CPF/CNPJ e IDs diretos. Fiscais e gestores por Secretaria não podem ser transferidos para fora dos vínculos autorizados. Cadastros com nomes de órgãos legados não resolvidos permanecem inacessíveis ao delegado. Fundos e Secretarias oferecidos nos formulários são filtrados. Para criar Secretaria, um delegado precisa de vínculo municipal abrangendo todas as Secretarias; vínculo a uma única Secretaria não permite criar novas unidades. Novo Fundo não concede automaticamente vínculo ao criador. Fornecedores estão limitados aos contratos visíveis e aos fornecedores criados pelo próprio delegado; as permissões não ampliam o acesso a contratos.
+
+As verificações de escrita são repetidas após LockActor, dentro das transações existentes, mantendo revisão HMAC, validação contextual, soft delete e auditoria. O menu mostra os cadastros autorizados, sem conceder privilégios administrativos globais. Campos pessoais das fichas são acessíveis somente a administradores ou delegados explicitamente autorizados para aquela ficha e dentro do escopo.
+
+Instalação local executada: `php artisan migrate --path=database/migrations/2026_10_18_000030_add_catalog_permissions_to_users.php --force`. Migration exclusivamente aditiva, sem alterar concessões existentes ou conceder autorizações automaticamente. Schema e dados legados preservados.
+
+Validações: CatalogDelegationTest com concessão/revogação, sessão antiga, bloqueio de autoconcessão, isolamento entre tipos, operações em Fiscal, isolamento de Secretaria e fornecedores; suítes existentes de cadastros/usuários; Pint; composer check; php artisan view:cache; npm run build pelo Docker. Testes com SQLite em memória e storage temporário.
+
+Resultado: composer check aprovado, 539 testes e 5.024 asserções, nenhuma falha e 1 teste ignorado. Architecture (3 testes) e Unit (57 testes) aprovados. Verificação específica posterior da compatibilidade de validação de tipo de cadastro: 9 testes de delegação aprovados. Build e compilação de templates concluídos.
+
+Confirmação do acesso administrativo: Administrador e Administrador Master acessam todos os cadastros mesmo com catalog_permissions vazio. O formulário apresenta essa regra automaticamente ao selecionar um perfil administrativo; as autorizações individuais aparecem somente para Usuario. Testes de delegação e hierarquia: 14 testes, 144 asserções aprovadas. A hierarquia da gestão de contas permanece inalterada.

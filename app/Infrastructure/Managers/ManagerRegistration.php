@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Managers;
 
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\User;
@@ -47,9 +48,9 @@ final class ManagerRegistration
     {
         DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
+            CatalogAccess::authorize($actor, 'manager-fund');
             $this->lockFunds($id, null);
-            $record = DB::table('tb_Gestor')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
+            $record = CatalogAccess::byOrganization($actor, DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
             abort_unless($record, 404);
             $data = Validator::make($input, ['revision' => 'required|string', 'confirmation' => 'accepted'])->validate();
             abort_unless(hash_equals($this->revision($record), $data['revision']), 409, 'Este gestor foi alterado. Reabra o cadastro antes de excluir.');
@@ -80,10 +81,10 @@ final class ManagerRegistration
     {
         return DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
+            CatalogAccess::authorize($actor, 'manager-fund');
             $fundInput = Validator::make($input, ['fund_id' => 'required|integer|exists:contract_funds,id'])->validate();
             $this->lockFunds($id, (int) $fundInput['fund_id']);
-            $record = $id ? DB::table('tb_Gestor')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
+            $record = $id ? CatalogAccess::byOrganization($actor, DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
             abort_if($id && ! $record, 404);
             if ($record) {
                 abort_unless(is_string($input['revision'] ?? null) && hash_equals($this->revision($record), $input['revision']), 409, 'Este gestor foi alterado. Reabra o cadastro antes de salvar.');
@@ -114,6 +115,7 @@ final class ManagerRegistration
             }
             $fund = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $data['fund_id'])->lockForUpdate()->first();
             abort_unless($fund, 422);
+            CatalogAccess::destination($actor, (int) $fund->id, null);
             if (! ManagerSignatory::isMunicipal($fund->name)) {
                 if (! empty($data['Assinatura'])) {
                     throw ValidationException::withMessages(['Assinatura' => 'A assinatura do Executivo está disponível somente para o Município de Niquelândia.']);

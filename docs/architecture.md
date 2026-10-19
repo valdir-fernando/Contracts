@@ -198,3 +198,11 @@ Edição de fornecedores: PUT /suppliers/{supplier} usa Infrastructure/Suppliers
 Fotos de perfil: Infrastructure/Accounts/ProfilePhoto valida/normaliza imagens e persiste somente a foto do ator autenticado, com LockActor e auditoria transacionais. A renderização da miniatura ocorre antes da transação; arquivos ficam no disco privado local e o novo AccountAvatarController reautoriza a leitura própria com verificação de integridade. O model User oculta caminho e hash e não permite atribuição desses campos em massa. Rotas, migration aditiva, implantação local e validação em profile-photo-2026-10-17.md.
 
 Cabeçalhos documentais: Infrastructure/Documents/DocumentSettings centraliza a administração vigente (2025/2028 inicialmente) em configuração persistente global. headerData fornece somente a projeção do cabeçalho para os próximos emissores. PUT /document-settings revalida/bloqueia administrador e configuração, valida versão/anos/justificativa e audita na mesma transação. A edição aparece em Órgãos e permissões. Não altera exercício, dados ou snapshots dos contratos; futuros PDFs devem capturar a configuração na emissão. Migration e validação em document-administration-2026-10-17.md.
+
+Minha conta: edição da identidade autenticada, permissões administrativas revalidadas, proteção do último administrador e auditoria transacional conforme [edição da própria conta](own-account-editing-2026-10-18.md).
+
+Governança de contas: Administrador Master gerencia todos os perfis; Administrador gerencia somente Usuario. UserPolicy e UserGovernance revalidam hierarquia, perfil resultante e último Master sob locks ordenados. [Regras e promoção local](user-role-hierarchy-2026-10-18.md).
+
+Delegação de cadastros: users.catalog_permissions guarda autorizações por tipo; CatalogAccess limita leituras/escritas aos órgãos atuais, com revalidação após lock do ator e auditoria transacional das concessões. [Contrato e instalação](catalog-delegation-2026-10-18.md).
+
+Emissão de contratos: permissão explícita contract-issuance para usuários comuns; create/issue na policy mantêm escopos e revalidação transacional. [Contrato e validação](contract-issuance-permission-2026-10-18.md).

@@ -401,6 +401,8 @@ class ContractWritingTest extends TestCase
     private function regular(bool $scope = true): User
     {
         $user = User::create(['name' => 'Usuário fictício', 'username' => 'REGULAR', 'password' => 'SenhaFicticia123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
         if ($scope) {
             $scope = AccessScope::create(['scope_key' => hash('sha256', 'scope'), 'fund' => 'Fundo A', 'department' => 'Secretaria A',
                 'fund_id' => $this->fund, 'department_id' => $this->department]);

@@ -28,6 +28,10 @@ class SupplierAutofillTest extends TestCase
         $this->withoutVite();
         $this->admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SyntheticPassword123', 'user_type' => 'Administrador']);
         $this->user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
+        foreach ([$this->admin, $this->user] as $issuer) {
+            $issuer->catalog_permissions = ['contract-issuance'];
+            $issuer->save();
+        }
         $this->fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
         $scope = AccessScope::create(['scope_key' => 'supplier-autofill', 'fund' => 'Fundo', 'fund_id' => $this->fund]);
         $this->user->scopes()->attach($scope);

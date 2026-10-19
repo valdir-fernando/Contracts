@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Infrastructure\Managers\ManagerRegistration;
 use App\Infrastructure\Managers\ManagerSignatory;
+use App\Infrastructure\Security\CatalogAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -11,9 +12,9 @@ class ManagerController extends Controller
 {
     public function index(Request $request, ManagerRegistration $registration)
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        CatalogAccess::authorize($request->user(), 'manager-fund');
         $id = $request->validate(['edit' => 'nullable|integer|min:1'])['edit'] ?? null;
-        $record = $id ? DB::table('tb_Gestor')->whereNull('deleted_at')->find($id) : null;
+        $record = $id ? CatalogAccess::byOrganization($request->user(), DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')->find($id) : null;
         abort_if($id && ! $record, 404);
         $values = [];
         $legacyDates = [];
@@ -28,9 +29,9 @@ class ManagerController extends Controller
                 }
             }
         }
-        $funds = DB::table('contract_funds')->whereNull('deleted_at')->orderBy('name')->get(['id', 'name', 'name_key']);
+        $funds = CatalogAccess::funds($request->user())->orderBy('name')->get(['id', 'name', 'name_key']);
         $values['fund_id'] = $record ? ($funds->where('name_key', $record->fund_name_key)->count() === 1 ? $funds->firstWhere('name_key', $record->fund_name_key)?->id : null) : null;
-        $hasActiveSignature = DB::table('tb_Gestor')->whereNull('deleted_at')
+        $hasActiveSignature = CatalogAccess::byOrganization($request->user(), DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')
             ->where('fund_name_key', ManagerSignatory::MUNICIPAL_FUND)->get(['raw_payload'])
             ->contains(fn ($manager) => (string) (json_decode($manager->raw_payload, true)['Assinatura'] ?? 0) === '1');
         $signatureAvailable = ! $hasActiveSignature || ($record && $record->fund_name_key === ManagerSignatory::MUNICIPAL_FUND
@@ -42,7 +43,7 @@ class ManagerController extends Controller
             'funds' => $funds,
             'signatureAvailable' => $signatureAvailable,
             'municipalFundIds' => $funds->filter(fn ($fund) => ManagerSignatory::isMunicipal($fund->name))->pluck('id')->map(fn ($id) => (string) $id)->values(),
-            'records' => DB::table('tb_Gestor')->whereNull('deleted_at')->select(['id', 'name', 'fund_name_key'])->orderBy('name')->paginate(20),
+            'records' => CatalogAccess::byOrganization($request->user(), DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')->select(['id', 'name', 'fund_name_key'])->orderBy('name')->paginate(20),
         ])->header('Cache-Control', 'private, no-store');
     }
 

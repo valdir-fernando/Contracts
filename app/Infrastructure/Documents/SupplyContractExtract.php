@@ -22,7 +22,7 @@ class SupplyContractExtract
         $snapshot = DB::transaction(function () use ($expected, $id, $version) {
             $actor = $this->actors->lock($expected);
             $contract = Contract::whereKey($id)->lockForUpdate()->firstOrFail();
-            Gate::forUser($actor)->authorize('view', $contract);
+            Gate::forUser($actor)->authorize('issue', $contract);
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir o extrato.');
             abort_unless(Normalizer::name($contract->tipo) === 'FORNECIMENTO', 422, 'Este modelo de extrato está disponível somente para Fornecimento.');
             $settings = $this->settings->current();
@@ -37,7 +37,7 @@ class SupplyContractExtract
         DB::transaction(function () use ($expected, $id, $snapshot, $templateHash, $bytes) {
             $actor = $this->actors->lock($expected);
             $contract = Contract::whereKey($id)->lockForUpdate()->firstOrFail();
-            Gate::forUser($actor)->authorize('view', $contract);
+            Gate::forUser($actor)->authorize('issue', $contract);
             abort_unless($actor->user_type === $snapshot['role'], 403);
             abort_unless((int) $contract->version === $snapshot['version'], 409, 'O contrato mudou durante a emissão. Gere o extrato novamente.');
             $this->signatories->assertUnchanged($contract, $snapshot['signer']);

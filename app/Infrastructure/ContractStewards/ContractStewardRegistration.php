@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\ContractStewards;
 
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\User;
@@ -44,9 +45,9 @@ final class ContractStewardRegistration
     {
         DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
+            CatalogAccess::authorize($actor, 'contract-steward');
             $this->assignments->lockFunds($id, null);
-            $record = DB::table('contract_stewards')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
+            $record = CatalogAccess::byOrganization($actor, DB::table('contract_stewards'), 'fund_name_key', 'department_name_key')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
             abort_unless($record, 404);
             $data = Validator::make($input, ['revision' => 'required|string', 'confirmation' => 'accepted'])->validate();
             abort_unless(hash_equals($this->revision($record), $data['revision']), 409, 'Este gestor foi alterado. Reabra o cadastro antes de excluir.');
@@ -67,10 +68,10 @@ final class ContractStewardRegistration
     {
         return DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
+            CatalogAccess::authorize($actor, 'contract-steward');
             $destination = Validator::make($input, ['fund_id' => 'required|integer|exists:contract_funds,id'])->validate();
             $this->assignments->lockFunds($id, (int) $destination['fund_id']);
-            $record = $id ? DB::table('contract_stewards')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
+            $record = $id ? CatalogAccess::byOrganization($actor, DB::table('contract_stewards'), 'fund_name_key', 'department_name_key')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
             abort_if($id && ! $record, 404);
             if ($record) {
                 abort_unless(is_string($input['revision'] ?? null) && hash_equals($this->revision($record), $input['revision']), 409, 'Este gestor foi alterado. Reabra o cadastro antes de salvar.');
@@ -113,6 +114,7 @@ final class ContractStewardRegistration
             if (! empty($data['department_id']) && (! $department || Normalizer::name($fund->name) !== 'MUNICIPIO DE NIQUELANDIA')) {
                 throw ValidationException::withMessages(['department_id' => 'Selecione uma secretaria somente para o Município de Niquelândia.']);
             }
+            CatalogAccess::destination($actor, (int) $fund->id, $department ? (int) $department->id : null);
             $this->assignments->assertAvailable($fund, $department, $id);
             foreach (self::FIELDS as $key => $_) {
                 if (array_key_exists($key, $data)) {

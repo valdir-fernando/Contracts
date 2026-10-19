@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Infrastructure\Documents\DocumentSettings;
 use App\Infrastructure\Funds\FundRegistration;
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Infrastructure\Suppliers\SupplierRegistrationInput;
 use App\Models\AccessScope;
@@ -22,21 +23,28 @@ class CatalogController extends Controller
 
     public function index(Request $request)
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        CatalogAccess::authorize($request->user(), 'department');
+        if (! $request->user()->isAdmin()) {
+            $municipalIds = CatalogAccess::funds($request->user())->get()->filter(fn ($fund) => Normalizer::name($fund->name) === 'MUNICIPIO DE NIQUELANDIA')->pluck('id');
 
-        return view('administration.catalogs', ['funds' => DB::table('contract_funds')->whereNull('deleted_at')->orderBy('name')->get(),
-            'departments' => DB::table('contract_departments')->orderBy('name')->get(),
+            return response()->view('administration.departments', ['departments' => CatalogAccess::departments($request->user())->orderBy('name')->get(['id', 'name']),
+                'canCreate' => $request->user()->scopes()->whereIn('fund_id', $municipalIds)->whereNull('department_id')->where(fn ($query) => $query->whereNull('department')->orWhere('department', ''))->exists()])
+                ->header('Cache-Control', 'private, no-store');
+        }
+
+        return view('administration.catalogs', ['funds' => CatalogAccess::funds($request->user())->orderBy('name')->get(),
+            'departments' => CatalogAccess::departments($request->user())->orderBy('name')->get(),
             'documentSettings' => app(DocumentSettings::class)->current(),
             'scopes' => AccessScope::orderBy('fund')->orderBy('department')->get()]);
     }
 
     public function show(Request $request, string $kind, int $catalog)
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        CatalogAccess::authorize($request->user(), $kind);
         abort_unless(in_array($kind, ['fund', 'department'], true), 404);
         $table = $kind === 'fund' ? 'contract_funds' : 'contract_departments';
         $columns = $kind === 'fund' ? ['id', 'name', 'document'] : ['id', 'name'];
-        $record = DB::table($table)->when($kind === 'fund', fn ($query) => $query->whereNull('deleted_at'))->select($columns)->where('id', $catalog)->first();
+        $record = ($kind === 'fund' ? CatalogAccess::funds($request->user()) : CatalogAccess::departments($request->user()))->select($columns)->where('id', $catalog)->first();
         abort_unless($record, 404);
 
         return view('administration.catalog-detail', ['record' => $record, 'kind' => $kind,
@@ -46,7 +54,7 @@ class CatalogController extends Controller
 
     public function listing(Request $request, string $kind)
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        CatalogAccess::authorize($request->user(), $kind === 'manager' ? 'manager-fund' : $kind);
         [$table, $title, $columns] = match ($kind) {
             'inspector' => ['contract_inspectors', 'Fiscal', ['name' => 'Nome', 'fund_name_key' => 'Fundo', 'department_name_key' => 'Secretaria']],
             'manager' => ['tb_Gestor', 'Gestor', ['name' => 'Nome', 'fund_name_key' => 'Fundo']],
@@ -57,14 +65,18 @@ class CatalogController extends Controller
 
         return response()->view('administration.catalog-list', [
             'title' => $title, 'columns' => $columns,
-            'records' => DB::table($table)->when($table === 'tb_Gestor', fn ($query) => $query->whereNull('deleted_at'))->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
+            'records' => CatalogAccess::byOrganization($request->user(), DB::table($table), $kind === 'budget' ? 'Fundo' : 'fund_name_key', $kind === 'budget' ? 'Secretaria' : ($kind === 'inspector' ? 'department_name_key' : null), $kind !== 'budget')->when($table === 'tb_Gestor', fn ($query) => $query->whereNull('deleted_at'))->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
         ])->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request)
     {
-        abort_unless($request->user()->isAdmin(), 403);
         $kind = $request->input('kind');
+        if ($kind === 'scope') {
+            abort_unless($request->user()->isAdmin(), 403);
+        } elseif (! $request->user()->isAdmin()) {
+            CatalogAccess::authorize($request->user(), is_string($kind) ? $kind : '');
+        }
         if ($kind === 'fund') {
             try {
                 $this->fundRegistration->save($request->user(), null, $request->all());
@@ -72,7 +84,7 @@ class CatalogController extends Controller
                 throw $error->errorBag('catalog-fund');
             }
 
-            return redirect()->route('catalogs.index')->with('status', 'Cadastro salvo.');
+            return redirect()->route($request->user()->isAdmin() ? 'catalogs.index' : 'funds.index')->with('status', 'Cadastro salvo.');
         }
         $bag = in_array($kind, ['fund', 'department', 'supplier']) ? 'catalog-'.$kind : 'default';
         $data = $request->validateWithBag($bag, ['kind' => ['required', Rule::in(['fund', 'department', 'supplier', 'scope'])],
@@ -86,7 +98,15 @@ class CatalogController extends Controller
         }
         DB::transaction(function () use ($data, $request, $bag) {
             $actor = $this->actors->lock($request->user());
-            abort_unless($actor->isAdmin(), 403);
+            if ($data['kind'] === 'scope') {
+                abort_unless($actor->isAdmin(), 403);
+            } else {
+                CatalogAccess::authorize($actor, $data['kind']);
+            }
+            if ($data['kind'] === 'department' && ! $actor->isAdmin()) {
+                $municipality = CatalogAccess::funds($actor)->get()->filter(fn ($fund) => Normalizer::name($fund->name) === 'MUNICIPIO DE NIQUELANDIA');
+                abort_unless($municipality->count() === 1 && $actor->scopes()->where('fund_id', $municipality->first()->id)->whereNull('department_id')->where(fn ($query) => $query->whereNull('department')->orWhere('department', ''))->exists(), 403);
+            }
             if ($data['kind'] === 'scope') {
                 $fund = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $data['fund_id'])->lockForUpdate()->first();
                 abort_unless($fund, 422, 'Selecione um Fundo disponível.');
@@ -118,7 +138,7 @@ class CatalogController extends Controller
             ActivityEvent::create(['actor_id' => $request->user()->id, 'action' => 'catalog_created', 'metadata' => ['kind' => $data['kind'], 'id' => $id], 'created_at' => now()]);
         }, 3);
 
-        $destination = $data['kind'] === 'supplier' && ($data['return_to'] ?? null) === 'suppliers.index'
+        $destination = $data['kind'] === 'supplier' && (($data['return_to'] ?? null) === 'suppliers.index' || ! $request->user()->isAdmin())
             ? 'suppliers.index' : 'catalogs.index';
 
         return redirect()->route($destination)->with('status', 'Cadastro salvo.');

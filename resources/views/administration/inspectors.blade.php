@@ -47,10 +47,12 @@
             </section>
         @endforeach
         <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
+            @if(auth()->user()->isAdmin())
             @if($record)
                 <button type="submit" form="inspector-decree-direct" class="document-action registration-decree" aria-label="Gerar Decreto dos Fiscais de Contratos"><x-nav-icon name="document-extract"/><span>Decreto</span><span class="document-action-tooltip">Emitir o decreto com todos os fiscais vinculados ao mesmo número e data.</span></button>
             @else
                 <a class="document-action registration-decree" href="{{ route('inspectors.decree.create') }}" aria-label="Gerar Decreto dos Fiscais de Contratos"><x-nav-icon name="document-extract"/><span>Decreto</span></a>
+            @endif
             @endif
             <button type="button" class="section-tab" @disabled(!$record) @if($record) @click="$refs.inspectorDelete.showModal()" @endif><x-nav-icon name="trash"/>Excluir</button>
             <a class="section-tab" href="{{ route('catalogs.list', 'inspector') }}"><x-nav-icon name="plus"/>Novo</a>

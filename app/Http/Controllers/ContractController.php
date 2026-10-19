@@ -117,7 +117,7 @@ class ContractController extends Controller
 
     public function fundDefaults(Request $request, int $fund, SelectedFund $context)
     {
-        Gate::authorize('create', Contract::class);
+        Gate::authorize('viewAny', Contract::class);
         $values = $context->defaults($request->user(), $fund);
         abort_unless($values, 403);
 

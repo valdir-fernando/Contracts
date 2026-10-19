@@ -104,6 +104,8 @@ class ContractNumberingTest extends TestCase
         $this->post('/contracts', $this->input(['objeto' => '']))->assertSessionHasErrors('objeto');
         $this->assertDatabaseCount('tb_N_Contrato', 0);
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
         $scope = AccessScope::create(['scope_key' => 'numbering', 'fund' => 'Fundo A', 'fund_id' => $this->fund]);
         $user->scopes()->attach($scope);
         Contract::create(['fund_id' => $this->fund, 'supplier_id' => DB::table('suppliers')->where('document_key', '11222333000181')->value('id'), 'ownership_resolved' => true, 'quality_issues' => []]);

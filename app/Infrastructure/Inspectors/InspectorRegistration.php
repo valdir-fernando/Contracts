@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Inspectors;
 
+use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
 use App\Models\User;
@@ -43,8 +44,8 @@ final class InspectorRegistration
     {
         DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
-            $record = DB::table('contract_inspectors')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
+            CatalogAccess::authorize($actor, 'inspector');
+            $record = CatalogAccess::byOrganization($actor, DB::table('contract_inspectors'), 'fund_name_key', 'department_name_key')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first();
             abort_unless($record, 404);
             $data = Validator::make($input, ['revision' => 'required|string', 'confirmation' => 'accepted'])->validate();
             abort_unless(hash_equals($this->revision($record), $data['revision']), 409, 'Este fiscal foi alterado. Reabra o cadastro antes de excluir.');
@@ -64,10 +65,10 @@ final class InspectorRegistration
     {
         return DB::transaction(function () use ($expected, $id, $input) {
             $actor = $this->actors->lock($expected);
-            abort_unless($actor->isAdmin(), 403);
+            CatalogAccess::authorize($actor, 'inspector');
             // Serialize CPF checks across funds, including concurrent writes by different administrators.
             DB::table('contract_funds')->orderBy('id')->lockForUpdate()->get(['id']);
-            $record = $id ? DB::table('contract_inspectors')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
+            $record = $id ? CatalogAccess::byOrganization($actor, DB::table('contract_inspectors'), 'fund_name_key', 'department_name_key')->whereNull('deleted_at')->where('id', $id)->lockForUpdate()->first() : null;
             abort_if($id && ! $record, 404);
             if ($record) {
                 abort_unless(is_string($input['revision'] ?? null) && hash_equals($this->revision($record), $input['revision']), 409, 'Este fiscal foi alterado. Reabra o cadastro antes de salvar.');
@@ -97,6 +98,7 @@ final class InspectorRegistration
             }
             $fund = DB::table('contract_funds')->whereNull('deleted_at')->where('id', $data['fund_id'])->lockForUpdate()->first();
             abort_unless($fund, 422);
+            CatalogAccess::destination($actor, (int) $fund->id, empty($data['department_id']) ? null : (int) $data['department_id']);
             $department = empty($data['department_id']) ? null : DB::table('contract_departments')->where('id', $data['department_id'])->lockForUpdate()->first();
             if (! empty($data['department_id']) && (! $department || Normalizer::name($fund->name) !== 'MUNICIPIO DE NIQUELANDIA')) {
                 throw ValidationException::withMessages(['department_id' => 'Selecione uma secretaria somente para o Município de Niquelândia.']);

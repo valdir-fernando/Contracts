@@ -88,9 +88,10 @@ class UserManagementTest extends TestCase
         $this->assertSame([$a->id], UserAudit::firstOrFail()->after['scope_ids']);
     }
 
-    public function test_last_admin_cannot_be_deactivated_deleted_or_demoted(): void
+    public function test_last_master_cannot_be_deactivated_deleted_or_demoted(): void
     {
         $admin = $this->user('ADMIN', true);
+        $admin->update(['user_type' => User::MASTER]);
         $scope = $this->scope();
         $this->actingAs($admin)->put('/users/'.$admin->id, $this->data($admin, ['is_active' => 0]))->assertSessionHasErrors('user_type');
         $this->put('/users/'.$admin->id, $this->data($admin, ['user_type' => 'Usuario', 'scope_ids' => [$scope->id]]))->assertSessionHasErrors('user_type');
@@ -168,10 +169,11 @@ class UserManagementTest extends TestCase
         $this->assertDatabaseCount('access_scope_user', 17);
     }
 
-    public function test_admin_can_be_demoted_when_another_active_admin_exists(): void
+    public function test_master_can_be_demoted_when_another_active_master_exists(): void
     {
         $admin = $this->user('ADMIN', true);
-        $this->user('ADMIN2', true);
+        $admin->update(['user_type' => User::MASTER]);
+        $this->user('ADMIN2', true)->update(['user_type' => User::MASTER]);
         $scope = $this->scope();
         $this->actingAs($admin)->put('/users/'.$admin->id, $this->data($admin, ['user_type' => 'Usuario', 'scope_ids' => [$scope->id]]))->assertRedirect('/dashboard');
         $this->actingAs($admin->fresh())->get('/dashboard')->assertOk();
