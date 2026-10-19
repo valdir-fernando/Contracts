@@ -176,4 +176,19 @@ class LoginTest extends TestCase
         $this->assertDatabaseCount('users', 17);
         $this->assertTrue(Hash::check('SenhaAlterada!123', $user->fresh()->password));
     }
+
+    public function test_reference_import_can_preserve_existing_username_without_changing_its_credentials(): void
+    {
+        $existing = User::create(['name' => 'Cadastro atual', 'username' => 'FERNANDO', 'password' => 'ExistingPassword123', 'user_type' => 'Administrador']);
+        $passwordHash = $existing->password;
+        $this->seedReferenceUsers(true);
+        $this->assertDatabaseCount('users', 17);
+        $this->assertSame($passwordHash, $existing->fresh()->password);
+        $this->assertSame('Cadastro atual', $existing->fresh()->name);
+        $this->assertNull($existing->fresh()->reference_user_id);
+        $this->assertDatabaseCount('user_audits', 16);
+        $this->seedReferenceUsers(true);
+        $this->assertDatabaseCount('users', 17);
+        $this->assertDatabaseCount('user_audits', 16);
+    }
 }

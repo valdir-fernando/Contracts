@@ -21,7 +21,7 @@ abstract class TestCase extends \Illuminate\Foundation\Testing\TestCase
         ]);
     }
 
-    protected function seedReferenceUsers(): void
+    protected function seedReferenceUsers(bool $preserveExistingUsernames = false): void
     {
         // Synthetic data keeps the test suite independent of the private SQL dump.
         $rows = [];
@@ -35,7 +35,7 @@ abstract class TestCase extends \Illuminate\Foundation\Testing\TestCase
         $file = tempnam(sys_get_temp_dir(), 'reference-users-test-');
         try {
             file_put_contents($file, "INSERT INTO `tb_Usuario` VALUES\n".implode(",\n", $rows).';');
-            $this->app->call([new ReferenceUsersSeeder, 'run'], ['file' => $file]);
+            $this->app->call([new ReferenceUsersSeeder, 'run'], ['file' => $file, 'preserveExistingUsernames' => $preserveExistingUsernames]);
         } finally {
             unlink($file);
         }
