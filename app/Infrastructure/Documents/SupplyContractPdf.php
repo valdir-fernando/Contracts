@@ -135,7 +135,7 @@ class SupplyContractPdf
             $text = $reference.' & Página '.$page.' de '.$pages;
             $size = min(8, 8 * 514.28 / max(1, $metrics->getTextWidth($text, $font, 8)));
             $width = $metrics->getTextWidth($text, $font, $size);
-            $canvas->text(565.28 - $width, 108, $text, $font, $size, [0.15, 0.15, 0.15]);
+            $canvas->text(565.28 - $width, 88, $text, $font, $size, [0.15, 0.15, 0.15]);
         });
 
         return $pdf->output();

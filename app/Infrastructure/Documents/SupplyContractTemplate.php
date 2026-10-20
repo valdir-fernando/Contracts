@@ -47,9 +47,9 @@ final class SupplyContractTemplate
         $fundSize = min(18, 18 * 297 / max(1, $fundWidth));
         $reference = 'Contrato: '.$fields['#CONTRATO'].' – Processo: '.$fields['#PROCESSO'];
         $html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="contract-reference" content="'.$this->escape($reference).'"><style>
-            @page { size:A4; margin:130pt 30pt 90pt 51pt; }
+            @page { size:A4; margin:110pt 30pt 90pt 51pt; }
             body { margin:0; font-family:DejaVu Sans,sans-serif; font-size:10pt; line-height:1.2; color:#000; }
-            header { position:fixed; top:-110pt; left:0; right:0; height:100pt; border-bottom:.6pt solid #12377a; }
+            header { position:fixed; top:-90pt; left:0; right:0; height:80pt; border-bottom:.6pt solid #12377a; }
             header img { width:205pt; height:auto; } .header-fund { position:absolute; right:0; top:24pt; width:297pt; font-weight:bold; white-space:nowrap; overflow-wrap:normal; text-align:right; }
             footer { position:fixed; bottom:-75pt; left:0; right:0; height:75pt; }
             footer img { width:100%; height:auto; }
@@ -71,8 +71,16 @@ final class SupplyContractTemplate
             .budget-lines td { border:0; padding:0 0 2pt; line-height:1.1; vertical-align:baseline; white-space:nowrap; word-wrap:normal; overflow-wrap:normal; }
             .budget-lines .budget-leader { text-align:center; }
             .budget-lines .budget-amount { text-align:right; }
-            .signatures td { border:0; padding:5pt; } .signatures p { font-size:9pt !important; text-align:center !important; }
-            .signatures tr { page-break-inside:avoid; }
+            .signature-block { page-break-inside:avoid; margin-top:8pt; }
+            .signature-block > p { text-align:right !important; }
+            .signatures { margin:10pt 0 0; page-break-inside:avoid; }
+            .signatures td { width:50%; border:0; padding:3pt 10pt; }
+            .signatures p { margin-bottom:3pt; font-size:9pt !important; line-height:1.15; text-align:center !important; }
+            .signatures .signature-space { height:60pt; border-bottom:.5pt solid #000; margin-bottom:5pt; }
+            .signatures .witness { padding-top:12pt; }
+            .signatures .witness-signature { padding-top:38pt; padding-bottom:0; }
+            .signatures .witness-document { padding-top:1pt; padding-bottom:0; }
+            .signatures .witness p { text-align:left !important; }
             </style></head><body>';
         $html .= '<header><img alt="Prefeitura de Niquelândia" src="data:image/png;base64,'.base64_encode($logo).'">'
             .'<div class="header-fund" style="font-size:'.$fundSize.'pt">'.$this->escape($fields['#FUNDO']).'</div></header>';
@@ -81,9 +89,18 @@ final class SupplyContractTemplate
             .'<div class="footer-administration">Gestão '.$this->escape(str_replace('/', '–', $fields['#ADM'])).'</div></footer>';
 
         $clauseOpen = false;
+        $signaturesOpen = false;
         foreach ($xpath->query('/w:document/w:body/*') as $node) {
             if ($node->localName === 'p') {
                 $text = $this->text($node, $xpath);
+                if (str_starts_with(trim($text), 'NIQUELÂNDIA-GO')) {
+                    $html .= '<div class="signature-block">';
+                    $signaturesOpen = true;
+                }
+                // Empty Word paragraphs must not add blank pages after the closing block.
+                if ($signaturesOpen && trim($text) === '') {
+                    continue;
+                }
                 if (str_contains($text, '#DOTAÇÃO')) {
                     $html .= $this->budgets($budgets);
                 } else {
@@ -109,7 +126,7 @@ final class SupplyContractTemplate
             }
         }
 
-        return $html.($clauseOpen ? '</div>' : '').'</body></html>';
+        return $html.($clauseOpen ? '</div>' : '').($signaturesOpen ? '</div>' : '').'</body></html>';
     }
 
     private function text(DOMElement $node, DOMXPath $xpath): string
@@ -277,22 +294,35 @@ final class SupplyContractTemplate
     {
         $html = '<table class="signatures">';
         foreach ($xpath->query('./w:tr', $table) as $row) {
-            $cells = '';
-            $hasText = false;
+            $cells = [];
+            $isParty = false;
+            $witnessClass = 'witness';
             foreach ($xpath->query('./w:tc', $row) as $cell) {
                 $content = '';
                 foreach ($xpath->query('./w:p', $cell) as $paragraph) {
                     // Ignore Word's layout-only empty paragraphs, including text-box fallbacks.
-                    if (trim($this->text($paragraph, $xpath)) !== '') {
+                    $text = $this->text($paragraph, $xpath);
+                    if (preg_replace('/\s+/u', '', $text) !== '') {
+                        if (preg_match('/^\s*[12]\.\s*_+/u', $text)) {
+                            $witnessClass = 'witness witness-signature';
+                        } elseif (preg_match('/^\s*CPF\s*_+/u', $text)) {
+                            $witnessClass = 'witness witness-document';
+                        }
                         $content .= $this->paragraph($paragraph, $xpath, $fields);
-                        $hasText = true;
+                        $isParty = $isParty || str_contains($text, '#NOME_GESTOR') || str_contains($text, '#FORNECEDOR');
                     }
                 }
-                $span = max(1, (int) $xpath->evaluate('string(./w:tcPr/w:gridSpan/@w:val)', $cell));
-                $cells .= '<td colspan="'.$span.'">'.$content.'</td>';
+                if ($content !== '') {
+                    $cells[] = $content;
+                }
             }
-            if ($hasText) {
-                $html .= '<tr>'.$cells.'</tr>';
+            if ($cells !== []) {
+                $html .= '<tr>';
+                foreach ($cells as $content) {
+                    $html .= '<td'.(count($cells) === 1 ? ' colspan="2" class="'.$witnessClass.'"' : '').'>'
+                        .($isParty ? '<div class="signature-space"></div>' : '').$content.'</td>';
+                }
+                $html .= '</tr>';
             }
         }
 
