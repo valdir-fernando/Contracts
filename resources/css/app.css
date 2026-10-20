@@ -60,6 +60,7 @@ p { margin-block: 0 16px; }
 [x-cloak] { display: none !important; }
 .muted { color: var(--muted); font-weight: 400; }
 .section-label { display: inline-block; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+[data-login-form] input[name="username"] { text-transform: uppercase; }
 .skip-link { position: fixed; z-index: 100; left: 16px; top: -100px; padding: 12px 20px; background: white; color: var(--primary); border: 2px solid var(--ring); border-radius: 8px; }
 .skip-link:focus { top: 16px; }
 
