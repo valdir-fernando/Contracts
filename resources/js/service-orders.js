@@ -6,11 +6,24 @@ export function serviceOrderPayload(form, version) {
         contract_version: Number(version), number: value('number'),
         issued_on: isoDate(value('issued_on')) ?? value('issued_on'), deadline: value('deadline'),
         amendment_id: value('amendment_id') || null, notes: value('notes') || null,
+        starts_on: form.elements.namedItem('starts_on') ? isoDate(value('starts_on')) ?? value('starts_on') ?? null : null,
+        ends_on: form.elements.namedItem('ends_on') ? isoDate(value('ends_on')) ?? value('ends_on') ?? null : null,
     };
 }
 
 export function advanceServiceOrderVersion(field, expected, current) {
     if (String(field.value) === String(expected) && Number(current) === Number(expected) + 1) field.value = String(current);
+}
+
+export function updateServiceOrderSummary(source, order) {
+    if (!source || !order) return;
+    const summary = source.querySelector('.contract-service-order-summary');
+    if (!summary) return;
+    source.querySelector('[data-derived-field="n_os"]').textContent = order.number;
+    source.querySelector('[data-derived-field="data_os"]').textContent = order.issued_on;
+    const deadline = source.querySelector('#prazo_obra');
+    if (deadline) deadline.value = order.deadline;
+    summary.hidden = false;
 }
 
 export function initializeServiceOrders(dialog, pageDocument = document, fetcher = fetch) {
@@ -26,6 +39,7 @@ export function initializeServiceOrders(dialog, pageDocument = document, fetcher
     let saving = false;
     let loaded = false;
     let opener;
+    let pendingSummary;
     const headers = { Accept: 'application/json' };
     const feedback = (message, error = false) => {
         status.textContent = message;
@@ -36,7 +50,9 @@ export function initializeServiceOrders(dialog, pageDocument = document, fetcher
         save.disabled = true;
         previous.disabled = next.disabled = true;
         try {
-            const response = await fetcher(`${dialog.dataset.url}?page=${requestedPage}`, { headers, credentials: 'same-origin' });
+            const url = new URL(dialog.dataset.url, pageDocument.baseURI);
+            url.searchParams.set('page', requestedPage);
+            const response = await fetcher(url, { headers, credentials: 'same-origin' });
             if (!response.ok) throw new Error('Não foi possível consultar as ordens. Feche e abra a janela para tentar novamente.');
             const data = await response.json();
             const selected = loaded ? select.value : dialog.dataset.amendment;
@@ -47,17 +63,27 @@ export function initializeServiceOrders(dialog, pageDocument = document, fetcher
             rows.replaceChildren();
             data.orders.forEach((order) => {
                 const row = pageDocument.createElement('tr');
-                [order.number, order.issued_on, order.deadline, order.amendment ? `Aditivo ${order.amendment}` : 'Contrato original', order.notes || '—'].forEach((value) => {
+                [order.number, order.contract_number || '—', order.issued_on, order.starts_on || '—', order.ends_on || '—', order.deadline, order.amendment ? `Aditivo ${order.amendment}` : 'Contrato original', order.notes || '—'].forEach((value) => {
                     const cell = pageDocument.createElement('td');
                     cell.textContent = value;
                     row.append(cell);
                 });
+                const pdfCell = pageDocument.createElement('td');
+                const pdfLink = pageDocument.createElement('a');
+                pdfLink.href = order.pdf_url;
+                pdfLink.target = '_blank';
+                pdfLink.rel = 'noopener';
+                pdfLink.className = 'text-link';
+                pdfLink.textContent = 'PDF';
+                pdfLink.setAttribute('aria-label', `Gerar PDF da OS ${order.number}`);
+                pdfCell.append(pdfLink);
+                row.append(pdfCell);
                 rows.append(row);
             });
             if (!data.orders.length) {
                 const row = pageDocument.createElement('tr');
                 const cell = pageDocument.createElement('td');
-                cell.colSpan = 5;
+                cell.colSpan = 9;
                 cell.textContent = 'Nenhuma ordem de serviço cadastrada.';
                 row.append(cell);
                 rows.append(row);
@@ -79,6 +105,9 @@ export function initializeServiceOrders(dialog, pageDocument = document, fetcher
     pageDocument.querySelectorAll('[data-service-orders-open]').forEach((button) => button.addEventListener('click', () => {
         if (dialog.open) return;
         opener = button;
+        pendingSummary = null;
+        const pdf = form.querySelector('[data-service-order-pdf]');
+        if (pdf) pdf.hidden = true;
         const source = button.closest('form');
         sourceVersion = source.elements.namedItem('contract_version') ?? source.elements.namedItem('version');
         if (!sourceVersion) return;
@@ -89,7 +118,10 @@ export function initializeServiceOrders(dialog, pageDocument = document, fetcher
     }));
     dialog.querySelector('[data-service-orders-close]').addEventListener('click', () => { if (!saving) dialog.close(); });
     dialog.addEventListener('cancel', (event) => { if (saving) event.preventDefault(); });
-    dialog.addEventListener('close', () => opener?.focus());
+    dialog.addEventListener('close', () => {
+        updateServiceOrderSummary(opener?.closest('form'), pendingSummary);
+        opener?.focus();
+    });
     previous.addEventListener('click', () => { if (!loading && !saving) load(page - 1); });
     next.addEventListener('click', () => { if (!loading && !saving) load(page + 1); });
     form.addEventListener('submit', async (event) => {
@@ -113,7 +145,10 @@ export function initializeServiceOrders(dialog, pageDocument = document, fetcher
                 return;
             }
             advanceServiceOrderVersion(sourceVersion, expected, data.contract_version);
-            ['number', 'issued_on', 'deadline', 'notes'].forEach((name) => {
+            pendingSummary = data.order;
+            const pdf = form.querySelector('[data-service-order-pdf]');
+            if (pdf) { pdf.href = data.pdf_url; pdf.hidden = false; }
+            ['number', 'issued_on', 'starts_on', 'ends_on', 'deadline', 'notes'].forEach((name) => {
                 const field = form.elements.namedItem(name);
                 field.value = '';
                 field.dispatchEvent(new Event('input', { bubbles: true }));

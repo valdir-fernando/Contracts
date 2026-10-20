@@ -1,6 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyCompanyValues, consultCompany } from '../../resources/js/cnpj-lookup.js';
+import { applyCompanyValues, consultCompany, showCompanyPartners } from '../../resources/js/cnpj-lookup.js';
+
+test('partner list requires explicit current selection and clears previous personal documents', () => {
+    const fields = Object.fromEntries(['Nome_Socio', 'CPF_Socio', 'RG_Socio'].map(name => [name, { value: 'Anterior', dispatchEvent() {} }]));
+    const container = { hidden: true };
+    const select = { children: [], replaceChildren() { this.children = []; }, append(item) { this.children.push(item); } };
+    const form = { ownerDocument: { createElement: () => ({}) }, elements: { namedItem: name => fields[name] },
+        querySelector: selector => selector === '[data-company-partners]' ? container : select };
+    let current = true;
+    showCompanyPartners(form, [{ name: 'Sócio A', qualification: 'Sócio' }, { name: '<Sócio B>', qualification: 'Sócio-Administrador' }], () => current);
+    assert.equal(container.hidden, false);
+    assert.equal(select.children.length, 3);
+    assert.equal(fields.Nome_Socio.value, 'Anterior');
+    select.value = '1';
+    select.onchange();
+    assert.equal(fields.Nome_Socio.value, '<Sócio B>');
+    assert.equal(fields.CPF_Socio.value, '');
+    assert.equal(fields.RG_Socio.value, '');
+    current = false;
+    select.value = '0';
+    select.onchange();
+    assert.equal(fields.Nome_Socio.value, '<Sócio B>');
+    showCompanyPartners(form, [], () => true);
+    assert.equal(select.children.length, 1);
+});
 
 function fixture() {
     const fields = Object.fromEntries(['name', 'Endereco', 'Fone_Fixo', '_token'].map(name => [name,

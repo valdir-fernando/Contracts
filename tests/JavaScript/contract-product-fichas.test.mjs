@@ -4,7 +4,7 @@ import { initializeContractProducts } from '../../resources/js/contract-products
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-function panel() {
+function panel(fichaSummary) {
     const previous = Object.fromEntries(['document', 'Node', 'ResizeObserver', 'window'].map((key) => [key, globalThis[key]]));
     let doc;
     class Element {
@@ -68,7 +68,7 @@ function panel() {
             return response({ contract_version: serverVersion, total_label: 'R$ 20,00' });
         }
         const ficha = parsed.searchParams.get('ficha');
-        const data = { contract_version: serverVersion, total_label: 'R$ 20,00', ficha_values: [],
+        const data = { contract_version: serverVersion, total_label: 'R$ 20,00', ficha_values: [], ficha_summary: fichaSummary,
             fichas: [...new Set(items.map((item) => item.Ficha))], items: items.filter((item) => !ficha || item.Ficha === ficha) };
         if (ficha === '001' && hold001) return new Promise((resolve) => { release001 = () => resolve(response(data)); });
         return response(data);
@@ -77,6 +77,22 @@ function panel() {
     return { find, version, calls, hold: () => { hold001 = true; }, release: () => { hold001 = false; release001(); },
         restore: () => Object.entries(previous).forEach(([key, value]) => { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }) };
 }
+
+test('ficha panel displays server exact totals and reports equality, divergence or invalid values', async () => {
+    for (const [summary, expected] of [
+        [{ total: '0.3000', contract_total: '0.3000', difference: '0.0000', matches: true }, /confere com o valor original/],
+        [{ total: '0.3001', contract_total: '0.3000', difference: '0.0001', matches: false }, /Diferença: 0,0001/],
+        [{ total: null, contract_total: '0.3000', difference: null, matches: null }, /Não foi possível conferir/],
+    ]) {
+        const ui = panel(summary);
+        try {
+            await settle();
+            assert.equal(ui.find('[data-product-ficha-total]').textContent, summary.total === null ? '—' : summary.total.replace('.', ','));
+            assert.equal(ui.find('[data-product-ficha-contract-total]').textContent, '0,3000');
+            assert.match(ui.find('[data-product-ficha-status]').textContent, expected);
+        } finally { ui.restore(); }
+    }
+});
 
 test('selection loads only that ficha, ignores a late old response, and clearing loads all products', async () => {
     const ui = panel();

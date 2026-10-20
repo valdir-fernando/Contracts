@@ -93,7 +93,7 @@ final class LaravelContractInputValidator implements ContractInputValidator
         $writable = [];
         foreach (ContractFields::MAP as $source => $definition) {
             $column = $definition['column'];
-            if ($this->request->routeIs('contracts.store', 'contracts.update') && in_array($source, ContractFields::EXECUTION_SUMMARY)) {
+            if ($this->request->routeIs('contracts.store', 'contracts.update') && (in_array($source, ContractFields::EXECUTION_SUMMARY) || $column === 'prazo_obra')) {
                 $rules[$column] = 'prohibited';
 
                 continue;
@@ -132,6 +132,21 @@ final class LaravelContractInputValidator implements ContractInputValidator
                     $choices[] = $contract->iptu;
                 }
                 $rules[$column][] = Rule::in($choices);
+            }
+            if ($column === 'garantia') {
+                $rules[$column][] = function ($attribute, $value, $fail) {
+                    $number = str_replace(',', '.', trim(preg_replace('/%$/', '', trim($value))));
+                    if (! preg_match('/^\d{1,3}(?:\.\d{1,2})?$/D', $number)) {
+                        $fail('Informe uma garantia entre 0,01% e 100,00%, com até duas casas decimais.');
+
+                        return;
+                    }
+                    [$whole, $fraction] = array_pad(explode('.', $number), 2, '');
+                    $hundredths = (int) $whole * 100 + (int) str_pad($fraction, 2, '0');
+                    if ($hundredths < 1 || $hundredths > 10000) {
+                        $fail('Informe uma garantia entre 0,01% e 100,00%.');
+                    }
+                };
             }
             if ($column === 'escopo') {
                 $choices = ContractFields::SCOPE_OPTIONS;

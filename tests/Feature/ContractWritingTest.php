@@ -67,6 +67,40 @@ class ContractWritingTest extends TestCase
             'valor_total' => '1.908,6300', 'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'fund_id' => $this->fund, 'department_id' => $this->department], $extra);
     }
 
+    public function test_guarantee_percentage_requires_between_one_hundredth_and_one_hundred_percent(): void
+    {
+        foreach (['0', '-1', '100,01%', 'abc', '0,001%'] as $value) {
+            $this->post('/contracts', $this->data(['garantia' => $value]))->assertSessionHasErrors('garantia');
+        }
+        $this->assertDatabaseCount('contracts', 0);
+        $this->post('/contracts', $this->data(['garantia' => '0,01%']))->assertRedirect()->assertSessionHasNoErrors();
+        $contract = Contract::firstOrFail();
+        $this->assertSame('0,01%', $contract->garantia);
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Atualizar garantia', 'garantia' => '100,01%'])
+            ->assertSessionHasErrors('garantia');
+        $this->assertSame('0,01%', $contract->fresh()->garantia);
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Atualizar garantia', 'garantia' => '100,00%'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('100,00%', $contract->fresh()->garantia);
+    }
+
+    public function test_service_order_summary_is_only_shown_for_saved_service_and_construction_contracts(): void
+    {
+        $this->get('/contracts/create')->assertOk()->assertDontSee('id="n_os"', false)->assertDontSee('id="data_os"', false)
+            ->assertSee('id="prazo_obra" name="prazo_obra" disabled', false);
+        $this->post('/contracts', $this->data(['prazo_obra' => 'Alteração manual']))->assertSessionHasErrors('prazo_obra');
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $contract->update(['n_os' => 'OS-123', 'data_os' => '2026-10-20']);
+        foreach (['Serviço', 'Serviços Diversos', 'Obras'] as $type) {
+            $contract->update(['tipo' => $type]);
+            $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+                ->assertSeeInOrder(['id="prazo_obra"', 'contract-service-order-summary', 'Ordem Serviço', 'OS-123', 'Data OS', '20/10/2026'], false)
+                ->assertDontSee('name="n_os"', false)->assertDontSee('name="data_os"', false);
+        }
+        $contract->update(['tipo' => 'Fornecimento']);
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertDontSee('id="n_os"', false)->assertDontSee('id="data_os"', false);
+    }
+
     public function test_lookup_opens_saved_fields_and_historical_people_despite_unrelated_form_input(): void
     {
         $contract = app(ContractWriter::class)->save($this->admin, $this->data());
@@ -527,7 +561,7 @@ class ContractWritingTest extends TestCase
         $this->assertSame(1, $xpath->query('//dialog[@data-contract-products-dialog]')->length);
         $this->assertSame(1, $xpath->query('//button[@data-contract-products-open and @aria-controls="contract-products-dialog"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//dialog[@data-contract-products-dialog]')->length);
-        $response->assertSeeInOrder(['5. Vigência', '6. Cad.Prod', '7. Financeiro', '8.Distrato/Paralização']);
+        $response->assertSeeInOrder(['5. Vigência', '6. Financeiro', '7.Distrato/Paralização', '8.Produtos', 'Expandir Tudo']);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//*[@id="department_id" or @id="tipo"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//nav[@aria-label="Seções do contrato"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//button[@type="submit"]')->length);

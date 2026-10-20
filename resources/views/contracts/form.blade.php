@@ -31,15 +31,15 @@
         <div class="contract-administration-row">
         <section class="contract-administration-fields" aria-label="Órgão e situação administrativa"><div class="field-grid">
             <div class="field"><label for="department_id">Secretaria</label><select id="department_id" name="department_id" @disabled(!$departmentEnabled)><option value="">Sem secretaria</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(($contract->exists || $departmentEnabled) && (string) $formValue('department_id', $values['department_id'] ?? $contract->department_id) === (string) $department->id)>{{ $department->name }}</option>@endforeach</select>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>
-            <div class="field"><div class="field-label-row"><label for="tipo">Tipo de contrato<x-required-mark :explain="true" :when="!$contract->exists || filled($contract->tipo)"/></label><x-contract-type-help :contract="$contract"/></div><select id="tipo" name="tipo" @required(!$contract->exists || filled($contract->tipo)) @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif>
+            <div class="field"><div class="field-label-row"><label for="tipo">Tipo de contrato<x-required-mark :explain="true" :when="!$contract->exists || filled($contract->tipo)"/></label><x-contract-type-help :contract="$contract" :selected-type="$formValue('tipo', $values['tipo'] ?? $contract->tipo)"/></div><select id="tipo" name="tipo" @required(!$contract->exists || filled($contract->tipo)) @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif>
                 <option value="">Selecione</option>
-                @if($contract->exists && filled($contract->tipo) && !$contractTypes->contains($contract->tipo))<option value="{{ $contract->tipo }}" @selected($formValue('tipo', $values['tipo'] ?? $contract->tipo) === $contract->tipo)>{{ $contract->tipo }} (histórico)</option>@endif
+                @if($contract->exists && filled($contract->tipo) && !$contractTypes->contains($contract->tipo))<option data-historical value="{{ $contract->tipo }}" @selected($formValue('tipo', $values['tipo'] ?? $contract->tipo) === $contract->tipo)>{{ $contract->tipo }} (histórico)</option>@endif
                 @foreach($contractTypes as $contractType)<option value="{{ $contractType }}" @selected($formValue('tipo', $values['tipo'] ?? $contract->tipo) === $contractType)>{{ $contractType }}</option>@endforeach
             </select>@error('tipo')<p class="field-error" id="tipo-error">{{ $message }}</p>@enderror</div>
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
         </div>
-        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration + ($loop->index >= 5 ? 1 : 0) }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@if($group === 'Vigência execução e aditivos')<button type="button" class="section-tab" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">6. Cad.Prod</button>@endif@endforeach<button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
+        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab products-button" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">{{ count($groups) + 1 }}.Produtos</button><button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
@@ -154,8 +154,8 @@
                             </select>
                         @elseif($column === 'prazo_obra')
                             <div class="service-order-input-control">
-                                <input id="prazo_obra" name="prazo_obra" maxlength="15000" value="{{ $inputValue }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="prazo_obra-error" @endif>
-                                <button type="button" class="service-order-open-button" data-service-orders-open aria-label="Cadastrar ordens de serviço" title="{{ $contract->exists ? 'Cadastrar ordens de serviço' : 'Salve o contrato antes de cadastrar ordens de serviço' }}" @disabled(!$contract->exists || $conflict)><x-nav-icon name="plus"/></button>
+                                <input id="prazo_obra" name="prazo_obra" disabled aria-readonly="true" value="{{ $inputValue }}">
+                                <button type="button" class="secondary-button compact" data-service-orders-open data-service-order-type-link hidden title="{{ $contract->exists ? 'Emitir Ordem de Serviço' : 'Salve o contrato antes de cadastrar ordens de serviço' }}" @disabled(!$contract->exists || $conflict)>Emitir Ordem de Serviço</button>
                             </div>
                         @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ $inputValue }}" @required($required)>
                         @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ $inputValue }}" @required($required)>
@@ -181,7 +181,21 @@
                         </div>
                         </div>
                     @endif
-                    @if($column === 'prazo_obra')</div>@endif
+                    @if($column === 'prazo_obra')
+                        </div>
+                        @if($contract->exists && in_array($contract->tipo, ['Serviço', 'Serviços', 'Serviços Diversos', 'Obras'], true))
+                            <div class="contract-service-order-summary">
+                                <div class="field">
+                                    <label for="n_os">Ordem Serviço</label>
+                                    <p class="readonly-field" id="n_os" role="textbox" aria-readonly="true" data-derived-field="n_os">{{ $latestServiceOrder?->number ?? $contract->displayField('N_OS', $formActor) }}</p>
+                                </div>
+                                <div class="field">
+                                    <label for="data_os">Data OS</label>
+                                    <p class="readonly-field" id="data_os" role="textbox" aria-readonly="true" data-derived-field="data_os">{{ $latestServiceOrder?->issued_on?->format('d/m/Y') ?? $contract->displayField('Data_OS', $formActor) }}</p>
+                                </div>
+                            </div>
+                        @endif
+                    @endif
                     @if($column === 'end_imovel')</div>@endif
                     @if($column === 'areaconstruida')</div>@endif
                     @if($column === 'proc_edital')</div>@endif

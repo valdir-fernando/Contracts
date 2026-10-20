@@ -64,7 +64,8 @@
             </div>
         </div>
         <aside class="product-budget-summary" aria-label="Valores dos produtos por ficha">
-            <div class="product-list-scroll"><table class="data-table"><thead><tr><th>Ficha</th><th>Valor</th></tr></thead><tbody data-product-budget-totals></tbody></table></div>
+            <div class="product-list-scroll"><table class="data-table"><thead><tr><th>Ficha</th><th>Valor</th></tr></thead><tbody data-product-budget-totals></tbody><tfoot><tr><th scope="row">Total das fichas</th><td data-product-ficha-total>—</td></tr><tr><th scope="row">Valor original do contrato</th><td data-product-ficha-contract-total>—</td></tr></tfoot></table></div>
+            <p class="hint" data-product-ficha-status role="status" aria-live="polite"></p>
         </aside>
     </div>
     <h3>Produtos do contrato</h3>

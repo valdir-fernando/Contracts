@@ -24,6 +24,32 @@ function fixture(value = '') {
 const found = (contracts, last_page = 1) => ({ ok: true, json: async () => ({ contracts, page: 1, last_page }) });
 const contract = { number: '001/26', process: 'P-1', url: '/contracts/1/edit' };
 
+test('leaving a filled number searches once even if the magnifier is also clicked', async () => {
+    const setup = fixture(' 001/26 ');
+    let calls = 0;
+    let resolve;
+    let destination;
+    initializeContractSearch(setup.dialog, setup.doc, (url) => {
+        calls++;
+        assert.equal(url.searchParams.get('q'), '001/26');
+        assert.equal(url.searchParams.get('exact'), '1');
+        return new Promise((done) => { resolve = done; });
+    }, (url) => { destination = url; });
+    const pending = setup.number.listeners.blur();
+    await setup.click();
+    assert.equal(calls, 1);
+    resolve(found([contract]));
+    await pending;
+    assert.equal(destination, contract.url);
+});
+
+test('leaving an empty number does not search or open consultation', async () => {
+    const setup = fixture('   ');
+    initializeContractSearch(setup.dialog, setup.doc, () => assert.fail('Empty lookup'));
+    await setup.number.listeners.blur();
+    assert.equal(setup.dialog.open, undefined);
+});
+
 test('filled number searches exact and opens the unique contract without opening the dialog', async () => {
     const setup = fixture(' 001/26 ');
     let destination;

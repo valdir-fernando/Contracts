@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Application\Security\ActorIdentity;
+use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Infrastructure\Contracts\ProcurementProducts;
 use App\Models\AccessScope;
 use App\Models\Contract;
 use App\Models\ContractAudit;
 use App\Models\ContractFinancialRecord;
 use App\Models\ContractProduct;
+use App\Models\ImportRun;
+use App\Models\LegacyRecord;
 use App\Models\ProcurementProduct;
 use App\Models\User;
 use App\Services\ContractWriter;
@@ -60,6 +63,84 @@ class ContractProductsTest extends TestCase
     private function add(string $quantity = '40', ?Contract $contract = null, array $extra = [])
     {
         return $this->postJson($this->url($contract).'/products', $this->data($extra + ['product_id' => $this->productId, 'quantity' => $quantity], $contract));
+    }
+
+    public function test_list_and_ficha_options_exclude_amendments_and_wrong_original_identity(): void
+    {
+        $this->add('1', null, ['ficha' => 'ORIGINAL'])->assertCreated();
+        $original = ContractProduct::sole();
+        $run = ImportRun::create(['source_hash' => str_repeat('a', 64), 'status' => 'completed', 'started_at' => now()]);
+        $hidden = [];
+        foreach ([['ADT' => '001/26'], ['Proc_ADT' => '202600999'], ['ADT' => '0'], ['Proc_ADT' => '0'], ['ADT' => ' 0 '], ['Proc_ADT' => ' 0 '], ['FUNDO' => 'OUTRO FUNDO'],
+            ['Contrato' => '002/26'], ['Processo' => 'OUTRO PROCESSO']] as $index => $patch) {
+            $raw = $patch + ['FUNDO' => 'FMS', 'Contrato' => '001/26', 'Processo' => '123/2026', 'ADT' => '', 'Proc_ADT' => ''];
+            $source = LegacyRecord::create(['source_table' => 'tb_Produtos_Contratos', 'legacy_id' => 91000 + $index,
+                'source_hash' => hash('sha256', json_encode($raw)), 'raw_payload' => $raw, 'import_run_id' => $run->id]);
+            $item = $original->replicate();
+            $item->legacy_record_id = $source->id;
+            $item->Ficha = 'HIDDEN-'.$index;
+            $item->save();
+            $hidden[] = $item;
+        }
+        foreach (['FUNDO' => 'OUTRO FUNDO', 'Contrato' => 'OUTRO CONTRATO', 'Processo' => 'OUTRO PROCESSO', 'process_number' => 'OUTRO PROCESSO'] as $field => $value) {
+            $item = $original->replicate();
+            $item->$field = $value;
+            $item->Ficha = 'WRONG-'.$field;
+            $item->save();
+        }
+        $deleted = $original->replicate();
+        $deleted->Ficha = 'DELETED';
+        $deleted->save();
+        $deleted->delete();
+        $before = $this->contract->fresh()->getRawOriginal();
+        $base = $this->url().'/products';
+        foreach (['', '?process_catalog=1', '?ficha=ORIGINAL'] as $query) {
+            $this->getJson($base.$query)->assertOk()->assertJsonCount(1, 'items')
+                ->assertJsonPath('items.0.id', $original->id)->assertJsonPath('fichas', ['ORIGINAL']);
+        }
+        $this->getJson($base.'?ficha=HIDDEN-0&FUNDO=OUTRO&Contrato=002/26&Processo=OUTRO')->assertOk()
+            ->assertJsonCount(0, 'items')->assertJsonPath('fichas', ['ORIGINAL']);
+        $this->assertSame(['ORIGINAL'], $this->contract->productFichas());
+        $this->get($this->url().'/edit')->assertOk()->assertSee('<option value="ORIGINAL">', false)
+            ->assertDontSee('<option value="HIDDEN-', false)->assertDontSee('<option value="WRONG-', false);
+        $this->putJson($base.'/'.$hidden[0]->id, $this->data(['quantity' => '2']))->assertNotFound();
+        $this->deleteJson($base.'/'.$hidden[0]->id, $this->data())->assertNotFound();
+        $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
+        $this->assertSame('1.0000', $hidden[0]->fresh()->quantity);
+        $this->assertNull($hidden[0]->fresh()->deleted_at);
+    }
+
+    public function test_original_legacy_empty_markers_and_native_items_without_legacy_columns_remain_visible(): void
+    {
+        $this->add('1', null, ['ficha' => 'NATIVE'])->assertCreated();
+        $native = ContractProduct::sole();
+        $run = ImportRun::create(['source_hash' => str_repeat('b', 64), 'status' => 'completed', 'started_at' => now()]);
+        $source = LegacyRecord::create(['source_table' => 'tb_Produtos_Contratos', 'legacy_id' => 92001,
+            'source_hash' => str_repeat('c', 64), 'import_run_id' => $run->id,
+            'raw_payload' => ['FUNDO' => ' fms ', 'Contrato' => ' 001/26 ', 'Processo' => ' 123/2026 ', 'ADT' => ' ', 'Proc_ADT' => null]]);
+        $legacy = $native->replicate();
+        $legacy->legacy_record_id = $source->id;
+        $legacy->Ficha = 'LEGACY';
+        $legacy->save();
+        $native->update(['FUNDO' => null, 'Contrato' => null, 'Processo' => null]);
+        $this->getJson($this->url().'/products')->assertOk()->assertJsonCount(2, 'items')
+            ->assertJsonPath('fichas', ['LEGACY', 'NATIVE']);
+    }
+
+    public function test_direct_amendment_fields_require_both_values_to_be_empty_including_zero(): void
+    {
+        $this->add('1')->assertCreated();
+        $item = ContractProduct::sole();
+        $filter = new OriginalContractProducts;
+        foreach (['ADT', 'Proc_ADT'] as $field) {
+            foreach ([null, '', '   ', 0, '0', ' 0 ', '001/26'] as $value) {
+                $candidate = clone $item;
+                $candidate->ADT = null;
+                $candidate->Proc_ADT = '';
+                $candidate->$field = $value;
+                $this->assertSame(in_array($value, [null, '', '   '], true), $filter->isOriginal($candidate, $this->contract));
+            }
+        }
     }
 
     public function test_ficha_selection_tracks_allocations_edits_and_last_reversal_and_filters_exactly(): void
@@ -139,6 +220,49 @@ class ContractProductsTest extends TestCase
             $this->assertSame(1, $importer->import($path)['rejected_count']);
             $this->assertDatabaseHas('tb_ValorFicha', ['ID_Ficha' => 12, 'Valor' => '99']);
             $this->assertDatabaseCount('tb_Produtos_Contratos', 0);
+        } finally {
+            unlink($path);
+        }
+    }
+
+    public function test_ficha_panel_excludes_amendments_and_compares_exact_sum_to_original_contract_value(): void
+    {
+        $this->contract->update(['valor_total' => '0.3000', 'valor_acumulado' => '9999.0000']);
+        $row = ['Fundo' => ' fms ', 'Contrato' => '001/26', 'Proc_Cont' => ' 123/2026 ',
+            'Proc_ADT' => null, 'N_ADT' => null, 'Ficha' => '001', 'Valor' => '0,1000'];
+        DB::table('tb_ValorFicha')->insert($row);
+        DB::table('tb_ValorFicha')->insert(array_replace($row, ['Ficha' => '002', 'Valor' => '0,2000', 'Proc_ADT' => '   ']));
+        foreach ([['Proc_ADT' => '2026999'], ['N_ADT' => 1], ['Proc_ADT' => '0'], ['N_ADT' => 0],
+            ['Fundo' => 'OUTRO'], ['Contrato' => '002/26'], ['Proc_Cont' => 'OUTRO']] as $patch) {
+            DB::table('tb_ValorFicha')->insert(array_replace($row, ['Ficha' => 'ADITIVO-OU-OUTRO', 'Valor' => '9999'], $patch));
+        }
+        $before = $this->contract->fresh()->getRawOriginal();
+        $this->getJson($this->url().'/products?ficha=001&process_catalog=1&Proc_ADT=2026999&N_ADT=1')->assertOk()
+            ->assertJsonCount(2, 'ficha_values')->assertJsonPath('ficha_summary', [
+                'total' => '0.3000', 'contract_total' => '0.3000', 'difference' => '0.0000', 'matches' => true,
+            ])->assertJsonMissingPath('ficha_values.0.CPF_CNPJ');
+        $this->getJson($this->url().'/products/budget-lookup?ficha=ADITIVO-OU-OUTRO')->assertOk()->assertJsonPath('ficha_values', []);
+        DB::table('tb_ValorFicha')->where('Ficha', '002')->update(['Valor' => '0,2001']);
+        $this->getJson($this->url().'/products')->assertOk()->assertJsonPath('ficha_summary', [
+            'total' => '0.3001', 'contract_total' => '0.3000', 'difference' => '0.0001', 'matches' => false,
+        ]);
+        DB::table('tb_ValorFicha')->where('Ficha', '002')->update(['Valor' => 'inválido']);
+        $this->getJson($this->url().'/products')->assertOk()->assertJsonPath('ficha_summary.total', null)
+            ->assertJsonPath('ficha_summary.matches', null)->assertJsonPath('ficha_summary.difference', null);
+        $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
+    }
+
+    public function test_empty_ficha_amendment_number_import_remains_empty_and_idempotent(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'ficha-empty-amendment-');
+        try {
+            file_put_contents($path, "INSERT INTO `tb_ValorFicha` (`ID_Ficha`, `Fundo`, `Contrato`, `Ficha`, `Valor`, `Proc_Cont`, `Proc_ADT`, `N_ADT`) VALUES (13,'FMS','001/26','001','5000,0000','123/2026','','');");
+            $importer = new FichaValuesImporter;
+            $this->assertSame(1, $importer->import($path)['imported_count']);
+            $this->assertNull(DB::table('tb_ValorFicha')->where('ID_Ficha', 13)->value('N_ADT'));
+            $this->assertSame(1, $importer->import($path)['skipped_count']);
+            $this->getJson($this->url().'/products')->assertOk()->assertJsonCount(1, 'ficha_values')
+                ->assertJsonPath('ficha_summary.matches', true);
         } finally {
             unlink($path);
         }
@@ -234,7 +358,7 @@ class ContractProductsTest extends TestCase
         $this->assertNull($item->product_id);
         $this->assertSame('Locação de imóvel', $item->description);
         $this->assertSame('100,0000', ProcurementProduct::findOrFail($this->productId)->QTD);
-        $this->getJson($this->url().'/products')->assertOk()->assertJsonPath('items.0.product_id', null);
+        $this->getJson($this->url().'/products')->assertOk()->assertJsonCount(1, 'items')->assertJsonPath('items.0.product_id', null);
         $this->putJson($this->url().'/products/'.$item->id, $this->data(array_replace($fields, ['quantity' => '10', 'description' => 'Locação revisada'])))
             ->assertOk()->assertJsonPath('total', '15001.2340');
         $this->assertSame('Locação revisada', $item->fresh()->description);

@@ -18,16 +18,25 @@ class SupplyContractPdf
 {
     public function __construct(private LockActor $actors, private SupplyContractTemplate $template, private ManagerSignatory $signatories, private SupplyContractFigures $figures = new SupplyContractFigures) {}
 
+    public static function modelFor(?string $type): ?string
+    {
+        return match (Normalizer::name($type)) {
+            'FORNECIMENTO' => 'supply',
+            'LOCACAO DE IMOVEL' => 'property-lease',
+            default => null,
+        };
+    }
+
     public function generate(User $expected, int $id, int $version): string
     {
-        $templateHash = hash_file('sha256', $this->template->path());
         $snapshot = DB::transaction(function () use ($expected, $id, $version) {
             [$actor, $contract] = $this->authorize($expected, $id);
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir.');
-            abort_unless(Normalizer::name($contract->tipo) === 'FORNECIMENTO', 422, 'O modelo de contrato está disponível somente para Fornecimento.');
+            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento e Locação de Imóvel.');
 
             return $this->snapshot($actor, $contract);
         });
+        $templateHash = hash_file('sha256', $this->template->path($snapshot['model']));
 
         try {
             $products = $this->figures->products($snapshot['products'], $snapshot['contractTotal']);
@@ -35,7 +44,7 @@ class SupplyContractPdf
         } catch (InvalidArgumentException $error) {
             abort(422, $error->getMessage());
         }
-        $bytes = $this->render($this->template->render($snapshot['fields'], $products['items'], $budgets, $products['total']));
+        $bytes = $this->render($this->template->render($snapshot['fields'], $products['items'], $budgets, $products['total'], $snapshot['model']));
 
         DB::transaction(function () use ($expected, $id, $snapshot, $templateHash, $bytes) {
             [$actor, $contract] = $this->authorize($expected, $id);
@@ -45,10 +54,10 @@ class SupplyContractPdf
             $current = $this->snapshot($actor, $contract);
             abort_unless(hash_equals($this->fingerprint($snapshot), $this->fingerprint($current)), 409,
                 'Os dados do contrato, produtos, dotações ou administração mudaram durante a emissão. Gere o documento novamente.');
-            abort_unless(hash_equals($templateHash, hash_file('sha256', $this->template->path())), 409,
+            abort_unless(hash_equals($templateHash, hash_file('sha256', $this->template->path($snapshot['model']))), 409,
                 'O modelo foi atualizado durante a emissão. Gere o documento novamente.');
             ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'contract_document_generated',
-                'metadata' => ['contract_id' => $id, 'contract_version' => $snapshot['version'], 'model' => 'supply',
+                'metadata' => ['contract_id' => $id, 'contract_version' => $snapshot['version'], 'model' => $snapshot['model'],
                     'model_sha256' => $templateHash, 'source_fingerprint' => $this->fingerprint($snapshot),
                     'document_settings_version' => $snapshot['settingsVersion'], 'administration' => $snapshot['fields']['#ADM'],
                     'signatory_fingerprint' => $snapshot['signer'], 'sha256' => hash('sha256', $bytes)], 'created_at' => now()]);
@@ -98,7 +107,33 @@ class SupplyContractPdf
             '#ADM' => $settings->administration_start_year.'/'.$settings->administration_end_year,
         ];
 
-        return ['version' => (int) $contract->version, 'type' => $contract->tipo, 'role' => $actor->user_type,
+        if (self::modelFor($contract->tipo) === 'property-lease') {
+            $appointment = $this->leaseAppointment($contract, $signer);
+            $digits = Normalizer::document($contract->fornecedor_documento_snapshot);
+            $individual = strlen($digits) === 11;
+            $details = ($individual ? 'CPF: ' : 'CNPJ: ').$this->document($contract->fornecedor_documento_snapshot, $actor)
+                .', endereço: '.$text($contract->end_fornec);
+            if ($individual) {
+                $details .= ', RG: '.$display('RG_Fornec');
+            } else {
+                $details .= ', representante: '.$text($contract->socio).', CPF: '.$this->document($contract->cpf_socio, $actor)
+                    .', RG: '.$display('RG_Socio');
+            }
+            $fields += [
+                '#Contrato' => $fields['#CONTRATO'], '#Processo' => $fields['#PROCESSO'],
+                '#Modalidade' => $fields['#MODALIDADE'], '#N_Modalidade' => $fields['#N_LICIT'],
+                '#End_Fundo' => $fields['#END_FUNDO'], '#Cargo_Gestor' => $fields['#CARGO_GESTOR'],
+                '#NomeGestor' => $fields['#NOME_GESTOR'], '#Decreto' => $text($appointment['Decreto'] ?? null),
+                '#Matricula' => $text($appointment['Matricula'] ?? null),
+                '#PF_PJ' => $individual ? 'a pessoa física' : (strlen($digits) === 14 ? 'a pessoa jurídica' : 'o(a) locador(a)'),
+                '#NomeLocador' => $fields['#FORNECEDOR'], '#Dados_Locador' => $details,
+                '#Destinação' => $text($contract->instalacoes), '#Vigencia' => $fields['#VIGENCIA'],
+                '#VLMensal' => str_replace('R$ ', '', Contract::moneyLabel($contract->vl_parcial)), '#ExtMensal' => $text($contract->ext_parcial),
+                '#VLTotal' => $fields['#VL_CONTRATO'], '#ExtTotal' => $fields['#EXTENSO'], '#DataContrato' => $fields['#DATA_CONTRATO'],
+            ];
+        }
+
+        return ['version' => (int) $contract->version, 'type' => $contract->tipo, 'model' => self::modelFor($contract->tipo), 'role' => $actor->user_type,
             'settingsVersion' => (int) $settings->version, 'signer' => $this->signatories->fingerprint($signer),
             'contractTotal' => $contract->valor_total, 'fields' => $fields, 'products' => $products, 'budgets' => $budgets];
     }
@@ -106,6 +141,30 @@ class SupplyContractPdf
     private function fingerprint(array $snapshot): string
     {
         return hash_hmac('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR), config('app.key'));
+    }
+
+    private function leaseAppointment(Contract $contract, array $signer): array
+    {
+        // Do not attach a decree from another person with the same name or another Fund.
+        $cpf = Normalizer::document($signer['CPF_Gestor'] ?? null);
+        if (strlen($cpf) !== 11 || ! filled($signer['Nome_Gestor'] ?? null)) {
+            return [];
+        }
+        $matches = DB::table('tb_Gestor')->whereNull('deleted_at')
+            ->where('fund_name_key', Normalizer::name($contract->fundo_nome_snapshot))
+            ->orderBy('id')->lockForUpdate()->get(['name', 'raw_payload'])
+            ->filter(function ($row) use ($cpf, $signer) {
+                $raw = json_decode($row->raw_payload, true, 512, JSON_THROW_ON_ERROR);
+
+                return Normalizer::name($row->name) === Normalizer::name($signer['Nome_Gestor'])
+                    && Normalizer::document($raw['CPF_Gestor'] ?? null) === $cpf;
+            });
+        if ($matches->count() !== 1) {
+            return [];
+        }
+        $raw = json_decode($matches->first()->raw_payload, true, 512, JSON_THROW_ON_ERROR);
+
+        return array_intersect_key($raw, array_flip(['Decreto', 'Matricula']));
     }
 
     private function document(?string $value, User $actor): string

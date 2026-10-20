@@ -41,7 +41,18 @@ final class CnpjLookup
             'Endereco' => mb_substr($address, 0, 2000),
             'Email_Fornecedor' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : ''] + $phones;
 
+        $partners = [];
+        foreach (is_array($raw['qsa'] ?? null) ? $raw['qsa'] : [] as $partner) {
+            if (! is_array($partner) || ! is_string($partner['nome_socio'] ?? null) || trim($partner['nome_socio']) === '') {
+                continue;
+            }
+            $partners[] = ['name' => mb_substr(trim($partner['nome_socio']), 0, 255),
+                'qualification' => is_string($partner['qualificacao_socio'] ?? null)
+                    ? mb_substr(trim($partner['qualificacao_socio']), 0, 255) : ''];
+        }
+
         return ['status' => 'found', 'source' => 'BrasilAPI — dados públicos do CNPJ', 'cnpj' => $cnpj,
+            'partners' => $partners,
             'registration_status' => $text('descricao_situacao_cadastral'),
             'supplier' => $supplier,
             'fund' => ['name' => $supplier['name'], 'End_Fundo' => $supplier['Endereco'],

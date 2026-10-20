@@ -98,6 +98,77 @@ class SupplyContractPdfTest extends TestCase
         return $renderer;
     }
 
+    public function test_property_lease_model_uses_saved_values_and_its_seven_column_table(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel', 'instalacoes' => 'Unidade de atendimento',
+            'vl_parcial' => '210.9100', 'ext_parcial' => 'Duzentos e dez reais e noventa e um centavos']);
+        $this->product(['description' => 'Imóvel na Rua de teste', 'unit' => 'MÊS', 'quantity' => '12.0000', 'unit_price' => '210.9100']);
+        $renderer = $this->renderer();
+        $response = $this->get($this->url().'&tipo=Fornecimento')->assertOk()
+            ->assertHeader('Content-Disposition', 'inline; filename="contrato-locacao-imovel-'.$this->contract->id.'.pdf"')
+            ->assertHeader('Cache-Control', 'no-store, private');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $text = html_entity_decode(strip_tags($renderer->html));
+        foreach (['DE LOCAÇÃO DE IMÓVEL', 'Unidade de atendimento', 'Imóvel na Rua de teste', '210,91', '2.530,92',
+            'Duzentos e dez reais', 'CLÁUSULA DÉCIMA', 'Gestor fictício', 'Fornecedor fictício', '01.02.03.4.5'] as $value) {
+            $this->assertStringContainsString($value, $text);
+        }
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8" ?>'.$renderer->html);
+        $xpath = new \DOMXPath($document);
+        $this->assertDoesNotMatchRegularExpression('/#[\p{L}_]/u', $xpath->evaluate('string(//body)'));
+        $this->assertSame(7, $xpath->query('//table[@class="products"]/thead/tr/th')->length);
+        $this->assertSame('property-lease', ActivityEvent::sole()->metadata['model']);
+        $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
+            ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de locação de imóvel em PDF.');
+    }
+
+    public function test_property_lease_masks_personal_details_and_rechecks_changes_during_rendering(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel', 'fornecedor_documento_snapshot' => '52998224725', 'rg_fornec' => 'RG LOCADOR PRIVADO']);
+        $this->product();
+        $user = User::create(['name' => 'Emissor', 'username' => 'LEASE_ISSUER', 'password' => 'Synthetic123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
+        $scope = AccessScope::create(['scope_key' => 'lease-pdf', 'fund_id' => $this->contract->fund_id, 'fund' => 'Fundo de teste']);
+        $user->scopes()->attach($scope);
+        $this->actingAs($user);
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('•••4725', $renderer->html);
+        $this->assertStringNotContainsString('529.982.247-25', $renderer->html);
+        $this->assertStringNotContainsString('RG LOCADOR PRIVADO', $renderer->html);
+        ActivityEvent::query()->delete();
+        $this->renderer(fn () => DB::table('contracts')->where('id', $this->contract->id)->update(['vl_parcial' => '300.0000']));
+        $this->get($this->url())->assertConflict();
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_lease_appointment_requires_one_matching_manager_and_is_rechecked(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel']);
+        $this->product();
+        $raw = ['CPF_Gestor' => '11144477735', 'Decreto' => 'DECRETO TESTE 001', 'Matricula' => 'MATRICULA TESTE 123'];
+        $record = ['legacy_id' => 90001, 'name' => 'Gestor fictício', 'name_key' => 'GESTOR FICTICIO',
+            'fund_name_key' => 'FUNDO DE TESTE', 'raw_payload' => json_encode($raw)];
+        $manager = DB::table('tb_Gestor')->insertGetId($record);
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('DECRETO TESTE 001', $renderer->html);
+        $this->assertStringContainsString('MATRICULA TESTE 123', $renderer->html);
+        ActivityEvent::query()->delete();
+        $this->renderer(fn () => DB::table('tb_Gestor')->where('id', $manager)->update([
+            'raw_payload' => json_encode(array_replace($raw, ['Decreto' => 'ALTERADO'])),
+        ]));
+        $this->get($this->url())->assertConflict();
+        $this->assertDatabaseCount('activity_events', 0);
+        DB::table('tb_Gestor')->insert(array_replace($record, ['legacy_id' => 90002]));
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk();
+        $this->assertStringNotContainsString('DECRETO TESTE 001', $renderer->html);
+        $this->assertStringNotContainsString('MATRICULA TESTE 123', $renderer->html);
+    }
+
     public function test_word_model_generates_full_private_pdf_with_saved_products_budgets_and_audit(): void
     {
         $this->product();
@@ -336,9 +407,16 @@ class SupplyContractPdfTest extends TestCase
         return [['contract'], ['product'], ['code'], ['budget'], ['budget_deleted'], ['budget_added'], ['ficha'], ['settings'], ['session'], ['role'], ['scope'], ['permission'], ['deleted'], ['signer']];
     }
 
-    #[DataProvider('changesDuringRendering')]
-    public function test_changes_during_rendering_prevent_delivery_and_audit(string $change): void
+    public static function leaseChangesDuringRendering(): array
     {
+        return array_map(static fn ($case) => [$case[0], 'Locação de Imóvel'], self::changesDuringRendering());
+    }
+
+    #[DataProvider('changesDuringRendering')]
+    #[DataProvider('leaseChangesDuringRendering')]
+    public function test_changes_during_rendering_prevent_delivery_and_audit(string $change, string $type = 'Fornecimento'): void
+    {
+        $this->contract->update(['tipo' => $type]);
         $product = $this->product();
         $budget = $this->budget();
         $user = User::create(['name' => 'Emissor', 'username' => 'PDF_ISSUER', 'password' => 'Synthetic123']);

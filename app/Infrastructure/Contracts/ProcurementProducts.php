@@ -66,6 +66,7 @@ final class ProcurementProducts
                 throw new ConflictHttpException('O contrato mudou. Recarregue a página antes de continuar.');
             }
             $contract = Contract::findOrFail($id);
+            abort_if($allocation && ! (new OriginalContractProducts)->isOriginal($allocation, $contract), 404);
             $product = $manual ? null : ProcurementProduct::whereKey($allocation?->product_id ?? $data['product_id'])->lockForUpdate()->firstOrFail();
             $processCatalog = ! $manual && ($remove ? (bool) $allocation->process_catalog : (bool) ($data['process_catalog'] ?? $allocation?->process_catalog ?? false));
             abort_unless($manual || (filled($contract->processo) && trim($product->Processo ?? '') === trim($contract->processo)

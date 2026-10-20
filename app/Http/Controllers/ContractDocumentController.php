@@ -25,7 +25,9 @@ class ContractDocumentController extends Controller
                 ->header('X-Content-Type-Options', 'nosniff');
         }
 
+        $name = SupplyContractPdf::modelFor($contract->tipo) === 'property-lease' ? 'locacao-imovel' : 'fornecimento';
+
         return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
-            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="contrato-fornecimento-'.$contract->id.'.pdf"']);
+            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="contrato-'.$name.'-'.$contract->id.'.pdf"']);
     }
 }

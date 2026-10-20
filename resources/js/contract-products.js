@@ -207,7 +207,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         find('[data-product-budget-allocation]').value = '';
         find('[data-product-budget-status]').textContent = '';
     }
-    function renderFichaValues(rows) {
+    function renderFichaValues(rows, totals) {
         const summary = find('[data-product-budget-totals]');
         summary.replaceChildren();
         for (const row of rows) {
@@ -216,6 +216,15 @@ export function initializeContractProducts(root, fetcher = fetch) {
             cell(tr, formatFichaValue(row.total));
             summary.append(tr);
         }
+        find('[data-product-ficha-total]').textContent = formatFichaValue(totals?.total);
+        find('[data-product-ficha-contract-total]').textContent = formatFichaValue(totals?.contract_total);
+        const status = find('[data-product-ficha-status]');
+        status.classList.toggle('field-error', totals?.matches !== true);
+        status.textContent = !totals ? '' : totals.matches === true
+            ? 'A soma das fichas confere com o valor original do contrato.'
+            : totals.matches === false
+                ? `A soma das fichas diverge do valor original do contrato. Diferença: ${formatFichaValue(totals.difference)}. Confira os valores cadastrados.`
+                : 'Não foi possível conferir a soma das fichas. Confira os valores cadastrados.';
     }
     async function lookupBudget() {
         clearBudgetLookup();
@@ -412,7 +421,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             fichas = data.fichas ?? [];
             synchronizeProductFichas(budget, fichas);
             updateTotal(data.total_label);
-            renderFichaValues(data.ficha_values ?? []);
+            renderFichaValues(data.ficha_values ?? [], data.ficha_summary);
             const list = find('[data-contract-product-list]');
             list.replaceChildren();
             for (const item of data.items) {

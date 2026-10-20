@@ -99,6 +99,8 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
     const filled = new Map();
     const digits = () => documentField.value.replace(/\D/g, '');
     const reset = () => {
+        const partners = form.querySelector('[data-company-partners]');
+        if (partners) partners.hidden = true;
         request?.abort();
         request = null;
         status.textContent = '';

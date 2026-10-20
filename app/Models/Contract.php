@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\Contracts\ContractValidity;
+use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Services\Legacy\Normalizer;
 use App\Support\ContractFields;
 use Brick\Math\BigDecimal;
@@ -73,7 +74,7 @@ class Contract extends Model
         if (! $this->exists) {
             return [];
         }
-        $fichas = ContractProduct::where('contract_id', $this->id)->pluck('Ficha')
+        $fichas = (new OriginalContractProducts)->forContract($this)->pluck('Ficha')
             ->map(fn ($ficha) => trim((string) $ficha))->filter(fn ($ficha) => $ficha !== '')->uniqueStrict()->values()->all();
         sort($fichas, SORT_NATURAL);
 

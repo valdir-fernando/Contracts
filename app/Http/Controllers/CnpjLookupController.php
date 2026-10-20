@@ -23,6 +23,10 @@ final class CnpjLookupController extends Controller
         $actor = $actors->current($request->user());
         abort_unless($actor->canAccessCatalog('fund') || $actor->canAccessCatalog('supplier'), 403);
 
+        if (! $actor->canAccessCatalog('supplier')) {
+            unset($result['partners']);
+        }
+
         return response()->json($result, $result['status'] === 'unavailable' ? 503 : 200,
             ['Cache-Control' => 'private, no-store']);
     }

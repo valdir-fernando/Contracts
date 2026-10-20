@@ -10,6 +10,7 @@ use App\Models\Contract;
 use App\Models\ContractAttachment;
 use App\Models\ContractAudit;
 use App\Models\ContractHistoryRecord;
+use App\Models\ContractServiceOrder;
 use App\Models\ContractTypeRule;
 use App\Services\ContractLifecycle;
 use App\Services\ContractSearch;
@@ -188,6 +189,7 @@ class ContractController extends Controller
         }
 
         return response()->view('contracts.form', ['contract' => $contract, 'formActor' => $user,
+            'latestServiceOrder' => $contract->exists ? ContractServiceOrder::where('contract_id', $contract->id)->orderByDesc('issued_on')->orderByDesc('id')->first(['number', 'issued_on']) : null,
             'contractTypes' => collect(ContractFields::CONTRACT_TYPES)->sortByDesc(fn (string $type) => mb_strlen($type))->values(),
             'typeRules' => ContractTypeRule::orderBy('name')->get(),
             'history' => ContractHistoryRecord::where('contract_id', $contract->id)->orderBy('event_date')->get(),

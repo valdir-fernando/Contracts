@@ -6,13 +6,13 @@ use App\Application\Security\ActorIdentity;
 use App\Domain\Shared\DecimalAmount;
 use App\Infrastructure\Contracts\BudgetCatalog;
 use App\Infrastructure\Contracts\FichaValuesCatalog;
+use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Infrastructure\Contracts\ProcurementProducts;
 use App\Infrastructure\Contracts\ProductDisplayAvailability;
 use App\Infrastructure\Http\ApplicationErrors;
 use App\Infrastructure\Security\LockActor;
 use App\Models\Contract;
 use App\Models\ContractFinancialRecord;
-use App\Models\ContractProduct;
 use App\Models\ProcurementProduct;
 use App\Models\User;
 use App\Services\Legacy\Normalizer;
@@ -110,7 +110,7 @@ class ContractProductController extends Controller
                 ->where('Discriminacao', 'like', '%'.$data['search'].'%')->orWhere('Cod_Prod', 'like', '%'.$data['search'].'%')->orWhere('item', $data['search'])))
             ->orderBy('id')->paginate(20);
         $rows = $products->map(fn ($product) => $this->productData($product, $contract, $actor));
-        $allItems = ContractProduct::where('contract_id', $contract->id)->orderBy('id')->get();
+        $allItems = (new OriginalContractProducts)->forContract($contract);
         $fichas = $allItems->map(fn ($item) => trim((string) $item->Ficha))->filter(fn ($ficha) => $ficha !== '')->uniqueStrict()->values()->all();
         sort($fichas, SORT_NATURAL);
         $selectedFicha = trim($data['ficha'] ?? '');
@@ -121,8 +121,11 @@ class ContractProductController extends Controller
             ->map(fn ($b) => ['id' => $b->id, 'number' => $b->payload['Ficha'] ?? $b->number,
                 'description' => $b->payload['Descricao'] ?? '', 'allocation' => $b->payload['Dotacao'] ?? '']);
 
+        $fichaCatalog = new FichaValuesCatalog;
+        $fichaValues = $fichaCatalog->lookup($contract);
+
         return $this->json(['products' => $rows, 'items' => $items, 'fichas' => $fichas, 'budgets' => $budgets,
-            'ficha_values' => (new FichaValuesCatalog)->lookup($contract),
+            'ficha_values' => $fichaValues, 'ficha_summary' => $fichaCatalog->summarize($fichaValues, $contract->valor_total),
             'page' => $products->currentPage(), 'last_page' => $products->lastPage(),
             'contract_version' => $contract->version, 'total' => $contract->valor_total, 'total_label' => Contract::moneyLabel($contract->valor_total)]);
     }

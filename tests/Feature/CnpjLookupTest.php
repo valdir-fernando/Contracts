@@ -25,7 +25,10 @@ class CnpjLookupTest extends TestCase
             'bairro' => 'Centro', 'municipio' => 'Cidade', 'uf' => 'GO', 'cep' => '12345000',
             'ddd_telefone_1' => '6233334444', 'ddd_telefone_2' => '62999998888',
             'email' => 'empresa@example.com', 'descricao_situacao_cadastral' => 'ATIVA',
-            'qsa' => [['nome_socio' => 'NÃO PROJETAR', 'cpf_representante_legal' => '123']]], $extra);
+            'qsa' => [['nome_socio' => ' SÓCIO EXEMPLO ', 'qualificacao_socio' => 'Sócio-Administrador',
+                'cnpj_cpf_do_socio' => '***123456**', 'cpf_representante_legal' => '123'],
+                ['nome_socio' => 'OUTRO SÓCIO', 'qualificacao_socio' => 'Sócio'],
+                null, ['nome_socio' => ' ']]], $extra);
     }
 
     public function test_private_query_projects_only_supported_fields_without_writing_records(): void
@@ -37,7 +40,10 @@ class CnpjLookupTest extends TestCase
             ->assertJsonPath('supplier.Fone_Fixo', '6233334444')
             ->assertJsonPath('supplier.Fone_Celular', '62999998888')
             ->assertJsonPath('fund.End_Fundo', 'Rua Exemplo, 10, Centro, Cidade, GO, 12345000')
-            ->assertJsonMissingPath('qsa')->assertDontSee('NÃO PROJETAR');
+            ->assertJsonMissingPath('qsa')
+            ->assertJsonPath('partners', [['name' => 'SÓCIO EXEMPLO', 'qualification' => 'Sócio-Administrador'],
+                ['name' => 'OUTRO SÓCIO', 'qualification' => 'Sócio']])
+            ->assertDontSee('***123456**')->assertJsonMissingPath('partners.0.cpf_representante_legal');
         Http::assertSent(fn ($request) => $request->url() === 'https://brasilapi.com.br/api/cnpj/v1/11222333000181');
         $this->assertDatabaseCount('suppliers', 0);
         $this->assertDatabaseCount('contract_funds', 0);

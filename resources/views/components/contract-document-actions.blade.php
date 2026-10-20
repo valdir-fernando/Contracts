@@ -5,7 +5,7 @@
             @php
                 $authorized = auth()->user()->canIssueContracts();
                 $ready = $authorized && $contract->exists && (
-                    ($kind === 'contract' && \App\Services\Legacy\Normalizer::name($contract->tipo) === 'FORNECIMENTO')
+                    ($kind === 'contract' && \App\Infrastructure\Documents\SupplyContractPdf::modelFor($contract->tipo) !== null)
                     || ($kind === 'extract' && \App\Infrastructure\Documents\SupplyContractExtract::modelFor($contract->tipo) !== null)
                     || $kind === 'publication'
                 );
@@ -15,7 +15,7 @@
             @endphp
             <button type="button" class="document-action" aria-label="Emitir {{ $label }}" aria-describedby="document-tip-{{ $kind }}" aria-disabled="{{ $ready ? 'false' : 'true' }}" data-document-kind="{{ $kind }}" data-document-state="{{ $ready ? 'ready' : ($contract->exists ? 'model-pending' : 'save-required') }}" data-message="{{ $message }}" @if($ready && $kind === 'contract') data-contract-document-url="{{ route('contracts.document', ['contract' => $contract->id, 'version' => $contract->version]) }}" @elseif($ready && $kind === 'extract') data-extract-url="{{ route('contracts.extract', ['contract' => $contract->id, 'version' => $contract->version]) }}" @elseif($ready && $kind === 'publication') data-publication-url="{{ route('contracts.publication', ['contract' => $contract->id, 'version' => $contract->version]) }}" @endif @click="message = $el.dataset.documentState === 'ready' ? '' : $el.dataset.message">
                 <x-nav-icon :name="$icon"/><span>{{ $label }}</span>
-                <span class="document-action-tooltip" role="tooltip" id="document-tip-{{ $kind }}">{{ $ready ? match ($kind) { 'contract' => 'Abrir contrato de fornecimento em PDF.', 'extract' => 'Abrir extrato de '.(\App\Infrastructure\Documents\SupplyContractExtract::modelFor($contract->tipo) === 'property-lease' ? 'locação de imóvel' : 'fornecimento').' em PDF.', default => 'Abrir publicação do contrato em PDF.' } : $message }}</span>
+                <span class="document-action-tooltip" role="tooltip" id="document-tip-{{ $kind }}">{{ $ready ? match ($kind) { 'contract' => 'Abrir contrato de '.(\App\Infrastructure\Documents\SupplyContractPdf::modelFor($contract->tipo) === 'property-lease' ? 'locação de imóvel' : 'fornecimento').' em PDF.', 'extract' => 'Abrir extrato de '.(\App\Infrastructure\Documents\SupplyContractExtract::modelFor($contract->tipo) === 'property-lease' ? 'locação de imóvel' : 'fornecimento').' em PDF.', default => 'Abrir publicação do contrato em PDF.' } : $message }}</span>
             </button>
         @endforeach
     </nav>

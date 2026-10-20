@@ -123,6 +123,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::post('/contracts/{contract}/finance/{finance}/restore', [ContractFinanceController::class, 'restore'])->name('contracts.finance.restore');
     Route::resource('contracts.amendments', ContractAmendmentController::class)->parameters(['amendments' => 'amendment']);
     Route::get('/contracts/{contract}/service-orders', [ContractServiceOrderController::class, 'index'])->name('contracts.service-orders.index');
+    Route::get('/contracts/{contract}/service-orders/{order}/pdf', [ContractServiceOrderController::class, 'pdf'])->middleware('throttle:20,1')->name('contracts.service-orders.pdf');
     Route::post('/contracts/{contract}/service-orders', [ContractServiceOrderController::class, 'store'])->middleware('throttle:30,1')->name('contracts.service-orders.store');
     Route::get('/contracts/{contract}/products', [ContractProductController::class, 'index'])->name('contracts.products.index');
     Route::get('/contracts/{contract}/products/budget-lookup', [ContractProductController::class, 'budgetLookup'])->middleware('throttle:60,1')->name('contracts.products.budget-lookup');

@@ -5,6 +5,37 @@ const labels = { name: 'Razão social', Nome_Fantasia: 'Nome fantasia', Endereco
     End_Fundo: 'Endereço completo', Fone_Fixo: 'Telefone fixo', Fone_Celular: 'Celular',
     Telefone: 'Telefone', Email_Fornecedor: 'E-mail' };
 
+export function showCompanyPartners(form, partners, isCurrent) {
+    const container = form.querySelector('[data-company-partners]');
+    const select = form.querySelector('[data-company-partner-selection]');
+    if (!container || !select) return;
+    select.replaceChildren();
+    const option = (value, label) => {
+        const element = form.ownerDocument.createElement('option');
+        element.value = value;
+        element.textContent = label;
+        select.append(element);
+    };
+    const entries = Array.isArray(partners) ? partners.filter(partner => typeof partner.name === 'string' && partner.name.trim()) : [];
+    option('', entries.length ? 'Selecione quem assinará' : 'Nenhum sócio informado pela consulta; preencha manualmente');
+    entries.forEach((partner, index) => option(String(index), `${partner.name} — ${partner.qualification || 'Qualificação não informada'}`));
+    container.hidden = false;
+    select.onchange = () => {
+        if (!isCurrent() || select.value === '') return;
+        const partner = entries[Number(select.value)];
+        if (!partner) return;
+        applyCompanyValues(form, { Nome_Socio: partner.name }, false);
+        // Documents from another selected person must not follow the new name.
+        for (const name of ['CPF_Socio', 'RG_Socio']) {
+            const field = form.elements.namedItem(name);
+            if (field && !field.disabled && !field.readOnly) {
+                field.value = '';
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    };
+}
+
 export function applyCompanyValues(form, values, onlyEmpty = true) {
     const changed = [];
     for (const [name, value] of Object.entries(values)) {
@@ -77,6 +108,7 @@ export async function consultCompany(form, { cnpj, kind, existing, signal, isCur
             message('CNPJ não encontrado na consulta externa. Você pode preencher os dados manualmente.');
             return;
         }
+        if (kind === 'supplier' && data.partners) showCompanyPartners(form, data.partners, isCurrent);
         if (existing) showCompanyComparison(form, data, kind, isCurrent);
         const changed = existing ? [] : applyCompanyValues(form, data[kind]);
         if (existing) message('Consulta concluída. Confira os dados na janela.');

@@ -1,9 +1,9 @@
-@props(['contract'])
+@props(['contract', 'selectedType' => null])
 @php
     $historical = $contract->exists && filled($contract->tipo) && !in_array($contract->tipo, \App\Support\ContractFields::CONTRACT_TYPES, true);
     $suggestion = \App\Support\ContractFields::TYPE_CORRECTIONS[$contract->tipo ?? ''] ?? null;
 @endphp
-<button type="button" class="field-info-button" aria-label="Entenda o tipo de contrato e os valores históricos" aria-describedby="contract-type-help" popovertarget="contract-type-help" data-field-help="contract-type-help"><span aria-hidden="true">i</span></button>
+<button type="button" class="field-info-button" @if(!$historical || ($selectedType ?? $contract->tipo) !== $contract->tipo) hidden @endif aria-label="Entenda o tipo de contrato e os valores históricos" aria-describedby="contract-type-help" popovertarget="contract-type-help" data-field-help="contract-type-help"><span aria-hidden="true">i</span></button>
 <div id="contract-type-help" class="field-help-popover" popover>
     <p>“Histórico” identifica um valor salvo que não corresponde às opções atuais. Ele é preservado durante a edição para evitar alterações involuntárias. Não significa que o contrato esteja encerrado.</p>
     @if($historical)

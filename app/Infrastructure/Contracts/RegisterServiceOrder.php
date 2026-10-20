@@ -30,6 +30,8 @@ final class RegisterServiceOrder
                 'number' => 'required|string|max:64',
                 'issued_on' => 'required|date_format:Y-m-d|after_or_equal:1000-01-01',
                 'deadline' => 'required|string|max:255',
+                'starts_on' => 'nullable|required_with:ends_on|date_format:Y-m-d|after_or_equal:1000-01-01',
+                'ends_on' => 'nullable|required_with:starts_on|date_format:Y-m-d|after_or_equal:starts_on',
                 'notes' => 'nullable|string|max:2000',
             ])->validate();
             if ((int) $data['contract_version'] !== $context->contract->version()) {
@@ -43,15 +45,18 @@ final class RegisterServiceOrder
                 'contract_id' => $contractId, 'amendment_id' => $amendmentId,
                 'number' => trim($data['number']), 'issued_on' => $data['issued_on'],
                 'deadline' => trim($data['deadline']), 'notes' => $data['notes'] ?? null,
+                'starts_on' => $data['starts_on'] ?? null, 'ends_on' => $data['ends_on'] ?? null,
                 'created_by' => $context->actor->id,
             ]);
             $contract = Contract::findOrFail($contractId);
+            $previousDeadline = $contract->prazo_obra;
+            $contract->prazo_obra = trim($data['deadline']);
             $contract->version = $context->contract->version() + 1;
             $contract->updated_by = $context->actor->id;
             $contract->save();
-            $changes = [];
-            foreach (['id', 'amendment_id', 'number', 'issued_on', 'deadline', 'notes'] as $field) {
-                $changes['ordem_servico.'.$field] = ['before' => null, 'after' => $field === 'issued_on' ? $data['issued_on'] : $order->$field];
+            $changes = ['prazo_obra' => ['before' => $previousDeadline, 'after' => $contract->prazo_obra]];
+            foreach (['id', 'amendment_id', 'number', 'issued_on', 'starts_on', 'ends_on', 'deadline', 'notes'] as $field) {
+                $changes['ordem_servico.'.$field] = ['before' => null, 'after' => in_array($field, ['issued_on', 'starts_on', 'ends_on']) ? ($data[$field] ?? null) : $order->$field];
             }
             ContractAudit::create([
                 'contract_id' => $contractId, 'actor_id' => $context->actor->id,
@@ -59,7 +64,8 @@ final class RegisterServiceOrder
                 'changes' => $changes, 'created_at' => now(),
             ]);
 
-            return ['id' => $order->id, 'contract_version' => $contract->version];
+            return ['id' => $order->id, 'contract_version' => $contract->version,
+                'order' => ['number' => $order->number, 'issued_on' => $order->issued_on->format('d/m/Y'), 'deadline' => $order->deadline]];
         });
     }
 }

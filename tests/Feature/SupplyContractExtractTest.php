@@ -223,7 +223,7 @@ class SupplyContractExtractTest extends TestCase
         $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
             ->assertSee('data-extract-url=', false)->assertSee('Abrir extrato de locação de imóvel em PDF.')
-            ->assertDontSee('data-contract-document-url=', false);
+            ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de locação de imóvel em PDF.');
     }
 
     public function test_property_lease_handles_missing_fields_cnpj_escaping_and_long_property_text(): void

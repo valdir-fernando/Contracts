@@ -1,5 +1,15 @@
 export function attachContractTypeCorrection(form) {
     const select = form.querySelector('#tipo');
+    const help = form.querySelector('[data-field-help="contract-type-help"]');
+    const popup = form.querySelector('#contract-type-help');
+    if (select && help) {
+        const updateHelp = () => {
+            help.hidden = !select.selectedOptions[0]?.hasAttribute('data-historical');
+            if (help.hidden && popup?.matches(':popover-open')) popup.hidePopover();
+        };
+        select.addEventListener('change', updateHelp);
+        updateHelp();
+    }
     const accept = form.querySelector('[data-contract-type-correction]');
     const keep = form.querySelector('[data-contract-type-keep]');
     const status = form.querySelector('[data-contract-type-status]');

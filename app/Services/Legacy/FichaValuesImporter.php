@@ -31,6 +31,9 @@ final class FichaValuesImporter
                 foreach ($fields as $field) {
                     $data[$field] = (string) ($raw[$field] ?? '');
                 }
+                if (trim($data['N_ADT']) === '') {
+                    $data['N_ADT'] = null;
+                }
                 $record = LegacyRecord::firstOrCreate(['source_table' => 'tb_ValorFicha', 'legacy_id' => $id,
                     'source_hash' => hash('sha256', json_encode($raw, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE))],
                     ['raw_payload' => $raw, 'import_run_id' => $run->id]);
@@ -38,7 +41,7 @@ final class FichaValuesImporter
                 if ($existing) {
                     $same = true;
                     foreach ($fields as $field) {
-                        $same = $same && (string) ($existing->$field ?? '') === $data[$field];
+                        $same = $same && (string) ($existing->$field ?? '') === (string) $data[$field];
                     }
                     $record->update(['status' => $same ? 'imported' : 'conflict']);
                     $counts[$same ? 'skipped_count' : 'rejected_count']++;

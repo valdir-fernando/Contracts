@@ -9,10 +9,12 @@ class ContractServiceOrder extends Model
 {
     use SoftDeletes;
 
+    protected $table = 'tb_OS';
+
     protected $guarded = ['id'];
 
     protected function casts(): array
     {
-        return ['issued_on' => 'date'];
+        return ['issued_on' => 'date', 'starts_on' => 'date', 'ends_on' => 'date'];
     }
 }

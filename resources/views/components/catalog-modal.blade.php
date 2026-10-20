@@ -70,6 +70,13 @@
             @foreach(\App\Support\SupplierFields::GROUPS as $group => $fields)
                 <fieldset @class(['supplier-registration-group', 'supplier-registration-basics' => $group === 'Dados cadastrais']) @if($group === 'Dados cadastrais') aria-label="Dados do fornecedor" @endif>
                     @unless($group === 'Dados cadastrais')<legend>{{ $group }}</legend>@endunless
+                    @if($group === 'Sócio')
+                        <div class="field" data-company-partners hidden>
+                            <label for="catalog-supplier-partner-selection">Sócios e administradores consultados — indicar signatário</label>
+                            <select id="catalog-supplier-partner-selection" data-company-partner-selection></select>
+                            <p class="hint">Confira a qualificação e os poderes de assinatura. A seleção preenche o nome do sócio; confira e informe CPF e RG antes de salvar.</p>
+                        </div>
+                    @endif
                     <div @class(['field-grid', 'supplier-contact-grid' => $group === 'Pessoa de contato', 'supplier-address-grid' => $group === 'Endereço e contatos do fornecedor', 'supplier-partner-grid' => $group === 'Sócio'])>
                         @foreach($fields as $field => [$label, $type])
                             <div @class(['field', 'supplier-trade-name-field' => $field === 'Nome_Fantasia', 'supplier-address-field' => $field === 'Endereco', 'supplier-partner-name-field' => $field === 'Nome_Socio'])>

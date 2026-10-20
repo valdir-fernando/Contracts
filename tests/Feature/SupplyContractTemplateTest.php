@@ -119,11 +119,17 @@ class SupplyContractTemplateTest extends TestCase
         }
     }
 
-    public function test_all_body_paragraphs_preserve_the_model_text_including_split_runs_and_punctuation(): void
+    public static function models(): array
+    {
+        return [['supply'], ['property-lease']];
+    }
+
+    #[DataProvider('models')]
+    public function test_all_body_paragraphs_preserve_the_model_text_including_split_runs_and_punctuation(string $model): void
     {
         $template = new SupplyContractTemplate;
         $zip = new ZipArchive;
-        $this->assertTrue($zip->open($template->path(), ZipArchive::RDONLY));
+        $this->assertTrue($zip->open($template->path($model), ZipArchive::RDONLY));
         try {
             $source = new DOMDocument;
             $this->assertTrue($source->loadXML($zip->getFromName('word/document.xml')));
@@ -133,7 +139,7 @@ class SupplyContractTemplateTest extends TestCase
         $xpath = new DOMXPath($source);
         $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
         $paragraphs = [];
-        $fields = ['#ADM' => '2025/2028'];
+        $fields = ['#ADM' => '2025/2028', '#FUNDO' => 'Fundo de teste', '#CONTRATO' => '001/26', '#PROCESSO' => '2026001'];
         foreach ($xpath->query('/w:document/w:body/w:p') as $node) {
             $text = '';
             foreach ($xpath->query('.//w:t|.//w:br|.//w:tab[parent::w:r]', $node) as $part) {
@@ -143,11 +149,11 @@ class SupplyContractTemplateTest extends TestCase
             foreach ($matches[0] as $marker) {
                 $fields[$marker] = 'Valor fictício';
             }
-            if (trim($text) !== '' && trim($text) !== '#FICHA' && ! str_contains($text, '#DOTAÇÃO')) {
+            if (trim($text) !== '' && trim($text) !== '#FICHA' && ! str_contains($text, '#DOTAÇÃO') && ! str_contains($text, '#Dotacao')) {
                 $paragraphs[] = $text;
             }
         }
-        $html = $template->render($fields, [], []);
+        $html = $template->render($fields, [], [], '0.0000', $model);
         $rendered = new DOMDocument;
         @$rendered->loadHTML('<?xml encoding="utf-8" ?>'.$html);
         $normalize = static fn ($value) => trim(preg_replace('/\s+/u', ' ', $value));

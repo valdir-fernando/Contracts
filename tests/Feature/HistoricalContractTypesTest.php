@@ -14,6 +14,22 @@ class HistoricalContractTypesTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_help_is_initially_hidden_unless_the_historical_value_is_selected(): void
+    {
+        foreach ([new Contract, new Contract(['tipo' => 'Fornecimento'])] as $contract) {
+            $html = Blade::render('<x-contract-type-help :contract="$contract"/>', compact('contract'));
+            $this->assertMatchesRegularExpression('/<button[^>]* hidden /', $html);
+        }
+
+        $contract = Contract::create(['quality_issues' => [], 'tipo' => 'Tipo histórico']);
+        $html = Blade::render('<x-contract-type-help :contract="$contract"/>', compact('contract'));
+        $this->assertDoesNotMatchRegularExpression('/<button[^>]* hidden /', $html);
+        foreach (['Fornecimento', ''] as $selectedType) {
+            $html = Blade::render('<x-contract-type-help :contract="$contract" :selected-type="$selectedType"/>', compact('contract', 'selectedType'));
+            $this->assertMatchesRegularExpression('/<button[^>]* hidden /', $html);
+        }
+    }
+
     public function test_correction_is_exact_audited_idempotent_and_preserves_deleted_records(): void
     {
         $contract = Contract::create(['quality_issues' => [], 'tipo' => 'Servicos Diversos', 'version' => 4, 'objeto' => 'Preservar']);

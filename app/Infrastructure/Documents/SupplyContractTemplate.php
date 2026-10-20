@@ -15,15 +15,19 @@ final class SupplyContractTemplate
 {
     private const WORD = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
-    public function path(): string
+    public function path(string $model = 'supply'): string
     {
-        return resource_path('documents/contracts/supply.docx');
+        return resource_path('documents/contracts/'.match ($model) {
+            'supply' => 'supply.docx',
+            'property-lease' => 'property-lease.docx',
+            default => throw new RuntimeException('Modelo de contrato desconhecido.'),
+        });
     }
 
-    public function render(array $fields, array $products, array $budgets, string $productsTotal = '0.0000'): string
+    public function render(array $fields, array $products, array $budgets, string $productsTotal = '0.0000', string $model = 'supply'): string
     {
         $zip = new ZipArchive;
-        if ($zip->open($this->path(), ZipArchive::RDONLY) !== true) {
+        if ($zip->open($this->path($model), ZipArchive::RDONLY) !== true) {
             throw new RuntimeException('Modelo do contrato de fornecimento indisponível.');
         }
         try {
@@ -54,6 +58,7 @@ final class SupplyContractTemplate
             footer { position:fixed; bottom:-75pt; left:0; right:0; height:75pt; }
             footer img { width:100%; height:auto; }
             .footer-administration { position:absolute; left:60%; top:49%; width:20%; height:22%; background:#fff; color:#082b87; font-size:8pt; text-align:center; line-height:13pt; }
+            .lease-footer .footer-administration { left:63%; top:61%; width:18%; height:20%; }
             p { margin:0 0 5pt; overflow-wrap:anywhere; } .gap { height:5pt; }
             .clause { page-break-after:avoid; margin-top:8pt; } .clause-opening { page-break-inside:avoid; }
             table { width:100%; border-collapse:collapse; table-layout:fixed; margin:5pt 0 10pt; font-size:8pt; }
@@ -85,7 +90,7 @@ final class SupplyContractTemplate
         $html .= '<header><img alt="Prefeitura de Niquelândia" src="data:image/png;base64,'.base64_encode($logo).'">'
             .'<div class="header-fund" style="font-size:'.$fundSize.'pt">'.$this->escape($fields['#FUNDO']).'</div></header>';
         // The source footer is an image with baked-in years. Cover only that legend with the current administration.
-        $html .= '<footer><img alt="Rodapé institucional" src="data:image/png;base64,'.base64_encode($footer).'">'
+        $html .= '<footer'.($model === 'property-lease' ? ' class="lease-footer"' : '').'><img alt="Rodapé institucional" src="data:image/png;base64,'.base64_encode($footer).'">'
             .'<div class="footer-administration">Gestão '.$this->escape(str_replace('/', '–', $fields['#ADM'])).'</div></footer>';
 
         $clauseOpen = false;
@@ -101,10 +106,10 @@ final class SupplyContractTemplate
                 if ($signaturesOpen && trim($text) === '') {
                     continue;
                 }
-                if (str_contains($text, '#DOTAÇÃO')) {
+                if (str_contains($text, '#DOTAÇÃO') || str_contains($text, '#Dotacao')) {
                     $html .= $this->budgets($budgets);
                 } else {
-                    $heading = preg_match('/^\d+\s*[-–]\s*CLÁUSULA/u', trim($text));
+                    $heading = preg_match('/^(?:\d+\s*[-–]\s*)?CLÁUSULA/u', trim($text));
                     if ($heading && ! $clauseOpen) {
                         $html .= '<div class="clause-opening">';
                         $clauseOpen = true;
@@ -120,8 +125,8 @@ final class SupplyContractTemplate
                     $html .= '</div>';
                     $clauseOpen = false;
                 }
-                $html .= str_contains($node->textContent, 'Discriminação')
-                    ? $this->products($products, $productsTotal)
+                $html .= str_contains(mb_strtoupper($node->textContent), 'DISCRIMINAÇÃO')
+                    ? $this->products($products, $productsTotal, $model)
                     : $this->signatures($node, $xpath, $fields);
             }
         }
@@ -185,7 +190,7 @@ final class SupplyContractTemplate
         $alignment = ['center' => 'center', 'right' => 'right', 'both' => 'justify'][$alignment] ?? 'left';
         $size = (int) $xpath->evaluate('string((./w:pPr/w:rPr/w:sz/@w:val | ./w:r/w:rPr/w:sz/@w:val)[1])', $node);
         $size = $size > 0 ? max(8, min(14, $size / 2)) : 10;
-        $clause = preg_match('/^\d+\s*[-–]\s*CLÁUSULA/u', trim($text)) ? ' class="clause"' : '';
+        $clause = preg_match('/^(?:\d+\s*[-–]\s*)?CLÁUSULA/u', trim($text)) ? ' class="clause"' : '';
 
         return '<p'.$clause.' style="text-align:'.$alignment.';font-size:'.$size.'pt;">'.$content.'</p>';
     }
@@ -200,13 +205,18 @@ final class SupplyContractTemplate
         return ($style['italic'] ?? false) ? '<em>'.$html.'</em>' : $html;
     }
 
-    private function products(array $products, string $total): string
+    private function products(array $products, string $total, string $model): string
     {
         if ($products === []) {
             return '<p>Produtos não informados no contrato.</p>';
         }
         $html = '<table class="products"><thead><tr>';
-        foreach (['Item' => 6, 'Cod' => 7, 'Discriminação' => 39, 'Marca' => 9, 'UND' => 7, 'QTD' => 8, 'VL_Unit' => 11, 'VL_Total' => 13] as $label => $width) {
+        $columns = ['Item' => 6, 'Cod' => 7, 'Discriminação' => $model === 'property-lease' ? 48 : 39];
+        if ($model === 'supply') {
+            $columns['Marca'] = 9;
+        }
+        $columns += ['UND' => 7, 'QTD' => 8, 'VL_Unit' => 11, 'VL_Total' => 13];
+        foreach ($columns as $label => $width) {
             $html .= '<th style="width:'.$width.'%">'.$label.'</th>';
         }
         $html .= '</tr></thead><tbody>';
@@ -215,6 +225,9 @@ final class SupplyContractTemplate
             foreach ($this->textParts($row['description'], 2000) as $index => $description) {
                 $html .= '<tr>';
                 foreach (['item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total'] as $field) {
+                    if ($field === 'brand' && $model === 'property-lease') {
+                        continue;
+                    }
                     $value = $field === 'description' ? $description : (string) ($row[$field] ?? '');
                     if ($index > 0 && $field !== 'description') {
                         $value = $field === 'item' ? $value.' (cont.)' : '';
@@ -231,7 +244,7 @@ final class SupplyContractTemplate
                 $html .= '</tr>';
             }
         }
-        $html .= '<tr class="products-total"><td colspan="7"><strong>TOTAL GERAL</strong></td><td class="number"><strong>'
+        $html .= '<tr class="products-total"><td colspan="'.(count($columns) - 1).'"><strong>TOTAL GERAL</strong></td><td class="number"><strong>'
             .$this->escape(str_replace('R$ ', '', Contract::moneyLabel($total))).'</strong></td></tr></tbody></table>';
 
         return $html;
@@ -309,7 +322,8 @@ final class SupplyContractTemplate
                             $witnessClass = 'witness witness-document';
                         }
                         $content .= $this->paragraph($paragraph, $xpath, $fields);
-                        $isParty = $isParty || str_contains($text, '#NOME_GESTOR') || str_contains($text, '#FORNECEDOR');
+                        $isParty = $isParty || str_contains($text, '#NOME_GESTOR') || str_contains($text, '#FORNECEDOR')
+                            || str_contains($text, '#NomeGestor') || str_contains($text, '#NomeLocador');
                     }
                 }
                 if ($content !== '') {

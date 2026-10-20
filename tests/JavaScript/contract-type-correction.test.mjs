@@ -2,6 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { attachContractTypeCorrection } from '../../resources/js/contract-type-correction.js';
 
+test('help follows the selected historical option, including types without a correction', () => {
+    let change;
+    let closed = 0;
+    const help = { hidden: false };
+    const popup = { matches: () => true, hidePopover: () => closed++ };
+    const select = {
+        selectedOptions: [{ hasAttribute: () => false }],
+        addEventListener: (_, handler) => { change = handler; },
+    };
+    const nodes = { '#tipo': select, '[data-field-help="contract-type-help"]': help, '#contract-type-help': popup };
+    attachContractTypeCorrection({ querySelector: (selector) => nodes[selector] });
+    assert.equal(help.hidden, true);
+    select.selectedOptions = [{ hasAttribute: (name) => name === 'data-historical' }];
+    change();
+    assert.equal(help.hidden, false);
+    select.selectedOptions = [];
+    change();
+    assert.equal(help.hidden, true);
+    assert.equal(closed, 2);
+});
+
 test('accept changes only the field; keep restores the historical value and both notify dependents', () => {
     const handlers = {};
     const changes = [];

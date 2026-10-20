@@ -5,11 +5,13 @@ use App\Application\Exceptions\ConcurrencyConflict;
 use App\Application\Exceptions\InputRejected;
 use App\Application\Exceptions\RecordNotFound;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrimInputStrings;
 use App\Http\Middleware\TrustedReverseProxies;
 use App\Infrastructure\Http\ApplicationErrors;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Http\Middleware\TrustProxies;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -20,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->replace(TrustProxies::class, TrustedReverseProxies::class);
+        $middleware->replace(TrimStrings::class, TrimInputStrings::class);
         $middleware->web(append: [SecurityHeaders::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

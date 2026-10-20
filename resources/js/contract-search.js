@@ -60,13 +60,18 @@ export function initializeContractSearch(dialog, ownerDocument = document, fetch
             if (request === current) opener.disabled = false;
         }
     };
-    opener.addEventListener('click', () => {
+    const searchNumber = () => {
+        if (opener.disabled) return;
         query.value = number.value.trim();
         searchTerm = query.value;
         opener.disabled = true;
         if (searchTerm) return search(1, true);
         openDialog();
         return search();
+    };
+    opener.addEventListener('click', searchNumber);
+    number.addEventListener('blur', () => {
+        if (number.value.trim()) return searchNumber();
     });
     number.addEventListener('input', () => { request?.abort(); opener.disabled = false; });
     form.addEventListener('submit', (event) => { event.preventDefault(); searchTerm = query.value; search(); });
