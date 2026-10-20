@@ -21,6 +21,7 @@
                 @foreach([
                     ['dashboard', 'dashboard', 'Início', 'dashboard'],
                     ['contracts.index', 'contracts.*', 'Contratos', 'contracts'],
+                    ['publication.index', 'publication.*', 'Publicação', 'document-extract'],
                     ['reports.index', 'reports.*', 'Relatórios', 'reports'],
                     ['calendar.index', 'calendar.*', 'Calendário e alertas', 'calendar'],
                 ] as [$route, $pattern, $label, $icon])

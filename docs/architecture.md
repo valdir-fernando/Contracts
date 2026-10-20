@@ -1,5 +1,7 @@
 # Arquitetura do Contracts
 
+Documentos assinados: seis referências anuláveis ao final de `contracts` apontam para `contract_attachments`, protegidas contra atribuição em massa e ocultas na serialização. O menu Publicação usa `Infrastructure/Documents/SignedDocuments` para upload privado com `ContractAccess::lockForSave`, versão, auditoria transacional, histórico de substituições e download reautorizado com SHA-256. `signed_category` identifica o histórico de cada categoria; listas aplicam Fundo da sessão e escopos atuais. [Campos](signed-document-fields-2026-10-20.md) e [módulo, fronteiras e validação](publication-module-2026-10-20.md).
+
 Tipos históricos: o formulário oferece ajuda e correções de grafia confirmadas com aceite opcional, persistidas pelo fluxo de gravação existente. A manutenção CLI explícita usa adaptador de Infrastructure, identidade de sistema, locks, versão e auditoria transacional. [Comportamento e execução](historical-contract-types.md).
 
 Abertura pela lupa: o formulário de edição usa snapshots do contrato e restauração de valores anteriores delimitada por `_contract_form_id`, apenas como indicação de apresentação. O Fundo no cabeçalho é o nome salvo, sem alterar o contexto da sessão. A consulta inicial de fiscal é preservada somente na criação ou após mudança explícita de Secretaria; fiscal histórico ausente não é substituído na abertura. Endpoints, policies e regras de gravação permanecem iguais. [Comportamento e validação](contract-search-saved-form.md).

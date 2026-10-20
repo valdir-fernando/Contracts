@@ -27,6 +27,7 @@ use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SavedReportController;
 use App\Http\Controllers\SelectedFundController;
+use App\Http\Controllers\SignedDocumentController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureActiveUser;
@@ -50,6 +51,9 @@ Route::middleware('guest')->group(function () {
 });
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/publication', [SignedDocumentController::class, 'index'])->name('publication.index');
+    Route::post('/publication/contracts/{contract}', [SignedDocumentController::class, 'store'])->middleware('throttle:20,1')->name('publication.store');
+    Route::get('/publication/contracts/{contract}/documents/{document}', [SignedDocumentController::class, 'download'])->whereNumber('document')->name('publication.download');
     Route::post('/session/fund', [SelectedFundController::class, 'update'])->name('session.fund');
     Route::get('/internal-api/v1/contracts', [InternalApiController::class, 'index'])->middleware('throttle:60,1')->name('internal-api.contracts.index');
     Route::get('/internal-api/v1/contracts/{contract}', [InternalApiController::class, 'show'])->middleware('throttle:60,1')->name('internal-api.contracts.show');

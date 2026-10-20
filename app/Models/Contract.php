@@ -19,9 +19,11 @@ class Contract extends Model
 
     public const STATUSES = ['rascunho' => 'Rascunho', 'ativo' => 'Ativo', 'suspenso' => 'Suspenso', 'rescindido' => 'Rescindido', 'arquivado' => 'Arquivado'];
 
-    protected $guarded = ['id'];
+    public const SIGNED_DOCUMENT_COLUMNS = ['Contrato_PDF', 'Aditivo_PDF', 'OS_PDF', 'Concordancia_PDF', 'Distrato_PDF', 'ATA_PDF'];
 
-    protected $hidden = ['legacy_record_id'];
+    protected $guarded = ['id', ...self::SIGNED_DOCUMENT_COLUMNS];
+
+    protected $hidden = ['legacy_record_id', ...self::SIGNED_DOCUMENT_COLUMNS];
 
     protected function casts(): array
     {

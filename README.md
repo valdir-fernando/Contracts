@@ -1,5 +1,9 @@
 # Contracts
 
+O menu **Publicação** permite enviar e consultar PDFs assinados por contrato, com seis categorias e histórico privado. [Como usar, instalação e segurança](docs/publication-module-2026-10-20.md).
+
+A tabela atual `contracts` possui seis campos para referências privadas aos documentos assinados. [Estrutura, instalação e escopo](docs/signed-document-fields-2026-10-20.md).
+
 O campo **Tipo de contrato** tem ícone informativo para valores históricos e correções de grafia opcionais. [Comportamento e manutenção auditada](docs/historical-contract-types.md).
 
 A lupa de contratos carrega a ficha com os dados salvos do contratado, contratante e fiscal, preservando o histórico e isolando valores de tentativas anteriores em outros formulários. [Comportamento e validação](docs/contract-search-saved-form.md).

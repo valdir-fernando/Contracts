@@ -19,6 +19,7 @@ class BrazilianLocale
         'document_settings_updated' => 'Administração dos documentos atualizada',
         'contract_extract_generated' => 'Extrato de fornecimento emitido',
         'contract_publication_generated' => 'Publicação do contrato emitida',
+        'signed_document_uploaded' => 'PDF assinado enviado',
         'admin_provisioned' => 'Administrador cadastrado', 'catalog_created' => 'Cadastro auxiliar criado',
         'review_confirmed' => 'Revisão confirmada', 'history_linked' => 'Vínculo histórico confirmado', 'history_imported' => 'Histórico importado pelo sistema',
         'expiration_preferences_updated' => 'Preferências de alerta atualizadas', 'contract_type_rule_updated' => 'Regra de tipo de contrato atualizada',
