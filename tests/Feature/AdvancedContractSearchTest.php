@@ -6,6 +6,7 @@ use App\Models\AccessScope;
 use App\Models\Contract;
 use App\Models\User;
 use App\Services\Reports\ContractReport;
+use App\Services\Reports\ReportRows;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -69,5 +70,34 @@ class AdvancedContractSearchTest extends TestCase
             $this->get('/'.$route.'?max_value=erro')->assertSessionHasErrors('max_value');
             $this->get('/'.$route.'?date_field=invalid')->assertSessionHasErrors('date_field');
         }
+    }
+
+    public function test_inspector_filter_groups_and_exports_preserve_contract_scope(): void
+    {
+        $this->contract->update(['nome_fiscal' => 'FISCAL ANA']);
+        Contract::where('numero', 'BUSCA-SEGREDO')->update(['nome_fiscal' => 'FISCAL RESTRITO']);
+        Contract::create(['numero' => 'OUTRO-FISCAL', 'fund_id' => $this->contract->fund_id,
+            'ownership_resolved' => true, 'nome_fiscal' => 'FISCAL BRUNO', 'quality_issues' => []]);
+        $filters = ['report' => 'inspector', 'inspector' => 'FISCAL ANA', 'columns' => ['number', 'inspector']];
+        $this->get('/reports?'.http_build_query($filters))->assertOk()
+            ->assertSee('BUSCA-VISIVEL')->assertDontSee('OUTRO-FISCAL')->assertDontSee('FISCAL RESTRITO');
+        $service = app(ContractReport::class);
+        $summary = $service->summary($this->user, $service->filters($filters));
+        $this->assertSame(1, $summary['count']);
+        $this->assertSame([['label' => 'FISCAL ANA', 'count' => 1, 'total' => '1908.6300']], $summary['groups']);
+        $rows = new ReportRows;
+        $this->assertSame($summary, $service->snapshot($this->user, $filters, $rows, false));
+        $this->assertSame([['BUSCA-VISIVEL', 'FISCAL ANA']], iterator_to_array($rows));
+        $response = $this->get('/reports/export/csv?'.http_build_query($filters))->assertOk();
+        $path = $response->baseResponse->getFile()->getPathname();
+        try {
+            $content = file_get_contents($path);
+            $this->assertStringContainsString('FISCAL ANA', $content);
+            $this->assertStringNotContainsString('OUTRO-FISCAL', $content);
+            $this->assertStringNotContainsString('BUSCA-SEGREDO', $content);
+        } finally {
+            unlink($path);
+        }
+        $this->get('/reports?inspector=FISCAL%20RESTRITO')->assertOk()->assertDontSee('BUSCA-SEGREDO');
     }
 }

@@ -19,14 +19,14 @@ use Illuminate\Validation\Rule;
 class ContractReport
 {
     public const TYPES = ['general' => 'Relação geral', 'expiring' => 'A vencer', 'expired' => 'Vencidos', 'fund' => 'Por fundo',
-        'department' => 'Por secretaria', 'supplier' => 'Por fornecedor', 'type' => 'Por tipo', 'modality' => 'Por modalidade',
+        'inspector' => 'Por fiscal', 'department' => 'Por secretaria', 'supplier' => 'Por fornecedor', 'type' => 'Por tipo', 'modality' => 'Por modalidade',
         'changes' => 'Vigências e alterações', 'quality' => 'Qualidade dos dados'];
 
     public const HEADERS = ['Contrato', 'Processo', 'Fornecedor', 'Documento', 'Fundo', 'Secretaria', 'Tipo', 'Modalidade',
-        'Valor inicial (decimal)', 'Assinatura', 'Início', 'Término informado', 'Situação administrativa', 'Vigência', 'Pendências', 'Dias até o término', 'Origem do término'];
+        'Valor inicial (decimal)', 'Assinatura', 'Início', 'Término informado', 'Situação administrativa', 'Vigência', 'Pendências', 'Dias até o término', 'Origem do término', 'Fiscal'];
 
     public const COLUMNS = ['number', 'process', 'supplier', 'document', 'fund', 'department', 'type', 'modality',
-        'initial_amount', 'signed_at', 'starts_at', 'ends_at', 'administrative_status', 'validity', 'issues', 'remaining_days', 'end_source'];
+        'initial_amount', 'signed_at', 'starts_at', 'ends_at', 'administrative_status', 'validity', 'issues', 'remaining_days', 'end_source', 'inspector'];
 
     public function headers(array $filters): array
     {
@@ -37,6 +37,7 @@ class ContractReport
     {
         return Validator::make($input, [
             'report' => ['nullable', Rule::in(array_keys(self::TYPES))], 'q' => 'nullable|string|max:255',
+            'inspector' => 'nullable|string|max:255',
             'fund' => 'nullable|integer|min:1', 'department' => 'nullable|integer|min:1',
             'type' => 'nullable|string|max:255', 'modality' => 'nullable|string|max:255',
             'status' => ['nullable', Rule::in(array_keys(Contract::STATUSES))],
@@ -47,7 +48,7 @@ class ContractReport
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
             'include_personal' => 'nullable|boolean',
             'reason' => 'required_if:include_personal,1|nullable|string|min:10|max:1000',
-            'columns' => 'sometimes|array|min:1|max:17', 'columns.*' => ['required', 'string', 'distinct', Rule::in(self::COLUMNS)],
+            'columns' => 'sometimes|array|min:1|max:18', 'columns.*' => ['required', 'string', 'distinct', Rule::in(self::COLUMNS)],
         ] + ContractSearch::rules($input))->validate();
     }
 
@@ -56,6 +57,9 @@ class ContractReport
         Gate::forUser($actor)->authorize('viewAny', Contract::class);
         abort_if(! empty($filters['include_personal']) && ! $actor->isAdmin(), 403);
         $query = Contract::visibleTo($actor);
+        if (($filters['inspector'] ?? '') !== '') {
+            $query->where('nome_fiscal', $filters['inspector']);
+        }
         ContractSearch::apply($query, $filters);
         ContractSearch::applyIdentityFilters($query, $filters);
         $reference = $filters['reference'] ?? today()->toDateString();
@@ -94,7 +98,7 @@ class ContractReport
             'fornecedor_documento_snapshot', 'supplier_document_key', 'fund_id', 'department_id', 'fundo_nome_snapshot',
             'secretaria_nome_snapshot', 'tipo', 'modalidade', 'valor_total', 'data_contrato', 'vigencia_inicio',
             'vigencia_fim_original', 'vigencia_fim_atual', 'administrative_status', 'quality_issues',
-            'ownership_resolved', 'vigencia_em_revisao']);
+            'ownership_resolved', 'vigencia_em_revisao', 'nome_fiscal']);
     }
 
     public function snapshot(User $actor, array $filters, ReportRows $rows, bool $pdf): array
@@ -123,6 +127,7 @@ class ContractReport
             $total = $total->plus($amount);
             $missing += $contract->valor_total === null ? 1 : 0;
             $key = match ($report) {
+                'inspector' => 'inspector:'.($contract->nome_fiscal ?? ''),
                 'fund' => 'fund:'.($contract->fund_id ?? 'unknown:'.$contract->fundo_nome_snapshot),
                 'department' => 'department:'.($contract->department_id ?? 'unknown:'.$contract->secretaria_nome_snapshot),
                 'supplier' => 'supplier:'.(Normalizer::validDocument($contract->supplier_document_key ?? '') ? $contract->supplier_document_key : 'unknown:'.$contract->id),
@@ -132,6 +137,7 @@ class ContractReport
             };
             if ($key !== '') {
                 $label = match ($report) {
+                    'inspector' => $contract->nome_fiscal,
                     'fund' => $contract->fundo_nome_snapshot, 'department' => $contract->secretaria_nome_snapshot,
                     'supplier' => $contract->fornecedor_nome_snapshot.' · '.$this->document($contract, $actor, $filters),
                     'type' => $key, 'modality' => $key,
@@ -173,7 +179,7 @@ class ContractReport
             Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada', Contract::VALIDITY[$validity],
             count($contract->quality_issues ?? []) + (int) ! $contract->ownership_resolved + (int) $contract->vigencia_em_revisao,
             ! $review && $end ? (string) (int) $reference->diffInDays($end, false) : 'Em revisão / indeterminado',
-            $contract->vigencia_fim_atual ? 'Término atualizado informado; sujeito a conciliação' : ($contract->vigencia_fim_original ? 'Término original' : 'Não informado')];
+            $contract->vigencia_fim_atual ? 'Término atualizado informado; sujeito a conciliação' : ($contract->vigencia_fim_original ? 'Término original' : 'Não informado'), $contract->nome_fiscal];
 
         return array_map(fn ($key) => $values[array_search($key, self::COLUMNS, true)], $filters['columns'] ?? self::COLUMNS);
     }

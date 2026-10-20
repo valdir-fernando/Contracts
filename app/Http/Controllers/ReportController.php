@@ -29,6 +29,7 @@ class ReportController extends Controller
             'contracts' => $service->query($request->user(), $filters)->paginate(20)->withQueryString(), 'service' => $service,
             'funds' => DB::table('contract_funds')->whereNull('deleted_at')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(),
             'departments' => DB::table('contract_departments')->whereIn('id', (clone $visible)->select('department_id'))->orderBy('name')->get(),
+            'inspectors' => (clone $visible)->whereNotNull('nome_fiscal')->where('nome_fiscal', '<>', '')->distinct()->orderBy('nome_fiscal')->pluck('nome_fiscal'),
             'types' => (clone $visible)->whereNotNull('tipo')->distinct()->orderBy('tipo')->pluck('tipo'),
             'modalities' => (clone $visible)->whereNotNull('modalidade')->distinct()->orderBy('modalidade')->pluck('modalidade')]);
     }
