@@ -1,10 +1,18 @@
 # Contracts
 
+O **Painel de Ficha** exibe apenas fichas do contrato original, filtradas por Fundo, Contrato e Proc_Cont, com Proc_ADT/N_ADT vazios. Mostra a soma e sua conferência com o valor original. [Regras, migration e validação](docs/original-contract-ficha-panel.md).
+
+O botão **Contrato** também emite o PDF de **Locação de Imóvel**, usando o modelo Word fornecido, os itens salvos e os valores mensal/global. [Preenchimento, segurança e validação](docs/property-lease-contract.md).
+
 O menu **Publicação** permite enviar e consultar PDFs assinados por contrato, com seis categorias e histórico privado. [Como usar, instalação e segurança](docs/publication-module-2026-10-20.md).
 
 A tabela atual `contracts` possui seis campos para referências privadas aos documentos assinados. [Estrutura, instalação e escopo](docs/signed-document-fields-2026-10-20.md).
 
 O campo **Tipo de contrato** tem ícone informativo para valores históricos e correções de grafia opcionais. [Comportamento e manutenção auditada](docs/historical-contract-types.md).
+
+Ordens de Serviço têm modelos PDF específicos para **Obras** e **Serviços**, com cabeçalho institucional, quadro de prazos e assinaturas. [Modelos e exemplos](docs/service-order-models-2026-10-20.md).
+
+Ordens de Serviço usam a tabela `tb_OS`. Importação do modelo: `contracts:import-service-orders --dry-run`. [Renomeação, resultados e pendência de vínculo](docs/service-order-import-2026-10-20.md).
 
 A lupa de contratos carrega a ficha com os dados salvos do contratado, contratante e fiscal, preservando o histórico e isolando valores de tentativas anteriores em outros formulários. [Comportamento e validação](docs/contract-search-saved-form.md).
 
@@ -14,9 +22,9 @@ O botão **Extrato** também emite o PDF de **Locação de Imóvel**, usando o m
 
 Importação dos produtos do banco de modelo: `contracts:import-contract-products --dry-run` confere os vínculos; sem `--dry-run`, importa os registros confirmados sem recalcular totais ou saldos. [Procedimento e resultados](docs/model-data-import-2026-10-19.md).
 
-No **Cadastro de produtos**, **Ficha** é uma seleção editável: já abre com as fichas dos produtos do contrato e permite digitar outra no mesmo campo. Salvar um produto acrescenta a nova ficha à lista; escolher uma ficha filtra **Produtos do contrato**. [Comportamento e validação](docs/product-ficha-selection-2026-10-19.md).
+No **Cadastro de produtos**, a lista e as opções de **Ficha** exibem apenas itens do contrato original, conferidos por Fundo, contrato, Processo e identificação legada de aditivo. **Ficha** é uma seleção editável e permite digitar outra no mesmo campo. Salvar um produto acrescenta a nova ficha à lista; escolher uma ficha filtra **Produtos do contrato**. [Comportamento e validação](docs/product-ficha-selection-2026-10-19.md).
 
-O botão **Contrato** emite o PDF dos contratos salvos de **Fornecimento**, com tabela única de produtos agrupados por item, conferência dos totais, dotações somadas por ficha e assinaturas. Os demais tipos aguardam seus modelos. [Preenchimento, segurança e validação](docs/supply-contract-pdf-2026-10-19.md).
+O botão **Contrato** emite o PDF dos contratos salvos de **Fornecimento**, com tabela única de produtos agrupados por item, conferência dos totais, dotações somadas por ficha e assinaturas. Também atende **Locação de Imóvel**, conforme o guia acima; os demais tipos aguardam seus modelos. [Preenchimento, segurança e validação do Fornecimento](docs/supply-contract-pdf-2026-10-19.md).
 
 Relatórios de contratos incluem filtro, agrupamento e coluna por **Fiscal**, com exportação PDF, Excel e CSV. [Como usar e regras](docs/reports-by-inspector.md).
 
@@ -52,9 +60,9 @@ No Início, **Valor dos contratos do Fundo** usa o valor acumulado e, quando aus
 
 O **Calendário de vencimentos** mostra somente contratos do Fundo selecionado no login, incluindo lista e contagens. [Regra e validação](docs/calendar-selected-fund-2026-10-17.md).
 
-O botão **6. Cad.Prod** abre uma janela ampla para buscar por Item os produtos já existentes na `tb_Produtos` e lançá-los nos contratos. A opção **Exibir produtos do processo** permite compartilhar o saldo entre fornecedores de um credenciamento; desmarcada, filtra pelo fornecedor. Inclui ficha opcional, estorno e recálculo do valor. [Instalação e regras](docs/contract-products-2026-10-16.md).
+O botão **8.Produtos** abre uma janela ampla para buscar por Item os produtos já existentes na `tb_Produtos` e lançá-los nos contratos. A opção **Exibir produtos do processo** permite compartilhar o saldo entre fornecedores de um credenciamento; desmarcada, filtra pelo fornecedor. Inclui ficha opcional, estorno e recálculo do valor. [Instalação e regras](docs/contract-products-2026-10-16.md).
 
-O painel **5. Vigência** permite abrir as [Ordens de Serviço](docs/service-orders-2026-10-15.md) pelo ícone em **Prazo da obra**, com múltiplas ordens por contrato e vínculo opcional a aditivos. Exige a migration aditiva indicada no guia.
+O painel **5. Vigência** permite abrir as [Ordens de Serviço](docs/service-orders-2026-10-15.md) pelo botão **Emitir Ordem de Serviço** em contratos salvos de Serviços Diversos e Obras, com dados do Fundo/Fornecedor/Objeto/Contrato, datas de execução, Período e PDF privado. Período preenche **Prazo da obra**, que é somente leitura. Suporta múltiplas ordens e vínculo opcional a aditivos; exige as migrations aditivas do guia.
 
 Dados Contratante permanece somente para consulta, com fiscal automático por Fundo ou Secretaria do Município. [Importação de `tb_Fiscal`, comportamento e validação](docs/inspector-autofill-2026-10-15.md).
 

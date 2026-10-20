@@ -1,5 +1,7 @@
 # PDF do contrato de Fornecimento
 
+Desde 20/10/2026, a mesma emissão também seleciona o modelo próprio de [Locação de Imóvel](property-lease-contract.md), mantendo Fornecimento como padrão das interfaces internas.
+
 ## Ajuste de cabeçalho e assinaturas nesta instalação
 
 A linha do cabeçalho passa de 120 pt para aproximadamente 100,6 pt, próxima à base da logomarca. A identificação contrato/processo/página fica em 88 pt e o corpo começa em 110 pt. Essas posições substituem as medidas anteriores descritas abaixo; o rodapé permanece reservado.

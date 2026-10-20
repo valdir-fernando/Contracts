@@ -1,6 +1,6 @@
 # Extrato de Locação de Imóvel
 
-O botão **Extrato** abre o PDF em nova aba para contratos salvos do tipo **Locação de Imóvel**, além do modelo existente de Fornecimento. Salve alterações pendentes antes da emissão. O botão Contrato completo continua disponível apenas para Fornecimento.
+O botão **Extrato** abre o PDF em nova aba para contratos salvos do tipo **Locação de Imóvel**, além do modelo existente de Fornecimento. Salve alterações pendentes antes da emissão. O botão Contrato completo também passou a atender Locação de Imóvel; veja [modelo e preenchimento](property-lease-contract.md).
 
 Modelo original preservado em `Reference/Modelos_Doc/Extratos/Extrato_Contrato/Extrato_Loc_Imovel.docx`; cópia de execução em `resources/documents/extracts/property-lease.docx`. Ambos devem acompanhar a entrega. Não exige migration ou importação de dados.
 

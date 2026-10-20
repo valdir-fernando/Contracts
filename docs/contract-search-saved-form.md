@@ -1,5 +1,9 @@
 # Abrir contrato existente pela lupa
 
+O campo de número também executa a mesma busca da lupa ao perder o foco, quando contém um valor além de espaços. A busca exata abre o contrato único; resultados ausentes ou ambíguos continuam abrindo a seleção. O campo vazio não dispara consulta ao perder o foco. Cliques na lupa durante uma consulta em andamento não duplicam a requisição.
+
+Validação dessa interação: `docker compose run --rm --no-deps node node --test tests/JavaScript/contract-search.test.mjs` passou (6 testes); `docker compose run --rm --no-deps node npm run build` passou. Sem ensaio manual autenticado em navegador.
+
 A lupa da ficha Novo Contrato continua consultando `/contracts/lookup`, limitada ao Fundo selecionado e aos contratos visíveis ao usuário. Selecionar um resultado abre a URL de edição do contrato autorizado, carregando os campos salvos nesse registro. As assinaturas dos endpoints e o formato da resposta de busca permanecem iguais.
 
 Na edição, o cabeçalho identifica o Fundo pelo snapshot do contrato e o nome do contratado também vem do registro salvo. Essa apresentação não altera o Fundo da sessão, as permissões nem os escopos. Contratante, contratado, gestor e fiscal usam os snapshots do contrato, com o mascaramento por perfil já existente. Campos ausentes não são completados pelo cadastro atual durante a abertura.
