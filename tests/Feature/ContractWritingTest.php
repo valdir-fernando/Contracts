@@ -50,6 +50,42 @@ class ContractWritingTest extends TestCase
             'valor_total' => '1.908,6300', 'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'fund_id' => $this->fund, 'department_id' => $this->department], $extra);
     }
 
+    public function test_lookup_opens_saved_fields_and_historical_people_despite_unrelated_form_input(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $contract->update(['fundo_nome_snapshot' => 'MUNICIPIO HISTÓRICO', 'end_fundo' => 'ENDEREÇO CONTRATANTE HISTÓRICO',
+            'nome_gestor' => 'GESTOR HISTÓRICO', 'nome_fiscal' => 'FISCAL HISTÓRICO', 'decreto_fiscal' => 'DECRETO HISTÓRICO',
+            'fornecedor_nome_snapshot' => 'CONTRATADO HISTÓRICO', 'end_fornec' => 'ENDEREÇO CONTRATADO HISTÓRICO',
+            'socio' => 'SÓCIO HISTÓRICO', 'end_imovel' => 'IMÓVEL SALVO', 'instalacoes' => 'DESTINAÇÃO SALVA',
+            'tipo' => 'Locação de Imóvel', 'objeto' => 'OBJETO SALVO', 'cpf_fiscal' => '11144477735']);
+        $lookup = $this->getJson(route('contracts.lookup', ['q' => $contract->numero, 'exact' => 1]))->assertOk();
+        $url = $lookup->json('contracts.0.url');
+        foreach (['', (string) ($contract->id + 1), ['invalid']] as $otherForm) {
+            $response = $this->withSession(['_old_input' => ['_contract_form_id' => $otherForm, 'objeto' => 'OBJETO DO OUTRO FORMULÁRIO',
+                'processo' => 'PROCESSO DO OUTRO FORMULÁRIO', 'tipo' => 'Show', 'department_id' => 999,
+                'data_contrato' => '2020-01-01', 'end_imovel' => 'IMÓVEL DO OUTRO FORMULÁRIO']])->get($url)->assertOk();
+            foreach (['MUNICIPIO HISTÓRICO', 'ENDEREÇO CONTRATANTE HISTÓRICO', 'GESTOR HISTÓRICO', 'FISCAL HISTÓRICO', 'DECRETO HISTÓRICO',
+                'CONTRATADO HISTÓRICO', 'ENDEREÇO CONTRATADO HISTÓRICO', 'SÓCIO HISTÓRICO', 'IMÓVEL SALVO', 'DESTINAÇÃO SALVA', 'OBJETO SALVO'] as $text) {
+                $response->assertSee($text);
+            }
+            $response->assertDontSee('OBJETO DO OUTRO FORMULÁRIO')->assertDontSee('IMÓVEL DO OUTRO FORMULÁRIO')
+                ->assertSee('value="2026-10-01"', false)->assertSee('value="Locação de Imóvel" selected', false)
+                ->assertSee('data-preserve-fiscal="true"', false);
+            $document = new \DOMDocument;
+            @$document->loadHTML('<?xml encoding="utf-8" ?>'.$response->getContent());
+            $xpath = new \DOMXPath($document);
+            $this->assertSame('MUNICIPIO HISTÓRICO', trim($xpath->evaluate('string(//strong[contains(@class,"selected-fund-name")])')));
+        }
+        $this->assertSame('FISCAL HISTÓRICO', $contract->fresh()->nome_fiscal);
+    }
+
+    public function test_old_values_are_restored_only_for_the_same_contract_form_after_validation_failure(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $this->withSession(['_old_input' => ['_contract_form_id' => (string) $contract->id, 'objeto' => 'Correção ainda não salva', 'data_contrato' => '2026-09-20']])
+            ->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertSee('Correção ainda não salva')->assertSee('value="2026-09-20"', false);
+    }
+
     public function test_contract_type_select_uses_fixed_options_ordered_by_character_count_and_preserves_history(): void
     {
         $contract = app(ContractWriter::class)->save($this->admin, $this->data(['tipo' => 'Tipo importado']));

@@ -60,6 +60,19 @@ class InspectorDefaultsTest extends TestCase
             'vigencia_fim_original' => '2027-10-01', 'modalidade' => 'Pregão', 'n_licit' => '001/26', 'valor_total' => '100.0000'], $extra);
     }
 
+    public function test_blank_historical_inspector_is_not_replaced_by_current_catalog_on_open(): void
+    {
+        $this->post('/contracts', $this->data())->assertRedirect();
+        $contract = Contract::sole();
+        $contract->update(['nome_fiscal' => null, 'cpf_fiscal' => null, 'decreto_fiscal' => null, 'rg_fiscal' => null]);
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('data-preserve-fiscal="true"', false)->assertDontSee('Fiscal Saúde');
+        $this->assertNull($contract->fresh()->nome_fiscal);
+        $this->assertNull($contract->fresh()->decreto_fiscal);
+        $this->assertSame(1, $contract->fresh()->version);
+        $this->assertDatabaseCount('contract_audits', 1);
+    }
+
     public function test_fund_defaults_are_projected_and_contract_form_cannot_override_catalog_snapshots(): void
     {
         $this->get('/contracts/create')->assertOk()->assertSee('Fiscal Saúde')->assertSee('Gestor oficial');

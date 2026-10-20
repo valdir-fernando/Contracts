@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeInspectorAssistance } from '../../resources/js/inspector-assistance.js';
 
-function setup(fetcher, preserve = true, disabled = false) {
+function setup(fetcher, preserve = true, disabled = false, savedName = 'Fiscal histórico') {
     globalThis.location = { href: 'https://contracts.test/contracts/create' };
     const events = {};
     const formEvents = {};
     const department = { value: '10', disabled, addEventListener: (event, handler) => { events[event] = handler; } };
     const settings = { dataset: { url: '/contracts/inspector-defaults', contractId: preserve ? '42' : '', preserveFiscal: String(preserve) } };
     const status = { textContent: '' };
-    const name = { textContent: 'Fiscal histórico' };
+    const name = { textContent: savedName };
     const decree = { textContent: 'Decreto histórico' };
     const form = {
         elements: { namedItem: () => department },
@@ -22,6 +22,18 @@ function setup(fetcher, preserve = true, disabled = false) {
     initializeInspectorAssistance(form, fetcher);
     return { department, name, decree, status, change: () => events.change(), submit: (event) => formEvents.submit(event) };
 }
+
+test('opening an existing contract without a saved inspector does not request the current catalog', async () => {
+    let calls = 0;
+    const state = setup(async () => {
+        calls++;
+        return { ok: true, json: async () => ({ values: { nome_fiscal: 'Fiscal atual do catálogo' } }) };
+    }, true, false, 'Não informado');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(calls, 0);
+    assert.equal(state.name.textContent, 'Não informado');
+    assert.equal(state.status.textContent, '');
+});
 
 test('preserves historical inspector until department changes, then uses safe text and server values', async () => {
     let calls = 0;

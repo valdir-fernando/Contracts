@@ -144,7 +144,7 @@ class ContractController extends Controller
     private function form(Contract $contract, array $values = [], bool $conflict = false)
     {
         $user = app(LockActor::class)->current(auth()->user());
-        if (! $contract->exists && session()->hasOldInput('fornecedor_documento_snapshot')) {
+        if (! $contract->exists && is_scalar(old('_contract_form_id', '')) && (string) old('_contract_form_id', '') === '' && session()->hasOldInput('fornecedor_documento_snapshot')) {
             $document = old('fornecedor_documento_snapshot', $values['fornecedor_documento_snapshot'] ?? null);
             $selectedSupplier = old('supplier_id', $values['supplier_id'] ?? null);
             foreach (ContractFields::SUPPLIER_CATALOG as $column) {

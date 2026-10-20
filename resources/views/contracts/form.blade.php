@@ -1,13 +1,20 @@
+@php
+    $formValue = fn ($key, $default = null) => is_scalar(old('_contract_form_id', '')) && (string) old('_contract_form_id', '') === (string) ($contract->id ?? '') ? old($key, $default) : $default;
+@endphp
 <x-layouts.app :title="$contract->exists ? 'Editar contrato' : 'Novo contrato'" :contract-editor="true">
+    @if($contract->exists)
+        <x-slot:fundName>{{ filled($contract->fundo_nome_snapshot) ? $contract->fundo_nome_snapshot : 'Não informado' }}</x-slot:fundName>
+    @endif
     <x-slot:contractSummary><x-contract-summary :contract="$contract" :values="$values" :editable="true" :show-supplier="false" :heading="$contract->exists ? 'Editar contrato' : 'Novo contrato'"/></x-slot:contractSummary>
     <x-slot:fundSupplier><x-contract-supplier-heading :contract="$contract" :values="$values" :editable="true"/></x-slot:fundSupplier>
     <x-slot:headerBack><a class="text-link fund-header-back" href="{{ $contract->exists ? route('contracts.show', $contract) : route('contracts.index') }}">← Voltar</a></x-slot:headerBack>
     @if($conflict)<div class="notice notice-error" role="alert">O contrato foi alterado por outra pessoa. Seus valores estão abaixo para consulta; recarregue os dados e revise as diferenças antes de salvar. <a class="text-link" href="{{ route('contracts.edit', $contract) }}">Recarregar contrato</a></div>@endif
     <form data-contract-form data-supplier-original-document="{{ ($contract->exists && ($formActor->isAdmin() || strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot)) === 14)) ? \App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot) : '' }}" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" x-data="{ step: 0, all: false }" x-init="$nextTick(() => ($el.querySelector('#department_id:not(:disabled)') || $el.querySelector('#tipo'))?.focus({ preventScroll: true }))" method="POST" novalidate @unless($contract->exists) data-supplier-prefill="{{ json_encode(array_intersect_key($values, array_flip(['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio'])), JSON_THROW_ON_ERROR) }}" @endunless action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
         @csrf @if($contract->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $contract->version }}">@endif
+        <input type="hidden" name="_contract_form_id" value="{{ $contract->id ?? '' }}">
         @if($contract->exists)<span hidden data-supplier-document-type="{{ match (strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot))) { 11 => 'CPF', 14 => 'CNPJ', default => '' } }}"></span>@endif
         @if(!$contract->exists || (int) $contract->fund_id === (int) (request()->attributes->get('selected_fund')['id'] ?? 0))
-            <span hidden data-inspector-assistance data-url="{{ route('contracts.inspector-defaults') }}" data-contract-id="{{ $contract->exists ? $contract->id : '' }}" data-preserve-fiscal="{{ $contract->exists && filled($contract->nome_fiscal) && (string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $contract->department_id ? 'true' : 'false' }}"></span>
+            <span hidden data-inspector-assistance data-url="{{ route('contracts.inspector-defaults') }}" data-contract-id="{{ $contract->exists ? $contract->id : '' }}" data-preserve-fiscal="{{ $contract->exists && (string) $formValue('department_id', $values['department_id'] ?? $contract->department_id) === (string) $contract->department_id ? 'true' : 'false' }}"></span>
         @endif
         @unless($contract->exists)<input type="hidden" name="supplier_id" value="{{ $values['supplier_id'] ?? '' }}">@endunless
         <input type="hidden" name="fornecedor_nome_snapshot" id="fornecedor_nome_snapshot" readonly data-supplier-catalog-field value="{{ $contract->exists ? $contract->fornecedor_nome_snapshot : ($values['fornecedor_nome_snapshot'] ?? '') }}">
@@ -23,11 +30,11 @@
         @endphp
         <div class="contract-administration-row">
         <section class="contract-administration-fields" aria-label="Órgão e situação administrativa"><div class="field-grid">
-            <div class="field"><label for="department_id">Secretaria</label><select id="department_id" name="department_id" @disabled(!$departmentEnabled)><option value="">Sem secretaria</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(($contract->exists || $departmentEnabled) && (string) old('department_id', $values['department_id'] ?? $contract->department_id) === (string) $department->id)>{{ $department->name }}</option>@endforeach</select>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>
+            <div class="field"><label for="department_id">Secretaria</label><select id="department_id" name="department_id" @disabled(!$departmentEnabled)><option value="">Sem secretaria</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(($contract->exists || $departmentEnabled) && (string) $formValue('department_id', $values['department_id'] ?? $contract->department_id) === (string) $department->id)>{{ $department->name }}</option>@endforeach</select>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>
             <div class="field"><label for="tipo">Tipo de contrato<x-required-mark :explain="true" :when="!$contract->exists || filled($contract->tipo)"/></label><select id="tipo" name="tipo" @required(!$contract->exists || filled($contract->tipo)) @if($errors->has('tipo')) aria-invalid="true" aria-describedby="tipo-error" @endif>
                 <option value="">Selecione</option>
-                @if($contract->exists && filled($contract->tipo) && !$contractTypes->contains($contract->tipo))<option value="{{ $contract->tipo }}" @selected(old('tipo', $values['tipo'] ?? $contract->tipo) === $contract->tipo)>{{ $contract->tipo }} (histórico)</option>@endif
-                @foreach($contractTypes as $contractType)<option value="{{ $contractType }}" @selected(old('tipo', $values['tipo'] ?? $contract->tipo) === $contractType)>{{ $contractType }}</option>@endforeach
+                @if($contract->exists && filled($contract->tipo) && !$contractTypes->contains($contract->tipo))<option value="{{ $contract->tipo }}" @selected($formValue('tipo', $values['tipo'] ?? $contract->tipo) === $contract->tipo)>{{ $contract->tipo }} (histórico)</option>@endif
+                @foreach($contractTypes as $contractType)<option value="{{ $contractType }}" @selected($formValue('tipo', $values['tipo'] ?? $contract->tipo) === $contractType)>{{ $contractType }}</option>@endforeach
             </select>@error('tipo')<p class="field-error" id="tipo-error">{{ $message }}</p>@enderror</div>
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
@@ -53,7 +60,7 @@
                         $required = $required || ($contract->exists && in_array($column, ['modalidade', 'n_licit']) && $contract->$column !== null && $contract->$column !== '');
                         $required = $required || $column === 'nome_fiscal';
                         $value = $definition['type'] === 'date' ? $contract->$column?->format('Y-m-d') : $contract->$column;
-                        $inputValue = old($column, $values[$column] ?? $value);
+                        $inputValue = $formValue($column, $values[$column] ?? $value);
                         if ($supplierReadonly || $contractorReadonly) {
                             $inputValue = $contract->exists ? $value : ($values[$column] ?? '');
                         }
@@ -150,8 +157,8 @@
                                 <input id="prazo_obra" name="prazo_obra" maxlength="15000" value="{{ $inputValue }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="prazo_obra-error" @endif>
                                 <button type="button" class="service-order-open-button" data-service-orders-open aria-label="Cadastrar ordens de serviço" title="{{ $contract->exists ? 'Cadastrar ordens de serviço' : 'Salve o contrato antes de cadastrar ordens de serviço' }}" @disabled(!$contract->exists || $conflict)><x-nav-icon name="plus"/></button>
                             </div>
-                        @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
-                        @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ old($column, $values[$column] ?? $value) }}" @required($required)>
+                        @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ $inputValue }}" @required($required)>
+                        @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" placeholder="Ex.: 1.908,6300" value="{{ $inputValue }}" @required($required)>
                         @elseif($multiline)<textarea @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif rows="{{ $rows }}" maxlength="15000" @required($required)>{{ $inputValue }}</textarea>
                         @else<input @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif maxlength="15000" value="{{ $inputValue }}" @required($required)>@endif
                         @error($column)<p class="field-error" id="{{ $column }}-error">{{ $message }}</p>@enderror
