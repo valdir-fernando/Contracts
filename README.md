@@ -1,5 +1,9 @@
 # Contracts
 
+A lupa de contratos carrega a ficha com os dados salvos do contratado, contratante e fiscal, preservando o histórico e isolando valores de tentativas anteriores em outros formulários. [Comportamento e validação](docs/contract-search-saved-form.md).
+
+O botão **Extrato** também emite o PDF de **Locação de Imóvel**, usando o modelo Word fornecido e os valores salvos na ficha. [Campos e validação](docs/property-lease-extract.md).
+
 [Entrega de 19/10/2026 e validação antes do push](docs/delivery-2026-10-19.md).
 
 Importação dos produtos do banco de modelo: `contracts:import-contract-products --dry-run` confere os vínculos; sem `--dry-run`, importa os registros confirmados sem recalcular totais ou saldos. [Procedimento e resultados](docs/model-data-import-2026-10-19.md).
@@ -7,6 +11,8 @@ Importação dos produtos do banco de modelo: `contracts:import-contract-product
 No **Cadastro de produtos**, **Ficha** é uma seleção editável: já abre com as fichas dos produtos do contrato e permite digitar outra no mesmo campo. Salvar um produto acrescenta a nova ficha à lista; escolher uma ficha filtra **Produtos do contrato**. [Comportamento e validação](docs/product-ficha-selection-2026-10-19.md).
 
 O botão **Contrato** emite o PDF dos contratos salvos de **Fornecimento**, com tabela única de produtos agrupados por item, conferência dos totais, dotações somadas por ficha e assinaturas. Os demais tipos aguardam seus modelos. [Preenchimento, segurança e validação](docs/supply-contract-pdf-2026-10-19.md).
+
+Relatórios de contratos incluem filtro, agrupamento e coluna por **Fiscal**, com exportação PDF, Excel e CSV. [Como usar e regras](docs/reports-by-inspector.md).
 
 Perfis de usuários: **Administrador Master** gerencia todos os perfis; **Administrador** gerencia apenas Usuários. FERNANDO foi promovido a Master no ambiente local. [Regras, segurança e promoção](docs/user-role-hierarchy-2026-10-18.md).
 
