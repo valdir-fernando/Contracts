@@ -13,16 +13,20 @@ final class SupplyExtractTemplate
 {
     private const WORD = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
-    public function path(): string
+    public function path(string $model = 'supply'): string
     {
-        return resource_path('documents/extracts/supply.docx');
+        return resource_path('documents/extracts/'.match ($model) {
+            'supply' => 'supply.docx',
+            'property-lease' => 'property-lease.docx',
+            default => throw new RuntimeException('Modelo de extrato não configurado.'),
+        });
     }
 
-    public function render(array $fields): string
+    public function render(array $fields, string $model = 'supply'): string
     {
         $zip = new ZipArchive;
-        if ($zip->open($this->path(), ZipArchive::RDONLY) !== true) {
-            throw new RuntimeException('Modelo do extrato de fornecimento indisponÃ­vel.');
+        if ($zip->open($this->path($model), ZipArchive::RDONLY) !== true) {
+            throw new RuntimeException('Modelo do extrato indisponível.');
         }
         try {
             $xml = $zip->getFromName('word/document.xml');
@@ -105,7 +109,7 @@ final class SupplyExtractTemplate
         $organizationContent = '';
         foreach ($rows as $index => $cells) {
             // Dompdf cannot split table cells across pages. Let long object text flow as a block.
-            if (count($cells) === 1 && str_contains($cells[0]['node']->textContent, '#Objeto')) {
+            if (count($cells) === 1 && (str_contains($cells[0]['node']->textContent, '#Objeto') || str_contains($cells[0]['node']->textContent, '#EndImovel'))) {
                 $content = '';
                 foreach ($xpath->query('./w:p', $cells[0]['node']) as $paragraph) {
                     $content .= $this->paragraph($paragraph, $xpath, $fields);
@@ -132,7 +136,7 @@ final class SupplyExtractTemplate
             $rowClass = str_contains($normalizedRow, 'EXTRATO CONTRATO') ? 'extract-title'
                 : (str_contains($normalizedRow, '#FUNDO') ? 'fund-row'
                     : (str_contains($normalizedRow, 'ADM:') ? 'administration-row'
-                        : (str_contains($normalizedRow, 'VL_TOTAL') ? 'extract-total'
+                        : (str_contains($normalizedRow, 'VL_TOTAL') || str_contains($normalizedRow, 'VL_MENSAL') ? 'extract-total'
                             : (str_contains($normalizedRow, 'NOMEGESTOR') ? 'extract-signature' : ''))));
             $html .= '<tr'.($rowClass !== '' ? ' class="'.$rowClass.'"' : '').'>';
             foreach ($cells as $cell) {
@@ -144,7 +148,7 @@ final class SupplyExtractTemplate
                 foreach ($xpath->query('./w:p', $node) as $paragraph) {
                     $content .= $this->paragraph($paragraph, $xpath, $fields);
                 }
-                if ($logo !== null && str_contains($node->textContent, '#Fundo')) {
+                if ($logo !== null && (str_contains($node->textContent, '#Fundo') || str_contains($node->textContent, '#FUNDO'))) {
                     $content = '<div class="emblem"><img alt="Brasao do municipio" src="data:image/png;base64,'.$logo.'"></div>'.$organizationContent.$content;
                     $rowClass = 'fund-row';
                 }
@@ -167,7 +171,7 @@ final class SupplyExtractTemplate
                 foreach ($xpath->query('./w:tcPr/w:tcBorders/*', $node) as $border) {
                     if (in_array($border->localName, ['top', 'bottom', 'left', 'right'], true)
                         && in_array($border->getAttributeNS(self::WORD, 'val'), ['nil', 'none'], true)) {
-                        if ($border->localName === 'top' && str_contains($node->textContent, '#Fundo')) {
+                        if ($border->localName === 'top' && (str_contains($node->textContent, '#Fundo') || str_contains($node->textContent, '#FUNDO'))) {
                             continue;
                         }
                         $style .= 'border-'.$border->localName.':none;';

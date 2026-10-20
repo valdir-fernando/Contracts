@@ -1,6 +1,6 @@
 # Extrato de Fornecimento
 
-O botão Extrato abre um PDF em outra aba para contratos salvos do tipo Fornecimento. Outros tipos aguardam seus próprios modelos. Alterações pendentes no formulário devem ser salvas antes da emissão. Não exige migration adicional à configuração de administração dos documentos.
+O botão Extrato abre um PDF em outra aba para contratos salvos do tipo Fornecimento. Locação de Imóvel possui modelo próprio; outros tipos aguardam seus modelos. Alterações pendentes no formulário devem ser salvas antes da emissão. Não exige migration adicional à configuração de administração dos documentos.
 
 A cópia de execução do modelo fornecido é `resources/documents/extracts/supply.docx`. O original em `Reference/Modelos_Doc/Extratos/Extrato_Contrato/Extrato_Fornecimento.docx` permanece intacto. O adaptador lê o DOCX confiável, reúne textos divididos em runs do Word, substitui marcadores conhecidos e escapa os dados. Preserva o brasão e a estrutura da tabela em A4; não é um conversor genérico de Word. Objetos longos podem ocupar mais páginas.
 
@@ -15,7 +15,7 @@ A cópia de execução do modelo fornecido é `resources/documents/extracts/supp
 | #CNPJ | fornecedor_documento_snapshot, com prefixo CPF ou CNPJ e máscara correspondente |
 | #Objeto / #Vigencia | objeto / vigencia |
 | #Início | vigencia_inicio |
-| #Final | vigencia_fim_atual, usando vigencia_fim_original quando ausente |
+| #Final | vigencia_fim_original (Final da Vigência do painel) |
 | #VLTotal | valor_total (VL_Total), moeda com duas casas |
 | #ExtTotal | ext_total (Ext_Total) persistido |
 | #NomeGestor / #CPFGestor / #Cargo | nome_gestor / cpf_gestor / cargo_gestor |
@@ -44,3 +44,11 @@ Uma amostra com dados fictícios foi renderizada e inspecionada visualmente em A
 - `git diff --check`: sem erros de whitespace; avisos de conversão CRLF/LF em documentação existente.
 
 As primeiras verificações identificaram uma asserção que desconsiderava a transação externa do RefreshDatabase e uma versão padrão ainda não recarregada no fixture; os fixtures foram corrigidos. A inspeção visual identificou colunas mescladas comprimidas pelo Dompdf; a grade explícita resolveu a quebra indevida em duas páginas. Nenhum teste foi executado no banco real.
+
+## Revisao de correspondencia com o painel - 19/10/2026
+
+O extrato usa o termino original e nome, CPF e cargo do gestor salvos no contrato, inclusive para o Municipio. Os campos do gestor sao revalidados sob lock depois de renderizar, junto com versao, acesso, configuracao e modelo. CPF preserva o mascaramento por perfil. O valor total corresponde ao inicial salvo. Publicacao e Contrato completo preservam suas regras.
+
+Validacao desta revisao via Docker: `php artisan test --filter="SupplyContractExtractTest|ExecutiveSignatoryTest" --stop-on-failure` passou (35 testes, 224 assercoes), incluindo os dois tipos de extrato com gestores historicos municipais diferentes do cadastro atual, concorrencia e mascaramento. `composer check:architecture` passou (3 testes, 4 assercoes); `composer test:unit` passou (77 testes, 169 assercoes); `npm run build`, Pint dos PHP envolvidos e `git diff --check` passaram. Testes usam SQLite em memoria; nenhum dado do banco instalado foi alterado.
+
+`composer check` tambem passou: Pint em 299 arquivos; PHPUnit com 626 testes e 6.139 assercoes, sem falhas, um teste de concorrencia MySQL ignorado por exigir schema descartavel isolado. A verificacao direcionada acima foi repetida depois da correcao de codificacao dos textos e do provedor de tipos.

@@ -17,6 +17,7 @@ use App\Models\ContractAmendment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -47,6 +48,11 @@ class ExecutiveSignatoryTest extends TestCase
             'nome_gestor' => 'Gestor histórico', 'cargo_gestor' => 'Cargo histórico', 'quality_issues' => []]);
         $this->contract->refresh();
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
+    }
+
+    public static function extractTypes(): array
+    {
+        return [['Fornecimento'], ['Locação de Imóvel']];
     }
 
     private function manager(string $name, string $role, int $signature = 0): int
@@ -209,11 +215,11 @@ class ExecutiveSignatoryTest extends TestCase
         };
     }
 
-    public function test_extract_and_publication_use_current_signer_and_mayor_fallback(): void
+    public function test_publication_uses_current_signer_and_mayor_fallback(): void
     {
         foreach ([0 => 'Prefeito exemplo', 1 => 'Secretária exemplo'] as $flag => $name) {
             $this->signature($this->delegate, $flag);
-            foreach ([$this->extract(), $this->publication()] as $renderer) {
+            foreach ([$this->publication()] as $renderer) {
                 $renderer->generate($this->admin, $this->contract->id, $this->contract->version);
                 $this->assertStringContainsString($name, $renderer->html);
                 $this->assertStringNotContainsString('Gestor histórico', $renderer->html);
@@ -221,9 +227,70 @@ class ExecutiveSignatoryTest extends TestCase
         }
     }
 
-    public function test_signature_change_during_rendering_prevents_delivery_and_audit_for_both_documents(): void
+    #[DataProvider('extractTypes')]
+    public function test_extract_uses_saved_manager_and_original_end_instead_of_current_municipal_signer(string $type): void
     {
-        foreach (['extract', 'publication'] as $kind) {
+        $this->signature($this->delegate, 1);
+        $this->contract->update(['tipo' => $type, 'cpf_gestor' => '11144477735',
+            'vigencia_fim_original' => '2025-12-31', 'vigencia_fim_atual' => '2026-12-31']);
+        $before = $this->contract->fresh()->getRawOriginal();
+        $renderer = $this->extract();
+        $renderer->generate($this->admin, $this->contract->id, $this->contract->version);
+        foreach (['Gestor histórico', 'Cargo histórico', '111.444.777-35', '31/12/2025'] as $value) {
+            $this->assertStringContainsString($value, $renderer->html);
+        }
+        foreach (['Secretária exemplo', 'Prefeito exemplo', '529.982.247-25', '31/12/2026'] as $value) {
+            $this->assertStringNotContainsString($value, $renderer->html);
+        }
+        $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
+    }
+
+    #[DataProvider('extractTypes')]
+    public function test_extract_does_not_depend_on_current_municipal_manager_catalog(string $type): void
+    {
+        $this->contract->update(['tipo' => $type]);
+        DB::table('tb_Gestor')->delete();
+        $renderer = $this->extract();
+        $renderer->generate($this->admin, $this->contract->id, $this->contract->version);
+        $this->assertStringContainsString('Gestor histórico', $renderer->html);
+        $this->assertStringContainsString('Cargo histórico', $renderer->html);
+    }
+
+    #[DataProvider('extractTypes')]
+    public function test_saved_manager_changes_during_rendering_block_delivery_even_without_version_change(string $type): void
+    {
+        $this->contract->update(['tipo' => $type, 'cpf_gestor' => '11144477735']);
+        foreach (['nome_gestor' => 'Outro gestor', 'cpf_gestor' => '52998224725', 'cargo_gestor' => 'Outro cargo'] as $field => $value) {
+            $renderer = $this->extract(fn () => DB::table('contracts')->where('id', $this->contract->id)->update([$field => $value]));
+            try {
+                $renderer->generate($this->admin, $this->contract->id, $this->contract->version);
+                $this->fail('Mudança do gestor salvo deve impedir a entrega.');
+            } catch (HttpException $error) {
+                $this->assertSame(409, $error->getStatusCode());
+            }
+        }
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    #[DataProvider('extractTypes')]
+    public function test_saved_manager_cpf_remains_masked_for_regular_users(string $type): void
+    {
+        $this->contract->update(['tipo' => $type, 'cpf_gestor' => '11144477735']);
+        $user = User::create(['name' => 'Regular', 'username' => 'LEASE_USER', 'password' => 'Synthetic123']);
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
+        $scope = AccessScope::create(['scope_key' => 'lease-scope', 'fund_id' => $this->fund, 'fund' => 'MUNICIPIO DE NIQUELÂNDIA']);
+        $user->scopes()->attach($scope);
+        $renderer = $this->extract();
+        $renderer->generate($user, $this->contract->id, $this->contract->version);
+        $this->assertStringContainsString('Gestor histórico', $renderer->html);
+        $this->assertStringContainsString('•••7735', $renderer->html);
+        $this->assertStringNotContainsString('111.444.777-35', $renderer->html);
+    }
+
+    public function test_signature_change_during_rendering_prevents_publication_delivery_and_audit(): void
+    {
+        foreach (['publication'] as $kind) {
             $this->signature($this->delegate, 1);
             $renderer = $this->{$kind}(fn () => $this->signature($this->delegate, 0));
             try {
@@ -244,7 +311,7 @@ class ExecutiveSignatoryTest extends TestCase
         $user->save();
         $scope = AccessScope::create(['scope_key' => 'municipal-scope', 'fund_id' => $this->fund, 'fund' => 'MUNICIPIO DE NIQUELÂNDIA']);
         $user->scopes()->attach($scope);
-        foreach ([$this->extract(), $this->publication()] as $renderer) {
+        foreach ([$this->publication()] as $renderer) {
             $renderer->generate($user, $this->contract->id, $this->contract->version);
             $this->assertStringContainsString('Secretária exemplo', $renderer->html);
             $this->assertStringNotContainsString('529.982.247-25', $renderer->html);
@@ -254,7 +321,7 @@ class ExecutiveSignatoryTest extends TestCase
 
     public function test_missing_fallback_during_rendering_is_a_conflict_without_audit(): void
     {
-        $renderer = $this->extract(fn () => DB::table('tb_Gestor')->where('id', $this->mayor)->update(['deleted_at' => now()]));
+        $renderer = $this->publication(fn () => DB::table('tb_Gestor')->where('id', $this->mayor)->update(['deleted_at' => now()]));
         try {
             $renderer->generate($this->admin, $this->contract->id, $this->contract->version);
             $this->fail('A missing fallback must prevent delivery.');

@@ -12,6 +12,7 @@ use App\Models\Contract;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class SupplyContractExtractTest extends TestCase
@@ -21,6 +22,11 @@ class SupplyContractExtractTest extends TestCase
     private User $admin;
 
     private Contract $contract;
+
+    public static function extractTypes(): array
+    {
+        return [['Fornecimento'], ['Locação de Imóvel']];
+    }
 
     protected function setUp(): void
     {
@@ -83,7 +89,7 @@ class SupplyContractExtractTest extends TestCase
         // A short extract must fit on one page; merged Word columns previously overflowed.
         $this->assertSame(1, preg_match_all('~/Type\s*/Page\b~', $response->getContent()));
         foreach (['ADM: 2025/2028', 'EXTRATO CONTRATO 015/26', 'Fundo de teste', '202600001 - Pregão Nº. 012/26',
-            'Fornecedor fictício', 'CPF: 529.982.247-25', '28/02/2027', 'R$ 2.530,92', 'Dois mil quinhentos',
+            'Fornecedor fictício', 'CPF: 529.982.247-25', '31/12/2026', 'R$ 2.530,92', 'Dois mil quinhentos',
             'Gestor fictício', 'CPF: 111.444.777-35', 'Gestor do Fundo', '02/01/2026', 'data:image/png;base64,'] as $text) {
             $this->assertStringContainsString($text, $renderer->html);
         }
@@ -111,8 +117,10 @@ class SupplyContractExtractTest extends TestCase
         $this->assertStringNotContainsString('<script>', $renderer->html);
     }
 
-    public function test_regular_user_projection_keeps_personal_fields_masked_and_scope_enforced(): void
+    #[DataProvider('extractTypes')]
+    public function test_regular_user_projection_keeps_personal_fields_masked_and_scope_enforced(string $type): void
     {
+        $this->contract->update(['tipo' => $type]);
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
         $user->catalog_permissions = ['contract-issuance'];
         $user->save();
@@ -131,15 +139,17 @@ class SupplyContractExtractTest extends TestCase
     {
         $this->get($this->url($this->contract->fresh()->version + 1))->assertStatus(409);
         $this->get('/contracts/'.$this->contract->id.'/extract')->assertSessionHasErrors('version');
-        $this->contract->update(['tipo' => 'Locação de imóvel']);
+        $this->contract->update(['tipo' => 'Locação de Veículo']);
         $this->get($this->url())->assertStatus(422);
         $this->assertDatabaseCount('activity_events', 0);
         $this->contract->delete();
         $this->get($this->url(1))->assertNotFound();
     }
 
-    public function test_revoking_issuance_during_rendering_prevents_delivery_and_audit(): void
+    #[DataProvider('extractTypes')]
+    public function test_revoking_issuance_during_rendering_prevents_delivery_and_audit(string $type): void
     {
+        $this->contract->update(['tipo' => $type]);
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SyntheticPassword123']);
         $user->catalog_permissions = ['contract-issuance'];
         $user->save();
@@ -150,8 +160,10 @@ class SupplyContractExtractTest extends TestCase
         $this->assertDatabaseCount('activity_events', 0);
     }
 
-    public function test_change_during_rendering_prevents_delivery_and_audit(): void
+    #[DataProvider('extractTypes')]
+    public function test_change_during_rendering_prevents_delivery_and_audit(string $type): void
     {
+        $this->contract->update(['tipo' => $type]);
         $this->renderer(fn () => DB::table('contracts')->where('id', $this->contract->id)->increment('version'));
         $this->get($this->url())->assertStatus(409);
         $this->assertDatabaseCount('activity_events', 0);
@@ -163,8 +175,10 @@ class SupplyContractExtractTest extends TestCase
         $this->assertDatabaseCount('activity_events', 0);
     }
 
-    public function test_failed_audit_does_not_deliver_the_pdf(): void
+    #[DataProvider('extractTypes')]
+    public function test_failed_audit_does_not_deliver_the_pdf(string $type): void
     {
+        $this->contract->update(['tipo' => $type]);
         ActivityEvent::creating(fn () => throw new \RuntimeException('Synthetic audit failure'));
         try {
             $this->get($this->url())->assertStatus(500);
@@ -182,5 +196,56 @@ class SupplyContractExtractTest extends TestCase
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])->assertDontSee('data-extract-url=', false);
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => new Contract(['tipo' => 'Fornecimento'])])
             ->assertSee('Salve o contrato antes de emitir Extrato.')->assertDontSee('data-extract-url=', false);
+    }
+
+    public function test_property_lease_word_generates_private_extract_using_saved_monthly_and_property_fields(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel', 'end_imovel' => 'Rua do imóvel, 123', 'instalacoes' => 'Secretaria de teste',
+            'vl_parcial' => '210.9100', 'ext_parcial' => 'Duzentos e dez reais e noventa e um centavos', 'objeto' => 'OBJETO GENERICO NAO USADO']);
+        $before = $this->contract->fresh()->getRawOriginal();
+        $renderer = $this->renderer();
+        $response = $this->get($this->url().'&model=supply&tipo=Fornecimento')->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Content-Disposition', 'inline; filename="extrato-locacao-imovel-'.$this->contract->id.'.pdf"');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $this->assertSame(1, preg_match_all('~/Type\s*/Page\b~', $response->getContent()));
+        foreach (['Locação de Imóvel', 'Locador(a):', 'Fornecedor fictício', 'Rua do imóvel, 123', 'Secretaria de teste',
+            'Duzentos e dez reais', 'R$ 210,91', 'R$ 2.530,92', '31/12/2026', '02/01/2026', 'Fundo de teste', 'data:image/png;base64,'] as $value) {
+            $this->assertStringContainsString($value, $renderer->html);
+        }
+        foreach (['#FUNDO', '#NomeLocador', '#EndImovel', '#VLMensal', '#ExtMensal', '28/02/2027', 'OBJETO GENERICO NAO USADO', '9.999,00', 'PRIVATE RG', 'PRIVATE ADDRESS'] as $value) {
+            $this->assertStringNotContainsString($value, $renderer->html);
+        }
+        $audit = ActivityEvent::sole();
+        $this->assertSame('property-lease', $audit->metadata['model']);
+        $this->assertSame(hash_file('sha256', app(SupplyExtractTemplate::class)->path('property-lease')), $audit->metadata['model_sha256']);
+        $this->assertSame(hash('sha256', $response->getContent()), $audit->metadata['sha256']);
+        $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
+        $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
+            ->assertSee('data-extract-url=', false)->assertSee('Abrir extrato de locação de imóvel em PDF.')
+            ->assertDontSee('data-contract-document-url=', false);
+    }
+
+    public function test_property_lease_handles_missing_fields_cnpj_escaping_and_long_property_text(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel', 'fornecedor_documento_snapshot' => '11222333000181',
+            'end_imovel' => '<script>imovel</script> & rua', 'instalacoes' => str_repeat('Destinação do imóvel. ', 800),
+            'vl_parcial' => null, 'ext_parcial' => null, 'vigencia_fim_atual' => null]);
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('CNPJ: 11.222.333/0001-81', $renderer->html);
+        $this->assertStringContainsString('&lt;script&gt;imovel&lt;/script&gt; &amp; rua', $renderer->html);
+        $this->assertStringNotContainsString('<script>', $renderer->html);
+        $this->assertStringContainsString('Não informado', $renderer->html);
+        $this->assertStringContainsString('31/12/2026', $renderer->html);
+        $this->assertStringContainsString(str_repeat('Destinação do imóvel. ', 800), $renderer->html);
+    }
+
+    public function test_property_lease_type_change_during_rendering_blocks_delivery_without_version_change(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel']);
+        $this->renderer(fn () => DB::table('contracts')->where('id', $this->contract->id)->update(['tipo' => 'Fornecimento']));
+        $this->get($this->url())->assertStatus(409);
+        $this->assertDatabaseCount('activity_events', 0);
     }
 }
