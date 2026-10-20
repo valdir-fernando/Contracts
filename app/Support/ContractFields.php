@@ -14,6 +14,14 @@ class ContractFields
 
     public const SCOPE_OPTIONS = ['Escopo', 'Contínuo'];
 
+    // Explicit historical equivalents confirmed against the affected contract objects.
+    public const TYPE_CORRECTIONS = [
+        'Servicos Diversos' => 'Serviços Diversos',
+        'Serviços Diveros' => 'Serviços Diversos',
+        'Locação de Equipamentos' => 'Locação de Equipamento',
+        'Locação de Bens Móveis' => 'Locação de Equipamento',
+    ];
+
     public const CONTRACTOR_CATALOG = ['fundo_documento_snapshot', 'fundo_nome_snapshot', 'end_fundo',
         'cpf_gestor', 'nome_gestor', 'rg_gestor', 'cargo_gestor', 'secretaria_nome_snapshot',
         'cpf_fiscal', 'nome_fiscal', 'rg_fiscal', 'decreto_fiscal'];

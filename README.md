@@ -1,5 +1,7 @@
 # Contracts
 
+O campo **Tipo de contrato** tem ícone informativo para valores históricos e correções de grafia opcionais. [Comportamento e manutenção auditada](docs/historical-contract-types.md).
+
 A lupa de contratos carrega a ficha com os dados salvos do contratado, contratante e fiscal, preservando o histórico e isolando valores de tentativas anteriores em outros formulários. [Comportamento e validação](docs/contract-search-saved-form.md).
 
 O botão **Extrato** também emite o PDF de **Locação de Imóvel**, usando o modelo Word fornecido e os valores salvos na ficha. [Campos e validação](docs/property-lease-extract.md).

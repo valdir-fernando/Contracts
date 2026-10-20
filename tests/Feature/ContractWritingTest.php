@@ -42,6 +42,23 @@ class ContractWritingTest extends TestCase
         $this->withSession(['fund_id' => $this->fund]);
     }
 
+    public function test_historical_type_can_be_kept_or_corrected_with_audited_save(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $contract->update(['tipo' => 'Servicos Diversos']);
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('Servicos Diversos (histórico)')->assertSee('Aceitar correção')->assertSee('Manter valor histórico');
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Manter valor histórico', 'tipo' => 'Servicos Diversos'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('Servicos Diversos', $contract->fresh()->tipo);
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->fresh()->version, 'reason' => 'Corrigir grafia histórica', 'tipo' => 'Serviços Diversos'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('Serviços Diversos', $contract->fresh()->tipo);
+        $audit = ContractAudit::where('contract_id', $contract->id)->latest('id')->firstOrFail();
+        $this->assertSame($this->admin->id, $audit->actor_id);
+        $this->assertSame(['before' => 'Servicos Diversos', 'after' => 'Serviços Diversos'], $audit->changes['tipo']);
+    }
+
     private function data(array $extra = []): array
     {
         return array_replace(['numero' => '001/26', 'processo' => 'PROC-001', 'fornecedor_nome_snapshot' => 'Fornecedor fictício',

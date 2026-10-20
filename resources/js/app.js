@@ -21,6 +21,7 @@ import './inspector-assistance';
 import './inspector-registration';
 import './contract-steward-registration';
 import './manager-registration';
+import './contract-type-correction';
 import './fund-registration';
 import { scrollContractSection } from './contract-panel-scroll';
 import { attachMask, maskDate, isoDate, dateInputAllowed } from './input-masks';
