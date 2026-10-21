@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountAvatarController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdministrationController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CnpjLookupController;
@@ -80,6 +81,11 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::put('/managers/{manager}', [ManagerController::class, 'update'])->whereNumber('manager')->name('managers.update');
     Route::delete('/managers/{manager}', [ManagerController::class, 'destroy'])->whereNumber('manager')->name('managers.destroy');
     Route::get('/catalogs/list/{kind}', [CatalogController::class, 'listing'])->whereIn('kind', ['inspector', 'manager', 'manager-fund', 'contract-steward', 'budget'])->name('catalogs.list');
+    Route::get('/catalogs/budgets/create', [BudgetController::class, 'index'])->name('catalogs.budgets.create');
+    Route::get('/catalogs/budgets/lookup', [BudgetController::class, 'lookup'])->middleware('throttle:60,1')->name('catalogs.budgets.lookup');
+    Route::post('/catalogs/budgets', [BudgetController::class, 'store'])->name('catalogs.budgets.store');
+    Route::put('/catalogs/budgets/{budget}', [BudgetController::class, 'update'])->whereNumber('budget')->name('catalogs.budgets.update');
+    Route::delete('/catalogs/budgets/{budget}', [BudgetController::class, 'destroy'])->whereNumber('budget')->name('catalogs.budgets.destroy');
     Route::post('/inspectors', [InspectorController::class, 'store'])->name('inspectors.store');
     Route::get('/inspectors/decree', [InspectorDecreeController::class, 'create'])->name('inspectors.decree.create');
     Route::post('/inspectors/decree', [InspectorDecreeController::class, 'store'])->middleware('throttle:10,1')->name('inspectors.decree.store');
@@ -127,6 +133,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::post('/contracts/{contract}/service-orders', [ContractServiceOrderController::class, 'store'])->middleware('throttle:30,1')->name('contracts.service-orders.store');
     Route::get('/contracts/{contract}/products', [ContractProductController::class, 'index'])->name('contracts.products.index');
     Route::get('/contracts/{contract}/products/budget-lookup', [ContractProductController::class, 'budgetLookup'])->middleware('throttle:60,1')->name('contracts.products.budget-lookup');
+    Route::post('/contracts/{contract}/products/budgets', [ContractProductController::class, 'storeBudget'])->middleware('throttle:30,1')->name('contracts.products.budgets.store');
     Route::get('/contracts/{contract}/products/item-lookup', [ContractProductController::class, 'itemLookup'])->middleware('throttle:60,1')->name('contracts.products.item-lookup');
     Route::post('/contracts/{contract}/products', [ContractProductController::class, 'store'])->middleware('throttle:60,1')->name('contracts.products.store');
     Route::put('/contracts/{contract}/products/{item}', [ContractProductController::class, 'update'])->whereNumber('item')->middleware('throttle:60,1')->name('contracts.products.update');

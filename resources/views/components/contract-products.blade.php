@@ -20,6 +20,15 @@
         <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-product-item-warning-ok autofocus>OK</button></div>
     </dialog>
     <div class="product-entry-heading">
+        <dialog class="catalog-modal product-item-warning" data-product-budget-warning aria-labelledby="product-budget-warning-title" aria-describedby="product-budget-warning-message">
+            <div class="modal-header"><h2 id="product-budget-warning-title">Consulta de ficha</h2></div>
+            <p id="product-budget-warning-message" data-product-budget-warning-message></p>
+            @if(auth()->user()->canAccessCatalog('budget'))
+                <a class="section-tab" data-product-budget-create href="{{ route('catalogs.budgets.create', ['fund_id' => $contract->fund_id, 'department_id' => $contract->department_id]) }}" hidden>Cadastrar nova dotação</a>
+            @endif
+            <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-product-budget-warning-ok autofocus>OK</button></div>
+        </dialog>
+
                 <label class="product-confirm"><input type="checkbox" data-products-show> Exibir produtos do processo</label>
                 <label class="product-confirm product-manual-option"><input type="checkbox" data-products-manual> Lançamento manual</label>
                 <div class="product-contract-heading">
@@ -37,7 +46,7 @@
     <div class="product-entry-layout">
         <div class="product-entry-main">
             <div class="product-budget-row">
-                <label>Ficha<input type="text" data-product-budget list="contract-product-fichas-{{ $contract->id }}" maxlength="64" autocomplete="off" placeholder="Selecione ou digite" aria-label="Ficha dos produtos"><datalist id="contract-product-fichas-{{ $contract->id }}" data-product-fichas>@foreach($contract->productFichas() as $ficha)<option value="{{ $ficha }}"></option>@endforeach</datalist></label>
+                <label>Ficha<input type="text" data-product-budget maxlength="64" autocomplete="off" aria-label="Ficha dos produtos"></label>
                 <label>Descrição<input type="text" data-product-budget-description readonly aria-readonly="true"></label>
                 <label>Dotação<input type="text" data-product-budget-allocation readonly aria-readonly="true"></label>
             </div>
@@ -56,22 +65,23 @@
                 <label>VL. Total<input data-product-line-total readonly value="0,0000"></label>
                 <div class="product-selected-description"><textarea data-product-description readonly aria-readonly="true" aria-label="Produto selecionado" rows="1" maxlength="5000"></textarea></div>
             </div>
-            <p class="hint" data-product-balance></p>
-            <div class="product-entry-actions action-toolbar">
-                <button type="button" class="section-tab" data-products-save disabled><x-nav-icon name="save"/>Salvar produto</button>
-                <button type="button" class="section-tab" data-products-new><x-nav-icon name="plus"/>Novo</button>
-                <button type="button" class="section-tab" data-products-delete disabled><x-nav-icon name="trash"/>Excluir / estornar</button>
-            </div>
+
         </div>
         <aside class="product-budget-summary" aria-label="Valores dos produtos por ficha">
-            <div class="product-list-scroll"><table class="data-table"><thead><tr><th>Ficha</th><th>Valor</th></tr></thead><tbody data-product-budget-totals></tbody><tfoot><tr><th scope="row">Total das fichas</th><td data-product-ficha-total>—</td></tr><tr><th scope="row">Valor original do contrato</th><td data-product-ficha-contract-total>—</td></tr></tfoot></table></div>
+            <div class="product-list-scroll"><table class="data-table"><thead><tr><th>Ficha</th><th>Valor</th></tr></thead><tbody data-product-budget-totals></tbody></table></div>
             <p class="hint" data-product-ficha-status role="status" aria-live="polite"></p>
         </aside>
     </div>
-    <h3>Produtos do contrato</h3>
-    <p class="hint">Selecione uma ficha para carregar seus produtos. Sem seleção, todos os produtos do contrato são exibidos.</p>
+    <p class="hint" data-product-balance></p>
+    <div class="product-controls-row">
+    <div class="product-entry-actions action-toolbar">
+        <button type="button" class="section-tab" data-products-save disabled><x-nav-icon name="save"/>Salvar produto</button>
+        <button type="button" class="section-tab" data-products-new><x-nav-icon name="plus"/>Novo</button>
+        <button type="button" class="section-tab" data-products-delete disabled><x-nav-icon name="trash"/>Excluir / estornar</button>
+    </div>
+    <div class="product-panel-total"><label>Total da Ficha<input data-product-contract-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label></div>
+    </div>
     <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
-    <div class="product-panel-total"><label>Total dos produtos<input data-product-contract-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label></div>
 </div>
 @else
     <p>Salve o contrato com o processo e o fornecedor para selecionar e lançar os produtos já cadastrados na tb_Produtos.</p>

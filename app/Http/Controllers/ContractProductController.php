@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Application\Security\ActorIdentity;
 use App\Domain\Shared\DecimalAmount;
 use App\Infrastructure\Contracts\BudgetCatalog;
+use App\Infrastructure\Contracts\BudgetRegistration;
 use App\Infrastructure\Contracts\FichaValuesCatalog;
 use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Infrastructure\Contracts\ProcurementProducts;
@@ -23,6 +24,11 @@ use Illuminate\Support\Facades\Gate;
 
 class ContractProductController extends Controller
 {
+    public function storeBudget(Request $request, Contract $contract, BudgetRegistration $registration)
+    {
+        return $this->json(ApplicationErrors::translate(fn () => $registration->create($this->actor($request), $contract->id, $request->all())), 201);
+    }
+
     private function catalog(Contract $contract, bool $processCatalog): Builder
     {
         $query = ProcurementProduct::query()->whereRaw('TRIM(Processo) = ?', [trim($contract->processo ?? '')])

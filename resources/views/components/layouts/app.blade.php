@@ -45,7 +45,7 @@
                                     <a class="nav-link" href="{{ route('catalogs.index') }}#departments"><x-nav-icon name="catalogs"/><span>Secretaria</span></a>
                                     @endif
                                     @if(auth()->user()->canAccessCatalog('budget'))
-                                    <a class="nav-link" href="{{ route('catalogs.list', 'budget') }}" @if(request()->routeIs('catalogs.list') && request()->route('kind') === 'budget') aria-current="page" @endif><x-nav-icon name="reports"/><span>Dotação</span></a>
+                                    <a class="nav-link" href="{{ route('catalogs.budgets.create') }}" @if(request()->routeIs('catalogs.budgets.*')) aria-current="page" @endif><x-nav-icon name="reports"/><span>Dotação</span></a>
                                     @endif
                                 <a class="nav-link" href="{{ route('suppliers.index') }}" @if(request()->routeIs('suppliers.*')) aria-current="page" @endif><x-nav-icon name="suppliers"/><span>Fornecedor</span></a>
                             </div>

@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Application\Security\ActorIdentity;
+use App\Infrastructure\Contracts\BudgetRegistration;
 use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Infrastructure\Contracts\ProcurementProducts;
 use App\Models\AccessScope;
+use App\Models\ActivityEvent;
 use App\Models\Contract;
 use App\Models\ContractAudit;
 use App\Models\ContractFinancialRecord;
@@ -55,6 +57,49 @@ class ContractProductsTest extends TestCase
         return '/contracts/'.($contract ?? $this->contract)->id;
     }
 
+    public function test_create_budget_from_missing_ficha_validates_audits_and_preserves_contract(): void
+    {
+        $url = $this->url().'/products/budgets';
+        $data = $this->data(['ficha' => '0099', 'description' => 'Material', 'allocation' => '02.01.0099', 'Fundo' => 'FORGED']);
+        $before = $this->contract->fresh()->getRawOriginal();
+        $this->postJson($url, array_replace($data, ['contract_version' => 999]))->assertConflict();
+        $this->postJson($url, array_replace($data, ['description' => '']))->assertUnprocessable();
+        $this->postJson($url, $data)->assertCreated()->assertJsonPath('description', 'Material');
+        $this->assertDatabaseHas('tb_Dotacao', ['Ficha' => '0099', 'Descricao' => 'Material', 'Dotacao' => '02.01.0099', 'Fundo' => 'FMS']);
+        $this->assertDatabaseHas('activity_events', ['actor_id' => $this->admin->id, 'action' => 'catalog_created']);
+        $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
+        $this->postJson($url, $data)->assertUnprocessable();
+        $this->getJson($this->url().'/products/budget-lookup?ficha=0099')->assertOk()->assertJsonPath('allocation', '02.01.0099');
+        $user = User::create(['name' => 'Restricted', 'username' => 'NO_BUDGET_CREATE', 'password' => 'TestPassword12345']);
+        $this->actingAs($user)->postJson($url, array_replace($data, ['ficha' => '0100']))->assertForbidden();
+        $this->assertDatabaseCount('tb_Dotacao', 1);
+    }
+
+    public function test_budget_creation_rolls_back_when_audit_fails(): void
+    {
+        ActivityEvent::creating(fn () => throw new RuntimeException('audit failure'));
+        try {
+            app(BudgetRegistration::class)->create(new ActorIdentity($this->admin->id, $this->admin->session_version),
+                $this->contract->id, $this->data(['ficha' => '0099', 'description' => 'Material', 'allocation' => '02.01.0099']));
+            $this->fail('Expected audit failure');
+        } catch (RuntimeException $error) {
+            $this->assertSame('audit failure', $error->getMessage());
+        } finally {
+            ActivityEvent::flushEventListeners();
+        }
+        $this->assertDatabaseCount('tb_Dotacao', 0);
+    }
+
+    public function test_budget_catalog_links_to_registration_panel_with_access_control(): void
+    {
+        $this->get('/catalogs/list/budget')->assertRedirect(route('catalogs.budgets.create'));
+        $this->get('/catalogs/budgets/create')->assertOk()->assertSee('Cadastro de Dotação')
+            ->assertSee('Dotação Orçamentária')->assertSee('Salvar')->assertSee('Novo')->assertSee('Excluir');
+        $user = User::create(['name' => 'Restricted', 'username' => 'NO_BUDGET_PANEL', 'password' => 'TestPassword12345']);
+        $this->actingAs($user)->get('/catalogs/budgets/create')->assertForbidden();
+        $this->assertDatabaseCount('tb_Dotacao', 0);
+    }
+
     private function data(array $data = [], ?Contract $contract = null): array
     {
         return $data + ['contract_version' => ($contract ?? $this->contract)->fresh()->version];
@@ -101,7 +146,7 @@ class ContractProductsTest extends TestCase
         $this->getJson($base.'?ficha=HIDDEN-0&FUNDO=OUTRO&Contrato=002/26&Processo=OUTRO')->assertOk()
             ->assertJsonCount(0, 'items')->assertJsonPath('fichas', ['ORIGINAL']);
         $this->assertSame(['ORIGINAL'], $this->contract->productFichas());
-        $this->get($this->url().'/edit')->assertOk()->assertSee('<option value="ORIGINAL">', false)
+        $this->get($this->url().'/edit')->assertOk()->assertSee('data-product-budget maxlength=', false)
             ->assertDontSee('<option value="HIDDEN-', false)->assertDontSee('<option value="WRONG-', false);
         $this->putJson($base.'/'.$hidden[0]->id, $this->data(['quantity' => '2']))->assertNotFound();
         $this->deleteJson($base.'/'.$hidden[0]->id, $this->data())->assertNotFound();
@@ -165,9 +210,10 @@ class ContractProductsTest extends TestCase
         $this->getJson($base.'?ficha=0007')->assertJsonPath('fichas', ['0', '001'])->assertJsonCount(0, 'items');
         $this->getJson($base.'?ficha='.str_repeat('1', 65))->assertUnprocessable();
         $this->blade('<x-contract-products :contract="$contract"/>', ['contract' => $this->contract])
-            ->assertSee('data-product-budget list="contract-product-fichas-', false)
-            ->assertSee('<option value="001">', false)->assertSee('<option value="0">', false)
-            ->assertDontSee('Nova ficha')->assertDontSee('data-product-new-ficha', false);
+            ->assertSee('data-product-budget maxlength=', false)
+            ->assertDontSee('data-product-fichas', false)->assertDontSee('<datalist', false)
+            ->assertDontSee('Nova ficha')->assertDontSee('data-product-new-ficha', false)
+            ->assertDontSee('Total das fichas')->assertDontSee('Valor original do contrato');
     }
 
     public function test_ficha_options_and_filter_never_include_another_contract_or_expand_user_access(): void
@@ -178,8 +224,8 @@ class ContractProductsTest extends TestCase
         $other->save();
         $this->add('1', $other, ['ficha' => 'PRIVATE-OTHER'])->assertCreated();
         $this->get($this->url().'/edit')->assertOk()
-            ->assertSee('id="contract-product-fichas-'.$this->contract->id.'"', false)
-            ->assertSee('<option value="OWN">', false)->assertDontSee('<option value="PRIVATE-OTHER">', false)
+            ->assertSee('data-product-budget maxlength=', false)
+            ->assertDontSee('data-product-fichas', false)->assertDontSee('<option value="PRIVATE-OTHER">', false)
             ->assertDontSee('Nova ficha');
         $this->getJson($this->url().'/products?ficha=PRIVATE-OTHER')->assertOk()->assertJsonPath('fichas', ['OWN'])->assertJsonCount(0, 'items');
         $user = User::create(['name' => 'Sem acesso', 'username' => 'NO_PRODUCT_FICHAS', 'password' => 'TestPassword12345']);
@@ -231,8 +277,8 @@ class ContractProductsTest extends TestCase
         $row = ['Fundo' => ' fms ', 'Contrato' => '001/26', 'Proc_Cont' => ' 123/2026 ',
             'Proc_ADT' => null, 'N_ADT' => null, 'Ficha' => '001', 'Valor' => '0,1000'];
         DB::table('tb_ValorFicha')->insert($row);
-        DB::table('tb_ValorFicha')->insert(array_replace($row, ['Ficha' => '002', 'Valor' => '0,2000', 'Proc_ADT' => '   ']));
-        foreach ([['Proc_ADT' => '2026999'], ['N_ADT' => 1], ['Proc_ADT' => '0'], ['N_ADT' => 0],
+        DB::table('tb_ValorFicha')->insert(array_replace($row, ['Ficha' => '002', 'Valor' => '0,2000', 'Proc_ADT' => '   ', 'N_ADT' => 0]));
+        foreach ([['Proc_ADT' => '2026999'], ['N_ADT' => 1], ['Proc_ADT' => '0'], ['Proc_ADT' => '2026999', 'N_ADT' => 0],
             ['Fundo' => 'OUTRO'], ['Contrato' => '002/26'], ['Proc_Cont' => 'OUTRO']] as $patch) {
             DB::table('tb_ValorFicha')->insert(array_replace($row, ['Ficha' => 'ADITIVO-OU-OUTRO', 'Valor' => '9999'], $patch));
         }
@@ -396,6 +442,7 @@ class ContractProductsTest extends TestCase
 
     public function test_catalog_unit_price_cannot_be_changed_when_creating_or_editing(): void
     {
+        $this->add('2', null, ['description' => 'Alterada'])->assertUnprocessable()->assertJsonValidationErrors('description');
         $this->add('2', null, ['unit_price' => '10,1234'])->assertUnprocessable()->assertJsonValidationErrors('unit_price');
         $this->assertDatabaseCount('tb_Produtos_Contratos', 0);
         $this->assertDatabaseCount('contract_audits', 0);

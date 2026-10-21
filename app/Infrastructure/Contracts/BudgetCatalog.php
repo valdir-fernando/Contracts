@@ -26,7 +26,7 @@ final class BudgetCatalog
     /** Catalog lookup by Ficha only; the HTTP boundary authorizes access to the contract. */
     public function lookup(string $ficha): array
     {
-        $row = DB::table('tb_Dotacao')->whereRaw('TRIM(Ficha) = ?', [$ficha])
+        $row = DB::table('tb_Dotacao')->whereNull('deleted_at')->whereRaw('TRIM(Ficha) = ?', [$ficha])
             ->orderBy('ID_Dotacao')->first(['Descricao', 'Dotacao', 'Fundo', 'Secretaria']);
 
         return $row

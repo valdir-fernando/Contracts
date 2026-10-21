@@ -12,6 +12,7 @@ import './profile-photo';
 import './service-orders';
 import './service-order-link';
 import './contract-products';
+import './budget-registration';
 import './contract-extract';
 import './registration-decree';
 import './guarantee-message';

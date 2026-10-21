@@ -21,7 +21,7 @@ final class FichaValuesCatalog
             ->whereRaw('TRIM(Contrato) = ?', [trim($contract->numero)])
             ->whereRaw('TRIM(Proc_Cont) = ?', [trim($contract->processo)])
             ->whereRaw("TRIM(COALESCE(Proc_ADT, '')) = ''")
-            ->whereRaw("TRIM(COALESCE(N_ADT, '')) = ''")
+            ->where(fn ($query) => $query->whereNull('N_ADT')->orWhere('N_ADT', 0))
             ->orderBy('ID_Ficha')->get(['Ficha', 'Valor', 'Fundo']);
         $result = [];
         foreach ($rows as $row) {

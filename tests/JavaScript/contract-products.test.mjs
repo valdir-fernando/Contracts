@@ -1,19 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { productLineTotal, productBudgetTotals, advanceProductVersion, formatProductPrice, formatFichaValue, exceedsProductBalance, synchronizeProductFichas } from '../../resources/js/contract-products.js';
+import { productLineTotal, productBudgetTotals, advanceProductVersion, formatProductPrice, formatFichaValue, exceedsProductBalance } from '../../resources/js/contract-products.js';
 
-test('editable ficha lists only saved options, preserves zeros and never overwrites typed text', () => {
-    const input = { value: '001', ownerDocument: { createElement: () => ({}) }, list: { replaceChildren(...options) { this.options = options; } } };
-    synchronizeProductFichas(input, ['001', '1', '0', '001', '', null]);
-    assert.deepEqual(input.list.options.map((option) => option.value), ['001', '1', '0']);
-    assert.equal(input.value, '001');
-    input.value = '<nova>';
-    synchronizeProductFichas(input, ['1', '0']);
-    assert.equal(input.value, '<nova>');
-    assert.deepEqual(input.list.options.map((option) => option.value), ['1', '0']);
-    synchronizeProductFichas(input, ['1', '0', '<nova>']);
-    assert.equal(input.list.options.at(-1).textContent, '<nova>');
-});
 
 test('ficha values display thousands and four decimal places without losing precision', () => {
     assert.equal(formatFichaValue('2530.9200'), '2.530,9200');

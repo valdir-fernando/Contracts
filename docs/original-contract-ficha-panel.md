@@ -1,5 +1,15 @@
 # Painel de fichas do contrato original
 
+## Atualização em 21/10/2026
+
+O painel aceita `N_ADT` nulo ou zero quando `Proc_ADT` está vazio, mantendo os filtros de Fundo, Contrato e Processo e a autorização existentes. A inspeção somente de leitura do banco local encontrou 1.460 registros sem processo de aditivo, todos com `N_ADT=0`; o filtro anterior ocultava essas fichas. Nenhum registro foi alterado. Esta regra substitui a interpretação estrita de zero descrita no histórico abaixo.
+
+O quadro exibe somente Ficha e Valor, sem total das fichas ou valor original no rodapé. A soma continua exata no servidor e o contrato HTTP de `ficha_summary` permanece igual. O aviso aparece quando `difference` é positivo, orientando conferir o cadastro das fichas ou o valor do contrato. Soma inferior ou igual não gera aviso; valores inválidos continuam impedindo a conferência e apresentam uma mensagem explicativa.
+
+Validação: `docker compose exec -T app php artisan test --filter=ContractProductsTest --compact` passou (35 testes, 413 asserções, SQLite isolado); `node --test tests/JavaScript/contract-products.test.mjs tests/JavaScript/contract-product-fichas.test.mjs` passou (10 testes); `docker compose run --rm --no-deps node npm run build` passou. Sem validação visual autenticada no navegador.
+
+## Histórico da implementação em 20/10/2026
+
 O quadro Ficha/Valor no Cadastro de produtos consulta `tb_ValorFicha` pelo Fundo do contrato autorizado (normalizado), `Contrato` e `Proc_Cont` salvos. Exige `Proc_ADT` e `N_ADT` vazios simultaneamente. `null`, texto vazio e espaços são vazios; zero é preenchimento e fica excluído, conforme a regra estrita de itens originais. Fichas e valores de aditivos permanecem no banco.
 
 O filtro vale tanto para a lista completa quanto para a consulta por ficha em `budget-lookup`. CPF/CNPJ da origem não é filtro nem é retornado. Parâmetros HTTP não substituem Fundo/contrato/Processo persistidos e as policies/escopos existentes continuam obrigatórios.

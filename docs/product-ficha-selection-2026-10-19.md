@@ -48,3 +48,15 @@ Comandos executados:
 - `git diff --check`: sem erros.
 
 Nenhum banco instalado foi alterado nos testes. Não há migration para essa mudança.
+
+## Entrada de ficha e seleção pelo painel — 21/10/2026
+
+O campo Ficha agora é uma entrada de texto sem datalist ou opções de seleção. O usuário pode digitar a ficha ou clicar no número exibido no painel de fichas. O clique preenche o campo, consulta descrição/dotação e filtra Produtos do contrato, usando o mesmo fluxo da digitação. Os números são botões acessíveis por teclado; operações ocupadas ou com versão desatualizada recusam a seleção. Esta alteração substitui as descrições anteriores de seleção de fichas no próprio campo.
+
+Validação: 14 testes JavaScript de produtos/fichas passaram, incluindo seleção pelo painel, consulta, filtro, respostas atrasadas, digitação, inclusão e estorno. ContractProductsTest passou com 38 testes e 440 asserções em SQLite em memória. Sem validação visual autenticada no navegador.
+
+## Consulta ao sair do campo — 21/10/2026
+
+A digitação em Ficha limpa os dados anteriores e invalida consultas pendentes, sem disparar requisições. A consulta de descrição/dotação e o filtro dos produtos ocorrem no evento blur, quando o campo perde o foco. O evento change não consulta. Seleção explícita pelo painel de fichas e atualização após salvar uma dotação preservam os fluxos existentes.
+
+Validação: os 16 testes JavaScript de produtos/fichas/painel passaram, incluindo um teste que aguarda além do antigo debounce e confirma ausência de requisições antes do blur. Build Docker e git diff --check passaram. Sem conferência visual autenticada no navegador.

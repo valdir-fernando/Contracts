@@ -23,7 +23,7 @@ class CatalogDelegationTest extends TestCase
     public static function catalogs(): array
     {
         return [['inspector', '/catalogs/list/inspector'], ['contract-steward', '/catalogs/list/contract-steward'],
-            ['manager-fund', '/catalogs/list/manager-fund'], ['fund', '/funds'], ['department', '/catalogs'], ['budget', '/catalogs/list/budget']];
+            ['manager-fund', '/catalogs/list/manager-fund'], ['fund', '/funds'], ['department', '/catalogs'], ['budget', '/catalogs/budgets/create']];
     }
 
     public static function administrativeRoles(): array

@@ -55,6 +55,10 @@ class CatalogController extends Controller
     public function listing(Request $request, string $kind)
     {
         CatalogAccess::authorize($request->user(), $kind === 'manager' ? 'manager-fund' : $kind);
+        if ($kind === 'budget') {
+            return redirect()->route('catalogs.budgets.create');
+        }
+
         [$table, $title, $columns] = match ($kind) {
             'inspector' => ['contract_inspectors', 'Fiscal', ['name' => 'Nome', 'fund_name_key' => 'Fundo', 'department_name_key' => 'Secretaria']],
             'manager' => ['tb_Gestor', 'Gestor', ['name' => 'Nome', 'fund_name_key' => 'Fundo']],
@@ -65,7 +69,7 @@ class CatalogController extends Controller
 
         return response()->view('administration.catalog-list', [
             'title' => $title, 'columns' => $columns,
-            'records' => CatalogAccess::byOrganization($request->user(), DB::table($table), $kind === 'budget' ? 'Fundo' : 'fund_name_key', $kind === 'budget' ? 'Secretaria' : ($kind === 'inspector' ? 'department_name_key' : null), $kind !== 'budget')->when($table === 'tb_Gestor', fn ($query) => $query->whereNull('deleted_at'))->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
+            'records' => CatalogAccess::byOrganization($request->user(), DB::table($table), $kind === 'budget' ? 'Fundo' : 'fund_name_key', $kind === 'budget' ? 'Secretaria' : ($kind === 'inspector' ? 'department_name_key' : null), $kind !== 'budget')->when(in_array($table, ['tb_Gestor', 'tb_Dotacao']), fn ($query) => $query->whereNull('deleted_at'))->select(array_keys($columns))->orderBy(array_key_first($columns))->paginate(30),
         ])->header('Cache-Control', 'private, no-store');
     }
 

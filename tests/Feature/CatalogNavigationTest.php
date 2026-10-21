@@ -26,7 +26,8 @@ class CatalogNavigationTest extends TestCase
             ->assertSee('href="'.route('catalogs.list', 'manager-fund').'"', false)
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertDontSee('52998224725')->assertDontSee('gestor-privado@example.com');
-        $this->get('/catalogs/list/budget')->assertOk();
+        $this->get('/catalogs/list/budget')->assertRedirect(route('catalogs.budgets.create'));
+        $this->get('/catalogs/budgets/create')->assertOk()->assertSee('Cadastro de Dotação');
         $this->get('/catalogs/list/unknown')->assertNotFound();
     }
 
