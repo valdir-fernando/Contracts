@@ -1,5 +1,11 @@
 # Contracts
 
+[Entrega de 21/10/2026 e validação antes do push](docs/delivery-2026-10-21.md).
+
+O botão **Contrato** emite o PDF de **Serviços Diversos** usando o modelo Word fornecido, os produtos do contrato original e as dotações por ficha. [Preenchimento, segurança e validação](docs/services-contract.md).
+
+O **Cadastro de Dotação** permite salvar, abrir e excluir logicamente registros de `tb_Dotacao`, com Dotação Orçamentária composta automaticamente pelos códigos. [Campos, composição, segurança e instalação](docs/budget-registration.md).
+
 O **Painel de Ficha** exibe apenas fichas do contrato original, filtradas por Fundo, Contrato e Proc_Cont, com Proc_ADT/N_ADT vazios. Mostra a soma e sua conferência com o valor original. [Regras, migration e validação](docs/original-contract-ficha-panel.md).
 
 O botão **Contrato** também emite o PDF de **Locação de Imóvel**, usando o modelo Word fornecido, os itens salvos e os valores mensal/global. [Preenchimento, segurança e validação](docs/property-lease-contract.md).
