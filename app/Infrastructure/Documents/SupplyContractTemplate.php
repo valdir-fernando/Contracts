@@ -19,6 +19,7 @@ final class SupplyContractTemplate
     {
         return resource_path('documents/contracts/'.match ($model) {
             'supply' => 'supply.docx',
+            'services' => 'services.docx',
             'property-lease' => 'property-lease.docx',
             default => throw new RuntimeException('Modelo de contrato desconhecido.'),
         });
@@ -125,7 +126,8 @@ final class SupplyContractTemplate
                     $html .= '</div>';
                     $clauseOpen = false;
                 }
-                $html .= str_contains(mb_strtoupper($node->textContent), 'DISCRIMINAÇÃO')
+                $html .= (str_contains(mb_strtoupper($node->textContent), 'DISCRIMINAÇÃO')
+                    || ($model === 'services' && str_contains(mb_strtoupper($node->textContent), 'DISRIMINAÇÃO')))
                     ? $this->products($products, $productsTotal, $model)
                     : $this->signatures($node, $xpath, $fields);
             }
@@ -211,7 +213,8 @@ final class SupplyContractTemplate
             return '<p>Produtos não informados no contrato.</p>';
         }
         $html = '<table class="products"><thead><tr>';
-        $columns = ['Item' => 6, 'Cod' => 7, 'Discriminação' => $model === 'property-lease' ? 48 : 39];
+        $columns = $model === 'services' ? ['Item' => 6, 'Discriminação' => 55]
+            : ['Item' => 6, 'Cod' => 7, 'Discriminação' => $model === 'property-lease' ? 48 : 39];
         if ($model === 'supply') {
             $columns['Marca'] = 9;
         }
@@ -225,7 +228,7 @@ final class SupplyContractTemplate
             foreach ($this->textParts($row['description'], 2000) as $index => $description) {
                 $html .= '<tr>';
                 foreach (['item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total'] as $field) {
-                    if ($field === 'brand' && $model === 'property-lease') {
+                    if (($field === 'brand' && $model !== 'supply') || ($field === 'code' && $model === 'services')) {
                         continue;
                     }
                     $value = $field === 'description' ? $description : (string) ($row[$field] ?? '');

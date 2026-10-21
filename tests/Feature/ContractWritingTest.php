@@ -42,6 +42,25 @@ class ContractWritingTest extends TestCase
         $this->withSession(['fund_id' => $this->fund]);
     }
 
+    public function test_save_confirmation_renders_with_maintenance_audit_metadata(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $changes = ['version' => ['before' => 1, 'after' => 2],
+            'private_backup' => ['path' => 'private/sensitive-backup.json', 'sha256' => str_repeat('a', 64)],
+            'ficha_record_ids' => ['before' => [1, 2], 'after' => [1]],
+            'legacy_note' => 'Technical metadata', 'missing_before' => ['after' => 'Hidden technical value']];
+        $audit = ContractAudit::create(['contract_id' => $contract->id, 'actor_id' => $this->admin->id,
+            'action' => 'ficha_values_cleaned', 'changes' => $changes, 'created_at' => now()]);
+        $response = $this->put('/contracts/'.$contract->id, ['version' => $contract->version,
+            'reason' => 'Atualização de teste', 'objeto' => 'Objeto atualizado']);
+        $response->assertRedirect(route('contracts.show', $contract))->assertSessionHas('status', 'Contrato atualizado.');
+        $this->get($response->headers->get('Location'))->assertOk()->assertSee('Contrato atualizado.')
+            ->assertSee('Histórico de alterações')->assertSee('Objeto atualizado')
+            ->assertDontSee('private/sensitive-backup.json')->assertDontSee('Technical metadata')
+            ->assertDontSee('Hidden technical value')->assertDontSee(str_repeat('a', 64));
+        $this->assertSame($changes, $audit->fresh()->changes);
+    }
+
     public function test_historical_type_can_be_kept_or_corrected_with_audited_save(): void
     {
         $contract = app(ContractWriter::class)->save($this->admin, $this->data());

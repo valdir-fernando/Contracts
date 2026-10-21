@@ -26,7 +26,11 @@
     @if($audits->isNotEmpty())
         <section class="surface contract-section"><h2>Histórico de alterações</h2><p class="muted">Últimos 20 eventos. O histórico completo permanece preservado.</p>
             @foreach($audits as $audit)<details class="audit-entry"><summary>{{ $audit->created_at->format('d/m/Y H:i') }} · {{ \App\Support\BrazilianLocale::action($audit->action) }} · {{ $audit->actor?->name ?? 'Conta indisponível' }}</summary><p>Motivo: {{ $audit->reason ?: 'Cadastro inicial' }}</p>
-                @foreach($audit->changes as $column => $change)<p><strong>{{ \App\Support\ContractFields::labelColumn($column) }}:</strong> {{ is_scalar($change['before']) ? $change['before'] : 'Não informado' }} → {{ is_scalar($change['after']) ? $change['after'] : 'Não informado' }}</p>@endforeach
+                @foreach($audit->changes ?? [] as $column => $change)
+                    @if(is_array($change) && array_key_exists('before', $change) && array_key_exists('after', $change))
+                        <p><strong>{{ \App\Support\ContractFields::labelColumn($column) }}:</strong> {{ is_scalar($change['before']) ? $change['before'] : 'Não informado' }} → {{ is_scalar($change['after']) ? $change['after'] : 'Não informado' }}</p>
+                    @endif
+                @endforeach
             </details>@endforeach
         </section>
     @endif

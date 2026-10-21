@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Documents;
 
+use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Infrastructure\Managers\ManagerSignatory;
 use App\Infrastructure\Security\LockActor;
 use App\Models\ActivityEvent;
@@ -22,6 +23,7 @@ class SupplyContractPdf
     {
         return match (Normalizer::name($type)) {
             'FORNECIMENTO' => 'supply',
+            'SERVICOS DIVERSOS' => 'services',
             'LOCACAO DE IMOVEL' => 'property-lease',
             default => null,
         };
@@ -32,14 +34,14 @@ class SupplyContractPdf
         $snapshot = DB::transaction(function () use ($expected, $id, $version) {
             [$actor, $contract] = $this->authorize($expected, $id);
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir.');
-            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento e Locação de Imóvel.');
+            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento, Serviços Diversos e Locação de Imóvel.');
 
             return $this->snapshot($actor, $contract);
         });
         $templateHash = hash_file('sha256', $this->template->path($snapshot['model']));
 
         try {
-            $products = $this->figures->products($snapshot['products'], $snapshot['contractTotal']);
+            $products = $this->figures->products($snapshot['products'], $snapshot['contractTotal'], $snapshot['model'] === 'supply');
             $budgets = $this->figures->budgets($snapshot['products'], $snapshot['budgets'], $snapshot['contractTotal']);
         } catch (InvalidArgumentException $error) {
             abort(422, $error->getMessage());
@@ -79,11 +81,12 @@ class SupplyContractPdf
     {
         $signer = $this->signatories->forContract($contract);
         $settings = DB::table('document_settings')->where('id', 1)->lockForUpdate()->firstOrFail();
-        $products = ContractProduct::where('contract_id', $contract->id)->orderBy('id')->lockForUpdate()
+        $originalIds = (new OriginalContractProducts)->forContract($contract)->pluck('id');
+        $products = ContractProduct::where('contract_id', $contract->id)->whereIn('id', $originalIds)->orderBy('id')->lockForUpdate()
             ->get(['id', 'item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total', 'Ficha'])
             ->map(fn ($row) => $row->only(['id', 'item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total', 'Ficha']))->all();
         $fichas = array_values(array_unique(array_map(static fn ($row) => trim((string) ($row['Ficha'] ?? '')), $products), SORT_STRING));
-        $budgets = DB::table('tb_Dotacao')->whereIn(DB::raw('TRIM(Ficha)'), $fichas)->orderBy('ID_Dotacao')->lockForUpdate()
+        $budgets = DB::table('tb_Dotacao')->whereNull('deleted_at')->whereIn(DB::raw('TRIM(Ficha)'), $fichas)->orderBy('ID_Dotacao')->lockForUpdate()
             ->get(['ID_Dotacao', 'Ficha', 'Dotacao'])->map(static fn ($row) => ['id' => $row->ID_Dotacao,
                 'ficha' => trim((string) $row->Ficha), 'allocation' => $row->Dotacao])->all();
 
@@ -127,6 +130,7 @@ class SupplyContractPdf
                 '#Matricula' => $text($appointment['Matricula'] ?? null),
                 '#PF_PJ' => $individual ? 'a pessoa física' : (strlen($digits) === 14 ? 'a pessoa jurídica' : 'o(a) locador(a)'),
                 '#NomeLocador' => $fields['#FORNECEDOR'], '#Dados_Locador' => $details,
+                '#DOCUMENTO_LOCADOR' => ($individual ? 'CPF: ' : 'CNPJ: ').$fields['#CNPJ_FORNECEDOR'],
                 '#Destinação' => $text($contract->instalacoes), '#Vigencia' => $fields['#VIGENCIA'],
                 '#VLMensal' => str_replace('R$ ', '', Contract::moneyLabel($contract->vl_parcial)), '#ExtMensal' => $text($contract->ext_parcial),
                 '#VLTotal' => $fields['#VL_CONTRATO'], '#ExtTotal' => $fields['#EXTENSO'], '#DataContrato' => $fields['#DATA_CONTRATO'],
@@ -189,12 +193,26 @@ class SupplyContractPdf
         $document = new \DOMDocument;
         @$document->loadHTML($html);
         $reference = (new \DOMXPath($document))->evaluate('string(//meta[@name="contract-reference"]/@content)');
-        $pdf->getCanvas()->page_script(static function ($page, $pages, $canvas, $metrics) use ($reference) {
+        $lease = str_contains($html, 'class="lease-footer"');
+        $separator = $lease ? ' - Página ' : ' & Página ';
+        $pdf->getCanvas()->page_script(static function ($page, $pages, $canvas, $metrics) use ($reference, $separator, $lease) {
             $font = $metrics->getFont('DejaVu Sans');
-            $text = $reference.' & Página '.$page.' de '.$pages;
-            $size = min(8, 8 * 514.28 / max(1, $metrics->getTextWidth($text, $font, 8)));
-            $width = $metrics->getTextWidth($text, $font, $size);
-            $canvas->text(565.28 - $width, 88, $text, $font, $size, [0.15, 0.15, 0.15]);
+            $bold = $metrics->getFont('DejaVu Sans', 'bold');
+            $parts = [];
+            foreach (preg_split('/(Contrato|Processo)/u', $reference, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $text) {
+                $parts[] = [$text, $lease && in_array($text, ['Contrato', 'Processo'], true) ? $bold : $font];
+            }
+            array_push($parts, [$separator, $font], [(string) $page, $lease ? $bold : $font], [' de ', $font], [(string) $pages, $lease ? $bold : $font]);
+            $width = 0;
+            foreach ($parts as [$text, $face]) {
+                $width += $metrics->getTextWidth($text, $face, 8);
+            }
+            $size = min(8, 8 * 514.28 / max(1, $width));
+            $position = 565.28 - $width * $size / 8;
+            foreach ($parts as [$text, $face]) {
+                $canvas->text($position, 88, $text, $face, $size, [0.15, 0.15, 0.15]);
+                $position += $metrics->getTextWidth($text, $face, $size);
+            }
         });
 
         return $pdf->output();

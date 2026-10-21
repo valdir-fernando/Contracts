@@ -10,7 +10,7 @@ use InvalidArgumentException;
 /** Exact, read-only consolidation for the supply instrument; never changes persisted amounts. */
 final class SupplyContractFigures
 {
-    public function products(array $rows, ?string $contractTotal): array
+    public function products(array $rows, ?string $contractTotal, bool $groupByItem = true): array
     {
         if ($rows === []) {
             throw new InvalidArgumentException('Cadastre os produtos do contrato antes de emitir o documento.');
@@ -28,7 +28,7 @@ final class SupplyContractFigures
             if (! $quantity->multipliedBy($price)->toScale(4, RoundingMode::HalfUp)->isEqualTo($total)) {
                 throw new InvalidArgumentException('Item '.$item.': QTD × valor unitário não corresponde ao valor total salvo. Revise o cadastro.');
             }
-            $key = 'item:'.$item;
+            $key = $groupByItem ? 'item:'.$item : 'row:'.count($groups);
             if (! isset($groups[$key])) {
                 $groups[$key] = ['item' => $item, 'code' => trim($row['code'] ?? ''), 'description' => trim($row['description'] ?? ''),
                     'brand' => trim($row['brand'] ?? ''), 'unit' => trim($row['unit'] ?? ''),
@@ -61,7 +61,9 @@ final class SupplyContractFigures
         }
         unset($group);
         if (! $total->isEqualTo($expected)) {
-            throw new InvalidArgumentException('A soma dos produtos não corresponde ao valor inicial do contrato. Revise os produtos e o valor do contrato antes de emitir.');
+            throw new InvalidArgumentException('A soma dos produtos não corresponde ao valor inicial do contrato. Total dos produtos: '
+                .str_replace('.', ',', (string) $total->toScale(4)).'; valor inicial do contrato: '
+                .str_replace('.', ',', (string) $expected->toScale(4)).'. Confira os lançamentos do contrato original antes de emitir.');
         }
         if (! $displayed->isEqualTo($expected->toScale(2, RoundingMode::HalfUp))) {
             throw new InvalidArgumentException('Os totais dos itens arredondados para centavos divergem do total do contrato. Revise os valores antes de emitir.');

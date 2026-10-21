@@ -121,7 +121,7 @@ class SupplyContractTemplateTest extends TestCase
 
     public static function models(): array
     {
-        return [['supply'], ['property-lease']];
+        return [['supply'], ['property-lease'], ['services']];
     }
 
     #[DataProvider('models')]
@@ -140,6 +140,12 @@ class SupplyContractTemplateTest extends TestCase
         $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
         $paragraphs = [];
         $fields = ['#ADM' => '2025/2028', '#FUNDO' => 'Fundo de teste', '#CONTRATO' => '001/26', '#PROCESSO' => '2026001'];
+        foreach ($xpath->query('//w:p') as $node) {
+            preg_match_all('/#[\p{L}_][\p{L}\p{N}_]*/u', $node->textContent, $markers);
+            foreach ($markers[0] as $marker) {
+                $fields[$marker] ??= 'Valor fictício';
+            }
+        }
         foreach ($xpath->query('/w:document/w:body/w:p') as $node) {
             $text = '';
             foreach ($xpath->query('.//w:t|.//w:br|.//w:tab[parent::w:r]', $node) as $part) {

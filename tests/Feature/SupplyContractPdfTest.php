@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Infrastructure\Contracts\OriginalContractProducts;
 use App\Infrastructure\Documents\SupplyContractPdf;
 use App\Infrastructure\Documents\SupplyContractTemplate;
 use App\Infrastructure\Managers\ManagerSignatory;
@@ -11,6 +12,8 @@ use App\Models\ActivityEvent;
 use App\Models\Contract;
 use App\Models\ContractFinancialRecord;
 use App\Models\ContractProduct;
+use App\Models\ImportRun;
+use App\Models\LegacyRecord;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -98,6 +101,55 @@ class SupplyContractPdfTest extends TestCase
         return $renderer;
     }
 
+    public function test_services_model_uses_supplied_text_saved_fields_and_six_column_table(): void
+    {
+        $this->contract->update(['tipo' => 'Serviços Diversos']);
+        $this->product(['description' => 'Serviço sintético de manutenção']);
+        $renderer = $this->renderer();
+        $response = $this->get($this->url().'&tipo=Fornecimento')->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'inline; filename="contrato-servicos-'.$this->contract->id.'.pdf"')
+            ->assertHeader('Cache-Control', 'no-store, private');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8" ?>'.$renderer->html);
+        $xpath = new \DOMXPath($document);
+        $text = $xpath->evaluate('string(//body)');
+        foreach (['SERVIÇOS DIVERSOS Nº 015/26', 'Serviço sintético de manutenção', '2.530,92',
+            '01.02.03.4.5', 'Gestor fictício', 'Fornecedor fictício'] as $value) {
+            $this->assertStringContainsString($value, $text);
+        }
+        $this->assertSame(6, $xpath->query('//table[@class="products"]/thead/tr/th')->length);
+        $this->assertDoesNotMatchRegularExpression('/#[\p{L}_]/u', $text);
+        $this->assertSame('services', ActivityEvent::sole()->metadata['model']);
+        $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
+            ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de serviços diversos em PDF.');
+
+        $this->assertSame('services', SupplyContractPdf::modelFor('Servicos Diversos'));
+        ActivityEvent::query()->delete();
+        $this->contract->update(['valor_total' => '2530.9300']);
+        $this->getJson($this->url())->assertUnprocessable();
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_services_masks_personal_fields_and_requires_issuance_permission(): void
+    {
+        $this->contract->update(['tipo' => 'Serviços Diversos']);
+        $this->product();
+        $user = User::create(['name' => 'Emissor', 'username' => 'SERVICES_ISSUER', 'password' => 'Synthetic123']);
+        $scope = AccessScope::create(['scope_key' => 'services-pdf', 'fund_id' => $this->contract->fund_id, 'fund' => 'Fundo de teste']);
+        $user->scopes()->attach($scope);
+        $this->actingAs($user)->get($this->url())->assertForbidden();
+        $user->catalog_permissions = ['contract-issuance'];
+        $user->save();
+        $renderer = $this->renderer(fn () => null);
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('•••4725', $renderer->html);
+        $this->assertStringNotContainsString('529.982.247-25', $renderer->html);
+        $this->assertStringNotContainsString('RG SOCIO PRIVADO', $renderer->html);
+        $this->assertStringNotContainsString('RG GESTOR PRIVADO', $renderer->html);
+    }
+
     public function test_property_lease_model_uses_saved_values_and_its_seven_column_table(): void
     {
         $this->contract->update(['tipo' => 'Locação de Imóvel', 'instalacoes' => 'Unidade de atendimento',
@@ -118,9 +170,74 @@ class SupplyContractPdfTest extends TestCase
         $xpath = new \DOMXPath($document);
         $this->assertDoesNotMatchRegularExpression('/#[\p{L}_]/u', $xpath->evaluate('string(//body)'));
         $this->assertSame(7, $xpath->query('//table[@class="products"]/thead/tr/th')->length);
+        $this->assertStringContainsString('CONTRATO DE LOCAÇÃO DE IMÓVEL Nº 015/26', $text);
+        $this->assertStringNotContainsString('CONTRATO ADMINISTRATIVO Nº', $text);
+        $signatures = $xpath->evaluate('string(//table[@class="signatures"])');
+        $this->assertStringContainsString('LOCATÁRIO', $signatures);
+        $this->assertStringContainsString('LOCADOR', $signatures);
+        $this->assertStringContainsString('CPF: 111.444.777-35', $signatures);
+        $this->assertStringNotContainsString('CONTRATANTE', $signatures);
+        $this->assertStringNotContainsString('CONTRATADA', $signatures);
+        $this->assertStringNotContainsString('Decreto Municipal', $signatures);
+        $this->assertStringNotContainsString('Gestor do Fundo', $signatures);
+        $this->assertStringNotContainsString('Rua de teste', $signatures);
+        $this->assertStringNotContainsString('representante:', $signatures);
+        $this->assertStringNotContainsString('RG:', $signatures);
+        $this->assertSame(1, $xpath->query('//p[normalize-space(.)="CONTRATO DE LOCAÇÃO DE IMÓVEL Nº 015/26" and strong and contains(@style,"text-align:center")]')->length);
+        $this->assertStringNotContainsString('CONTRATO Nº 015/26', $text);
+        $this->assertStringNotContainsString('O MUNICÍPIO DE NIQUELÂNDIA-GO, por intermédio do', $text);
+        $this->assertStringContainsString('Fundo de teste, pessoa jurídica de direito público interno', $text);
+        $this->assertSame(0, $xpath->query('//body//text()[not(ancestor::strong) and (contains(., "LOCADOR") or contains(., "LOCATÁRIO"))]')->length);
         $this->assertSame('property-lease', ActivityEvent::sole()->metadata['model']);
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
             ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de locação de imóvel em PDF.');
+    }
+
+    public function test_property_lease_keeps_separate_rows_with_the_same_item_and_different_codes(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel']);
+        $this->product(['item' => '1', 'code' => 'IMOVEL-A', 'description' => 'Primeiro imóvel',
+            'quantity' => '1.0000', 'unit_price' => '1000.0000', 'total' => '1000.0000']);
+        $this->product(['item' => '1', 'code' => 'IMOVEL-B', 'description' => 'Segundo imóvel',
+            'quantity' => '1.0000', 'unit_price' => '1530.9200', 'total' => '1530.9200']);
+        $renderer = $this->renderer(fn () => null);
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('IMOVEL-A', $renderer->html);
+        $this->assertStringContainsString('IMOVEL-B', $renderer->html);
+        $this->assertStringContainsString('Primeiro imóvel', $renderer->html);
+        $this->assertStringContainsString('Segundo imóvel', $renderer->html);
+        $this->assertStringContainsString('2.530,92', $renderer->html);
+        $this->assertDatabaseCount('tb_Produtos_Contratos', 2);
+
+        ActivityEvent::query()->delete();
+        $this->contract->update(['tipo' => 'Fornecimento']);
+        $this->get($this->url())->assertUnprocessable()->assertSee('códigos diferentes');
+        $this->assertDatabaseCount('activity_events', 0);
+
+        $this->contract->update(['tipo' => 'Locação de Imóvel', 'valor_total' => '2530.9300']);
+        $this->get($this->url())->assertUnprocessable()->assertSee('A soma dos produtos');
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_lease_emission_ignores_amendments_and_errors_link_back_to_contract(): void
+    {
+        $this->contract->update(['tipo' => 'Locação de Imóvel']);
+        $this->product();
+        $run = ImportRun::create(['source_hash' => str_repeat('c', 64), 'status' => 'completed', 'started_at' => now()]);
+        $source = LegacyRecord::create(['source_table' => 'tb_Produtos_Contratos', 'legacy_id' => 99001,
+            'source_hash' => str_repeat('d', 64), 'raw_payload' => ['ADT' => '001/26', 'Proc_ADT' => '202600002'], 'import_run_id' => $run->id]);
+        $this->product(['item' => '1', 'code' => 'ADITIVO', 'legacy_record_id' => $source->id]);
+        $this->assertCount(1, app(OriginalContractProducts::class)->forContract($this->contract));
+        $renderer = $this->renderer(fn () => null);
+        $this->get($this->url())->assertOk();
+        $this->assertStringNotContainsString('ADITIVO', $renderer->html);
+        ActivityEvent::query()->delete();
+        $this->contract->update(['valor_total' => '2530.9300']);
+        $this->get($this->url())->assertUnprocessable()
+            ->assertSee(route('contracts.edit', $this->contract), false)
+            ->assertSee('Voltar ao contrato')->assertDontSee('Voltar ao início');
+        $this->getJson($this->url())->assertUnprocessable()->assertJsonStructure(['message']);
+        $this->assertDatabaseCount('activity_events', 0);
     }
 
     public function test_property_lease_masks_personal_details_and_rechecks_changes_during_rendering(): void
@@ -412,8 +529,14 @@ class SupplyContractPdfTest extends TestCase
         return array_map(static fn ($case) => [$case[0], 'Locação de Imóvel'], self::changesDuringRendering());
     }
 
+    public static function serviceChangesDuringRendering(): array
+    {
+        return array_map(static fn ($case) => [$case[0], 'Serviços Diversos'], self::changesDuringRendering());
+    }
+
     #[DataProvider('changesDuringRendering')]
     #[DataProvider('leaseChangesDuringRendering')]
+    #[DataProvider('serviceChangesDuringRendering')]
     public function test_changes_during_rendering_prevent_delivery_and_audit(string $change, string $type = 'Fornecimento'): void
     {
         $this->contract->update(['tipo' => $type]);

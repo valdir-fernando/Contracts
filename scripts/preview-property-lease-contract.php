@@ -16,6 +16,7 @@ $fields = [
     '#Cargo_Gestor' => 'Gestor do Fundo', '#NomeGestor' => 'GESTOR EXEMPLIFICATIVO', '#Decreto' => '001/2026', '#Matricula' => '12345',
     '#PF_PJ' => 'a pessoa física', '#NomeLocador' => 'LOCADOR EXEMPLIFICATIVO',
     '#Dados_Locador' => 'CPF: •••0000, endereço: Rua de Exemplo, nº 200, Centro',
+    '#CPF_GESTOR' => '•••0000', '#DOCUMENTO_LOCADOR' => 'CPF: •••0000',
     '#Destinação' => 'Unidade de Atendimento', '#Vigencia' => '12 (doze) meses',
     '#VLMensal' => '1.000,00', '#ExtMensal' => 'mil reais', '#VLTotal' => '12.000,00', '#ExtTotal' => 'doze mil reais', '#DataContrato' => '20/10/2026',
 ];
