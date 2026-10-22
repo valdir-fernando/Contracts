@@ -256,8 +256,8 @@ class InternalEvolutionsTest extends TestCase
         $this->artisan('contracts:sync-legacy', ['--file' => $path])->expectsOutput('Snapshot já processado; nenhuma alteração.')->assertSuccessful();
         $this->assertDatabaseCount('import_runs', $count);
         $this->artisan('contracts:sync-legacy', ['--file' => $this->snapshot('CHANGED')])->assertSuccessful();
-        $this->assertDatabaseHas('contracts', ['numero' => '019/26']);
-        $this->assertDatabaseMissing('contracts', ['numero' => 'CHANGED']);
+        $this->assertDatabaseHas('contracts', ['Contrato' => '019/26']);
+        $this->assertDatabaseMissing('contracts', ['Contrato' => 'CHANGED']);
         $this->assertDatabaseHas('import_issues', ['code' => 'source_changed']);
         $invalid = $this->snapshot('NEW');
         file_put_contents($invalid, "\nINSERT INTO `tb_Aditivos` (`ID`, `Contrato`) VALUES ('invalid', 'NEW');", FILE_APPEND);

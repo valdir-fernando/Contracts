@@ -44,7 +44,7 @@ final class ServiceOrderImporter
                         $number = trim($raw['Contrato'] ?? '');
                         $fund = Normalizer::name($raw['Fundo'] ?? '');
                         $process = trim($raw['Processo'] ?? '');
-                        $matches = Contract::where('numero', $number)->orderBy('id')->lockForUpdate()->get()
+                        $matches = Contract::where('Contrato', $number)->orderBy('id')->lockForUpdate()->get()
                             ->filter(fn ($contract) => $number !== '' && $fund !== '' && $process !== ''
                                 && Normalizer::name($contract->fundo_nome_snapshot) === $fund && trim($contract->processo ?? '') === $process);
                         $data = $this->order($raw);

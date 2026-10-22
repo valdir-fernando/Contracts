@@ -39,8 +39,7 @@ class AccountController extends Controller
         $data = $request->validate(['name' => 'required|string|max:255',
             'username' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[A-Z0-9._-]+$/', Rule::unique('users')->ignore($request->user()->id)],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users')->ignore($request->user()->id)],
-            'current_password' => 'required|current_password',
-            'password' => ['nullable', 'confirmed', Password::min(12)->letters()->numbers(), 'max:1024'],
+            'current_password' => 'sometimes|required|current_password',
             'version' => 'sometimes|required|integer|min:0',
             'user_id' => 'prohibited', 'id' => 'prohibited', 'scope_ids' => 'prohibited',
             'catalog_permissions' => 'prohibited', 'catalog_permissions_present' => 'prohibited',
@@ -63,7 +62,7 @@ class AccountController extends Controller
             if (isset($data['version'])) {
                 abort_unless((int) $data['version'] === $user->session_version, 409, 'Sua conta foi alterada. Recarregue a página antes de salvar.');
             }
-            if (! Hash::check($data['current_password'], $user->password)) {
+            if (isset($data['current_password']) && ! Hash::check($data['current_password'], $user->password)) {
                 throw ValidationException::withMessages(['current_password' => 'A senha atual foi alterada. Entre novamente.']);
             }
             abort_unless($user->is_active && ! $user->trashed(), 403);
@@ -79,9 +78,6 @@ class AccountController extends Controller
                 $user->email_verified_at = null;
             }
             $user->email = $data['email'] ?? null;
-            if (! empty($data['password'])) {
-                $user->password = $data['password'];
-            }
             if ($administrativeChange) {
                 $user->user_type = $data['user_type'] ?? $user->user_type;
                 $user->is_active = isset($data['is_active']) ? (bool) $data['is_active'] : $user->is_active;
@@ -90,7 +86,7 @@ class AccountController extends Controller
                     (new UserAffiliation)->assign($user, $data['affiliations'] ?? []);
                 }
             }
-            if (! empty($data['password']) || $identityChanged || $administrativeChange || isset($data['version'])) {
+            if ($identityChanged || $administrativeChange || isset($data['version'])) {
                 $user->session_version++;
                 $user->remember_token = null;
             }
@@ -98,7 +94,7 @@ class AccountController extends Controller
             UserAudit::create(['actor_id' => $user->id, 'user_id' => $user->id, 'action' => 'updated', 'before' => $before,
                 'after' => $user->only(['name', 'username', 'email', 'user_type', 'is_active', 'fund', 'department'])
                     + ['scope_ids' => $user->scopes()->orderBy('access_scopes.id')->pluck('access_scopes.id')->all()], 'created_at' => now()]);
-            ActivityEvent::create(['actor_id' => $user->id, 'action' => empty($data['password']) ? 'account_updated' : 'own_password_changed',
+            ActivityEvent::create(['actor_id' => $user->id, 'action' => 'account_updated',
                 'metadata' => [], 'created_at' => now()]);
             $request->session()->put('auth_version', $user->session_version);
             Auth::setUser($user);
@@ -113,5 +109,32 @@ class AccountController extends Controller
         $request->session()->regenerate();
 
         return redirect()->route('account.edit')->with('status', 'Conta atualizada.');
+    }
+
+    public function password(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => 'required|string|max:1024|current_password',
+            'password' => ['required', 'confirmed', Password::min(12)->letters()->numbers(), 'max:1024'],
+            'version' => 'required|integer|min:0',
+        ]);
+        DB::transaction(function () use ($request, $data) {
+            $user = $this->actors->lock($request->user());
+            abort_unless($user->is_active && ! $user->trashed(), 403);
+            abort_unless((int) $data['version'] === $user->session_version, 409, 'Sua conta foi alterada. Recarregue a página antes de salvar.');
+            if (! Hash::check($data['current_password'], $user->password)) {
+                throw ValidationException::withMessages(['current_password' => 'A senha atual foi alterada. Entre novamente.']);
+            }
+            $user->password = $data['password'];
+            $user->session_version++;
+            $user->remember_token = null;
+            $user->save();
+            ActivityEvent::create(['actor_id' => $user->id, 'action' => 'own_password_changed', 'metadata' => [], 'created_at' => now()]);
+            $request->session()->put('auth_version', $user->session_version);
+            Auth::setUser($user);
+        });
+        $request->session()->regenerate();
+
+        return redirect()->route('account.edit')->with('status', 'Senha alterada com sucesso.');
     }
 }

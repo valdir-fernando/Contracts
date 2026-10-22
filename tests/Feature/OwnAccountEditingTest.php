@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class OwnAccountEditingTest extends TestCase
@@ -14,6 +16,62 @@ class OwnAccountEditingTest extends TestCase
     private function user(string $username, string $role = 'Usuario'): User
     {
         return User::create(['name' => $username, 'username' => $username, 'password' => 'PasswordTest123', 'user_type' => $role]);
+    }
+
+    public function test_details_save_needs_no_password_and_cannot_change_it(): void
+    {
+        $actor = $this->user('ACTOR');
+        $hash = $actor->password;
+        $this->actingAs($actor)->withSession(['auth_version' => 0])->put('/account', [
+            'name' => 'Nome atualizado', 'version' => 0,
+            'password' => 'OtherPassword123', 'password_confirmation' => 'OtherPassword123',
+        ])->assertSessionHasNoErrors()->assertRedirect('/account');
+        $this->assertSame('Nome atualizado', $actor->fresh()->name);
+        $this->assertSame($hash, $actor->fresh()->password);
+        $this->assertDatabaseHas('activity_events', ['actor_id' => $actor->id, 'action' => 'account_updated']);
+        $this->assertDatabaseMissing('activity_events', ['action' => 'own_password_changed']);
+    }
+
+    public function test_password_save_is_independent_audited_and_preserves_other_account_data(): void
+    {
+        $actor = $this->user('ACTOR');
+        $other = $this->user('OTHER');
+        $before = $actor->only(['name', 'username', 'email', 'user_type', 'is_active']);
+        $this->actingAs($actor)->withSession(['auth_version' => 0]);
+        $payload = ['current_password' => 'PasswordTest123', 'password' => 'OtherPassword123',
+            'password_confirmation' => 'OtherPassword123', 'version' => 0];
+        foreach ([['current_password' => 'incorrect'], ['password_confirmation' => 'incorrect'],
+            ['password' => 'short'], ['version' => null]] as $change) {
+            $this->put('/account/password', array_replace($payload, $change))->assertSessionHasErrors();
+            $this->assertTrue(Hash::check('PasswordTest123', $actor->fresh()->password));
+        }
+        $this->put('/account/password', array_replace($payload, ['version' => 5]))->assertStatus(409);
+        $this->assertDatabaseMissing('activity_events', ['action' => 'own_password_changed']);
+        $this->put('/account/password', $payload + ['name' => 'Indevido', 'username' => 'INDEVIDO',
+            'user_id' => $other->id, 'user_type' => User::MASTER, 'is_active' => 0])
+            ->assertRedirect('/account')->assertSessionHas('status', 'Senha alterada com sucesso.')
+            ->assertSessionHas('auth_version', 1);
+        $this->assertSame($before, $actor->fresh()->only(array_keys($before)));
+        $this->assertTrue(Hash::check('OtherPassword123', $actor->fresh()->password));
+        $this->assertTrue(Hash::check('PasswordTest123', $other->fresh()->password));
+        $this->assertSame(1, $actor->fresh()->session_version);
+        $this->assertNull($actor->fresh()->remember_token);
+        $event = ActivityEvent::where('action', 'own_password_changed')->sole();
+        $this->assertSame([], $event->metadata);
+        $this->get('/account')->assertOk();
+        $this->withSession(['auth_version' => 0])->get('/account')->assertRedirect('/login');
+    }
+
+    public function test_account_page_has_separate_forms_and_password_divider(): void
+    {
+        $this->withoutVite();
+        $response = $this->actingAs($this->user('ACTOR'))->get('/account')->assertOk();
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(0, $xpath->query('//form[@action="'.route('account.update').'"]//input[@type="password"]')->length);
+        $this->assertSame(3, $xpath->query('//form[@action="'.route('account.password').'"]//input[@type="password" and @required]')->length);
+        $response->assertSee('account-password-divider')->assertSee('Alterar Senha');
     }
 
     public function test_regular_user_can_change_own_username_but_cannot_target_others_or_change_permissions(): void

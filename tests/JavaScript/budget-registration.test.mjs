@@ -1,6 +1,69 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { composeBudgetCode, initializeBudgetDepartment, initializeBudgetLookup } from '../../resources/js/budget-registration.js';
+import { composeBudgetCode, initializeBudgetDepartment, initializeBudgetLookup, loadBudgetPanel } from '../../resources/js/budget-registration.js';
+
+test('loading a ficha replaces the panel with its authorized edit form and ignores stale pages', async () => {
+    const previousWindow = globalThis.window;
+    const previousParser = globalThis.DOMParser;
+    globalThis.window = { location: { href: 'http://contracts.test/catalogs/budgets/create' } };
+    const control = (value = '') => ({ value, selectedOptions: [], listeners: {},
+        addEventListener(name, callback) { this.listeners[name] = callback; }, setAttribute() {} });
+    const warning = { ...control(), open: false, showModal() { this.open = true; }, close() { this.open = false; this.listeners.close(); } };
+    let focused = false;
+    let removedSavedFlag = false;
+    const nodes = {
+        '[data-budget-fund]': control('1'), '[data-budget-department]': control(),
+        '[data-budget-department-filter]': control(), '[data-budget-filter-status]': control(),
+        '[data-budget-list]': control(), '[data-budget-part="Ficha"]': control('200'),
+        '[data-budget-lookup-status]': control(), '[data-budget-code]': control('HISTORICAL-CODE'),
+        '[data-budget-part="Orgao"]': { focus: () => { focused = true; } },
+        '[data-budget-scope-warning]': warning, '[data-budget-scope-warning-ok]': control(),
+        '#budget-registration-form': { ...control(), querySelector: () => control() },
+    };
+    const replacement = {
+        dataset: { currentFicha: '200' }, querySelector: (selector) => nodes[selector], querySelectorAll: () => [],
+        removeAttribute: (name) => { removedSavedFlag = name === 'data-budget-saved'; }, hasAttribute: () => false,
+    };
+    const replaced = [];
+    const selectedFund = control('1');
+    const panel = { querySelector: () => selectedFund, replaceWith: (node) => replaced.push(node) };
+    const calls = [];
+    const fetcher = async (url, options) => {
+        calls.push({ url, options });
+        return { ok: true, text: async () => '<authorized-edit-form>' };
+    };
+    globalThis.DOMParser = class {
+        parseFromString(html, type) {
+            assert.equal(html, '<authorized-edit-form>');
+            assert.equal(type, 'text/html');
+            return { querySelector: () => replacement };
+        }
+    };
+    try {
+        await loadBudgetPanel(panel, '/catalogs/budgets/create?edit=1', fetcher, undefined, () => false);
+        assert.equal(replaced.length, 0);
+        await loadBudgetPanel(panel, '/catalogs/budgets/create?edit=1', fetcher, undefined, () => true);
+        assert.deepEqual(replaced, [replacement]);
+        assert.equal(calls[1].options.headers.Accept, 'text/html');
+        assert.equal(removedSavedFlag, true);
+        assert.equal(focused, true);
+        assert.equal(nodes['[data-budget-code]'].value, 'HISTORICAL-CODE');
+        assert.equal(warning.open, false);
+        selectedFund.value = '2'; focused = false;
+        await loadBudgetPanel(panel, '/catalogs/budgets/create?edit=1', fetcher, undefined, () => true);
+        assert.equal(warning.open, true);
+        assert.equal(focused, false);
+        nodes['[data-budget-scope-warning-ok]'].listeners.click();
+        assert.equal(warning.open, false);
+        assert.equal(focused, true);
+        // A dismissed warning stays closed while navigating the loaded form.
+        assert.equal(nodes['[data-budget-fund]'].value, '1');
+        selectedFund.value = ''; focused = false;
+        await loadBudgetPanel(panel, '/catalogs/budgets/create?edit=1', fetcher, undefined, () => true);
+        assert.equal(warning.open, false);
+        assert.equal(focused, true);
+    } finally { globalThis.window = previousWindow; globalThis.DOMParser = previousParser; }
+});
 
 test('budget composition follows the reference, preserves zeros and starts with management', () => {
     const fields = { Orgao: '02', Gestao: '02', Unidade: '0217', Funcao: '04', SubFunc: '122', Programa: '7008', Projeto: '8040', Codigo: '319094', Fonte: '100', Ficha: '20250029' };

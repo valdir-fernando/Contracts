@@ -38,7 +38,7 @@ class ReportExportSecurityTest extends TestCase
     {
         $actor = $this->actor(true);
         foreach (array_chunk(range(1, 1200), 100) as $chunk) {
-            DB::table('contracts')->insert(array_map(fn ($id) => ['numero' => (string) $id, 'quality_issues' => '[]'], $chunk));
+            DB::table('contracts')->insert(array_map(fn ($id) => ['Contrato' => (string) $id, 'quality_issues' => '[]'], $chunk));
         }
         $hydrated = 0;
         Contract::retrieved(function () use (&$hydrated) {

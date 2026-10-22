@@ -12,15 +12,23 @@ final class BudgetCatalog
         return preg_replace('/^SEC\.? MUNICIPAL\b/', 'SECRETARIA MUNICIPAL', Normalizer::name($name));
     }
 
-    /** Comparison informs the confirmation only; it never filters the catalog result. */
+    /** Comparison informs the warning only; it never filters the catalog result. */
     public function matchesScope(array $result, ?int $fundId, ?int $departmentId): bool
+    {
+        return $this->compareScope($result, $fundId, $departmentId)['scope_matches'];
+    }
+
+    public function compareScope(array $result, ?int $fundId, ?int $departmentId): array
     {
         $fund = $fundId ? DB::table('contract_funds')->whereNull('deleted_at')->find($fundId) : null;
         $department = $departmentId ? DB::table('contract_departments')->find($departmentId) : null;
 
-        return $fund && (! $departmentId || $department)
-            && Normalizer::name($result['fund'] ?? '') === Normalizer::name($fund->name)
+        $fundMatches = $fund && Normalizer::name($result['fund'] ?? '') === Normalizer::name($fund->name);
+        $departmentMatches = (! $departmentId || $department)
             && $this->departmentKey($result['department'] ?? '') === $this->departmentKey($department?->name);
+
+        return ['scope_matches' => $fundMatches && $departmentMatches,
+            'fund_matches' => $fundMatches, 'department_matches' => $departmentMatches];
     }
 
     /** Catalog lookup by Ficha only; the HTTP boundary authorizes access to the contract. */

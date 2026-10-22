@@ -45,7 +45,7 @@ class HistoryImporter
                     continue;
                 }
                 $number = trim($raw['Contrato'] ?? '');
-                $candidates = $number === '' ? collect() : Contract::withTrashed()->where('numero', $number)->orderBy('id')->lockForUpdate()->get();
+                $candidates = $number === '' ? collect() : Contract::withTrashed()->where('Contrato', $number)->orderBy('id')->lockForUpdate()->get();
                 $supplier = Normalizer::document($raw[$kind === 'amendment' ? 'CNPJ_Fornec' : 'CNPJ'] ?? '');
                 $fund = $raw[$kind === 'amendment' ? 'CNPJ_Fundo' : 'FUNDO'] ?? '';
                 $fundDocument = Normalizer::document($fund);

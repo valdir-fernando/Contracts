@@ -23,11 +23,11 @@ class SignedDocumentController extends Controller
             'page' => 'nullable|integer|min:1', 'documents_page' => 'nullable|integer|min:1']);
         $query = Contract::visibleTo($actor)->where('fund_id', $fundId);
         $selected = empty($filters['contract']) ? null : (clone $query)->whereKey($filters['contract'])
-            ->firstOrFail(['id', 'numero', 'processo', 'exercicio', 'version', ...Contract::SIGNED_DOCUMENT_COLUMNS]);
+            ->firstOrFail(['id', 'Contrato', 'processo', 'exercicio', 'version', ...Contract::SIGNED_DOCUMENT_COLUMNS]);
         if (! empty($filters['q'])) {
-            $query->where(fn ($q) => $q->where('numero', 'like', '%'.$filters['q'].'%')->orWhere('processo', 'like', '%'.$filters['q'].'%'));
+            $query->where(fn ($q) => $q->where('Contrato', 'like', '%'.$filters['q'].'%')->orWhere('processo', 'like', '%'.$filters['q'].'%'));
         }
-        $contracts = $query->orderByDesc('exercicio')->orderByDesc('id')->paginate(10, ['id', 'numero', 'processo', 'exercicio'])->withQueryString();
+        $contracts = $query->orderByDesc('exercicio')->orderByDesc('id')->paginate(10, ['id', 'Contrato', 'processo', 'exercicio'])->withQueryString();
         $documents = $selected ? ContractAttachment::where('contract_id', $selected->id)
             ->whereIn('signed_category', array_keys(SignedDocuments::CATEGORIES))->latest('id')
             ->paginate(10, ['id', 'name', 'size', 'signed_category', 'created_at'], 'documents_page')->withQueryString() : null;

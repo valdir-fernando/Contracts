@@ -105,6 +105,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/funds/{fund}/contract-defaults', [ContractController::class, 'fundDefaults'])->whereNumber('fund')->name('contracts.fund-defaults');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [AccountController::class, 'update'])->name('account.update');
+    Route::put('/account/password', [AccountController::class, 'password'])->middleware('throttle:10,1')->name('account.password');
     Route::get('/account/avatar', [AccountAvatarController::class, 'show'])->name('account.avatar.show');
     Route::post('/account/avatar', [AccountAvatarController::class, 'store'])->middleware('throttle:10,1')->name('account.avatar.store');
     Route::delete('/account/avatar', [AccountAvatarController::class, 'destroy'])->name('account.avatar.destroy');

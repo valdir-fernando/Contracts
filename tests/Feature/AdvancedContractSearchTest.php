@@ -75,7 +75,7 @@ class AdvancedContractSearchTest extends TestCase
     public function test_inspector_filter_groups_and_exports_preserve_contract_scope(): void
     {
         $this->contract->update(['nome_fiscal' => 'FISCAL ANA']);
-        Contract::where('numero', 'BUSCA-SEGREDO')->update(['nome_fiscal' => 'FISCAL RESTRITO']);
+        Contract::where('Contrato', 'BUSCA-SEGREDO')->update(['nome_fiscal' => 'FISCAL RESTRITO']);
         Contract::create(['numero' => 'OUTRO-FISCAL', 'fund_id' => $this->contract->fund_id,
             'ownership_resolved' => true, 'nome_fiscal' => 'FISCAL BRUNO', 'quality_issues' => []]);
         $filters = ['report' => 'inspector', 'inspector' => 'FISCAL ANA', 'columns' => ['number', 'inspector']];

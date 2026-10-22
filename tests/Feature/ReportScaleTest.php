@@ -29,7 +29,7 @@ class ReportScaleTest extends TestCase
                     if ($count === 0) {
                         break;
                     }
-                    DB::table('contracts')->insert(array_map(fn ($index) => ['numero' => str_pad((string) $index, 5, '0', STR_PAD_LEFT).'/26',
+                    DB::table('contracts')->insert(array_map(fn ($index) => ['Contrato' => str_pad((string) $index, 5, '0', STR_PAD_LEFT).'/26',
                         'valor_total' => '0.1001', 'quality_issues' => '[]', 'administrative_status' => 'rascunho'], $chunk));
                 }
                 $summary = $report->summary($admin, []);

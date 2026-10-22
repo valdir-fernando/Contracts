@@ -1,5 +1,20 @@
 <x-layouts.app title="Contratos">
-    <div class="page-heading contract-archive-heading"><div><span class="section-label">ACERVO CONTRATUAL</span><h1>{{ request()->boolean('review') ? 'Contratos em revisão' : (['vigente' => 'Contratos vigentes', 'vencido' => 'Contratos vencidos', 'em_revisao' => 'Contratos com vigência em revisão', 'a_iniciar' => 'Contratos a iniciar', 'indeterminado' => 'Contratos com vigência indeterminada'][request('validity')] ?? 'Contratos') }}</h1><p>Consulte os contratos dos órgãos autorizados para sua conta.</p></div>@can('create', \App\Models\Contract::class)<a class="primary-button compact" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo contrato</a>@endcan</div>
+    <div class="page-heading contract-archive-heading" x-data>
+        <div><span class="section-label">ACERVO CONTRATUAL</span><h1>{{ request()->boolean('review') ? 'Contratos em revisão' : (['vigente' => 'Contratos vigentes', 'vencido' => 'Contratos vencidos', 'em_revisao' => 'Contratos com vigência em revisão', 'a_iniciar' => 'Contratos a iniciar', 'indeterminado' => 'Contratos com vigência indeterminada'][request('validity')] ?? 'Contratos') }}</h1><p>Consulte os contratos dos órgãos autorizados para sua conta.</p></div>
+        @can('create', \App\Models\Contract::class)
+            <nav class="quick-actions" aria-label="Ações de contratos">
+                <a class="primary-button compact" href="{{ route('contracts.create') }}"><x-nav-icon name="plus"/>Novo contrato</a>
+                <button type="button" class="secondary-button compact" aria-haspopup="dialog" aria-controls="contract-amendment-panel" @click="$refs.amendmentPanel.showModal()"><x-nav-icon name="edit"/>Aditivo</button>
+                <button type="button" class="secondary-button compact" aria-haspopup="dialog" aria-controls="contract-termination-panel" @click="$refs.terminationPanel.showModal()"><x-nav-icon name="document-termination"/>Distrato</button>
+            </nav>
+            <dialog id="contract-amendment-panel" class="catalog-modal contract-future-panel" x-ref="amendmentPanel" aria-labelledby="contract-amendment-panel-title">
+                <div class="modal-header"><h2 id="contract-amendment-panel-title">Aditivo</h2><button type="button" class="modal-close" aria-label="Fechar painel de aditivo" @click="$refs.amendmentPanel.close()">×</button></div>
+            </dialog>
+            <dialog id="contract-termination-panel" class="catalog-modal contract-future-panel" x-ref="terminationPanel" aria-labelledby="contract-termination-panel-title">
+                <div class="modal-header"><h2 id="contract-termination-panel-title">Distrato</h2><button type="button" class="modal-close" aria-label="Fechar painel de distrato" @click="$refs.terminationPanel.close()">×</button></div>
+            </dialog>
+        @endcan
+    </div>
     @if(auth()->user()->isAdmin())<nav class="view-tabs" aria-label="Visualização dos contratos"><a href="{{ route('contracts.index') }}" @class(['active' => !request()->boolean('deleted')]) @unless(request()->boolean('deleted')) aria-current="page" @endunless>Contratos atuais</a><a href="{{ route('contracts.index', ['deleted' => 1]) }}" @class(['active' => request()->boolean('deleted')]) @if(request()->boolean('deleted')) aria-current="page" @endif>Contratos excluídos</a></nav>@endif
     <section class="surface contract-archive-surface">
         <details class="filter-disclosure" open data-mobile-disclosure data-active-filters="{{ collect(request()->except(['page', 'deleted', 'sort', 'direction']))->filter(fn($value) => $value !== null && $value !== '')->isNotEmpty() ? 'true' : 'false' }}">

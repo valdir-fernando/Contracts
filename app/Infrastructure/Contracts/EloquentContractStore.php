@@ -21,7 +21,7 @@ final class EloquentContractStore implements ContractStore
         DB::table('contract_funds')->whereNull('deleted_at')->where('id', $contract->get('fund_id'))->lockForUpdate()->firstOrFail();
         $actor = User::findOrFail($context->actor->id);
 
-        return Contract::visibleTo($actor)->where('numero', $contract->get('numero'))
+        return Contract::visibleTo($actor)->where('Contrato', $contract->get('numero'))
             ->where('fund_id', $contract->get('fund_id'))->where('exercicio', $contract->get('exercicio'))
             ->where('processo', $contract->get('processo'))->select('id')->lockForUpdate()->first() !== null;
     }
@@ -43,6 +43,7 @@ final class EloquentContractStore implements ContractStore
         $before = $contract->original();
         $changes = [];
         foreach ($model->getDirty() as $column => $value) {
+            $column = $column === 'Contrato' ? 'numero' : $column;
             if (! in_array($column, ['updated_by', 'created_by', 'version'])) {
                 $changes[$column] = ['before' => $before[$column] ?? null, 'after' => $value];
             }

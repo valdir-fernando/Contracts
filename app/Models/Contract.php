@@ -26,6 +26,17 @@ class Contract extends Model
 
     protected $hidden = ['legacy_record_id', ...self::SIGNED_DOCUMENT_COLUMNS];
 
+    /** Preserve the application's public field name while storing it in contracts.Contrato. */
+    public function getNumeroAttribute($value): ?string
+    {
+        return $this->attributes['Contrato'] ?? $value;
+    }
+
+    public function setNumeroAttribute($value): void
+    {
+        $this->attributes['Contrato'] = $value;
+    }
+
     protected function casts(): array
     {
         $casts = ['quality_issues' => 'array', 'ownership_resolved' => 'boolean', 'vigencia_em_revisao' => 'boolean',

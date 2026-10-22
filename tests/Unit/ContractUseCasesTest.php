@@ -6,6 +6,7 @@ use App\Application\Contracts\AuthorizedContract;
 use App\Application\Contracts\ChangeContractLifecycle;
 use App\Application\Contracts\Ports\ContractAccess;
 use App\Application\Contracts\Ports\ContractCatalog;
+use App\Application\Contracts\Ports\ContractCreationDate;
 use App\Application\Contracts\Ports\ContractInputValidator;
 use App\Application\Contracts\Ports\ContractNumbering;
 use App\Application\Contracts\Ports\ContractStore;
@@ -24,6 +25,25 @@ use Throwable;
 
 class ContractUseCasesTest extends TestCase
 {
+    public function test_creation_uses_trusted_date_before_transaction_and_ignores_client_date(): void
+    {
+        $ports = $this->ports();
+        $ports->fields = ['data_cont_verd' => '1999-01-01'];
+        $saved = $this->save($ports)->execute(new ActorIdentity(5, 0), ['fund_id' => 1, 'data_cont_verd' => '1999-01-01']);
+        $this->assertSame('2026-10-22', $saved->get('data_cont_verd'));
+        $this->assertSame(1, $ports->dateCalls);
+    }
+
+    public function test_edit_preserves_creation_date_and_never_requests_online_date(): void
+    {
+        $ports = $this->ports(4);
+        $ports->state = $ports->state->with(['data_cont_verd' => '2025-03-04']);
+        $ports->fields = ['data_cont_verd' => '1999-01-01'];
+        $saved = $this->save($ports)->execute(new ActorIdentity(5, 0), ['version' => 3, 'reason' => 'Correção de teste'], 4);
+        $this->assertSame('2025-03-04', $saved->get('data_cont_verd'));
+        $this->assertSame(0, $ports->dateCalls);
+    }
+
     private function ports(?int $id = null): InMemoryContractPorts
     {
         return new InMemoryContractPorts(new ContractState($id, [
@@ -35,7 +55,7 @@ class ContractUseCasesTest extends TestCase
 
     private function save(InMemoryContractPorts $ports): SaveContract
     {
-        return new SaveContract($ports, $ports, $ports, $ports, $ports, $ports);
+        return new SaveContract($ports, $ports, $ports, $ports, $ports, $ports, $ports);
     }
 
     public function test_creation_authorizes_and_validates_inside_transaction_then_audits_with_current_actor(): void
@@ -178,8 +198,20 @@ class ContractUseCasesTest extends TestCase
 }
 
 /** Test-only ports: no Laravel boot, ORM, facades, HTTP or database. */
-final class InMemoryContractPorts implements ContractAccess, ContractCatalog, ContractInputValidator, ContractNumbering, ContractStore, TransactionManager
+final class InMemoryContractPorts implements ContractAccess, ContractCatalog, ContractCreationDate, ContractInputValidator, ContractNumbering, ContractStore, TransactionManager
 {
+    public int $dateCalls = 0;
+
+    public function today(): string
+    {
+        if ($this->active) {
+            throw new RuntimeException('Date lookup must precede the transaction.');
+        }
+        $this->dateCalls++;
+
+        return '2026-10-22';
+    }
+
     public array $events = [];
 
     public array $fields = [];

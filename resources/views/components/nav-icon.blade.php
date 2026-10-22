@@ -15,6 +15,7 @@
         'users' => 'M15 8a3 3 0 1 1-6 0a3 3 0 0 1 6 0 M5 21v-3a7 7 0 0 1 14 0v3 M18 5a3 3 0 0 1 0 6 M21 17v4',
         'suppliers' => 'M5 9h14 M6 9V8a6 6 0 0 1 12 0v1 M11 3v4 M13 3v4 M8 9v2a4 4 0 0 0 8 0V9 M4 22v-2a5 5 0 0 1 5-5l3 4 3-4a5 5 0 0 1 5 5v2 M12 19v3',
         'plus' => 'M12 5v14 M5 12h14',
+        'documents' => 'M8 3h12v14H8z M5 7H4v14h12v-1 M11 7h6 M11 10h6 M11 13h4',
         'save' => 'M5 3h12l4 4v14H3V3h2 M7 3v6h10V3 M7 21v-8h10v8',
         'edit' => 'm16 3 5 5 M4 15 16 3l5 5L9 20l-6 1 1-6Z',
         'trash' => 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',

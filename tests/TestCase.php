@@ -2,12 +2,26 @@
 
 namespace Tests;
 
+use App\Application\Contracts\Ports\ContractCreationDate;
 use App\Services\Legacy\Normalizer;
 use Database\Seeders\ReferenceUsersSeeder;
 use Illuminate\Support\Facades\DB;
 
 abstract class TestCase extends \Illuminate\Foundation\Testing\TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Tests never depend on an external clock; dedicated adapter tests use HTTP fakes.
+        $this->app->bind(ContractCreationDate::class, fn () => new class implements ContractCreationDate
+        {
+            public function today(): string
+            {
+                return today()->format('Y-m-d');
+            }
+        });
+    }
+
     protected function seedContractInspector(int $fundId, ?int $departmentId = null): void
     {
         $fund = DB::table('contract_funds')->find($fundId);

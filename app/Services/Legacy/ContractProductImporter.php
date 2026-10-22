@@ -2,8 +2,10 @@
 
 namespace App\Services\Legacy;
 
+use App\Domain\Contracts\ProductOrigin;
 use App\Models\ActivityEvent;
 use App\Models\Contract;
+use App\Models\ContractAmendmentProduct;
 use App\Models\ContractAudit;
 use App\Models\ContractProduct;
 use App\Models\ImportRun;
@@ -39,6 +41,7 @@ final class ContractProductImporter
                     $record = LegacyRecord::firstOrCreate(['source_table' => 'tb_Produtos_Contratos', 'legacy_id' => $id, 'source_hash' => $hash],
                         ['raw_payload' => $raw, 'import_run_id' => $run->id]);
                     $existing = ContractProduct::withTrashed()->whereIn('legacy_record_id', LegacyRecord::where('source_table', 'tb_Produtos_Contratos')->where('legacy_id', $id)->select('id'))->lockForUpdate()->first();
+                    $existing ??= ContractAmendmentProduct::withTrashed()->whereIn('legacy_record_id', LegacyRecord::where('source_table', 'tb_Produtos_Contratos')->where('legacy_id', $id)->select('id'))->lockForUpdate()->first();
                     if ($existing) {
                         $outcome = $existing->legacy_record_id === $record->id ? 'skipped' : 'conflict';
                     } else {
@@ -46,16 +49,21 @@ final class ContractProductImporter
                         $fund = Normalizer::name($raw['FUNDO'] ?? '');
                         $process = trim($raw['Processo'] ?? '');
                         $number = trim($raw['Contrato'] ?? '');
-                        $matches = Contract::where('numero', $number)->orderBy('id')->lockForUpdate()->get()->filter(fn ($contract) => $number !== '' && $process !== '' && $fund !== '' && Normalizer::validDocument($supplier)
+                        $matches = Contract::where('Contrato', $number)->orderBy('id')->lockForUpdate()->get()->filter(fn ($contract) => $number !== '' && $process !== '' && $fund !== '' && Normalizer::validDocument($supplier)
                             && Normalizer::document($contract->fornecedor_documento_snapshot) === $supplier
                             && Normalizer::name($contract->fundo_nome_snapshot) === $fund && trim($contract->processo ?? '') === $process);
                         $data = $this->product($raw);
                         $outcome = $matches->count() > 1 ? 'ambiguous' : ($matches->isEmpty() ? 'unmatched' : ($data === null ? 'invalid' : 'imported'));
                         if ($outcome === 'imported') {
                             $contract = $matches->first();
-                            $product = ContractProduct::create($data + ['contract_id' => $contract->id, 'legacy_record_id' => $record->id,
+                            $amendment = ProductOrigin::isAmendment($raw);
+                            $model = $amendment ? ContractAmendmentProduct::class : ContractProduct::class;
+                            if ($amendment) {
+                                $data += ['ADT' => $raw['ADT'] ?? null, 'Proc_ADT' => $raw['Proc_ADT'] ?? null];
+                            }
+                            $product = $model::create($data + ['contract_id' => $contract->id, 'legacy_record_id' => $record->id,
                                 'product_id' => null, 'process_number' => $process, 'supplier_document' => $supplier]);
-                            $touched[$contract->id][] = $product->id;
+                            $touched[$contract->id][$amendment ? 'amendment_product_ids' : 'product_ids'][] = $product->id;
                         }
                     }
                     $counts[$outcome]++;
@@ -76,7 +84,9 @@ final class ContractProductImporter
                     $contract->save();
                     ContractAudit::create(['contract_id' => $contractId, 'actor_id' => null, 'import_run_id' => $run->id,
                         'action' => 'products_imported', 'reason' => 'Importação histórica de produtos; valores e saldos preservados.',
-                        'changes' => ['product_ids' => ['before' => [], 'after' => $ids], 'version' => ['before' => $before, 'after' => $contract->version]], 'created_at' => now()]);
+                        'changes' => ['product_ids' => ['before' => [], 'after' => $ids['product_ids'] ?? []],
+                            'amendment_product_ids' => ['before' => [], 'after' => $ids['amendment_product_ids'] ?? []],
+                            'version' => ['before' => $before, 'after' => $contract->version]], 'created_at' => now()]);
                 }
                 $run->update(['status' => 'completed', 'source_count' => $counts['source'], 'imported_count' => $counts['imported'],
                     'skipped_count' => $counts['skipped'], 'rejected_count' => array_sum($counts) - $counts['source'] - $counts['imported'] - $counts['skipped'],

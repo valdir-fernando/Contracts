@@ -83,7 +83,7 @@ class ContractReport
             $query->withValidity($validity, CarbonImmutable::parse($reference));
         }
 
-        return $query->orderBy($filters['sort'] ?? 'numero', $filters['direction'] ?? 'asc')->orderBy('id');
+        return $query->orderBy(($filters['sort'] ?? 'numero') === 'numero' ? 'Contrato' : $filters['sort'], $filters['direction'] ?? 'asc')->orderBy('id');
     }
 
     public function summary(User $actor, array $filters): array
@@ -94,7 +94,7 @@ class ContractReport
     private function reportQuery(User $actor, array $filters)
     {
         // No personal fields, object text or source JSON outside the report projection.
-        return $this->query($actor, $filters)->select(['id', 'numero', 'processo', 'fornecedor_nome_snapshot',
+        return $this->query($actor, $filters)->select(['id', 'Contrato', 'processo', 'fornecedor_nome_snapshot',
             'fornecedor_documento_snapshot', 'supplier_document_key', 'fund_id', 'department_id', 'fundo_nome_snapshot',
             'secretaria_nome_snapshot', 'tipo', 'modalidade', 'valor_total', 'data_contrato', 'vigencia_inicio',
             'vigencia_fim_original', 'vigencia_fim_atual', 'administrative_status', 'quality_issues',

@@ -76,8 +76,10 @@
     <div class="product-controls-row">
     <div class="product-entry-actions action-toolbar">
         <button type="button" class="section-tab" data-products-save disabled><x-nav-icon name="save"/>Salvar produto</button>
-        <button type="button" class="section-tab" data-products-new><x-nav-icon name="plus"/>Novo</button>
+        <button type="button" class="section-tab" data-products-new><x-nav-icon name="plus"/>Novo Produto</button>
         <button type="button" class="section-tab" data-products-delete disabled><x-nav-icon name="trash"/>Excluir / estornar</button>
+        <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
+        <button type="button" class="section-tab products-button" data-products-new-ficha><x-nav-icon name="plus"/>Nova Ficha</button>
     </div>
     <div class="product-panel-total"><label>Total da Ficha<input data-product-contract-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label></div>
     </div>

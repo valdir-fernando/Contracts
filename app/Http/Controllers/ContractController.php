@@ -7,6 +7,7 @@ use App\Infrastructure\Contracts\InspectorCatalog;
 use App\Infrastructure\Security\LockActor;
 use App\Infrastructure\Security\SelectedFund;
 use App\Models\Contract;
+use App\Models\ContractAmendment;
 use App\Models\ContractAttachment;
 use App\Models\ContractAudit;
 use App\Models\ContractHistoryRecord;
@@ -93,12 +94,12 @@ class ContractController extends Controller
         $query = Contract::visibleTo($actor)->where('fund_id', (int) $fundId);
         if (filled($data['q'] ?? null)) {
             if ($data['exact'] ?? false) {
-                $query->where('numero', trim($data['q']));
+                $query->where('Contrato', trim($data['q']));
             } else {
-                $query->whereRaw("numero LIKE ? ESCAPE '!'", ['%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], trim($data['q'])).'%']);
+                $query->whereRaw("Contrato LIKE ? ESCAPE '!'", ['%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], trim($data['q'])).'%']);
             }
         }
-        $contracts = $query->orderByDesc('id')->paginate(15, ['id', 'numero', 'processo']);
+        $contracts = $query->orderByDesc('id')->paginate(15, ['id', 'Contrato', 'processo']);
 
         return response()->json([
             'contracts' => $contracts->getCollection()->map(fn (Contract $contract) => [
@@ -189,6 +190,10 @@ class ContractController extends Controller
         }
 
         return response()->view('contracts.form', ['contract' => $contract, 'formActor' => $user,
+            'showAccumulatedValue' => $contract->exists && (
+                ContractAmendment::where('contract_id', $contract->id)->where('status', 'registrado')->where('amount', '!=', '0')->exists()
+                || ContractHistoryRecord::where('contract_id', $contract->id)->where('kind', 'amendment')->where('match_status', 'matched')->where('amount', '!=', '0')->exists()
+            ),
             'latestServiceOrder' => $contract->exists ? ContractServiceOrder::where('contract_id', $contract->id)->orderByDesc('issued_on')->orderByDesc('id')->first(['number', 'issued_on']) : null,
             'contractTypes' => collect(ContractFields::CONTRACT_TYPES)->sortByDesc(fn (string $type) => mb_strlen($type))->values(),
             'typeRules' => ContractTypeRule::orderBy('name')->get(),
@@ -240,9 +245,12 @@ class ContractController extends Controller
     private function savedResponse(Request $request, Contract $contract, string $message)
     {
         $duplicate = Contract::visibleTo($request->user())->where('id', '!=', $contract->id)
-            ->where('numero', $contract->numero)->where('fund_id', $contract->fund_id)
+            ->where('Contrato', $contract->numero)->where('fund_id', $contract->fund_id)
             ->where('exercicio', $contract->exercicio)->where('processo', $contract->processo)->exists();
-        $response = redirect()->route('contracts.show', $contract)->with('status', $message);
+        $stayInEditor = $request->input('_stay_in_editor') === '1';
+        $editorMessage = $request->routeIs('contracts.store') ? 'Regstro Efetuado com Sucesso' : 'Contrato alterado com sucesso.';
+        $response = redirect()->route($stayInEditor ? 'contracts.edit' : 'contracts.show', $contract)
+            ->with('status', $stayInEditor ? $editorMessage : $message);
         if ($request->routeIs('contracts.store')) {
             $response->with('contract_created', true);
         }

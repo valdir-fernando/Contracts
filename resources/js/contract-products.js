@@ -1,5 +1,18 @@
 import { initializeProductBudgetPanel } from './product-budget-panel.js';
 
+export function productBudgetScopeWarning(data) {
+    if (data.fund_matches === false) {
+        return `A ficha pertence a outro Fundo: ${String(data.fund ?? '').trim() || 'não informado'}. Confira os dados exibidos.`;
+    }
+    if (data.department_matches === false) {
+        const department = String(data.department ?? '').trim();
+        return department
+            ? `A ficha pertence a outra Secretaria: ${department}. Confira os dados exibidos.`
+            : 'A ficha não possui Secretaria informada no cadastro e difere da Secretaria selecionada. Confira os dados exibidos.';
+    }
+    return 'A ficha pertence a outro Fundo ou Secretaria. Confira os dados exibidos.';
+}
+
 export function advanceProductVersion(field, expected, next) {
     if (field.value !== String(expected) || Number(next) !== Number(expected) + 1) return false;
     field.value = String(next);
@@ -69,6 +82,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
     const quantity = find('[data-product-quantity]');
     const unitPrice = find('[data-product-field="unit_price"]');
     const budget = find('[data-product-budget]');
+    const productsDialog = form.querySelector('[data-contract-products-dialog]');
     let fichas = [];
     const itemInput = find('[data-product-field="item"]');
     const processCatalog = find('[data-products-show]');
@@ -84,6 +98,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
     let loadSequence = 0;
     let budgetSequence = 0;
     let budgetRequest = null;
+    let lastBudgetLookup = null;
     let itemSequence = 0;
     let itemRequest = null;
     let itemLoading = false;
@@ -122,6 +137,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         root.setAttribute('aria-busy', String(busy || loading || itemLoading));
         save.disabled = busy || loading || itemLoading || stale || !selected;
         remove.disabled = busy || loading || itemLoading || stale || !selected || !editing;
+        find('[data-products-new-ficha]').disabled = busy;
         manual.disabled = busy || editing;
         processCatalog.disabled = busy || manual.checked;
         budget.disabled = busy || stale;
@@ -191,16 +207,23 @@ export function initializeContractProducts(root, fetcher = fetch) {
         }
     }
     function clearBudgetLookup() {
+        lastBudgetLookup = null;
         budgetSequence++;
         budgetRequest?.abort();
         find('[data-product-budget-description]').value = '';
         find('[data-product-budget-allocation]').value = '';
         find('[data-product-budget-status]').textContent = '';
     }
-    function renderFichaValues(rows, totals) {
+    function renderFichaValues(rows, totals, productFichas = [], productValues = [], panel = null) {
         const summary = find('[data-product-budget-totals]');
         summary.replaceChildren();
-        for (const row of rows) {
+        const labels = new Set(rows.map((row) => row.label));
+        const productTotals = new Map(productValues.map((row) => [row.label, row.total]));
+        const productOnly = [...new Set(productFichas)].filter((label) => !labels.has(label))
+            .map((label) => ({ label, total: productTotals.get(label) ?? null, productOnly: true }));
+        const panelRows = panel?.rows ?? [...rows, ...productOnly];
+        totals = panel?.summary ?? totals;
+        for (const row of panelRows) {
             const tr = element('tr');
             const selectFicha = button(row.label, () => {
                 if (busy || stale) return;
@@ -210,7 +233,10 @@ export function initializeContractProducts(root, fetcher = fetch) {
             selectFicha.className = 'text-link';
             selectFicha.setAttribute('aria-label', `Selecionar ficha ${row.label}`);
             cell(tr, selectFicha);
-            cell(tr, formatFichaValue(row.total));
+            const valueCell = cell(tr, formatFichaValue(row.total));
+            if (row.productOnly || row.source === 'products') valueCell.title = row.total === null
+                ? 'Ficha vinculada aos produtos do contrato, sem valor no cadastro de fichas deste contrato.'
+                : 'Valor total dos produtos originais vinculados a esta ficha.';
             summary.append(tr);
         }
         const status = find('[data-product-ficha-status]');
@@ -222,6 +248,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             : invalid ? 'Não foi possível conferir a soma das fichas. Confira os valores cadastrados.' : '';
     }
     function budgetWarning(text, canCreate = false) {
+        if (productsDialog && !productsDialog.open) return;
         const create = find('[data-product-budget-create]');
         if (create) create.hidden = !canCreate;
         if (canCreate && create?.href) {
@@ -234,10 +261,15 @@ export function initializeContractProducts(root, fetcher = fetch) {
         const dialog = find('[data-product-budget-warning]');
         if (!dialog.open) dialog.showModal();
     }
+    function budgetLookupKey() {
+        return JSON.stringify([budget.value.trim(), department && !department.disabled ? department.value : null]);
+    }
     async function lookupBudget() {
+        if (productsDialog && !productsDialog.open) return;
         clearBudgetLookup();
         const ficha = budget.value.trim();
         if (!ficha) return;
+        lastBudgetLookup = budgetLookupKey();
         const sequence = budgetSequence;
         budgetRequest = new AbortController();
         const status = find('[data-product-budget-status]');
@@ -253,10 +285,11 @@ export function initializeContractProducts(root, fetcher = fetch) {
                 find('[data-product-budget-description]').value = data.description;
                 find('[data-product-budget-allocation]').value = data.allocation;
                 status.textContent = '';
-                if (data.scope_matches === false) budgetWarning('A ficha pertence a outro Fundo ou Secretaria. Confira os dados exibidos.');
+                if (data.scope_matches === false) budgetWarning(productBudgetScopeWarning(data));
             } else budgetWarning('Ficha não encontrada no cadastro de dotações.', true);
         } catch (error) {
             if (error.name === 'AbortError' || sequence !== budgetSequence) return;
+            lastBudgetLookup = null;
             budgetWarning('Não foi possível consultar a ficha. Saia do campo novamente para tentar.');
         }
     }
@@ -314,8 +347,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
         find('[data-product-description]').value = '';
         root.querySelectorAll('[data-product-field]').forEach((input) => { input.value = ''; });
         quantity.value = '';
-        clearBudgetLookup();
-        if (budget.value) lookupBudget();
+        if (!budget.value.trim()) clearBudgetLookup();
+        else if (lastBudgetLookup !== budgetLookupKey()) lookupBudget();
         preview();
         find('[data-product-balance]').textContent = '';
         controls();
@@ -433,7 +466,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             fichas = data.fichas ?? [];
 
             updateTotal(data.total_label);
-            renderFichaValues(data.ficha_values ?? [], data.ficha_summary);
+            renderFichaValues(data.ficha_values ?? [], data.ficha_summary, fichas, data.product_ficha_values ?? [], data.ficha_panel);
             const list = find('[data-contract-product-list]');
             list.replaceChildren();
             for (const item of ficha === '' ? [] : data.items) {
@@ -531,12 +564,27 @@ export function initializeContractProducts(root, fetcher = fetch) {
     find('[data-product-budget-warning-ok]').addEventListener('click', () => find('[data-product-budget-warning]').close());
     initializeProductBudgetPanel(find('[data-product-budget-create]'), find('[data-product-budget-warning]'),
         () => { lookupBudget(); refresh(); }, () => budget.focus({ preventScroll: true }));
-    find('[data-product-budget-warning]').addEventListener('close', () => budget.focus({ preventScroll: true }));
+    find('[data-product-budget-warning]').addEventListener('close', () => {
+        if (!productsDialog || productsDialog.open) budget.focus({ preventScroll: true });
+    });
     find('[data-products-save]').addEventListener('click', () => mutate());
     find('[data-products-delete]').addEventListener('click', () => mutate(true));
     find('[data-products-new]').addEventListener('click', () => {
         clear();
         itemInput.focus({ preventScroll: true });
+    });
+    find('[data-products-new-ficha]').addEventListener('click', () => {
+        if (busy) return;
+        budget.value = '';
+        clear();
+        loadSequence++;
+        loading = false;
+        find('[data-contract-product-list]').replaceChildren();
+        const warning = find('[data-product-budget-warning]');
+        if (warning.open) warning.close();
+        message('');
+        controls();
+        budget.focus({ preventScroll: true });
     });
     processCatalog.addEventListener('change', () => {
         if (busy) return;
@@ -568,7 +616,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
     find('[data-product-picker-next]').addEventListener('click', () => { if (pickerPage < pickerLastPage) { pickerPage++; loadPicker(); } });
     const refreshFicha = () => {
         if (busy || stale) return;
-        lookupBudget();
+        if (lastBudgetLookup !== budgetLookupKey()) lookupBudget();
         refresh();
     };
     budget.addEventListener('input', () => {
@@ -576,7 +624,23 @@ export function initializeContractProducts(root, fetcher = fetch) {
         loadSequence++;
         find('[data-contract-product-list]').replaceChildren();
     });
-    budget.addEventListener('blur', refreshFicha);
+    budget.addEventListener('blur', (event) => {
+        if (event.relatedTarget === form.querySelector('[data-contract-products-close]')
+            || find('[data-product-budget-warning]').contains?.(event.relatedTarget)) return;
+        refreshFicha();
+    });
+    const closeProductLookups = () => {
+        clearBudgetLookup();
+        cancelItemLookup();
+        pickerSequence++;
+        pickerRequest?.abort();
+        for (const selector of ['[data-product-budget-warning]', '[data-product-item-warning]', '[data-product-picker]']) {
+            const dialog = find(selector);
+            if (dialog.open) dialog.close();
+        }
+    };
+    form.querySelector('[data-contract-products-close]')?.addEventListener('click', closeProductLookups);
+    productsDialog?.addEventListener('close', closeProductLookups);
     department?.addEventListener('change', lookupBudget);
     form.addEventListener('submit', (event) => {
         if (busy || stale) {

@@ -29,6 +29,11 @@
             <dialog class="catalog-modal product-item-warning" data-budget-delete-dialog aria-labelledby="budget-delete-title"><div class="modal-header"><h2 id="budget-delete-title">Excluir dotação</h2></div><p>Confirma a exclusão da ficha {{ $record->Ficha }}?</p><div class="form-actions"><button class="section-tab" type="submit" form="budget-delete-form">Excluir</button><button class="section-tab" type="button" data-budget-delete-cancel>Cancelar</button></div></dialog>
         @endif
         <p class="hint" data-budget-lookup-status role="status" aria-live="polite"></p>
+        <dialog class="catalog-modal product-item-warning" data-budget-scope-warning aria-labelledby="budget-scope-warning-title" aria-describedby="budget-scope-warning-message">
+            <div class="modal-header"><h2 id="budget-scope-warning-title">Consulta de ficha</h2></div>
+            <p id="budget-scope-warning-message">A ficha pertence a outro Fundo ou Secretaria. Confira os dados exibidos.</p>
+            <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-budget-scope-warning-ok autofocus>OK</button></div>
+        </dialog>
         <p class="hint" data-budget-filter-status role="status" aria-live="polite"></p>
         <div data-budget-list>
             @include('administration.budget-list')

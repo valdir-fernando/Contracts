@@ -1,7 +1,7 @@
 @props(['contract'])
 <div class="contract-document-actions" x-data="{ message: '' }">
     <nav aria-label="Emissão de documentos do contrato">
-        @foreach(['contract' => ['Contrato', 'contracts'], 'extract' => ['Extrato', 'document-extract'], 'publication' => ['Publicação', 'document-publication'], 'termination' => ['Distrato', 'document-termination']] as $kind => [$label, $icon])
+        @foreach(['contract' => ['Contrato', 'contracts'], 'extract' => ['Extrato', 'document-extract'], 'publication' => ['Publicação', 'document-publication']] as $kind => [$label, $icon])
             @php
                 $authorized = auth()->user()->canIssueContracts();
                 $ready = $authorized && $contract->exists && (

@@ -49,13 +49,19 @@
                         @endif
                     </div>
                 </div>
-                <div class="account-password-row">
-                <div class="field"><label for="account-current-password">Senha atual <x-required-mark/></label><x-password-control id="account-current-password"><input id="account-current-password" name="current_password" type="password" autocomplete="current-password" required></x-password-control></div>
-                <div class="field"><label for="account-password">Nova senha (opcional)</label><x-password-control id="account-password"><input id="account-password" name="password" type="password" autocomplete="new-password" minlength="12" aria-describedby="account-password-help"></x-password-control></div>
-                <div class="field account-password-confirmation"><label for="account-password-confirmation">Confirme a nova senha</label><x-password-control id="account-password-confirmation"><input id="account-password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" aria-describedby="account-password-help"></x-password-control><p id="account-password-help" class="hint">Use pelo menos 12 caracteres, letras e números. A alteração da senha encerra as outras sessões.</p></div>
-                </div>
             </div>
-            <button class="primary-button compact"><x-nav-icon name="save"/>Salvar</button>
+            <button class="primary-button compact" type="submit"><x-nav-icon name="save"/>Salvar</button>
+        </form>
+        <hr class="account-password-divider">
+        <form method="POST" action="{{ route('account.password') }}" class="account-details-form">
+            @csrf @method('PUT')
+            <input type="hidden" name="version" value="{{ auth()->user()->session_version }}">
+            <h2>Alterar senha</h2>
+            <div class="account-password-row">
+                <div class="field"><label for="account-current-password">Senha atual <x-required-mark/></label><x-password-control id="account-current-password"><input id="account-current-password" name="current_password" type="password" autocomplete="current-password" required></x-password-control><button class="primary-button compact account-password-submit" type="submit"><x-nav-icon name="save"/>Alterar Senha</button></div>
+                <div class="field"><label for="account-password">Nova senha <x-required-mark/></label><x-password-control id="account-password"><input id="account-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required aria-describedby="account-password-help"></x-password-control></div>
+                <div class="field account-password-confirmation"><label for="account-password-confirmation">Confirme a nova senha <x-required-mark/></label><x-password-control id="account-password-confirmation"><input id="account-password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" maxlength="1024" required aria-describedby="account-password-help"></x-password-control><p id="account-password-help" class="hint">Use pelo menos 12 caracteres, letras e números. A alteração da senha encerra as outras sessões.</p></div>
+            </div>
         </form>
     </section>
 </x-layouts.app>

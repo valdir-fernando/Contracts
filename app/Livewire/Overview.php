@@ -66,7 +66,7 @@ class Overview extends Component
         $query = clone $visible;
         if (trim($this->search) !== '') {
             $search = '%'.trim($this->search).'%';
-            $query->where(fn ($q) => $q->whereLike('numero', $search)->orWhereLike('processo', $search)->orWhereLike('fornecedor_nome_snapshot', $search));
+            $query->where(fn ($q) => $q->whereLike('Contrato', $search)->orWhereLike('processo', $search)->orWhereLike('fornecedor_nome_snapshot', $search));
         }
 
         $alerts = app(ExpirationCalendar::class)->query($user, today(), today()->addDays($user->expiration_alert_days))->where('fund_id', $fundId);

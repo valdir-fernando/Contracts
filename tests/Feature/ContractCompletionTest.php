@@ -126,7 +126,8 @@ class ContractCompletionTest extends TestCase
         $this->put('/account', $data)->assertSessionHasErrors('current_password');
         $data['current_password'] = 'SenhaSegura12345';
         $this->put('/account', $data + ['user_type' => 'Administrador'])->assertSessionHasErrors('user_type');
-        $this->put('/account', $data + ['password' => 'NovaSenhaSegura6789', 'password_confirmation' => 'NovaSenhaSegura6789'])->assertRedirect('/account');
+        $this->put('/account/password', ['current_password' => 'SenhaSegura12345', 'version' => 0,
+            'password' => 'NovaSenhaSegura6789', 'password_confirmation' => 'NovaSenhaSegura6789'])->assertRedirect('/account');
         $this->assertTrue(Hash::check('NovaSenhaSegura6789', $this->regular->fresh()->password));
         $this->assertSame(1, $this->regular->fresh()->session_version);
         $this->assertFalse($this->regular->fresh()->isAdmin());

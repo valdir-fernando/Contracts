@@ -97,8 +97,8 @@ class ContractProductController extends Controller
         if ($result['status'] === 'found') {
             $department = $request->query('department_id', $contract->department_id);
             $departmentId = is_scalar($department) && ctype_digit((string) $department) ? (int) $department : null;
-            $result['scope_matches'] = $catalog->matchesScope($result,
-                (int) ($request->session()->get('fund_id') ?: $contract->fund_id), $departmentId);
+            $result = array_merge($result, $catalog->compareScope($result,
+                (int) ($request->session()->get('fund_id') ?: $contract->fund_id), $departmentId));
         }
 
         return $this->json($result);
@@ -129,8 +129,19 @@ class ContractProductController extends Controller
 
         $fichaCatalog = new FichaValuesCatalog;
         $fichaValues = $fichaCatalog->lookup($contract);
+        $productFichaValues = $allItems->filter(fn ($item) => trim((string) $item->Ficha) !== '')
+            ->groupBy(fn ($item) => trim((string) $item->Ficha))->map(function ($items) {
+                $sum = BigDecimal::zero();
+                foreach ($items as $item) {
+                    $sum = $sum->plus($item->total);
+                }
+
+                return ['label' => trim((string) $items->first()->Ficha), 'total' => (string) $sum->toScale(4)];
+            })->values();
 
         return $this->json(['products' => $rows, 'items' => $items, 'fichas' => $fichas, 'budgets' => $budgets,
+            'ficha_panel' => $fichaCatalog->panel($fichaValues, $productFichaValues->all(), $contract->valor_total),
+            'product_ficha_values' => $productFichaValues,
             'ficha_values' => $fichaValues, 'ficha_summary' => $fichaCatalog->summarize($fichaValues, $contract->valor_total),
             'page' => $products->currentPage(), 'last_page' => $products->lastPage(),
             'contract_version' => $contract->version, 'total' => $contract->valor_total, 'total_label' => Contract::moneyLabel($contract->valor_total)]);

@@ -38,7 +38,7 @@ class ContractSearch
     {
         if ($search = trim($filters['q'] ?? '')) {
             $query->where(function ($query) use ($search) {
-                foreach (['numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot'] as $column) {
+                foreach (['Contrato', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot'] as $column) {
                     $query->orWhereLike($column, '%'.$search.'%');
                 }
                 $document = preg_replace('/\D/', '', $search);

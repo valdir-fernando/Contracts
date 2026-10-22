@@ -62,7 +62,26 @@ export function initializeBudgetDepartment(panel, fetcher = fetch) {
     });
 }
 
-export function initializeBudgetLookup(panel, fetcher = fetch, navigate = (url) => window.location.assign(url)) {
+export async function loadBudgetPanel(panel, url, fetcher, signal, isCurrent) {
+    const selectedFund = panel.querySelector('[data-budget-fund]')?.value;
+    const response = await fetcher(url, { headers: { Accept: 'text/html' }, signal });
+    if (!response.ok) throw new Error('Não foi possível carregar os dados da ficha.');
+    const html = await response.text();
+    if (!isCurrent()) return;
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const replacement = page.querySelector('[data-budget-registration]');
+    if (!replacement) throw new Error('Não foi possível carregar os dados da ficha. Atualize a página e tente novamente.');
+    // Loading an existing record is a read, even if the session still has a save notice.
+    replacement.removeAttribute('data-budget-saved');
+    panel.replaceWith(replacement);
+    initializeBudgetRegistration(replacement);
+    const recordFund = replacement.querySelector('[data-budget-fund]').value;
+    if (selectedFund && selectedFund !== recordFund) {
+        replacement.querySelector('[data-budget-scope-warning]').showModal();
+    } else replacement.querySelector('[data-budget-part="Orgao"]')?.focus({ preventScroll: true });
+}
+
+export function initializeBudgetLookup(panel, fetcher = fetch, navigate = (url, signal, isCurrent) => loadBudgetPanel(panel, url, fetcher, signal, isCurrent)) {
     const ficha = panel.querySelector('[data-budget-part="Ficha"]');
     const form = panel.querySelector('#budget-registration-form');
     const save = form.querySelector('[type="submit"]');
@@ -94,7 +113,8 @@ export function initializeBudgetLookup(panel, fetcher = fetch, navigate = (url) 
             const data = await response.json();
             if (current !== sequence || ficha.value.trim() !== value) return;
             if (!response.ok) throw new Error(data.message || 'Não foi possível consultar a ficha.');
-            if (data.status === 'found') navigate(data.url);
+            if (data.status === 'found') await navigate(data.url, request.signal,
+                () => current === sequence && ficha.value.trim() === value);
             status.textContent = '';
         } catch (error) {
             if (error.name !== 'AbortError' && current === sequence) status.textContent = error.message;
@@ -104,10 +124,12 @@ export function initializeBudgetLookup(panel, fetcher = fetch, navigate = (url) 
     });
 }
 
-if (typeof document !== 'undefined') {
-    document.querySelectorAll('[data-budget-registration]').forEach((panel) => {
+export function initializeBudgetRegistration(panel) {
         initializeBudgetDepartment(panel);
         initializeBudgetLookup(panel);
+        const scopeWarning = panel.querySelector('[data-budget-scope-warning]');
+        panel.querySelector('[data-budget-scope-warning-ok]')?.addEventListener('click', () => scopeWarning.close());
+        scopeWarning?.addEventListener('close', () => panel.querySelector('[data-budget-part="Orgao"]')?.focus({ preventScroll: true }));
         const parts = [...panel.querySelectorAll('[data-budget-part]')];
         const update = () => {
             panel.querySelector('[data-budget-code]').value = composeBudgetCode(Object.fromEntries(parts.map((input) => [input.dataset.budgetPart, input.value])));
@@ -119,5 +141,8 @@ if (typeof document !== 'undefined') {
         if (panel.hasAttribute('data-budget-saved')) {
             try { localStorage.setItem('contracts-budget-changed', JSON.stringify({ time: Date.now() })); } catch { /* Storage may be disabled. */ }
         }
-    });
+}
+
+if (typeof document !== 'undefined') {
+    document.querySelectorAll('[data-budget-registration]').forEach(initializeBudgetRegistration);
 }

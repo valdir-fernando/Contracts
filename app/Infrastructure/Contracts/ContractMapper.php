@@ -10,7 +10,10 @@ final class ContractMapper
 {
     public static function toDomain(Contract $model): ContractState
     {
-        $original = $model->getAttributes();
+        $original = [];
+        foreach ($model->getAttributes() as $field => $value) {
+            $original[$field === 'Contrato' ? 'numero' : $field] = $value;
+        }
         $attributes = $original;
         foreach (ContractFields::MAP as $definition) {
             if ($definition['type'] === 'money' && array_key_exists($definition['column'], $original)) {
@@ -25,7 +28,11 @@ final class ContractMapper
     public static function toModel(ContractState $contract, bool $recentlyCreated = false): Contract
     {
         $model = new Contract;
-        $model->setRawAttributes($contract->original(), true);
+        $original = [];
+        foreach ($contract->original() as $field => $value) {
+            $original[$field === 'numero' ? 'Contrato' : $field] = $value;
+        }
+        $model->setRawAttributes($original, true);
         $model->exists = $contract->id !== null;
         $model->wasRecentlyCreated = $recentlyCreated;
         $changes = [];

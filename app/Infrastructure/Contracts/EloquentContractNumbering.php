@@ -49,7 +49,7 @@ final class EloquentContractNumbering implements ContractNumbering
         $highest = 0;
         // Parse original text in PHP so legacy spaces/tabs are not missed by SQL LIKE.
         $contracts = Contract::withTrashed()->where('fund_id', $fundId)->orderBy('id')
-            ->select(['id', 'numero', 'number_year', 'exercicio'])->lockForUpdate()->get();
+            ->select(['id', 'Contrato', 'number_year', 'exercicio'])->lockForUpdate()->get();
         foreach ($contracts as $contract) {
             $knownYear = $contract->number_year ?? $contract->exercicio;
             if ($knownYear !== null && (int) $knownYear !== $year) {

@@ -4,6 +4,7 @@ namespace App\Application\Contracts;
 
 use App\Application\Contracts\Ports\ContractAccess;
 use App\Application\Contracts\Ports\ContractCatalog;
+use App\Application\Contracts\Ports\ContractCreationDate;
 use App\Application\Contracts\Ports\ContractInputValidator;
 use App\Application\Contracts\Ports\ContractNumbering;
 use App\Application\Contracts\Ports\ContractStore;
@@ -24,11 +25,14 @@ final class SaveContract
         private ContractCatalog $catalog,
         private ContractStore $store,
         private ContractNumbering $numbering,
+        private ContractCreationDate $creationDate,
     ) {}
 
     public function execute(ActorIdentity $actor, array $input, ?int $targetId = null): ContractState
     {
-        return $this->transactions->run(function () use ($actor, $input, $targetId) {
+        $creationDate = $targetId === null ? $this->creationDate->today() : null;
+
+        return $this->transactions->run(function () use ($actor, $input, $targetId, $creationDate) {
             $context = $this->access->lockForSave($actor, $targetId);
             $validated = $this->inputValidator->validate($context, $input);
             $data = $validated->values;
@@ -36,7 +40,12 @@ final class SaveContract
             if ($targetId !== null && (int) $data['version'] !== $contract->version()) {
                 throw new ConcurrencyConflict('O contrato foi alterado por outra pessoa. Recarregue os dados antes de salvar.');
             }
-            $contract = $contract->with($validated->fields);
+            $fields = $validated->fields;
+            unset($fields['data_cont_verd']);
+            $contract = $contract->with($fields);
+            if ($targetId === null) {
+                $contract = $contract->with(['data_cont_verd' => $creationDate]);
+            }
             $fundId = $data['fund_id'] ?? $contract->get('fund_id');
             $departmentId = array_key_exists('department_id', $data) ? $data['department_id'] : $contract->get('department_id');
             $fundId = $fundId === null ? null : (int) $fundId;

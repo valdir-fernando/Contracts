@@ -28,6 +28,8 @@ final class LaravelContractInputValidator implements ContractInputValidator
 
     public function validate(AuthorizedContract $context, array $input): ValidatedContractInput
     {
+        // Creation date is assigned by the use case; old or manipulated client values are ignored.
+        unset($input['data_cont_verd']);
         $contract = ContractMapper::toModel($context->contract);
         $updating = $contract->exists;
         if (! $updating && $this->request->routeIs('contracts.store')) {
@@ -93,6 +95,9 @@ final class LaravelContractInputValidator implements ContractInputValidator
         $writable = [];
         foreach (ContractFields::MAP as $source => $definition) {
             $column = $definition['column'];
+            if ($column === 'data_cont_verd') {
+                continue;
+            }
             if ($this->request->routeIs('contracts.store', 'contracts.update') && (in_array($source, ContractFields::EXECUTION_SUMMARY) || $column === 'prazo_obra')) {
                 $rules[$column] = 'prohibited';
 

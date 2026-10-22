@@ -12,6 +12,7 @@
     <form data-contract-form data-supplier-original-document="{{ ($contract->exists && ($formActor->isAdmin() || strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot)) === 14)) ? \App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot) : '' }}" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" x-data="{ step: 0, all: false }" x-init="$nextTick(() => ($el.querySelector('#department_id:not(:disabled)') || $el.querySelector('#tipo'))?.focus({ preventScroll: true }))" method="POST" novalidate @unless($contract->exists) data-supplier-prefill="{{ json_encode(array_intersect_key($values, array_flip(['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'rg_fornec', 'doc_prof', 'pis_pasep', 'end_fornec', 'socio', 'cpf_socio', 'rg_socio'])), JSON_THROW_ON_ERROR) }}" @endunless action="{{ $contract->exists ? route('contracts.update', $contract) : route('contracts.store') }}">
         @csrf @if($contract->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $contract->version }}">@endif
         <input type="hidden" name="_contract_form_id" value="{{ $contract->id ?? '' }}">
+        <input type="hidden" name="_stay_in_editor" value="1">
         @if($contract->exists)<span hidden data-supplier-document-type="{{ match (strlen(\App\Services\Legacy\Normalizer::document($contract->fornecedor_documento_snapshot))) { 11 => 'CPF', 14 => 'CNPJ', default => '' } }}"></span>@endif
         @if(!$contract->exists || (int) $contract->fund_id === (int) (request()->attributes->get('selected_fund')['id'] ?? 0))
             <span hidden data-inspector-assistance data-url="{{ route('contracts.inspector-defaults') }}" data-contract-id="{{ $contract->exists ? $contract->id : '' }}" data-preserve-fiscal="{{ $contract->exists && (string) $formValue('department_id', $values['department_id'] ?? $contract->department_id) === (string) $contract->department_id ? 'true' : 'false' }}"></span>
@@ -39,7 +40,7 @@
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
         </div>
-        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab products-button" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">{{ count($groups) + 1 }}.Produtos</button><button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true">Expandir Tudo</button></nav>
+        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)@continue($group === 'Publicação distrato e paralisação')<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab products-button" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">{{ count($groups) + 1 }}.Produtos</button><button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true"><x-nav-icon name="documents"/>Expandir Tudo</button></nav>
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
@@ -213,9 +214,17 @@
             <div class="contract-section"><x-contract-products :contract="$contract"/></div>
         </dialog>
         <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
-            <div class="field contract-items-total">
-                <label for="contract-items-total">Valor do contrato</label>
-                <input id="contract-items-total" readonly aria-readonly="true" placeholder="A calcular" value="{{ $contract->exists ? \App\Models\Contract::moneyLabel($contract->valor_total) : '' }}">
+            <div class="contract-action-values">
+                <div class="field contract-items-total">
+                    <label for="contract-items-total">Valor do contrato</label>
+                    <input id="contract-items-total" readonly aria-readonly="true" placeholder="A calcular" value="{{ $contract->exists ? \App\Models\Contract::moneyLabel($contract->valor_total) : '' }}">
+                </div>
+                @if($showAccumulatedValue)
+                    <div class="field contract-items-total">
+                        <label for="contract-accumulated-total">Valor Acumulado do contrato</label>
+                        <input id="contract-accumulated-total" readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}">
+                    </div>
+                @endif
             </div>
             @if($contract->exists)
                 @can('delete', $contract)<a class="section-tab" href="{{ route('contracts.show', $contract) }}#delete-contract"><x-nav-icon name="trash"/>Excluir</a>@endcan

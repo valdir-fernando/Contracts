@@ -31,7 +31,7 @@ class ContractServiceOrderController extends Controller
             $query->where('contract_id', $contract->id);
         }
         $orders = $query->orderByDesc('id')->paginate(10);
-        $orderContracts = Contract::visibleTo($actor)->whereIn('id', $orders->pluck('contract_id'))->get(['id', 'numero'])->keyBy('id');
+        $orderContracts = Contract::visibleTo($actor)->whereIn('id', $orders->pluck('contract_id'))->get(['id', 'Contrato'])->keyBy('id');
         $orderAmendments = ContractAmendment::withTrashed()->whereIn('contract_id', $orderContracts->keys())
             ->whereIn('id', $orders->pluck('amendment_id')->filter())->get(['id', 'number'])->keyBy('id');
         $amendments = ContractAmendment::withTrashed()->where('contract_id', $contract->id)->orderBy('number')->get(['id', 'number', 'deleted_at']);

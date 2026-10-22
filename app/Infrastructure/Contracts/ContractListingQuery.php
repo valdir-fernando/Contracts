@@ -33,9 +33,9 @@ class ContractListingQuery
         }
 
         return [
-            'contracts' => $contracts->select(['deleted_at', 'version', 'administrative_status', 'tipo', 'id', 'numero', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot',
+            'contracts' => $contracts->select(['deleted_at', 'version', 'administrative_status', 'tipo', 'id', 'Contrato', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot',
                 'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'valor_total', 'vigencia_inicio', 'vigencia_fim_original',
-                'vigencia_fim_atual', 'vigencia_em_revisao', 'ownership_resolved'])->orderBy($filters['sort'] ?? 'exercicio', $filters['direction'] ?? 'desc')->orderByDesc('id')->paginate(20)->withQueryString(),
+                'vigencia_fim_atual', 'vigencia_em_revisao', 'ownership_resolved'])->orderBy(($filters['sort'] ?? '') === 'numero' ? 'Contrato' : ($filters['sort'] ?? 'exercicio'), $filters['direction'] ?? 'desc')->orderByDesc('id')->paginate(20)->withQueryString(),
             'funds' => $funds, 'departments' => $departments, 'years' => $years, 'types' => $types, 'modalities' => $modalities,
         ];
     }

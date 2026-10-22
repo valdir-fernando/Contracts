@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initializeContractProducts } from '../../resources/js/contract-products.js';
+import { initializeContractProducts, productBudgetTotals } from '../../resources/js/contract-products.js';
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-function panel(fichaSummary, budgetResults = {}) {
+function panel(fichaSummary, budgetResults = {}, fichaValues = null, fichaPanel = undefined) {
     const previous = Object.fromEntries(['document', 'Node', 'ResizeObserver', 'window'].map((key) => [key, globalThis[key]]));
     let doc;
     class Element {
@@ -18,7 +18,7 @@ function panel(fichaSummary, budgetResults = {}) {
         append(...nodes) { this.children.push(...nodes); }
         replaceChildren(...nodes) { this.children = nodes; this.text = ''; }
         addEventListener(name, callback) { (this.listeners[name] ??= []).push(callback); }
-        emit(name) { return Promise.all((this.listeners[name] ?? []).map((callback) => callback({ preventDefault() {}, stopImmediatePropagation() {} }))); }
+        emit(name, detail = {}) { return Promise.all((this.listeners[name] ?? []).map((callback) => callback({ preventDefault() {}, stopImmediatePropagation() {}, ...detail }))); }
         setAttribute() {}
         setCustomValidity(message) { this.validityMessage = message; }
         reportValidity() { return !this.validityMessage; }
@@ -59,7 +59,7 @@ function panel(fichaSummary, budgetResults = {}) {
     const fetcher = async (url, options) => {
         const parsed = new URL(url, 'http://contracts.test');
         calls.push({ url: parsed, options });
-        if (parsed.pathname.endsWith('budget-lookup')) return response(budgetResults[parsed.searchParams.get('ficha')] ?? { status: 'not_found' });
+        if (parsed.pathname.endsWith('budget-lookup')) return response(await (budgetResults[parsed.searchParams.get('ficha')] ?? { status: 'not_found' }));
         if (options.method === 'POST') {
             const payload = JSON.parse(options.body);
             items.push({ ...row(3, payload.ficha), description: payload.description });
@@ -72,11 +72,14 @@ function panel(fichaSummary, budgetResults = {}) {
             return response({ contract_version: serverVersion, total_label: 'R$ 20,00' });
         }
         const ficha = parsed.searchParams.get('ficha');
-        const data = { contract_version: serverVersion, total_label: 'R$ 20,00', ficha_values: [...new Set(items.map((item) => item.Ficha))].map((label) => ({ label, total: '10.0000' })), ficha_summary: fichaSummary,
+        const data = { contract_version: serverVersion, total_label: 'R$ 20,00', ficha_values: fichaValues ?? [...new Set(items.map((item) => item.Ficha))].map((label) => ({ label, total: '10.0000' })), ficha_summary: fichaSummary,
+            product_ficha_values: productBudgetTotals(items),
+            ficha_panel: fichaPanel,
             fichas: [...new Set(items.map((item) => item.Ficha))], items: items.filter((item) => !ficha || item.Ficha === ficha) };
         if (ficha === '001' && hold001) return new Promise((resolve) => { release001 = () => resolve(response(data)); });
         return response(data);
     };
+    find('[data-contract-products-dialog]').open = true;
     initializeContractProducts(root, fetcher);
     return { find, version, calls, notifyBudgetSaved: () => storageListener({ key: 'contracts-budget-changed' }), hold: () => { hold001 = true; }, release: () => { hold001 = false; release001(); },
         restore: () => Object.entries(previous).forEach(([key, value]) => { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }) };
@@ -95,6 +98,47 @@ test('ficha panel warns only when sum exceeds contract value or cannot be checke
             assert.match(ui.find('[data-product-ficha-status]').textContent, expected);
         } finally { ui.restore(); }
     }
+});
+
+test('ficha panel uses product totals for fichas missing from value records and preserves registered values', async () => {
+    const ui = panel({ difference: '0.0000', matches: true }, {
+        '001': { status: 'found', description: 'Material', allocation: '02.01', scope_matches: true },
+    }, [{ label: '002', total: '20.0000' }]);
+    try {
+        await settle();
+        const rows = ui.find('[data-product-budget-totals]').children;
+        assert.deepEqual(rows.map((row) => row.children[0].textContent), ['002', '001']);
+        assert.equal(rows[0].children[1].textContent, '20,0000');
+        assert.equal(rows[1].children[1].textContent, '10,0000');
+        assert.match(rows[1].children[1].title, /Valor total dos produtos originais/);
+        assert.equal(ui.find('[data-product-ficha-status]').textContent, '');
+        await rows[1].children[0].children[0].emit('click'); await settle();
+        assert.equal(ui.find('[data-product-budget]').value, '001');
+        assert.match(ui.find('[data-contract-product-list]').textContent, /Produto 001/);
+        assert.doesNotMatch(ui.find('[data-contract-product-list]').textContent, /Produto 002/);
+        assert.equal(ui.find('[data-product-budget-totals]').children.length, 2);
+    } finally { ui.restore(); }
+});
+
+test('server panel projection controls original ficha rows and their matching summary', async () => {
+    const ui = panel({ difference: '999.0000', matches: false }, {
+        '001': { status: 'found', description: 'Material', allocation: '02.01', scope_matches: true },
+    }, [{ label: 'AMENDMENT', total: '999.0000' }], {
+        rows: [{ label: '001', total: '198000.0000', source: 'products' }],
+        summary: { total: '198000.0000', contract_total: '198000.0000', difference: '0.0000', matches: true },
+    });
+    try {
+        await settle();
+        const rows = ui.find('[data-product-budget-totals]').children;
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].children[0].textContent, '001');
+        assert.equal(rows[0].children[1].textContent, '198.000,0000');
+        assert.equal(ui.find('[data-product-ficha-status]').textContent, '');
+        await rows[0].children[0].children[0].emit('click'); await settle();
+        assert.equal(ui.find('[data-product-budget]').value, '001');
+        assert.match(ui.find('[data-contract-product-list]').textContent, /Produto 001/);
+        assert.equal(ui.find('[data-product-budget-totals]').children.length, 1);
+    } finally { ui.restore(); }
 });
 
 test('opening and clearing keep products empty; selection filters and ignores late responses', async () => {
@@ -187,6 +231,184 @@ test('changing ficha fills its description and allocation automatically and clea
             }
         }
     } finally { ui.restore(); }
+});
+
+test('closing products after acknowledging a ficha warning does not query or reopen a modal', async () => {
+    const ui = panel(undefined, {
+        '001': { status: 'found', description: 'Material', allocation: '02.01', scope_matches: false },
+    });
+    try {
+        await settle();
+        const ficha = ui.find('[data-product-budget]');
+        await ui.find('[data-product-budget-totals]').children[0].children[0].children[0].emit('click');
+        await settle();
+        const warning = ui.find('[data-product-budget-warning]');
+        assert.equal(warning.open, true);
+        await ui.find('[data-product-budget-warning-ok]').emit('click');
+        await warning.emit('close');
+        const before = ui.calls.length;
+        await ficha.emit('blur', { relatedTarget: ui.find('[data-contract-products-close]') });
+        const dialog = ui.find('[data-contract-products-dialog]');
+        dialog.open = false;
+        await ui.find('[data-contract-products-close]').emit('click');
+        await dialog.emit('close');
+        await settle();
+        assert.equal(ui.calls.length, before);
+        assert.equal(warning.open, false);
+        let focused = false;
+        ficha.focus = () => { focused = true; };
+        await warning.emit('close');
+        assert.equal(focused, false);
+    } finally { ui.restore(); }
+});
+
+test('late ficha responses cannot open a warning after closing products', async () => {
+    let resolveLookup;
+    const ui = panel(undefined, { '001': new Promise((resolve) => { resolveLookup = resolve; }) });
+    try {
+        await settle();
+        const ficha = ui.find('[data-product-budget]');
+        ficha.value = '001';
+        await ficha.emit('blur');
+        await settle();
+        const dialog = ui.find('[data-contract-products-dialog]');
+        dialog.open = false;
+        await dialog.emit('close');
+        resolveLookup({ status: 'found', description: 'Material', allocation: '02.01', scope_matches: false });
+        await settle();
+        assert.equal(ui.find('[data-product-budget-warning]').open, false);
+        assert.equal(ui.find('[data-product-budget-description]').value, '');
+    } finally { ui.restore(); }
+});
+
+test('acknowledging a scope warning allows leaving ficha for other fields without repeating it', async () => {
+    const ui = panel(undefined, {
+        '001': { status: 'found', description: 'Material', allocation: '02.01', scope_matches: false },
+        '002': { status: 'found', description: 'Servicos', allocation: '03.01', scope_matches: false },
+    });
+    try {
+        await settle();
+        const ficha = ui.find('[data-product-budget]');
+        const warning = ui.find('[data-product-budget-warning]');
+        await ui.find('[data-product-budget-totals]').children[0].children[0].children[0].emit('click');
+        await settle();
+        assert.equal(warning.open, true);
+        await ui.find('[data-product-budget-warning-ok]').emit('click');
+        await warning.emit('close');
+        const lookupCount = () => ui.calls.filter((call) => call.url.pathname.endsWith('budget-lookup')).length;
+        const before = lookupCount();
+        for (const target of ['[data-product-field="item"]', '[data-product-quantity]', '[data-products-manual]']) {
+            await ficha.emit('blur', { relatedTarget: ui.find(target) });
+            await settle();
+            assert.equal(warning.open, false);
+            assert.equal(lookupCount(), before);
+            assert.equal(ui.find('[data-product-budget-description]').value, 'Material');
+        }
+        ficha.value = '002';
+        await ficha.emit('input');
+        await ficha.emit('blur'); await settle();
+        assert.equal(warning.open, true);
+        assert.equal(lookupCount(), before + 1);
+        assert.equal(ui.find('[data-product-budget-description]').value, 'Servicos');
+    } finally { ui.restore(); }
+});
+
+test('Novo clears product fields while preserving the consulted ficha without repeating its warning', async () => {
+    const ui = panel(undefined, {
+        '001': { status: 'found', description: 'Material', allocation: '02.01', scope_matches: false },
+    });
+    try {
+        await settle();
+        const ficha = ui.find('[data-product-budget]');
+        ficha.value = '001';
+        await ficha.emit('blur'); await settle();
+        const warning = ui.find('[data-product-budget-warning]');
+        assert.equal(warning.open, true);
+        await ui.find('[data-product-budget-warning-ok]').emit('click');
+        await warning.emit('close');
+        const manual = ui.find('[data-products-manual]');
+        manual.checked = true;
+        await manual.emit('change');
+        ui.find('[data-product-field="item"]').value = '123';
+        ui.find('[data-product-description]').value = 'Produto novo';
+        ui.find('[data-product-quantity]').value = '5';
+        const before = ui.calls.length;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            await ui.find('[data-products-new]').emit('click'); await settle();
+            assert.equal(warning.open, false);
+            assert.equal(ui.calls.length, before);
+            assert.equal(ficha.value, '001');
+            assert.equal(ui.find('[data-product-budget-description]').value, 'Material');
+            assert.equal(ui.find('[data-product-budget-allocation]').value, '02.01');
+            assert.equal(ui.find('[data-product-field="item"]').value, '');
+            assert.equal(ui.find('[data-product-description]').value, '');
+            assert.equal(ui.find('[data-product-quantity]').value, '');
+            assert.equal(manual.checked, false);
+        }
+    } finally { ui.restore(); }
+});
+
+test('Nova Ficha clears product and budget fields, empties products and focuses ficha despite a pending list', async () => {
+    const ui = panel(undefined, {
+        '001': { status: 'found', description: 'Material', allocation: '02.01', scope_matches: true },
+    });
+    try {
+        await settle();
+        const ficha = ui.find('[data-product-budget]');
+        ficha.value = '001';
+        await ficha.emit('blur'); await settle();
+        assert.equal(ui.find('[data-contract-product-list]').children.length, 1);
+        const manual = ui.find('[data-products-manual]');
+        manual.checked = true; await manual.emit('change');
+        ui.find('[data-product-field="item"]').value = '123';
+        ui.find('[data-product-description]').value = 'Produto novo';
+        ui.find('[data-product-quantity]').value = '5';
+        ui.hold();
+        // An unchanged ficha still refreshes the list; its late response must not restore it.
+        await ficha.emit('blur'); await settle();
+        let focused = false;
+        ficha.focus = () => { focused = true; };
+        const before = ui.calls.length;
+        await ui.find('[data-products-new-ficha]').emit('click');
+        assert.equal(focused, true);
+        assert.equal(ficha.value, '');
+        assert.equal(ui.find('[data-product-budget-description]').value, '');
+        assert.equal(ui.find('[data-product-budget-allocation]').value, '');
+        assert.equal(ui.find('[data-product-field="item"]').value, '');
+        assert.equal(ui.find('[data-product-description]').value, '');
+        assert.equal(ui.find('[data-product-quantity]').value, '');
+        assert.equal(manual.checked, false);
+        assert.equal(ui.find('[data-product-budget-totals]').children.length, 2);
+        assert.equal(ui.find('[data-contract-product-list]').children.length, 0);
+        assert.equal(ui.calls.length, before);
+        ui.release(); await settle();
+        assert.equal(ui.find('[data-contract-product-list]').children.length, 0);
+        assert.equal(ui.find('[data-product-budget-warning]').open, false);
+    } finally { ui.restore(); }
+});
+
+test('scope warnings name only the mismatched fund or, when fund matches, the department', async () => {
+    for (const [data, expected, excluded] of [
+        [{ fund_matches: false, department_matches: true, fund: 'FMS', department: 'PROCURADORIA' }, /outro Fundo: FMS/, /Secretaria|PROCURADORIA/],
+        [{ fund_matches: false, department_matches: false, fund: 'FMS', department: 'PROCURADORIA' }, /outro Fundo: FMS/, /Secretaria|PROCURADORIA/],
+        [{ fund_matches: true, department_matches: false, fund: 'MUNICIPIO', department: 'PROCURADORIA' }, /outra Secretaria: PROCURADORIA/, /Fundo|MUNICIPIO/],
+        [{ fund_matches: true, department_matches: false, department: '' }, /não possui Secretaria informada/, /Fundo/],
+    ]) {
+        const ui = panel(undefined, { '001': { status: 'found', scope_matches: false, description: 'Material', allocation: '02.01', ...data } });
+        try {
+            await settle();
+            const ficha = ui.find('[data-product-budget]');
+            ficha.value = '001'; await ficha.emit('blur'); await settle();
+            assert.equal(ui.find('[data-product-budget-warning]').open, true);
+            const text = ui.find('[data-product-budget-warning-message]').textContent;
+            assert.match(text, expected);
+            assert.doesNotMatch(text, excluded);
+            assert.equal(ui.find('[data-product-budget-description]').value, 'Material');
+            await ui.find('[data-product-budget-warning-ok]').emit('click');
+            await ficha.emit('blur'); await settle();
+            assert.equal(ui.find('[data-product-budget-warning]').open, false);
+        } finally { ui.restore(); }
+    }
 });
 
 test('typing and change do not query ficha until the input loses focus', async () => {
