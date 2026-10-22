@@ -285,7 +285,8 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .contract-administration-row > .contract-document-actions { flex: 0 1 auto; min-width: 0; }
 .contract-administration-fields .field-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 10px 12px; }
 @media (max-width: 650px) { .contract-administration-fields .field-grid { grid-template-columns: minmax(0, 1fr); } }
-.contract-administration-fields .field > label { margin-bottom: 3px; }
+.contract-administration-fields .field > label, .contract-administration-fields .field-label-row { display: flex; align-items: center; min-height: 22px; margin-bottom: 3px; }
+.contract-administration-fields .field-label-row > label { color: #4b5f7c; font-size: 12px; font-weight: 600; }
 [data-contract-editor] .contract-section { padding-block: 8px; }
 [data-contract-editor] .contract-section > h2 { margin-bottom: 18px; color: #163b65; font-size: 18px; font-weight: 750; }
 [data-contract-editor] .contract-section > .field { margin-bottom: 0; }
@@ -324,7 +325,7 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .section-tab.active { border-color: #c8d9f3; background: #edf3fd; color: var(--primary); }
 [data-contract-editor] .contract-section-navigation { margin: 0 0 var(--section-gap); }
 .section-tabs.contract-section-navigation { display: grid; grid-auto-flow: column; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: clamp(3px, .5vw, 8px); padding-bottom: 0; overflow: visible; }
-.contract-section-navigation .section-tab { min-width: 0; padding-inline: 4px; font-size: clamp(10px, .8vw, 11px); text-align: center; overflow-wrap: anywhere; }
+.contract-section-navigation .section-tab { min-width: 0; height: 40px; min-height: 40px; max-height: 40px; padding: 2px 4px; font-size: clamp(10px, .8vw, 11px); line-height: 1.15; text-align: center; overflow-wrap: anywhere; overflow: hidden; }
 :is(.contract-section-navigation, .action-toolbar) .section-tab { background-color: #163b65; border-color: #163b65; color: #7dbbff; }
 :is(.contract-section-navigation, .action-toolbar) .section-tab:hover, :is(.contract-section-navigation, .action-toolbar) .section-tab:focus-visible, :is(.contract-section-navigation, .action-toolbar) .section-tab.active { background-color: #a9c9ed; border-color: #a9c9ed; color: #000000; }
 .action-toolbar .section-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
