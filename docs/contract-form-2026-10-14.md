@@ -1,5 +1,19 @@
 # Formulário de contratos — 14/10/2026
 
+## Painéis reservados no acervo — 22/10/2026
+
+Na tela Contratos, os botões Aditivo e Distrato aparecem após Novo contrato, sob a mesma permissão de apresentação. Cada botão abre um painel modal vazio com título e fechamento por X ou Escape, reservado para implementação futura. Não há formulários de gravação, novas rotas ou alteração dos fluxos existentes de aditivos/distrato.
+
+Validação: `docker compose exec -T app php artisan view:cache` e `view:clear`; `docker compose run --rm --no-deps node npm run build`; `docker compose exec -T app php vendor/bin/phpunit --filter='ContractIssuancePermissionTest|test_authenticated_pages_do_not_display_the_fund_switcher' --do-not-cache-result` (4 testes, 65 asserções, SQLite isolado); `git diff --check`. Todos passaram. Sem conferência visual autenticada no navegador.
+
+## Confirmação ao salvar a edição — 22/10/2026
+
+O botão Salvar do formulário de edição retorna ao próprio editor e exibe “Contrato alterado com sucesso.”, em vez de abrir os detalhes do contrato. A página do editor é recarregada com os dados persistidos, Secretaria e versão atuais, permitindo continuar a edição. O formulário envia `_stay_in_editor=1` como preferência de apresentação; esse campo não autoriza operações nem integra o patch persistido. As verificações de ator, contrato, policy, versão, validação e auditoria permanecem no fluxo existente. Criação e requisições externas sem essa preferência preservam seus redirecionamentos anteriores.
+
+O formulário de novo contrato também envia essa preferência: ao salvar, abre o próprio editor do registro criado e exibe “Regstro Efetuado com Sucesso”, conforme o texto solicitado, sem passar pela tela de detalhes. O número atribuído, a versão e os painéis de produtos/documentos passam a usar o contrato persistido. Requisições sem a preferência mantêm o contrato HTTP anterior. Validação adicional: `docker compose exec -T app php vendor/bin/phpunit --filter=ContractWritingTest --do-not-cache-result` passou (42 testes, 712 asserções, SQLite isolado); Pint `--test` dos dois PHP alterados e `git diff --check` passaram. Sem build adicional, por alterar somente PHP e campo oculto da view; sem conferência visual autenticada.
+
+Validação: `docker compose exec -T app php vendor/bin/phpunit --filter='ContractWritingTest|InspectorDefaultsTest' --do-not-cache-result` passou (50 testes, 812 asserções, SQLite e storage isolados); Pint `--test` de ContractController e ContractWritingTest passou; `docker compose exec -T app composer check:architecture` passou (3 testes, 4 asserções); `git diff --check` passou. Sem alteração de assets ou build adicional; sem conferência visual autenticada no navegador.
+
 ## Verificação final antes dos commits
 
 Na consolidação das alterações de contratos, fornecedores e Ordens de Serviço, foram executados pelo Docker: `composer check` (Pint passou; 366 testes, 3346 asserções, 1 ignorado), `composer check:architecture` (3 testes), `composer test:unit` (57 testes), `npm test` (39 testes) e `npm run build`, todos com sucesso. A suíte PHP usou SQLite em memória e storage/cache temporários, sem testes no banco instalado. `git diff --check` passou. A única migration aplicada nesta sessão foi a aditiva de Ordens de Serviço, no MySQL local; a nova soma de produtos/serviços ainda não foi implementada. Não houve implantação em hospedagem externa.

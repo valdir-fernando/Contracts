@@ -1,5 +1,31 @@
 # Painel de fichas do contrato original
 
+## Projeção única após a separação dos produtos — 22/10/2026
+
+O endpoint de produtos retorna também `ficha_panel`, com `rows` e `summary` produzidos por `FichaValuesCatalog::panel`. O navegador usa essa projeção para a lista e a conferência. Os campos anteriores da resposta continuam disponíveis para compatibilidade.
+
+As linhas combinam somente os valores de fichas originais já filtrados e os totais de `OriginalContractProducts`. Fichas exclusivas dos aditivos da nova tabela são excluídas mesmo quando o cadastro antigo de valores não identifica o aditivo. Linhas repetidas do cadastro para a mesma ficha são somadas exatamente em uma única linha. O valor cadastrado tem prioridade; a soma dos produtos preenche apenas fichas sem valor cadastrado. Valor inválido ou nulo no cadastro não é ocultado pelo valor dos produtos. Zeros à esquerda distinguem as fichas.
+
+O resumo da projeção confere exatamente as linhas exibidas com o valor original do contrato; não duplica cadastro e produtos e não depende da ficha selecionada. Isso substitui, somente para o painel atualizado, o resumo anterior baseado exclusivamente em `ficha_values`. Os resumos antigos da API continuam preservados. Não há gravação de valores, saldos ou contratos pela consulta.
+
+Validação: `node --test tests/JavaScript/*.test.mjs` (128 testes); `docker compose exec -T app php vendor/bin/phpunit --filter='ContractProductsTest|AmendmentProductSeparationTest' --do-not-cache-result` (48 testes, 567 asserções, SQLite isolado); Pint `--test` dos três PHP alterados; `docker compose exec -T app composer check:architecture` (3 testes, 4 asserções); build Docker; `git diff --check`. Todos passaram. A leitura local do contrato 005/25 confirmou uma única linha, 20250084/198000.0000, com resumo correspondente. Sem conferência visual autenticada no navegador.
+
+## Exclusão de fichas exclusivas de aditivos — 22/10/2026
+
+A consulta de valores também cruza a proveniência dos produtos do mesmo contrato, Fundo e processo. `OriginalContractProducts::amendmentOnlyFichas` identifica fichas usadas exclusivamente por itens com `ADT` ou `Proc_ADT` preenchidos. Essas fichas são excluídas de `FichaValuesCatalog::lookup`, inclusive quando a linha de `tb_ValorFicha` está sem marcação de aditivo. Se a mesma ficha também possui um item original válido, ela permanece disponível para o contrato. Produtos excluídos, de outro processo/Fundo/contrato ou com origem desconhecida não classificam uma ficha como aditivo.
+
+A regra se aplica à lista, à consulta individual e à conferência dos valores. Não altera registros nem origens importadas. Para o contrato 005/25, processo 2025000453, a leitura local confirmou 20260058 como exclusiva do aditivo e 20250084 como ficha do produto original; somente 20250084 aparece no painel, com o valor dos produtos (198000.0000).
+
+Validação executada: `docker compose exec -T app php vendor/bin/phpunit --filter=ContractProductsTest --do-not-cache-result` (39 testes, 466 asserções, SQLite isolado); `docker compose exec -T app composer check:architecture` (3 testes, 4 asserções); Pint dos três PHP alterados (um ajuste de espaçamento aplicado em OriginalContractProducts); `git diff --check`. Sem alteração de assets ou build adicional; sem conferência visual autenticada no navegador.
+
+## Inclusão das fichas vinculadas aos produtos — 22/10/2026
+
+A lista visual também inclui as fichas retornadas em `fichas` pelo endpoint de produtos, derivadas exclusivamente de `OriginalContractProducts`. As fichas de produtos ausentes em `ficha_values` são acrescentadas sem duplicar as já exibidas e podem ser selecionadas para carregar os produtos. Para essas fichas, o valor exibido usa `product_ficha_values`, uma projeção adicional da soma decimal exata dos produtos originais por ficha, calculada no servidor antes do filtro da lista. O título da célula identifica a origem como valor dos produtos. Valores já cadastrados em `ficha_values` têm prioridade e não são somados novamente. `ficha_summary` continua conferindo exclusivamente o cadastro de valores das fichas; o fallback visual não gera lançamentos nem altera contratos, dotações ou saldos. Respostas anteriores sem a nova projeção continuam exibindo “—” para as fichas adicionais.
+
+Verificação local somente de leitura confirmou, para o contrato 005/25, processo 2025000453, a ficha 20260058 nos valores e a ficha 20250084 nos produtos originais. O painel passa a apresentar ambas. Nenhuma ficha ou valor foi alterado no banco.
+
+Validação: `node --test tests/JavaScript/*.test.mjs` (127 testes passaram, incluindo seleção de ficha de produto ausente nos valores, valor dos produtos, prioridade do valor cadastrado e preservação da conferência); `docker compose exec -T app php vendor/bin/phpunit --filter=ContractProductsTest --do-not-cache-result` (38 testes, 453 asserções, SQLite isolado; somas exatas, fichas distintas com zeros à esquerda e manutenção das somas ao filtrar a lista); Pint `--test` dos dois PHP alterados, `docker compose exec -T app composer check:architecture` (3 testes, 4 asserções), build Docker e `git diff --check` passaram. Sem conferência visual autenticada no navegador.
+
 ## Atualização em 21/10/2026
 
 O painel aceita `N_ADT` nulo ou zero quando `Proc_ADT` está vazio, mantendo os filtros de Fundo, Contrato e Processo e a autorização existentes. A inspeção somente de leitura do banco local encontrou 1.460 registros sem processo de aditivo, todos com `N_ADT=0`; o filtro anterior ocultava essas fichas. Nenhum registro foi alterado. Esta regra substitui a interpretação estrita de zero descrita no histórico abaixo.

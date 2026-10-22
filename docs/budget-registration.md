@@ -1,5 +1,15 @@
 # Cadastro de Dotação
 
+## Preenchimento pela Ficha — 22/10/2026
+
+Ao preencher Ficha e sair do campo, a consulta exata existente localiza o registro ativo autorizado. Agora o formulário de edição retornado pelo servidor substitui o formulário no próprio painel, preenchendo todos os campos, Fundo e Secretaria, e preservando a revisão, as ações de salvar/excluir e a dotação histórica. Este comportamento substitui a navegação de página descrita no histórico abaixo. A leitura não dispara a notificação de gravação nem fecha o painel de produtos. O foco segue para Órgão.
+
+Se havia um Fundo selecionado e o registro encontrado pertence a outro Fundo, o formulário preenchido exibe o mesmo aviso do Cadastro de produtos: “A ficha pertence a outro Fundo ou Secretaria. Confira os dados exibidos.” O aviso é informativo e compara o Fundo selecionado antes do carregamento com o Fundo do registro autorizado; não altera permissões nem grava dados. OK fecha o aviso e leva o foco a Órgão, sem repetir a consulta. Fundo igual ou não selecionado não dispara o aviso. O teste JavaScript do carregamento cobre esses três cenários e o fechamento por OK.
+
+Ficha não encontrada mantém os valores para novo cadastro. Duplicidades e falhas apresentam aviso; respostas antigas não substituem o painel após o usuário trocar a ficha. Os endpoints e seus contratos HTTP permanecem iguais: a consulta retorna estado/URL e o carregamento do formulário reautoriza o acesso. Nenhum registro é gravado pela consulta.
+
+Validação executada: `node --test tests/JavaScript/*.test.mjs` (125 testes passaram); `docker compose exec -T app php vendor/bin/phpunit --filter=BudgetRegistrationTest --do-not-cache-result` (10 testes, 101 asserções, SQLite e storage isolados); `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram. Sem conferência visual autenticada no navegador.
+
 O botão **Cadastro de Dotação**, na listagem de Dotação ou no aviso de ficha não encontrada em Cadastro de produtos, abre o formulário. No segundo caminho, uma nova aba preserva os painéis de contrato/produtos e sugere a ficha, Fundo e Secretaria. Essas sugestões não autorizam operações: todas as permissões e destinos são revalidados no servidor.
 
 O formulário segue o modelo `Reference/Cad_Dotacao.jpg`: Ficha, Órgão, Gestão, Unidade, Função, Sub-Função, Programa, Projeto, Código, Fonte, Descrição e Dotação Orçamentária. Fundo/Secretaria definem o escopo do registro. A identificação interna não aparece como campo. A lista possui paginação e links nas fichas para abrir um cadastro existente.
