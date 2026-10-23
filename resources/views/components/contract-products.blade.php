@@ -1,12 +1,13 @@
 @props(['contract', 'showAccumulatedValue' => false])
+@php($codeLabel = mb_strtolower(trim((string) $contract->tipo)) === 'credenciamento' && filled($contract->cargo_credenc) ? 'CATSER' : 'Código')
 @if($contract->exists)
-<div data-contract-products data-enter-scope data-base="{{ route('contracts.products.index', $contract) }}">
+<div data-contract-products data-enter-scope data-catser-editable="{{ $codeLabel === 'CATSER' ? 'true' : 'false' }}" data-base="{{ route('contracts.products.index', $contract) }}">
     <p data-product-feedback role="status" aria-live="polite"></p>
     <dialog class="catalog-modal product-picker-dialog" data-product-picker aria-labelledby="product-picker-title">
         <div class="modal-header"><h2 id="product-picker-title">Selecionar produto</h2></div>
         <p data-product-picker-context></p>
         <p data-product-picker-status role="status" aria-live="polite"></p>
-        <div class="product-list-scroll product-picker-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>Marca</th><th>UND</th><th>QTD</th><th>VL. Unitário</th><th>Ação</th></tr></thead><tbody data-product-picker-rows></tbody></table></div>
+        <div class="product-list-scroll product-picker-list"><table class="data-table"><thead><tr><th>Item</th><th>{{ $codeLabel }}</th><th>Produto</th><th>Marca</th><th>UND</th><th>QTD</th><th>VL. Unitário</th><th>Ação</th></tr></thead><tbody data-product-picker-rows></tbody></table></div>
         <div class="form-actions action-toolbar product-picker-navigation">
             <button type="button" class="section-tab" data-product-picker-previous disabled><x-nav-icon name="arrow" /> Anterior</button>
             <span data-product-picker-page></span>
@@ -53,7 +54,7 @@
                     <label>Item<input type="text" data-product-field="item" maxlength="100"></label>
                     <button type="button" class="product-item-search-button" data-product-item-search aria-label="Buscar item" title="Buscar item"><x-nav-icon name="search"/></button>
                 </div>
-                <label>Código<input data-product-field="code" readonly></label>
+                <label>{{ $codeLabel }}<input data-product-field="code" maxlength="100" @if($codeLabel !== 'CATSER') readonly @endif></label>
                 <label>Marca<input data-product-field="brand" readonly></label>
                 <label>UND<input data-product-field="unit" readonly></label>
                 <label>Disponível<input data-product-field="disp" readonly aria-label="Disponibilidade calculada" title="Soma lançada para o Item, fornecedor e processo menos QTD do produto; mínimo zero"></label>
@@ -80,7 +81,7 @@
     </div>
     <div class="product-panel-total"><label>Total da Ficha<input data-product-contract-total readonly aria-readonly="true" value="0,0000"></label></div>
     </div>
-    <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
+    <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>{{ $codeLabel }}</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
     <div class="product-contract-values">
         <label>Valor Total do Contrato<input data-product-heading-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label>
         @if($showAccumulatedValue)

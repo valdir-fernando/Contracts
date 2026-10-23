@@ -39,6 +39,8 @@ final class ProcurementProducts
         return $this->transactions->run(function () use ($actor, $id, $input, $allocationId, $remove) {
             $context = $this->access->lockForSave($actor, $id);
             TransactionGuard::requireActive();
+            $contract = Contract::findOrFail($id);
+            $catser = mb_strtolower(trim((string) $contract->tipo)) === 'credenciamento' && filled($contract->cargo_credenc);
             $allocation = $allocationId ? ContractProduct::where('contract_id', $id)->whereKey($allocationId)->lockForUpdate()->firstOrFail() : null;
             $manual = $allocation ? $allocation->product_id === null : filter_var($input['manual'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $data = Validator::make($input, [
@@ -52,7 +54,7 @@ final class ProcurementProducts
                 'unit_price' => $remove ? 'prohibited' : 'sometimes|required|string|max:40',
                 'description' => $manual && ! $remove ? 'required|string|max:5000' : 'prohibited',
                 'unit' => $manual && ! $remove ? 'required|string|max:40' : 'prohibited',
-                'code' => $manual && ! $remove ? 'sometimes|nullable|string|max:100' : 'prohibited',
+                'code' => ($manual || $catser) && ! $remove ? 'sometimes|nullable|string|max:100' : 'prohibited',
                 'brand' => $manual && ! $remove ? 'sometimes|nullable|string|max:255' : 'prohibited',
                 'item' => $manual && ! $remove ? 'sometimes|nullable|string|max:100' : 'prohibited',
             ])->validate();
@@ -65,7 +67,6 @@ final class ProcurementProducts
             if ((int) $data['contract_version'] !== $context->contract->version()) {
                 throw new ConflictHttpException('O contrato mudou. Recarregue a página antes de continuar.');
             }
-            $contract = Contract::findOrFail($id);
             abort_if($allocation && ! (new OriginalContractProducts)->isOriginal($allocation, $contract), 404);
             $product = $manual ? null : ProcurementProduct::whereKey($allocation?->product_id ?? $data['product_id'])->lockForUpdate()->firstOrFail();
             $processCatalog = ! $manual && ($remove ? (bool) $allocation->process_catalog : (bool) ($data['process_catalog'] ?? $allocation?->process_catalog ?? false));
@@ -134,6 +135,9 @@ final class ProcurementProducts
                 if ($manual) {
                     $allocation->fill(['item' => $data['item'] ?? $allocation->item, 'code' => $data['code'] ?? '',
                         'description' => $data['description'], 'unit' => $data['unit'], 'brand' => $data['brand'] ?? '']);
+                }
+                if ($catser && array_key_exists('code', $data)) {
+                    $allocation->code = $data['code'] ?? '';
                 }
                 $allocation->fill(['quantity' => $quantity, 'unit_price' => $price, 'total' => $total,
                     'process_catalog' => $processCatalog,

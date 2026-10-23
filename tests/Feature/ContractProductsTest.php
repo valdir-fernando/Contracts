@@ -54,6 +54,49 @@ class ContractProductsTest extends TestCase
         $this->actingAs($this->admin);
     }
 
+    public function test_product_code_labels_use_catser_only_for_health_accreditation(): void
+    {
+        foreach ([
+            ['Credenciamento', 'Técnico em Enfermagem', 'CATSER'],
+            ['Credenciamento', null, 'Código'],
+            ['Credenciamento', '   ', 'Código'],
+            ['Fornecimento', 'Técnico em Enfermagem', 'Código'],
+        ] as [$type, $role, $label]) {
+            $this->contract->forceFill(['tipo' => $type, 'cargo_credenc' => $role])->save();
+            $response = $this->get($this->url().'/edit')->assertOk();
+            $document = new \DOMDocument;
+            @$document->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+            $xpath = new \DOMXPath($document);
+            $field = $xpath->query('//label[input[@data-product-field="code"]]')->item(0);
+            $header = $xpath->query('//div[contains(@class,"product-contract-list")]//thead/tr/th[2]')->item(0);
+            $this->assertNotNull($field);
+            $this->assertNotNull($header);
+            $this->assertSame($label, trim($field->textContent));
+            $this->assertSame($label, trim($header->textContent));
+            $this->assertSame($label !== 'CATSER', $xpath->query('//input[@data-product-field="code"]')->item(0)->hasAttribute('readonly'));
+        }
+    }
+
+    public function test_catser_can_be_saved_and_edited_without_changing_catalog_code(): void
+    {
+        $this->contract->forceFill(['tipo' => 'Credenciamento', 'cargo_credenc' => 'Enfermagem'])->save();
+        $this->add('2', null, ['code' => '12345'])->assertCreated();
+        $item = ContractProduct::where('contract_id', $this->contract->id)->firstOrFail();
+        $this->assertSame('12345', $item->code);
+        $this->assertSame('12345', $item->Cod_Prod);
+        $this->putJson($this->url().'/products/'.$item->id, $this->data(['quantity' => '2', 'code' => '67890']))->assertOk();
+        $this->assertSame('67890', $item->fresh()->code);
+        $this->assertSame('67890', $item->fresh()->Cod_Prod);
+        $this->assertSame('CAD-01', ProcurementProduct::findOrFail($this->productId)->Cod_Prod);
+        $this->assertSame('67890', ContractAudit::where('contract_id', $this->contract->id)->latest('id')->firstOrFail()->changes['products']['after']['code']);
+
+        $this->contract->refresh()->forceFill(['cargo_credenc' => null])->save();
+        $this->putJson($this->url().'/products/'.$item->id, $this->data(['quantity' => '2', 'code' => 'FORGED']))->assertUnprocessable();
+        $this->assertSame('67890', $item->fresh()->code);
+        $this->contract->forceFill(['tipo' => 'Fornecimento', 'cargo_credenc' => 'Enfermagem'])->save();
+        $this->putJson($this->url().'/products/'.$item->id, $this->data(['quantity' => '2', 'code' => 'FORGED']))->assertUnprocessable();
+    }
+
     private function url(?Contract $contract = null): string
     {
         return '/contracts/'.($contract ?? $this->contract)->id;

@@ -359,7 +359,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
     }
     function manualFields() {
         unitPrice.readOnly = !manual.checked;
-        ['code', 'brand', 'unit'].forEach((field) => { find(`[data-product-field="${field}"]`).readOnly = !manual.checked; });
+        ['code', 'brand', 'unit'].forEach((field) => { find(`[data-product-field="${field}"]`).readOnly = !manual.checked && !(field === 'code' && root.dataset.catserEditable === 'true'); });
         const description = find('[data-product-description]');
         description.readOnly = !manual.checked;
         description.setAttribute('aria-readonly', String(!manual.checked));
@@ -505,6 +505,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             data.ficha = budget.value;
             data.process_catalog = processCatalog.checked;
             data.manual = manual.checked;
+            if (root.dataset.catserEditable === 'true') data.code = find('[data-product-field="code"]').value;
             if (manual.checked) {
                 data.item = itemInput.value.trim() || 'MANUAL';
                 data.description = find('[data-product-description]').value;
