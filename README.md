@@ -1,5 +1,7 @@
 # Contracts
 
+[Entrega de 23/10/2026 e validação antes do push](docs/delivery-2026-10-23.md).
+
 O botão **Contrato** também emite o PDF de **Obras**, usando o modelo Word fornecido e concordância automática para uma ou várias dotações. [Preenchimento e validação](docs/works-contract.md).
 
 Produtos dos aditivos ficam em `tb_Prtodutos_Aditivos`, com origem histórica, referências do aditivo e auditoria preservadas. [Estrutura, separação segura e comandos](docs/amendment-product-separation.md).
