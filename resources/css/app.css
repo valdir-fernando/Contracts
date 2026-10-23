@@ -168,6 +168,7 @@ p { margin-block: 0 16px; }
 .document-action { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 40px; min-height: 40px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: white; color: var(--nav); font-size: 11px; font-weight: 650; white-space: nowrap; transition: transform .15s, background-color .15s, box-shadow .15s; }
 .document-action > svg { width: 16px; height: 16px; flex-shrink: 0; }
 .document-action:hover, .document-action:focus-visible { transform: translateY(-3px); background: #eaf1fc; box-shadow: 0 5px 14px #172b4918; }
+.document-action:is(:hover, :focus-visible) { z-index: 3; }
 .document-action:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .document-action-tooltip { position: absolute; z-index: 10; right: 0; top: calc(100% + 8px); width: min(230px, 75vw); padding: 10px 12px; border-radius: 8px; background: #dbeafe; color: #163b65; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; font-weight: 400; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .15s; }
 .document-action:hover .document-action-tooltip, .document-action:focus-visible .document-action-tooltip { visibility: visible; opacity: 1; }
@@ -445,15 +446,14 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .product-contract-list .data-table :is(th, td):nth-child(1) { width: 50px; }
 .product-contract-list .data-table :is(th, td):nth-child(2) { width: 54px; }
 .product-contract-list .data-table th:nth-child(2) { white-space: nowrap; }
-.product-contract-list .data-table :is(th, td):nth-child(4) { width: 55px; }
+.product-contract-list .data-table :is(th, td):nth-child(4) { width: 71px; }
 .product-contract-list .data-table :is(th, td):nth-child(6) { width: 120px; }
 .product-contract-list .data-table :is(th, td):is(:nth-child(5), :nth-child(7), :nth-child(8)) { width: 100px; text-align: right; }
-.product-contract-list .data-table :is(th, td):nth-child(5) { width: 94px; }
+.product-contract-list .data-table :is(th, td):nth-child(5) { width: 86px; }
 .product-contract-list .data-table :is(th, td):is(:nth-child(1), :nth-child(2), :nth-child(4), :nth-child(5)) { text-align: center; }
 .product-contract-list .data-table :is(th, td):nth-child(9) { width: 80px; text-align: center; }
-.product-contract-list .data-table :is(th, td):nth-child(10) { width: 80px; text-align: center; }
-.product-contract-list .data-table td { font-size: 13px; }
-.product-contract-list .data-table td:is(:nth-child(2), :nth-child(9)) { font-size: 12px; }
+.product-contract-list .data-table :is(th, td):nth-child(10) { width: 72px; padding-inline: 4px; text-align: center; }
+.product-contract-list .data-table td { font-size: 11px; }
 .product-panel-total { display: flex; justify-content: flex-end; margin-top: 10px; }
 .product-panel-total input { text-align: right; font-weight: 650; }
 .product-contract-values { display: flex; align-items: end; gap: 12px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
@@ -1084,7 +1084,9 @@ body.modal-open { overflow: hidden; }
 .supplier-registration-modal .modal-header { align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .supplier-registration-modal .modal-header h2 { margin-top: 2px; }
 .supplier-registration-modal > .modal-description { margin-bottom: 8px; line-height: 1.4; }
-.supplier-header-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.supplier-header-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 0; margin-left: auto; }
+.supplier-registration-modal > .modal-header > .modal-close { margin: 0; }
+.supplier-registration-modal > .modal-header > .modal-close svg { width: 18px; height: 18px; }
 .supplier-header-actions > :disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 600px) { .supplier-header-actions { order: 1; width: 100%; } .supplier-header-actions > button { flex: 1; } }
 .supplier-registration-modal > form { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
@@ -1335,6 +1337,10 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-editor input[name="Nome_Gestor"] { text-transform: uppercase; }
 .manager-email { grid-column: span 2; }
 .action-toolbar .registration-decree { margin-inline-end: auto; }
+
+/* Shared column headers, including sticky headers in product lists. */
+.workspace :is(.data-table, .table-scroll table) thead th { background: #4b5563; color: #ffffff; border-color: #6b7280; }
+.workspace :is(.data-table, .table-scroll table) thead th :is(a, button, svg) { color: inherit; }
 .registration-decree .document-action-tooltip { inset-inline-start: 0; inset-inline-end: auto; }
 @media (max-width: 600px) { .manager-email { grid-column: auto; } }
 .workspace-content:has(> .fund-page) > .workspace-top { margin-bottom: 8px; }
@@ -1509,6 +1515,14 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     border-color: #e6c200;
     color: #000;
     box-shadow: 0 3px 7px #172b4933;
+}
+
+:root .product-budget-summary .data-table button.text-link,
+:root .product-budget-summary .data-table button.text-link:is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--primary);
+    box-shadow: none;
 }
 
 /* Join the selected contract tab to the panel outline. */
