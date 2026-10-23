@@ -44,7 +44,7 @@
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
-            <section class="surface contract-section contract-editor-section" data-editor-section="{{ $loop->index }}" x-show="all || step === {{ $loop->index }}"><h2 tabindex="-1">{{ $group }}</h2><div class="form-grid">
+            <section class="surface contract-section contract-editor-section" data-editor-section="{{ $loop->index }}" x-show="all || step === {{ $loop->index }}"><h2 tabindex="-1">{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência/OS/Garantia', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</h2><div class="form-grid">
                 @foreach($fields as $source => $definition)
                     @continue(in_array($source, \App\Support\ContractFields::EXECUTION_SUMMARY))
                     @continue($source === 'Ext_Garantia')

@@ -75,13 +75,17 @@ p { margin-block: 0 16px; }
 .brand-subtitle { display: block; margin: 12px 10px 8px; color: #9ca9c2; font-size: 11px; }
 .workspace-nav nav { display: grid; gap: 5px; }
 .nav-section-label { margin: 25px 12px 9px; color: #8d9bb5; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; }
+.workspace-nav .nav-administration-title { color: #ffd700; }
 .nav-link { display: flex; align-items: center; gap: 12px; min-height: 43px; padding: 10px 12px; border: 1px solid transparent; border-radius: 7px; color: #c1d2eb; font-size: 13px; font-weight: 500; text-decoration: none; transition: background .15s, color .15s; }
 .nav-link svg { width: 18px; height: 18px; color: #91acd2; }
 .nav-link:hover { color: white; background: #ffffff08; }
 .nav-link.selected { color: white; background: #3267c8; border-color: #91b5ed33; box-shadow: 0 3px 8px #0000000a; }
 .nav-link.selected svg { color: #e5efff; }
 .nav-link.selected::after { content: ''; width: 5px; height: 5px; margin-left: auto; border-radius: 50%; background: #8db8ff; flex-shrink: 0; }
+.workspace-nav .nav-link { border-bottom-color: #739fe644; }
 .nav-bottom { margin-top: auto; padding-top: 30px; }
+.workspace-nav .nav-bottom > .nav-link { border-bottom-color: transparent; }
+.nav-bottom > .nav-account { margin-top: 2px; }
 .nav-account { display: flex; gap: 10px; align-items: center; margin-top: 14px; padding: 18px 6px 0; border-top: 1px solid #ffffff12; font-size: 11px; }
 .nav-account > div { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .nav-account strong { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
@@ -144,7 +148,7 @@ p { margin-block: 0 16px; }
 .field-info-button { display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border: 1px solid #163b65; border-radius: 50%; color: #163b65; font-size: 13px; font-weight: 750; }
 .field-info-button[hidden] { display: none; }
 .field-info-button:hover, .field-info-button:focus-visible { background: #a9c9ed; }
-.field-help-popover { position: fixed; inset: auto; margin: 0; width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 16px; border: 1px solid #c8d9f3; border-radius: 10px; background: #fff; color: #26364b; text-align: left; font-size: 13px; line-height: 1.6; box-shadow: 0 8px 28px #172b4933; }
+.field-help-popover { position: fixed; inset: auto; margin: 0; width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 16px; border: 1px solid #c8d9f3; border-radius: 10px; background: #dbeafe; color: #163b65; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; box-shadow: 0 8px 28px #172b4933; }
 .field-help-popover p { margin: 8px 0; }
 :is(#scope-help, #iptu-help, #work-type-help) { width: min(760px, calc(100vw - 24px)); padding: 20px 24px; font-size: 14px; }
 #work-type-help ul { padding-left: 20px; list-style: disc; }
@@ -165,7 +169,7 @@ p { margin-block: 0 16px; }
 .document-action > svg { width: 16px; height: 16px; flex-shrink: 0; }
 .document-action:hover, .document-action:focus-visible { transform: translateY(-3px); background: #eaf1fc; box-shadow: 0 5px 14px #172b4918; }
 .document-action:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
-.document-action-tooltip { position: absolute; z-index: 10; right: 0; top: calc(100% + 8px); width: min(230px, 75vw); padding: 10px 12px; border-radius: 8px; background: var(--nav); color: white; text-align: left; font-size: 12px; line-height: 1.5; font-weight: 400; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.document-action-tooltip { position: absolute; z-index: 10; right: 0; top: calc(100% + 8px); width: min(230px, 75vw); padding: 10px 12px; border-radius: 8px; background: #dbeafe; color: #163b65; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; font-weight: 400; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .15s; }
 .document-action:hover .document-action-tooltip, .document-action:focus-visible .document-action-tooltip { visibility: visible; opacity: 1; }
 .document-action-message { max-width: 46ch; margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .document-action, .document-action-tooltip { transition: none; } .document-action:hover, .document-action:focus-visible { transform: none; } }
@@ -991,10 +995,10 @@ select:not([multiple]):not([size]) { appearance: none; background-image: url("da
 .login-description { font-size: 13px; }
 .sidebar-toggle-mark { display: none; }
 .sidebar-toggle-icon { display: inline-grid; place-items: center; }
-.nav-tooltip { position: fixed; z-index: 100; padding: 9px 13px; border-radius: 8px; border: 1px solid #ffffff15; background: #243b5c; color: #f0f5ff; font-size: 12px; line-height: 1.5; box-shadow: 0 6px 18px #183d6720; pointer-events: none; }
+.nav-tooltip { position: fixed; z-index: 100; padding: 9px 13px; border-radius: 8px; border: 1px solid #c8d9f3; background: #dbeafe; color: #163b65; max-width: min(230px, calc(100vw - 16px)); white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; box-shadow: 0 6px 18px #183d6720; pointer-events: none; }
 .nav-tooltip[hidden] { display: none; }
 @media (min-width: 1025px) {
-    .workspace-nav { top: 0; height: 100svh; margin: 0; padding: 24px 20px 18px; border: 0; border-right: 1px solid #2a4264; border-radius: 0; background: #172b49; box-shadow: none; }
+    .workspace-nav { top: 0; height: 100svh; margin: 0; padding: 24px 20px 18px; border: 0; border-radius: 0; background: #172b49; box-shadow: none; }
     .workspace-brand { font-size: 23px; letter-spacing: -.9px; gap: 11px; }
     .brand-subtitle { margin: 8px 0 12px 47px; color: #9db5d8; font-size: 11px; }
     .nav-section-label { margin: 24px 12px 10px; color: #90a9cc; font-size: 10px; letter-spacing: .13em; }
@@ -1492,3 +1496,60 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 }
 
 .budget-panel-content { padding: 12px; }
+
+/* General buttons use gold; dedicated action colors remain intact. */
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button) {
+    background-color: #ffd700;
+    border-color: #ffd700;
+    color: #000;
+    box-shadow: 0 2px 4px #172b4926;
+}
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+    background-color: #e6c200;
+    border-color: #e6c200;
+    color: #000;
+    box-shadow: 0 3px 7px #172b4933;
+}
+
+/* Join the selected contract tab to the panel outline. */
+[data-contract-form] > .contract-section-navigation {
+    position: relative;
+    z-index: 2;
+    margin-bottom: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dce4ef;
+    align-items: end;
+}
+[data-contract-form] > .contract-panels-scroll {
+    border: 1px solid #dce4ef;
+    border-top: 0;
+    border-radius: 0 0 9px 9px;
+    background: #fff;
+}
+[data-contract-form] > .contract-panels-scroll > .contract-editor-section {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+:root [data-contract-form] > .contract-section-navigation .section-tab.active:not(.expand-all-button) {
+    position: relative;
+    bottom: -1px;
+    border-color: #dce4ef;
+    border-bottom-color: #fff;
+    border-radius: 6px 6px 0 0;
+    background: #fff;
+    color: #000;
+    box-shadow: none;
+    overflow: visible;
+}
+:root [data-contract-form] > .contract-section-navigation .section-tab.active:not(.expand-all-button)::after {
+    content: '';
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    bottom: -8px;
+    height: 8px;
+    background: #fff;
+    border-inline: 1px solid #dce4ef;
+    pointer-events: none;
+}

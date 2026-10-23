@@ -174,8 +174,8 @@ document.querySelectorAll('[data-nav-label]').forEach((link) => {
         const rect = link.getBoundingClientRect();
         navTooltip.textContent = link.dataset.navLabel;
         navTooltip.hidden = false;
-        navTooltip.style.left = `${rect.right + 16}px`;
-        navTooltip.style.top = `${Math.max(8, Math.min(innerHeight - navTooltip.offsetHeight - 8, rect.top + (rect.height - navTooltip.offsetHeight) / 2))}px`;
+        navTooltip.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - navTooltip.offsetWidth - 8))}px`;
+        navTooltip.style.top = `${Math.max(8, Math.min(innerHeight - navTooltip.offsetHeight - 8, rect.bottom + 8))}px`;
         link.setAttribute('aria-describedby', navTooltip.id);
     };
     link.addEventListener('mouseenter', show);

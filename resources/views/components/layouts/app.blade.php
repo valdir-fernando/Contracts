@@ -15,9 +15,8 @@
                 <button class="sidebar-toggle" type="button" aria-label="Recolher barra lateral" title="Recolher barra lateral" aria-expanded="true" aria-controls="workspace-menu" data-sidebar-toggle><span class="sidebar-toggle-mark" aria-hidden="true"><x-brand-mark/></span><span class="sidebar-toggle-icon"><x-nav-icon name="sidebar"/></span></button>
                 <button class="menu-toggle" type="button" aria-label="Abrir menu de navegação" aria-expanded="false" aria-controls="workspace-menu" data-menu-toggle><x-nav-icon name="menu"/></button>
             </div>
-            <span class="brand-subtitle">Gestão de contratos</span>
             <nav id="workspace-menu" aria-label="Navegação principal">
-                <div class="nav-section-label">Acompanhamento</div>
+                <div class="nav-section-label nav-administration-title">Menu de navegação</div>
                 @foreach([
                     ['dashboard', 'dashboard', 'Início', 'dashboard'],
                     ['contracts.index', 'contracts.*', 'Contratos', 'contracts'],
@@ -55,7 +54,7 @@
                     @endif
                 @endforeach
                 @if(auth()->user()->isAdmin())
-                    <div class="nav-section-label">Administração</div>
+                    <div class="nav-section-label nav-administration-title">Administração</div>
                     @foreach([
                         ['catalogs.index', 'catalogs.*', 'Órgãos e permissões', 'catalogs'],
                         ['contract-types.index', 'contract-types.*', 'Requisitos por tipo', 'settings'],
