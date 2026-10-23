@@ -26,7 +26,7 @@
                 ] as [$route, $pattern, $label, $icon])
                     @if($route === 'contracts.index')
                         <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
-                        <details class="nav-catalogs" @if(request()->routeIs('catalogs.*', 'suppliers.*', 'funds.*', 'users.*')) open @endif>
+                        <details class="nav-catalogs" @if(request()->routeIs('catalogs.list', 'catalogs.inspectors', 'catalogs.contract-stewards', 'catalogs.managers', 'catalogs.budgets.*', 'suppliers.*', 'funds.*', 'users.*')) open @endif>
                             <summary class="nav-link" aria-label="Cadastros" data-nav-label="Cadastros"><x-nav-icon name="catalogs"/><span>Cadastros</span></summary>
                             <div class="nav-submenu">
                                 @if(auth()->user()->isAdmin())
@@ -56,7 +56,7 @@
                 @if(auth()->user()->isAdmin())
                     <div class="nav-section-label nav-administration-title">Administração</div>
                     @foreach([
-                        ['catalogs.index', 'catalogs.*', 'Órgãos e permissões', 'catalogs'],
+                        ['catalogs.index', ['catalogs.index', 'catalogs.show'], 'Órgãos e permissões', 'catalogs'],
                         ['contract-types.index', 'contract-types.*', 'Requisitos por tipo', 'settings'],
                         ['administration.index', 'administration.*', 'Auditoria e conciliação', 'audit'],
                     ] as [$route, $pattern, $label, $icon])
@@ -72,6 +72,26 @@
                     <form method="POST" action="{{ route('logout') }}">@csrf<button class="logout-button" type="submit" aria-label="Sair" title="Sair"><x-nav-icon name="logout"/></button></form>
                 </div>
             </div>
+            <script data-sidebar-position>
+                (() => {
+                    const menu = document.getElementById('workspace-menu');
+                    const catalogs = menu.querySelector('.nav-catalogs');
+                    const key = 'contracts.menu-position';
+                    try {
+                        const saved = JSON.parse(sessionStorage.getItem(key));
+                        if (saved && Number.isFinite(saved.top) && typeof saved.catalogsOpen === 'boolean') {
+                            catalogs.open = saved.catalogsOpen;
+                            menu.scrollTop = saved.top;
+                        }
+                    } catch {}
+                    const save = () => {
+                        try { sessionStorage.setItem(key, JSON.stringify({ top: menu.scrollTop, catalogsOpen: catalogs.open })); } catch {}
+                    };
+                    menu.addEventListener('scroll', save, { passive: true });
+                    menu.addEventListener('click', save);
+                    catalogs.addEventListener('toggle', save);
+                })();
+            </script>
         </aside>
         <main class="workspace-content" id="main-content" tabindex="-1" @if($contractEditor) data-contract-editor @endif>
             <header @class(['workspace-top', 'workspace-top-compact' => request()->routeIs('contracts.create'), 'workspace-top-contract' => $summaryInHeader])>
