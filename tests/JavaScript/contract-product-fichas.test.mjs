@@ -4,7 +4,7 @@ import { initializeContractProducts, productBudgetTotals } from '../../resources
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-function panel(fichaSummary, budgetResults = {}, fichaValues = null, fichaPanel = undefined) {
+function panel(fichaSummary, budgetResults = {}, fichaValues = null, fichaPanel = undefined, products = []) {
     const previous = Object.fromEntries(['document', 'Node', 'ResizeObserver', 'window'].map((key) => [key, globalThis[key]]));
     let doc;
     class Element {
@@ -73,8 +73,9 @@ function panel(fichaSummary, budgetResults = {}, fichaValues = null, fichaPanel 
         }
         const ficha = parsed.searchParams.get('ficha');
         const data = { contract_version: serverVersion, total_label: 'R$ 20,00', ficha_values: fichaValues ?? [...new Set(items.map((item) => item.Ficha))].map((label) => ({ label, total: '10.0000' })), ficha_summary: fichaSummary,
+            selected_ficha_total: ficha === '001' ? '0.3003' : '0.0000',
             product_ficha_values: productBudgetTotals(items),
-            ficha_panel: fichaPanel,
+            ficha_panel: fichaPanel, products, page: 1, last_page: 1,
             fichas: [...new Set(items.map((item) => item.Ficha))], items: items.filter((item) => !ficha || item.Ficha === ficha) };
         if (ficha === '001' && hold001) return new Promise((resolve) => { release001 = () => resolve(response(data)); });
         return response(data);
@@ -84,6 +85,119 @@ function panel(fichaSummary, budgetResults = {}, fichaValues = null, fichaPanel 
     return { find, version, calls, notifyBudgetSaved: () => storageListener({ key: 'contracts-budget-changed' }), hold: () => { hold001 = true; }, release: () => { hold001 = false; release001(); },
         restore: () => Object.entries(previous).forEach(([key, value]) => { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }) };
 }
+
+test('product picker groups unit prices and preserves all four decimal places', async () => {
+    const prices = ['2530.9200', '99999999999999.9999', '0', null];
+    const ui = panel(null, {}, null, undefined, prices.map((unit_price, id) => ({
+        id, item: String(id), code: 'C', description: 'Produto', brand: 'Marca', unit: 'UND',
+        remaining: '1.0000', available: true, unit_price,
+    })));
+    try {
+        await settle();
+        await ui.find('[data-product-item-search]').emit('click');
+        await settle();
+        const rows = ui.find('[data-product-picker-rows]').children;
+        assert.deepEqual(rows.map((row) => row.children.at(-2).textContent),
+            ['2.530,9200', '99.999.999.999.999,9999', '0,0000', '—']);
+    } finally { ui.restore(); }
+});
+
+test('Usar no Contrato selects available products and blocks unavailable products', async () => {
+    const ui = panel(null, {}, null, undefined, [true, false].map((available, id) => ({
+        id, item: String(id), code: `C${id}`, description: `Produto ${id}`, brand: 'Marca',
+        unit: 'UND', remaining: '1.0000', unit_price: '10.0000', available,
+    })));
+    try {
+        await settle();
+        await ui.find('[data-product-item-search]').emit('click');
+        await settle();
+        const rows = ui.find('[data-product-picker-rows]').children;
+        const available = rows[0].children.at(-1).children[0];
+        const unavailable = rows[1].children.at(-1).children[0];
+        assert.equal(available.textContent, 'Usar no Contrato');
+        assert.equal(available.disabled, false);
+        assert.equal(unavailable.disabled, true);
+        await unavailable.emit('click');
+        assert.equal(ui.find('[data-product-picker]').open, true);
+        await available.emit('click');
+        assert.equal(ui.find('[data-product-picker]').open, false);
+        assert.equal(ui.find('[data-product-field="code"]').value, 'C0');
+        assert.equal(ui.find('[data-product-description]').value, 'Produto 0');
+    } finally { ui.restore(); }
+});
+
+test('loaded unit price and calculated total use grouped monetary values', async () => {
+    const ui = panel(null, {}, null, undefined, [{ id: 1, item: '1', code: 'C1',
+        description: 'Produto', brand: 'Marca', unit: 'UND', remaining: '10.0000',
+        unit_price: '2530.9201', available: true }]);
+    try {
+        await settle();
+        await ui.find('[data-product-item-search]').emit('click');
+        await settle();
+        await ui.find('[data-product-picker-rows]').children[0].children.at(-1).children[0].emit('click');
+        const price = ui.find('[data-product-field="unit_price"]');
+        assert.equal(price.value, '2.530,9201');
+        const quantity = ui.find('[data-product-quantity]');
+        quantity.value = '2';
+        await quantity.emit('input');
+        assert.equal(ui.find('[data-product-line-total]').value, '5.061,8402');
+        price.value = '1234,5678';
+        await price.emit('blur');
+        assert.equal(price.value, '1.234,5678');
+        assert.equal(ui.find('[data-product-line-total]').value, '2.469,1356');
+        price.value = '';
+        await price.emit('blur');
+        assert.equal(price.value, '');
+        assert.equal(ui.find('[data-product-line-total]').value, '');
+    } finally { ui.restore(); }
+});
+
+test('manual quantity formats on blur with four decimal places and preserves invalid input', async () => {
+    const ui = panel(null);
+    try {
+        await settle();
+        const manual = ui.find('[data-products-manual]');
+        manual.checked = true;
+        await manual.emit('change');
+        const quantity = ui.find('[data-product-quantity]');
+        assert.equal(quantity.value, '0,0000');
+        ui.find('[data-product-field="unit_price"]').value = '2,0000';
+        for (const [input, expected] of [['12', '12,0000'], ['12,3', '12,3000'], ['1.234,5678', '1234,5678'], ['', ''], ['1,12345', '1,12345']]) {
+            quantity.value = input;
+            await quantity.emit('input');
+            assert.equal(quantity.value, input);
+            await quantity.emit('blur');
+            assert.equal(quantity.value, expected);
+        }
+    } finally { ui.restore(); }
+});
+
+test('selected ficha total follows selection, clears stale values, and never uses contract total', async () => {
+    const ui = panel(null);
+    try {
+        await settle();
+        const total = ui.find('[data-product-contract-total]');
+        const ficha = ui.find('[data-product-budget]');
+        assert.equal(total.value, '0,0000');
+        ficha.value = '001';
+        await ficha.emit('blur');
+        await settle();
+        assert.equal(total.value, '0,3003');
+        ui.hold();
+        await ficha.emit('blur');
+        await settle();
+        ficha.value = 'MISSING';
+        await ficha.emit('input');
+        assert.equal(total.value, '0,0000');
+        await ficha.emit('blur');
+        await settle();
+        ui.release();
+        await settle();
+        assert.equal(total.value, '0,0000');
+        await ui.find('[data-products-new-ficha]').emit('click');
+        assert.equal(total.value, '0,0000');
+    } finally { ui.restore(); }
+});
 
 test('ficha panel warns only when sum exceeds contract value or cannot be checked', async () => {
     for (const [summary, expected] of [
@@ -331,6 +445,7 @@ test('Novo clears product fields while preserving the consulted ficha without re
         await manual.emit('change');
         ui.find('[data-product-field="item"]').value = '123';
         ui.find('[data-product-description]').value = 'Produto novo';
+        ui.find('[data-product-quantity]').value = '1,0000';
         ui.find('[data-product-quantity]').value = '5';
         const before = ui.calls.length;
         for (let attempt = 0; attempt < 2; attempt++) {

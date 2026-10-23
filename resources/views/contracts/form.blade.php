@@ -40,7 +40,7 @@
         </div></section>
         <x-contract-document-actions :contract="$contract"/>
         </div>
-        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)@continue($group === 'Publicação distrato e paralisação')<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab products-button" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">{{ count($groups) + 1 }}.Produtos</button><button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true"><x-nav-icon name="documents"/>Expandir Tudo</button></nav>
+        <nav aria-label="Seções do contrato" class="section-tabs contract-section-navigation">@foreach($groups as $group => $fields)@continue($group === 'Publicação distrato e paralisação')<button type="button" class="section-tab" :class="{ active: !all && step === {{ $loop->index }} }" :aria-pressed="!all && step === {{ $loop->index }}" @click="step = {{ $loop->index }}; all = false; $nextTick(() => $dispatch('editor-section-change', { step }))">{{ $loop->iteration }}.{{ $group === 'Publicação distrato e paralisação' ? '' : ' ' }}{{ match ($group) { 'Objeto e dados especiais' => 'Dados do Objeto', 'Vigência execução e aditivos' => 'Vigência/OS/Garantia', 'Financeiro garantia e dotação' => 'Financeiro', 'Publicação distrato e paralisação' => 'Distrato/Paralização', default => $group } }}</button>@endforeach<button type="button" class="section-tab products-button" data-contract-products-open aria-haspopup="dialog" aria-controls="contract-products-dialog">7. Produtos</button><button type="button" class="section-tab expand-all-button" :class="{ active: all }" :aria-pressed="all" @click="all = true"><x-nav-icon name="documents"/>Expandir Tudo</button></nav>
         <div class="contract-panels-scroll" data-contract-panels-scroll role="region" aria-label="Painéis do contrato" tabindex="0">
         @if($typeRules->isNotEmpty())<details class="surface contract-section detail-disclosure"><summary><h2>Campos específicos por tipo</h2><span>{{ $typeRules->count() }} tipos</span></summary>@foreach($typeRules as $typeRule)<p><strong>{{ $typeRule->name }}:</strong> {{ collect($typeRule->required_fields)->map(fn($field)=>\App\Models\ContractTypeRule::FIELDS[$field])->implode(', ') ?: 'Sem requisitos adicionais' }}</p>@endforeach</details>@endif
     @foreach($groups as $group => $fields)
@@ -73,6 +73,7 @@
                         };
                     @endphp
                     @if($column === 'iptu')<div class="property-field-pair">@endif
+                    @if($column === 'tipo_veiculo')<div class="contract-vehicle-work-row">@endif
                     @if($column === 'instalacoes')<div class="property-area-row">@endif
                     @if($column === 'cargo_credenc')<div class="contract-service-notice-row">@endif
                     @if($column === 'vigencia_fim_original')<div class="contract-validity-end-row">@endif
@@ -102,6 +103,23 @@
                                     </table>
                                 </div>
                                 <small>Referência: Lei nº 14.133/2021, arts. 6º, XV e XVII, 106, 107 e 111. Observe os documentos e as condições da contratação.</small>
+                            </div>
+                        @elseif($column === 'tipo_obra')
+                            <div class="field-label-row">
+                                <label for="tipo_obra">{{ \App\Support\ContractFields::label($source) }}<x-required-mark :explain="true" :when="$required"/></label>
+                                <button type="button" class="field-info-button" aria-label="Entenda os tipos de empreitada e contratação" aria-describedby="work-type-help" popovertarget="work-type-help" data-field-help="work-type-help"><span aria-hidden="true">i</span></button>
+                            </div>
+                            <div id="work-type-help" class="field-help-popover" popover>
+                                <h3>Tipos de empreitada e contratação</h3>
+                                <ul>
+                                    <li><strong>Empreitada por preço global:</strong> Contratação da obra ou serviço por um preço certo e total.</li>
+                                    <li><strong>Empreitada por preço unitário:</strong> Contratação por preço certo de unidades determinadas (com pagamento baseado na medição efetiva de cada unidade executada).</li>
+                                    <li><strong>Empreitada integral:</strong> Contratação do empreendimento em sua integralidade, abrangendo todas as etapas, obras, serviços e instalações necessárias para entregá-lo em condições de operação.</li>
+                                    <li><strong>Contratação por tarefa:</strong> Regime voltado à contratação de mão de obra para pequenos trabalhos por preço certo.</li>
+                                    <li><strong>Contratação integrada:</strong> Exclusivo para engenharia; a empresa contratada é responsável pela elaboração e desenvolvimento dos projetos básico e executivo, além da execução da obra.</li>
+                                    <li><strong>Contratação semi-integrada:</strong> Exclusivo para engenharia; o projeto básico é elaborado pela Administração Pública e a contratada fica responsável pelo projeto executivo e pela execução da obra.</li>
+                                    <li><strong>Fornecimento e prestação de serviço associado:</strong> Regime em que o objeto principal (como o fornecimento de um bem) vem vinculado à obrigação de prestar serviços de operação e/ou manutenção.</li>
+                                </ul>
                             </div>
                         @elseif($column === 'iptu')
                             <div class="field-label-row">
@@ -141,6 +159,12 @@
                         @elseif($supplierReadonly)
                             @if($multiline)<textarea id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly rows="{{ $rows }}">{{ $inputValue }}</textarea>
                             @else<input id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly value="{{ $inputValue }}">@endif
+                        @elseif($column === 'tipo_obra')
+                            <select id="tipo_obra" name="tipo_obra" @required($required) @if($errors->has('tipo_obra')) aria-invalid="true" aria-describedby="tipo_obra-error" @endif>
+                                <option value="">Selecione</option>
+                                @foreach(\App\Support\ContractFields::WORK_TYPES as $choice)<option value="{{ $choice }}" @selected($inputValue === $choice)>{{ $choice }}</option>@endforeach
+                                @if($contract->exists && filled($contract->tipo_obra) && !in_array($contract->tipo_obra, \App\Support\ContractFields::WORK_TYPES))<option value="{{ $contract->tipo_obra }}" @selected($inputValue === $contract->tipo_obra)>{{ $contract->tipo_obra }} (histórico)</option>@endif
+                            </select>
                         @elseif($column === 'escopo')
                             <select id="escopo" name="escopo" @required($required) @if($errors->has('escopo')) aria-invalid="true" aria-describedby="escopo-error" @endif>
                                 <option value="">Selecione</option>
@@ -198,6 +222,7 @@
                         @endif
                     @endif
                     @if($column === 'end_imovel')</div>@endif
+                    @if($column === 'tipo_obra')</div>@endif
                     @if($column === 'areaconstruida')</div>@endif
                     @if($column === 'proc_edital')</div>@endif
                 @endforeach
@@ -209,9 +234,10 @@
         <dialog id="contract-products-dialog" class="catalog-modal contract-products-dialog" data-contract-products-dialog aria-labelledby="contract-products-title">
             <div class="modal-header">
                 <h2 id="contract-products-title" tabindex="-1">Cadastro de produtos</h2>
+                <div class="product-title-supplier"><x-contract-supplier-heading :contract="$contract"/></div>
                 <button type="button" class="modal-close" data-contract-products-close aria-label="Fechar cadastro de produtos">×</button>
             </div>
-            <div class="contract-section"><x-contract-products :contract="$contract"/></div>
+            <div class="contract-section"><x-contract-products :contract="$contract" :show-accumulated-value="$showAccumulatedValue"/></div>
         </dialog>
         <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
             <div class="contract-action-values">

@@ -146,7 +146,9 @@ p { margin-block: 0 16px; }
 .field-info-button:hover, .field-info-button:focus-visible { background: #a9c9ed; }
 .field-help-popover { position: fixed; inset: auto; margin: 0; width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 16px; border: 1px solid #c8d9f3; border-radius: 10px; background: #fff; color: #26364b; text-align: left; font-size: 13px; line-height: 1.6; box-shadow: 0 8px 28px #172b4933; }
 .field-help-popover p { margin: 8px 0; }
-:is(#scope-help, #iptu-help) { width: min(760px, calc(100vw - 24px)); padding: 20px 24px; font-size: 14px; }
+:is(#scope-help, #iptu-help, #work-type-help) { width: min(760px, calc(100vw - 24px)); padding: 20px 24px; font-size: 14px; }
+#work-type-help ul { padding-left: 20px; list-style: disc; }
+#work-type-help li { margin-block: 12px; }
 :is(#scope-help, #iptu-help) > p:first-child { margin-top: 0; }
 :is(#scope-help, #iptu-help) h3 { margin: 20px 0 14px; font-size: 20px; font-weight: 750; color: #163b65; }
 .scope-comparison-scroll { max-width: 100%; overflow-x: auto; margin-bottom: 14px; }
@@ -243,6 +245,8 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .form-grid > :where(button, .primary-button, .secondary-button, .text-link) { align-self: end; justify-self: start; }
 .field-wide { grid-column: 1 / -1; }
 .field.field-iptu { width: min(100%, 12rem); }
+.contract-vehicle-work-row { display: grid; grid-template-columns: minmax(0, 60%) minmax(0, 1fr); gap: 12px; min-width: 0; align-items: start; }
+.contract-vehicle-work-row > .field { min-width: 0; margin-bottom: 0; }
 .property-field-pair { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: 24px; width: 100%; align-items: start; }
 .property-field-pair > .field { width: 100%; margin-bottom: 0; }
 .contract-validity-end-row, .contract-guarantee-row { display: grid; grid-column: 1 / -1; gap: 20px 24px; align-items: end; min-width: 0; }
@@ -358,19 +362,38 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .product-entry-heading, .product-entry-actions, .product-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .product-entry-heading { justify-content: space-between; margin-bottom: 10px; }
 .product-contract-heading { min-width: 0; }
-.product-contract-summary { flex-basis: 100%; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; }
+.product-contract-summary { flex-basis: 100%; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .product-manual-option { margin-right: auto; }
+.product-options-separator { align-self: center; height: 20px; border-left: 1px solid #cbd5e1; margin-inline: 8px; }
 .product-entry-actions { margin: .5lh 0 0; }
 .product-actions-separator { align-self: stretch; border-left: 1px solid #cbd5e1; margin: 2px 4px; }
 .product-item-warning { width: min(440px, calc(100% - 32px)); }
 .catalog-modal.product-picker-dialog { width: min(1300px, calc(100vw - 32px)); max-width: none; }
+[data-contract-products] :is([data-product-field="unit_price"], [data-product-line-total]) { text-align: right; }
+[data-contract-products] label:has(> :is([data-product-field="unit_price"], [data-product-line-total])) { text-align: right; }
+[data-contract-products] :is([data-product-field="item"], [data-product-field="code"], [data-product-field="unit"], [data-product-quantity]) { text-align: center; }
+[data-contract-products] [data-product-field="disp"] { text-align: right; }
+.product-picker-list .data-table :is(th, td):is(:nth-child(1), :nth-child(2), :nth-child(5), :nth-child(6)) { text-align: center; }
+.product-picker-dialog .product-picker-navigation { display: flex; flex-wrap: nowrap; overflow-x: auto; }
+.product-picker-navigation > :is(button, span) { flex: 0 0 auto; width: auto; white-space: nowrap; }
+.product-picker-navigation [data-product-picker-previous] svg { transform: rotate(180deg); }
 .product-picker-list { max-height: 55dvh; }
 .product-picker-list tr[data-selectable] { cursor: pointer; }
 .product-picker-list tr[data-selectable]:hover { background: #edf3fd; }
 .catalog-modal.contract-products-dialog { width: min(1600px, calc(100vw - 32px)); max-width: none; height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); padding: 20px 24px; border-radius: 12px; }
-.contract-products-dialog > .contract-section { padding: 0; }
-.contract-products-dialog .modal-header { align-items: center; margin-bottom: 4px; }
+.contract-products-dialog[open] { display: flex; flex-direction: column; }
+.contract-products-dialog > .contract-section { padding: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.contract-products-dialog [data-contract-products] { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.contract-products-dialog [data-contract-products] > :not(.product-contract-list) { flex-shrink: 0; }
+.contract-products-dialog > .modal-header { flex-shrink: 0; }
+.contract-products-dialog .modal-header { align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .contract-products-dialog .modal-header h2 { margin-top: 0; }
+.contract-products-dialog > .modal-header h2 { flex-shrink: 0; }
+.product-title-supplier { flex: 1; min-width: 0; margin-left: auto; padding-right: 16px; border-right: 1px solid var(--border); }
+.product-title-supplier .contract-heading-supplier { margin: 0; text-align: right; }
+.contract-products-dialog > .modal-header .modal-close { flex-shrink: 0; width: 40px; height: 40px; margin: 0; border: 1px solid var(--border); border-radius: 8px; background: #f7f8fb; color: var(--muted); font-size: 30px; font-weight: 750; line-height: 1; }
+.contract-products-dialog > .modal-header .modal-close:hover { background: #f7f8fb; color: #26364b; }
+.contract-products-dialog > .modal-header .modal-close:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 .catalog-modal.contract-products-dialog { padding-block: 12px; }
 .contract-products-dialog [data-product-feedback]:empty,
 .contract-products-dialog [data-product-budget-status]:empty,
@@ -380,7 +403,7 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .contract-products-dialog .product-budget-row { margin-bottom: 4px; }
 .contract-products-dialog .product-entry-fields { margin-top: 4px; }
 .contract-products-dialog [data-contract-products] > h3 { margin-top: 10px; }
-.contract-products-dialog .product-contract-list:has([data-contract-product-list]:empty) { min-height: 0; margin-bottom: 4px; }
+.contract-products-dialog .product-contract-list { flex: 1 1 360px; min-height: 0; max-height: 360px; overflow: auto; }
 .product-controls-row { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 10px 16px; margin-top: .5lh; margin-bottom: 12px; }
 .product-controls-row .product-entry-actions { margin: 0; }
 .contract-products-dialog .product-controls-row .product-panel-total { margin: 0 0 0 auto; }
@@ -413,6 +436,7 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .product-contract-list { min-height: 180px; margin-top: 0; }
 .product-contract-list .data-table { table-layout: fixed; width: 100%; min-width: 1000px; }
 .product-contract-list .data-table :is(th, td) { padding: 8px; border: 1px solid var(--border); overflow-wrap: anywhere; white-space: normal; }
+.product-contract-list .data-table thead th { padding-block: 4px; line-height: 1.2; }
 .product-contract-list .data-table tr:last-child td { border-bottom: 1px solid var(--border); }
 .product-contract-list .data-table :is(th, td):nth-child(1) { width: 50px; }
 .product-contract-list .data-table :is(th, td):nth-child(2) { width: 54px; }
@@ -421,12 +445,18 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .product-contract-list .data-table :is(th, td):nth-child(6) { width: 120px; }
 .product-contract-list .data-table :is(th, td):is(:nth-child(5), :nth-child(7), :nth-child(8)) { width: 100px; text-align: right; }
 .product-contract-list .data-table :is(th, td):nth-child(5) { width: 94px; }
-.product-contract-list .data-table :is(th, td):nth-child(9) { width: 80px; }
-.product-contract-list .data-table :is(th, td):nth-child(10) { width: 80px; }
+.product-contract-list .data-table :is(th, td):is(:nth-child(1), :nth-child(2), :nth-child(4), :nth-child(5)) { text-align: center; }
+.product-contract-list .data-table :is(th, td):nth-child(9) { width: 80px; text-align: center; }
+.product-contract-list .data-table :is(th, td):nth-child(10) { width: 80px; text-align: center; }
 .product-contract-list .data-table td { font-size: 13px; }
 .product-contract-list .data-table td:is(:nth-child(2), :nth-child(9)) { font-size: 12px; }
 .product-panel-total { display: flex; justify-content: flex-end; margin-top: 10px; }
 .product-panel-total input { text-align: right; font-weight: 650; }
+.product-contract-values { display: flex; align-items: end; gap: 12px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); }
+.product-contract-values > label { flex: 1; max-width: 168px; }
+.product-contract-values input { text-align: right; font-weight: 650; }
+.product-session-fund { flex: 1 1 0; min-width: 0; margin-left: auto; align-self: center; overflow: hidden; text-align: right; }
+.product-session-fund strong { display: block; max-width: 100%; white-space: nowrap; color: #002395; font-size: clamp(20px, 2vw, 28px); font-weight: 800; line-height: 1.15; }
 [data-product-catalog][hidden] { display: none; }
 [data-product-budget-create][hidden] { display: none; }
 @media (max-width: 900px) {

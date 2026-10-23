@@ -24,6 +24,7 @@ class SupplyContractPdf
         return match (Normalizer::name($type)) {
             'FORNECIMENTO' => 'supply',
             'SERVICOS DIVERSOS' => 'services',
+            'OBRAS' => 'works',
             'LOCACAO DE IMOVEL' => 'property-lease',
             default => null,
         };
@@ -34,15 +35,20 @@ class SupplyContractPdf
         $snapshot = DB::transaction(function () use ($expected, $id, $version) {
             [$actor, $contract] = $this->authorize($expected, $id);
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir.');
-            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento, Serviços Diversos e Locação de Imóvel.');
+            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento, Serviços Diversos, Obras e Locação de Imóvel.');
 
             return $this->snapshot($actor, $contract);
         });
         $templateHash = hash_file('sha256', $this->template->path($snapshot['model']));
 
         try {
-            $products = $this->figures->products($snapshot['products'], $snapshot['contractTotal'], $snapshot['model'] === 'supply');
-            $budgets = $this->figures->budgets($snapshot['products'], $snapshot['budgets'], $snapshot['contractTotal']);
+            if ($snapshot['model'] === 'works' && $snapshot['products'] === []) {
+                $products = ['items' => [], 'total' => '0.0000'];
+                $budgets = [];
+            } else {
+                $products = $this->figures->products($snapshot['products'], $snapshot['contractTotal'], $snapshot['model'] === 'supply');
+                $budgets = $this->figures->budgets($snapshot['products'], $snapshot['budgets'], $snapshot['contractTotal']);
+            }
         } catch (InvalidArgumentException $error) {
             abort(422, $error->getMessage());
         }
@@ -107,6 +113,8 @@ class SupplyContractPdf
             '#INICIO' => $display('Inicio_Vig'), '#FINAL' => $display('Final_Vig'),
             '#VL_CONTRATO' => str_replace('R$ ', '', Contract::moneyLabel($contract->valor_total)), '#EXTENSO' => $text($contract->ext_total),
             '#DOTAÇÃO' => '', '#VL_FICHA' => '',
+            '#EMPREITADA' => $text($contract->tipo_obra), '#PRAZO_EXECUÇÃO' => $text($contract->prazo_obra),
+            '#EXTENSO_TOTAL' => $text($contract->ext_total),
             '#ADM' => $settings->administration_start_year.'/'.$settings->administration_end_year,
         ];
 

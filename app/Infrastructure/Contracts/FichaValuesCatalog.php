@@ -13,6 +13,17 @@ final class FichaValuesCatalog
     /** Called only after authorization of the current contract. */
     public function lookup(Contract $contract, ?string $ficha = null): array
     {
+        return $this->values($contract, $ficha);
+    }
+
+    /** Sum only the selected ficha's original value records, after contract authorization. */
+    public function selectedTotal(Contract $contract, string $ficha): ?string
+    {
+        return $this->summarize($this->values($contract, trim($ficha), true), null)['total'];
+    }
+
+    private function values(Contract $contract, ?string $ficha, bool $strictEmptyAmendment = false): array
+    {
         $fund = Normalizer::name($contract->fundo_nome_snapshot);
         if ($ficha === '' || $fund === '' || ! filled($contract->numero) || ! filled($contract->processo)) {
             return [];
@@ -21,9 +32,11 @@ final class FichaValuesCatalog
             ->whereRaw('TRIM(Contrato) = ?', [trim($contract->numero)])
             ->whereRaw('TRIM(Proc_Cont) = ?', [trim($contract->processo)])
             ->whereRaw("TRIM(COALESCE(Proc_ADT, '')) = ''")
-            ->where(fn ($query) => $query->whereNull('N_ADT')->orWhere('N_ADT', 0))
+            ->where(fn ($query) => $strictEmptyAmendment
+                ? $query->whereNull('N_ADT')
+                : $query->whereNull('N_ADT')->orWhere('N_ADT', 0))
             ->orderBy('ID_Ficha')->get(['Ficha', 'Valor', 'Fundo']);
-        $amendmentFichas = (new OriginalContractProducts)->amendmentOnlyFichas($contract);
+        $amendmentFichas = $strictEmptyAmendment ? [] : (new OriginalContractProducts)->amendmentOnlyFichas($contract);
         $result = [];
         foreach ($rows as $row) {
             if (Normalizer::name($row->Fundo) === $fund && ! in_array(trim($row->Ficha), $amendmentFichas, true)) {

@@ -20,6 +20,7 @@ final class SupplyContractTemplate
         return resource_path('documents/contracts/'.match ($model) {
             'supply' => 'supply.docx',
             'services' => 'services.docx',
+            'works' => 'works.docx',
             'property-lease' => 'property-lease.docx',
             default => throw new RuntimeException('Modelo de contrato desconhecido.'),
         });
@@ -27,6 +28,8 @@ final class SupplyContractTemplate
 
     public function render(array $fields, array $products, array $budgets, string $productsTotal = '0.0000', string $model = 'supply'): string
     {
+        // The Word paragraph already supplies the trailing colon.
+        $fields['#Texto_Dotacao'] = count($budgets) > 1 ? 'nas dotações abaixo discriminadas' : 'na dotação abaixo discriminada';
         $zip = new ZipArchive;
         if ($zip->open($this->path($model), ZipArchive::RDONLY) !== true) {
             throw new RuntimeException('Modelo do contrato de fornecimento indisponível.');
@@ -61,6 +64,7 @@ final class SupplyContractTemplate
             .footer-administration { position:absolute; left:60%; top:49%; width:20%; height:22%; background:#fff; color:#082b87; font-size:8pt; text-align:center; line-height:13pt; }
             .lease-footer .footer-administration { left:63%; top:61%; width:18%; height:20%; }
             p { margin:0 0 5pt; overflow-wrap:anywhere; } .gap { height:5pt; }
+            p.works-heading-line { margin-bottom:0; }
             .clause { page-break-after:avoid; margin-top:8pt; } .clause-opening { page-break-inside:avoid; }
             table { width:100%; border-collapse:collapse; table-layout:fixed; margin:5pt 0 10pt; font-size:8pt; }
             thead { display:table-header-group; } th, td { border:.5pt solid #777; padding:4pt; vertical-align:top; word-wrap:break-word; }
@@ -107,7 +111,7 @@ final class SupplyContractTemplate
                 if ($signaturesOpen && trim($text) === '') {
                     continue;
                 }
-                if (str_contains($text, '#DOTAÇÃO') || str_contains($text, '#Dotacao')) {
+                if (str_contains($text, '#DOTAÇÃO') || str_contains($text, '#Dotacao') || str_contains($text, '#DOTACAO')) {
                     $html .= $this->budgets($budgets);
                 } else {
                     $heading = preg_match('/^(?:\d+\s*[-–]\s*)?CLÁUSULA/u', trim($text));
@@ -115,7 +119,12 @@ final class SupplyContractTemplate
                         $html .= '<div class="clause-opening">';
                         $clauseOpen = true;
                     }
-                    $html .= $this->paragraph($node, $xpath, $fields);
+                    $paragraph = $this->paragraph($node, $xpath, $fields);
+                    if ($model === 'works' && (str_starts_with(trim($text), 'CONTRATO DE OBRAS')
+                        || str_starts_with(trim($text), 'Processo Administrativo:'))) {
+                        $paragraph = str_replace('<p ', '<p class="works-heading-line" ', $paragraph);
+                    }
+                    $html .= $paragraph;
                     if ($clauseOpen && ! $heading && trim($text) !== '') {
                         $html .= '</div>';
                         $clauseOpen = false;
@@ -127,6 +136,7 @@ final class SupplyContractTemplate
                     $clauseOpen = false;
                 }
                 $html .= (str_contains(mb_strtoupper($node->textContent), 'DISCRIMINAÇÃO')
+                    || ($model === 'works' && str_contains($node->textContent, '#SERVIÇO'))
                     || ($model === 'services' && str_contains(mb_strtoupper($node->textContent), 'DISRIMINAÇÃO')))
                     ? $this->products($products, $productsTotal, $model)
                     : $this->signatures($node, $xpath, $fields);
@@ -210,10 +220,10 @@ final class SupplyContractTemplate
     private function products(array $products, string $total, string $model): string
     {
         if ($products === []) {
-            return '<p>Produtos não informados no contrato.</p>';
+            return $model === 'works' ? '' : '<p>Produtos não informados no contrato.</p>';
         }
         $html = '<table class="products"><thead><tr>';
-        $columns = $model === 'services' ? ['Item' => 6, 'Discriminação' => 55]
+        $columns = in_array($model, ['services', 'works'], true) ? ['Item' => 6, $model === 'works' ? 'Serviços' : 'Discriminação' => 55]
             : ['Item' => 6, 'Cod' => 7, 'Discriminação' => $model === 'property-lease' ? 48 : 39];
         if ($model === 'supply') {
             $columns['Marca'] = 9;
@@ -228,7 +238,7 @@ final class SupplyContractTemplate
             foreach ($this->textParts($row['description'], 2000) as $index => $description) {
                 $html .= '<tr>';
                 foreach (['item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total'] as $field) {
-                    if (($field === 'brand' && $model !== 'supply') || ($field === 'code' && $model === 'services')) {
+                    if (($field === 'brand' && $model !== 'supply') || ($field === 'code' && in_array($model, ['services', 'works'], true))) {
                         continue;
                     }
                     $value = $field === 'description' ? $description : (string) ($row[$field] ?? '');

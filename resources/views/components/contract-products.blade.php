@@ -1,4 +1,4 @@
-@props(['contract'])
+@props(['contract', 'showAccumulatedValue' => false])
 @if($contract->exists)
 <div data-contract-products data-enter-scope data-base="{{ route('contracts.products.index', $contract) }}">
     <p data-product-feedback role="status" aria-live="polite"></p>
@@ -6,11 +6,11 @@
         <div class="modal-header"><h2 id="product-picker-title">Selecionar produto</h2></div>
         <p data-product-picker-context></p>
         <p data-product-picker-status role="status" aria-live="polite"></p>
-        <div class="product-list-scroll product-picker-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>Marca</th><th>UND</th><th>QTD</th><th>VL. Unitário</th></tr></thead><tbody data-product-picker-rows></tbody></table></div>
-        <div class="form-actions action-toolbar">
-            <button type="button" class="section-tab" data-product-picker-previous disabled>Anterior</button>
+        <div class="product-list-scroll product-picker-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>Marca</th><th>UND</th><th>QTD</th><th>VL. Unitário</th><th>Ação</th></tr></thead><tbody data-product-picker-rows></tbody></table></div>
+        <div class="form-actions action-toolbar product-picker-navigation">
+            <button type="button" class="section-tab" data-product-picker-previous disabled><x-nav-icon name="arrow" /> Anterior</button>
             <span data-product-picker-page></span>
-            <button type="button" class="section-tab" data-product-picker-next disabled>Próxima</button>
+            <button type="button" class="section-tab" data-product-picker-next disabled>Próxima <x-nav-icon name="arrow" /></button>
             <button type="button" class="section-tab" data-product-picker-cancel>Cancelar</button>
         </div>
     </dialog>
@@ -30,12 +30,9 @@
         </dialog>
 
                 <label class="product-confirm"><input type="checkbox" data-products-show> Exibir produtos do processo</label>
+                <span class="product-options-separator" role="separator" aria-orientation="vertical"></span>
                 <label class="product-confirm product-manual-option"><input type="checkbox" data-products-manual> Lançamento manual</label>
-                <div class="product-contract-heading">
-                    <x-contract-supplier-heading :contract="$contract"/>
-                </div>
                 <div class="product-contract-summary">
-                    <span>Valor total do contrato: <strong data-product-heading-total>{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}</strong></span>
                     <span>
                     <span>Contrato: <strong>{{ $contract->numero ?: 'Não informado' }}</strong></span>
                     <span aria-hidden="true"> · </span>
@@ -81,9 +78,21 @@
         <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
         <button type="button" class="section-tab products-button" data-products-new-ficha><x-nav-icon name="plus"/>Nova Ficha</button>
     </div>
-    <div class="product-panel-total"><label>Total da Ficha<input data-product-contract-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label></div>
+    <div class="product-panel-total"><label>Total da Ficha<input data-product-contract-total readonly aria-readonly="true" value="0,0000"></label></div>
     </div>
     <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
+    <div class="product-contract-values">
+        <label>Valor Total do Contrato<input data-product-heading-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label>
+        @if($showAccumulatedValue)
+            <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
+            <label>Valor Acumulado do Contrato<input data-product-accumulated-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}"></label>
+        @endif
+        @if($sessionFund = request()->attributes->get('selected_fund'))
+            <div class="product-session-fund" aria-label="Fundo logado">
+                <strong data-fit-fund-name>{{ $sessionFund['name'] }}</strong>
+            </div>
+        @endif
+    </div>
 </div>
 @else
     <p>Salve o contrato com o processo e o fornecedor para selecionar e lançar os produtos já cadastrados na tb_Produtos.</p>

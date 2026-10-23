@@ -138,6 +138,13 @@ final class LaravelContractInputValidator implements ContractInputValidator
                 }
                 $rules[$column][] = Rule::in($choices);
             }
+            if ($column === 'tipo_obra') {
+                $choices = ContractFields::WORK_TYPES;
+                if ($updating && $contract->tipo_obra !== null) {
+                    $choices[] = $contract->tipo_obra;
+                }
+                $rules[$column][] = Rule::in($choices);
+            }
             if ($column === 'garantia') {
                 $rules[$column][] = function ($attribute, $value, $fail) {
                     $number = str_replace(',', '.', trim(preg_replace('/%$/', '', trim($value))));

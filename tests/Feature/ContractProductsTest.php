@@ -311,6 +311,29 @@ class ContractProductsTest extends TestCase
         $this->actingAs($user)->getJson($this->url().'/products?ficha=OWN')->assertForbidden()->assertJsonMissingPath('fichas');
     }
 
+    public function test_selected_ficha_total_uses_only_matching_value_records_with_empty_amendment_fields(): void
+    {
+        $row = ['Ficha' => '001', 'Fundo' => ' fms ', 'Contrato' => '001/26', 'Proc_Cont' => ' 123/2026 ',
+            'Valor' => '0,1001', 'Proc_ADT' => null, 'N_ADT' => null];
+        DB::table('tb_ValorFicha')->insert($row);
+        DB::table('tb_ValorFicha')->insert(array_replace($row, ['Valor' => '0,2002', 'Proc_ADT' => '  ']));
+        foreach ([['Ficha' => '1'], ['Fundo' => 'OUTRO'], ['Contrato' => '002/26'], ['Proc_Cont' => 'OUTRO'],
+            ['Proc_ADT' => 'ADT'], ['N_ADT' => 1], ['N_ADT' => 0]] as $excluded) {
+            DB::table('tb_ValorFicha')->insert(array_replace($row, $excluded, ['Valor' => '9999']));
+        }
+        $before = $this->contract->fresh()->getRawOriginal();
+        $base = $this->url().'/products';
+        $this->getJson($base.'?ficha=001&Fundo=OUTRO&Contrato=002/26&Proc_Cont=OUTRO')->assertOk()
+            ->assertJsonPath('selected_ficha_total', '0.3003')->assertJsonPath('total', '5000.0000');
+        $this->getJson($base)->assertOk()->assertJsonPath('selected_ficha_total', '0.0000');
+        $this->getJson($base.'?ficha=MISSING')->assertOk()->assertJsonPath('selected_ficha_total', '0.0000');
+        DB::table('tb_ValorFicha')->insert(array_replace($row, ['Valor' => 'invalid']));
+        $this->getJson($base.'?ficha=001')->assertOk()->assertJsonPath('selected_ficha_total', null);
+        $this->assertSame($before, $this->contract->fresh()->getRawOriginal());
+        $user = User::create(['name' => 'No access', 'username' => 'NO_FICHA_TOTAL', 'password' => 'TestPassword12345']);
+        $this->actingAs($user)->getJson($base.'?ficha=001')->assertForbidden()->assertJsonMissingPath('selected_ficha_total');
+    }
+
     public function test_ficha_values_match_contract_fund_and_process_and_require_contract_access(): void
     {
         $row = ['Ficha' => '00123', 'Fundo' => ' fms ', 'Contrato' => '001/26', 'Proc_Cont' => ' 123/2026 ', 'CPF_CNPJ' => '11.222.333/0001-81', 'Valor' => '1.234,5678'];

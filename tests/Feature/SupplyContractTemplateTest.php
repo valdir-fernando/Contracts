@@ -121,7 +121,7 @@ class SupplyContractTemplateTest extends TestCase
 
     public static function models(): array
     {
-        return [['supply'], ['property-lease'], ['services']];
+        return [['supply'], ['property-lease'], ['services'], ['works']];
     }
 
     #[DataProvider('models')]
@@ -155,7 +155,8 @@ class SupplyContractTemplateTest extends TestCase
             foreach ($matches[0] as $marker) {
                 $fields[$marker] = 'Valor fictício';
             }
-            if (trim($text) !== '' && trim($text) !== '#FICHA' && ! str_contains($text, '#DOTAÇÃO') && ! str_contains($text, '#Dotacao')) {
+            $fields['#Texto_Dotacao'] = 'na dotação abaixo discriminada';
+            if (trim($text) !== '' && trim($text) !== '#FICHA' && ! str_contains($text, '#DOTAÇÃO') && ! str_contains($text, '#Dotacao') && ! str_contains($text, '#DOTACAO')) {
                 $paragraphs[] = $text;
             }
         }

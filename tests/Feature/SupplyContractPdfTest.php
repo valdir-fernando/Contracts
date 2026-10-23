@@ -101,6 +101,60 @@ class SupplyContractPdfTest extends TestCase
         return $renderer;
     }
 
+    public static function worksBudgets(): array
+    {
+        return [[false], [true]];
+    }
+
+    public function test_works_without_products_uses_saved_object_and_omits_product_table(): void
+    {
+        $this->contract->update(['tipo' => 'Obras', 'objeto' => 'Construção de escola <exemplo> & instalações']);
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8" ?>'.$renderer->html);
+        $xpath = new \DOMXPath($document);
+        $text = $xpath->evaluate('string(//body)');
+        $this->assertStringContainsString('Construção de escola <exemplo> & instalações', $text);
+        $this->assertStringNotContainsString('#OBJETO', $text);
+        $this->assertStringNotContainsString('Produtos não informados', $text);
+        $this->assertStringNotContainsString('contratação de empresa especializada em', $text);
+        $this->assertSame(0, $xpath->query('//table[@class="products"]')->length);
+        $this->assertSame(1, $xpath->query('//table[@class="signatures"]')->length);
+        $this->assertSame('works', ActivityEvent::sole()->metadata['model']);
+    }
+
+    #[DataProvider('worksBudgets')]
+    public function test_works_uses_saved_fields_and_singular_or_plural_budget_text(bool $multiple): void
+    {
+        $this->contract->update(['tipo' => 'Obras', 'prazo_obra' => '180 dias', 'tipo_obra' => 'Empreitada por preço global']);
+        $this->product($multiple ? ['quantity' => '1.0000', 'unit_price' => '1000.0000', 'total' => '1000.0000'] : []);
+        if ($multiple) {
+            $this->product(['item' => '2', 'Ficha' => '002', 'quantity' => '1.0000', 'unit_price' => '1530.9200', 'total' => '1530.9200']);
+        }
+        $renderer = $this->renderer();
+        $response = $this->get($this->url().'&tipo=Fornecimento')->assertOk()
+            ->assertHeader('Content-Disposition', 'inline; filename="contrato-obras-'.$this->contract->id.'.pdf"')
+            ->assertHeader('Cache-Control', 'no-store, private');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8" ?>'.$renderer->html);
+        $xpath = new \DOMXPath($document);
+        $text = $xpath->evaluate('string(//body)');
+        foreach (['CONTRATO DE OBRAS Nº. 015/26', 'Empreitada por preço global', '180 dias', '2.530,92', 'Produto exclusivo do contrato',
+            '01.02.03.4.5', 'Gestor fictício', 'Fornecedor fictício', $this->contract->ext_total,
+            $multiple ? 'nas dotações abaixo discriminadas:' : 'na dotação abaixo discriminada:'] as $value) {
+            $this->assertStringContainsString($value, $text);
+        }
+        $this->assertStringNotContainsString('::', $text);
+        $this->assertDoesNotMatchRegularExpression('/#[\p{L}_]/u', $text);
+        $this->assertSame(6, $xpath->query('//table[@class="products"]/thead/tr/th')->length);
+        $this->assertSame($multiple ? 2 : 1, $xpath->query('//table[@class="budget-lines"]/tbody/tr')->length);
+        $this->assertSame('works', ActivityEvent::sole()->metadata['model']);
+        $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
+            ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de obras em PDF.');
+    }
+
     public function test_services_model_uses_supplied_text_saved_fields_and_six_column_table(): void
     {
         $this->contract->update(['tipo' => 'Serviços Diversos']);
@@ -463,7 +517,7 @@ class SupplyContractPdfTest extends TestCase
     {
         $this->get($this->url($this->contract->fresh()->version + 1))->assertConflict();
         $this->get('/contracts/'.$this->contract->id.'/document')->assertSessionHasErrors('version');
-        $this->contract->update(['tipo' => 'Obras']);
+        $this->contract->update(['tipo' => 'Tipo sem modelo']);
         $this->get($this->url().'&tipo=Fornecimento')->assertUnprocessable();
         $this->contract->delete();
         $this->get($this->url())->assertNotFound();
@@ -534,9 +588,15 @@ class SupplyContractPdfTest extends TestCase
         return array_map(static fn ($case) => [$case[0], 'Serviços Diversos'], self::changesDuringRendering());
     }
 
+    public static function worksChangesDuringRendering(): array
+    {
+        return array_map(static fn ($case) => [$case[0], 'Obras'], self::changesDuringRendering());
+    }
+
     #[DataProvider('changesDuringRendering')]
     #[DataProvider('leaseChangesDuringRendering')]
     #[DataProvider('serviceChangesDuringRendering')]
+    #[DataProvider('worksChangesDuringRendering')]
     public function test_changes_during_rendering_prevent_delivery_and_audit(string $change, string $type = 'Fornecimento'): void
     {
         $this->contract->update(['tipo' => $type]);
@@ -592,7 +652,7 @@ class SupplyContractPdfTest extends TestCase
     {
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
             ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de fornecimento em PDF.');
-        $this->contract->tipo = 'Obras';
+        $this->contract->tipo = 'Tipo sem modelo';
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
             ->assertDontSee('data-contract-document-url=', false);
         $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => new Contract(['tipo' => 'Fornecimento'])])

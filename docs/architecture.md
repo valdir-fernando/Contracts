@@ -1,5 +1,7 @@
 # Arquitetura do Contracts
 
+Contrato de Obras: `SupplyContractPdf::modelFor` seleciona `works` pelo tipo persistido. O interpretador usa o Word fornecido, a tabela de seis colunas e as dotações conferidas por ficha; `#Texto_Dotacao` concorda com a quantidade de linhas emitidas. Reutiliza captura, autorização, revalidação e auditoria existentes. [Fluxo e validação](works-contract.md).
+
 Data de criação de contratos (22/10/2026): `ContractCreationDate` é a porta de Application para preencher `data_cont_verd` apenas na criação. O adapter HTTPS obtém a data no fuso de Brasília antes da transação; falhas usam a data do sistema do servidor, sem aviso. Edições preservam o valor e ignoram manipulação do cliente. Nenhuma dependência de Laravel/HTTP entrou em Domain/Application. [Fluxo e testes](contract-creation-date.md).
 
 Número do contrato (22/10/2026): a coluna física agora é `contracts.Contrato`. O atributo público/lógico `numero` é preservado no model e traduzido explicitamente por `ContractMapper`, sem contaminar Domain/Application com nomes de persistência. Consultas SQL e projeções usam `Contrato`; filtros e auditorias continuam com os contratos anteriores. [Migração, compatibilidade e validação](contract-number-column.md).

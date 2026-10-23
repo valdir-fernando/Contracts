@@ -29,6 +29,7 @@ class ContractDocumentController extends Controller
         $name = match (SupplyContractPdf::modelFor($contract->tipo)) {
             'property-lease' => 'locacao-imovel',
             'services' => 'servicos',
+            'works' => 'obras',
             default => 'fornecimento',
         };
 

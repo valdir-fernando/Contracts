@@ -66,26 +66,26 @@ class ContractWritingTest extends TestCase
 
     public function test_accumulated_footer_requires_a_saved_contract_and_registered_nonzero_amendment(): void
     {
-        $this->get(route('contracts.create'))->assertOk()->assertDontSee('id="contract-accumulated-total"', false);
+        $this->get(route('contracts.create'))->assertOk()->assertDontSee('id="contract-accumulated-total"', false)->assertDontSee('data-product-accumulated-total', false);
         $contract = app(ContractWriter::class)->save($this->admin, $this->data());
         $contract->forceFill(['valor_acumulado' => '12345.6700'])->save();
         $url = route('contracts.edit', $contract);
-        $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false);
+        $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false)->assertDontSee('data-product-accumulated-total', false);
         $amendment = ContractAmendment::create(['contract_id' => $contract->id, 'number' => '1',
             'event_date' => '2026-10-22', 'payload' => [], 'amount' => '100.0000', 'status' => 'rascunho',
             'created_by' => $this->admin->id, 'updated_by' => $this->admin->id]);
-        $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false);
+        $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false)->assertDontSee('data-product-accumulated-total', false);
         foreach ([null, '0.0000', '0.0001', '-100.0000'] as $amount) {
             $amendment->update(['status' => 'registrado', 'amount' => $amount]);
             $response = $this->get($url)->assertOk();
             if ($amount === null || $amount === '0.0000') {
-                $response->assertDontSee('id="contract-accumulated-total"', false);
+                $response->assertDontSee('id="contract-accumulated-total"', false)->assertDontSee('data-product-accumulated-total', false);
             } else {
-                $response->assertSee('id="contract-accumulated-total" readonly aria-readonly="true" value="R$ 12.345,67"', false);
+                $response->assertSee('id="contract-accumulated-total" readonly aria-readonly="true" value="R$ 12.345,67"', false)->assertSee('data-product-accumulated-total readonly aria-readonly="true" value="R$ 12.345,67"', false);
             }
         }
         $amendment->delete();
-        $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false);
+        $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false)->assertDontSee('data-product-accumulated-total', false);
         $this->assertSame('12345.6700', $contract->fresh()->valor_acumulado);
     }
 
@@ -99,12 +99,12 @@ class ContractWritingTest extends TestCase
             'kind' => 'amendment', 'legacy_id' => '1', 'legacy_record_id' => $source->id,
             'match_status' => 'matched', 'candidate_ids' => [], 'quality_issues' => [], 'amount' => '50.0000']);
         $url = route('contracts.edit', $contract);
-        $this->get($url)->assertOk()->assertSee('id="contract-accumulated-total"', false);
+        $this->get($url)->assertOk()->assertSee('id="contract-accumulated-total"', false)->assertSee('data-product-accumulated-total', false);
         foreach ([['amount' => '0.0000'], ['amount' => null], ['kind' => 'item'],
             ['match_status' => 'ambiguous'], ['contract_id' => null]] as $change) {
             $history->update(array_replace(['contract_id' => $contract->id, 'kind' => 'amendment',
                 'match_status' => 'matched', 'amount' => '50.0000'], $change));
-            $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false);
+            $this->get($url)->assertOk()->assertDontSee('id="contract-accumulated-total"', false)->assertDontSee('data-product-accumulated-total', false);
         }
     }
 
@@ -566,11 +566,12 @@ class ContractWritingTest extends TestCase
         }
         $historical = ['proc_edital' => 'PROC-LEGADO', 'n_edital' => 'EDITAL-LEGADO', 'data_licit' => '2026-09-01', 'data_cont_verd' => '2026-09-02', 'n_solicit' => 'SOL-LEGADA', 'tipo_fornecimento' => 'Fornecimento legado', 'tipo_obra' => 'Obra legada', 'reforma' => 'Reforma histórica'];
         $response = $this->get('/contracts/create')->assertOk();
-        foreach (array_diff(array_keys($historical), ['proc_edital', 'n_edital']) as $column) {
+        foreach (array_diff(array_keys($historical), ['proc_edital', 'n_edital', 'tipo_obra']) as $column) {
             $response->assertDontSee('name="'.$column.'"', false);
         }
         $response->assertSee('id="modalidade"', false)->assertSee('id="n_licit"', false);
-        $contract = app(ContractWriter::class)->save($this->admin, $this->data($historical));
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data(array_diff_key($historical, ['tipo_obra' => true])));
+        $contract->update(['tipo_obra' => $historical['tipo_obra']]);
         // Historical dates come from import, not from the creation form's clock-controlled field.
         $contract->update(['data_cont_verd' => $historical['data_cont_verd']]);
         $response = $this->get('/contracts/'.$contract->id.'/edit')->assertOk();
@@ -579,7 +580,7 @@ class ContractWritingTest extends TestCase
         }
         $number = $contract->numero;
         $identification = $contract->cont_inteiro;
-        foreach (array_diff(array_keys($historical), ['proc_edital', 'n_edital']) as $column) {
+        foreach (array_diff(array_keys($historical), ['proc_edital', 'n_edital', 'tipo_obra']) as $column) {
             $response->assertDontSee('name="'.$column.'"', false);
         }
         $this->put('/contracts/'.$contract->id, ['version' => 1, 'reason' => 'Correção de descrição', 'objeto' => 'Objeto corrigido'])->assertRedirect();
@@ -624,6 +625,36 @@ class ContractWritingTest extends TestCase
         }
 
         return $user;
+    }
+
+    public function test_work_type_is_a_select_beside_vehicle_type_and_validates_choices(): void
+    {
+        $response = $this->get('/contracts/create')->assertOk();
+        $html = new \DOMDocument;
+        @$html->loadHTML('<?xml encoding="utf-8" ?>'.$response->getContent());
+        $xpath = new \DOMXPath($html);
+        $this->assertSame(1, $xpath->query('//div[@class="contract-vehicle-work-row"]//textarea[@id="tipo_veiculo"]')->length);
+        $this->assertSame(1, $xpath->query('//div[@class="contract-vehicle-work-row"]//select[@id="tipo_obra"]')->length);
+        $this->assertSame(1, $xpath->query('//button[@type="button" and @popovertarget="work-type-help" and @data-field-help="work-type-help"]')->length);
+        $this->assertSame(7, $xpath->query('//*[@id="work-type-help" and @popover]//li')->length);
+        foreach (ContractFields::WORK_TYPES as $choice) {
+            $this->assertStringContainsString($choice.':', $html->getElementById('work-type-help')->textContent);
+        }
+        $this->assertSame(['', ...ContractFields::WORK_TYPES], array_map(fn ($option) => $option->getAttribute('value'), iterator_to_array($html->getElementById('tipo_obra')->getElementsByTagName('option'))));
+        $this->post('/contracts', $this->data(['tipo_obra' => 'OUTRO']))->assertSessionHasErrors('tipo_obra');
+        $this->assertDatabaseCount('contracts', 0);
+        foreach (ContractFields::WORK_TYPES as $choice) {
+            $this->post('/contracts', $this->data(['tipo_obra' => $choice]))->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertSame($choice, Contract::latest('id')->firstOrFail()->tipo_obra);
+        }
+        $contract = Contract::latest('id')->firstOrFail();
+        $contract->update(['tipo_obra' => 'Empreitada histórica']);
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertSee('Empreitada histórica (histórico)');
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Preservar histórico', 'tipo_obra' => 'Empreitada histórica'])->assertRedirect()->assertSessionHasNoErrors();
+        $contract->refresh();
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Validar opção', 'tipo_obra' => 'OUTRO'])->assertSessionHasErrors('tipo_obra');
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Selecionar global', 'tipo_obra' => 'Empreitada por preço global'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('Empreitada por preço global', $contract->fresh()->tipo_obra);
     }
 
     public function test_iptu_has_two_choices_and_rejects_other_new_values(): void
@@ -688,7 +719,7 @@ class ContractWritingTest extends TestCase
         $this->assertSame(1, $xpath->query('//dialog[@data-contract-products-dialog]')->length);
         $this->assertSame(1, $xpath->query('//button[@data-contract-products-open and @aria-controls="contract-products-dialog"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//dialog[@data-contract-products-dialog]')->length);
-        $response->assertSeeInOrder(['5. Vigência', '6. Financeiro', '8.Produtos', 'Expandir Tudo'])
+        $response->assertSeeInOrder(['5. Vigência/OS/Garantia', '6. Financeiro', '7. Produtos', 'Expandir Tudo'])
             ->assertDontSee('7.Distrato/Paralização');
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//*[@id="department_id" or @id="tipo"]')->length);
         $this->assertSame(0, $xpath->query('//*[@data-contract-panels-scroll]//nav[@aria-label="Seções do contrato"]')->length);

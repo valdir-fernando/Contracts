@@ -175,10 +175,13 @@ class ContractController extends Controller
 
         $formFields = [];
         foreach (ContractFields::MAP as $source => $definition) {
-            if (in_array($source, ['End_Imovel', 'Proc_Edital', 'N_Edital'])) {
+            if (in_array($source, ['End_Imovel', 'Proc_Edital', 'N_Edital', 'Tipo_Obra'])) {
                 continue;
             }
             $formFields[$source] = $definition;
+            if ($source === 'Tipo_Veiculo') {
+                $formFields['Tipo_Obra'] = ContractFields::MAP['Tipo_Obra'];
+            }
             if ($source === 'IPTU') {
                 $formFields['End_Imovel'] = ContractFields::MAP['End_Imovel'];
             }
@@ -198,7 +201,7 @@ class ContractController extends Controller
             'contractTypes' => collect(ContractFields::CONTRACT_TYPES)->sortByDesc(fn (string $type) => mb_strlen($type))->values(),
             'typeRules' => ContractTypeRule::orderBy('name')->get(),
             'history' => ContractHistoryRecord::where('contract_id', $contract->id)->orderBy('event_date')->get(),
-            'groups' => collect($formFields)->except(['Fornecedor', 'ID_Contrato', 'Contrato', 'Cont_Inteiro', 'Data_Cont_Verd', 'Data_Licit', 'N_Solicit', 'Tipo_Contrato', 'Reforma', 'Tipo_Fornecimento', 'Tipo_Obra'])->groupBy('group', preserveKeys: true),
+            'groups' => collect($formFields)->except(['Fornecedor', 'ID_Contrato', 'Contrato', 'Cont_Inteiro', 'Data_Cont_Verd', 'Data_Licit', 'N_Solicit', 'Tipo_Contrato', 'Reforma', 'Tipo_Fornecimento'])->groupBy('group', preserveKeys: true),
             'funds' => $funds->orderBy('name')->get(), 'departments' => $departments->orderBy('name')->get(),
             'values' => $values, 'conflict' => $conflict], $conflict ? 409 : 200);
     }

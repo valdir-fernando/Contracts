@@ -140,6 +140,7 @@ class ContractProductController extends Controller
             })->values();
 
         return $this->json(['products' => $rows, 'items' => $items, 'fichas' => $fichas, 'budgets' => $budgets,
+            'selected_ficha_total' => $fichaCatalog->selectedTotal($contract, $selectedFicha),
             'ficha_panel' => $fichaCatalog->panel($fichaValues, $productFichaValues->all(), $contract->valor_total),
             'product_ficha_values' => $productFichaValues,
             'ficha_values' => $fichaValues, 'ficha_summary' => $fichaCatalog->summarize($fichaValues, $contract->valor_total),

@@ -1,5 +1,13 @@
 # Painel de fichas do contrato original
 
+## Total da ficha selecionada — 23/10/2026
+
+O campo **Total da Ficha** usa a nova projeção `selected_ficha_total` do endpoint autorizado de produtos. Soma exatamente `tb_ValorFicha.Valor` somente para a Ficha selecionada, `Contrato`, `Proc_Cont` e Fundo persistidos no contrato. Exige `Proc_ADT` vazio (null, texto vazio ou espaços) e `N_ADT` nulo; zero é preenchimento e fica excluído deste total. A coluna numérica `N_ADT` representa ausência como null. A regra estrita deste campo é independente da compatibilidade histórica do quadro Ficha/Valor, descrita abaixo.
+
+Sem ficha selecionada ou sem registros correspondentes, o total é zero. Valores inválidos retornam null e aparecem como “—”. O campo exibe quatro casas decimais, é limpo ao trocar a ficha e ignora respostas atrasadas. Não usa o valor do contrato, produtos ou dotação como substitutos e não altera dados persistidos.
+
+Validação: `docker compose exec -T app php artisan test --filter=ContractProductsTest --compact` (42 testes, 497 asserções, SQLite em memória); `docker compose run --rm --no-deps node node --test tests/JavaScript/contract-products.test.mjs tests/JavaScript/contract-product-fichas.test.mjs` (24 testes); `docker compose exec -T app composer check:architecture` (3 testes, 4 asserções); `docker compose exec -T app composer test:unit` (81 testes, 195 asserções); Pint `--test` dos três PHP alterados, `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram. Sem conferência visual autenticada no navegador. A primeira execução da suíte de integração encontrou uma diferença entre o model recém-criado e os valores padrão carregados do banco; o teste passou a capturar o estado inicial com `fresh()`, preservando a comparação integral antes/depois.
+
 ## Projeção única após a separação dos produtos — 22/10/2026
 
 O endpoint de produtos retorna também `ficha_panel`, com `rows` e `summary` produzidos por `FichaValuesCatalog::panel`. O navegador usa essa projeção para a lista e a conferência. Os campos anteriores da resposta continuam disponíveis para compatibilidade.

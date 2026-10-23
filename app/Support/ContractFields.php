@@ -34,6 +34,16 @@ class ContractFields
 
     public const IPTU_RESPONSIBILITIES = ['Locador(a)', 'Locatário'];
 
+    public const WORK_TYPES = [
+        'Empreitada por preço unitário',
+        'Empreitada por preço global',
+        'Empreitada integral',
+        'Contratação por tarefa',
+        'Contratação integrada',
+        'Contratação semi-integrada',
+        'Fornecimento e prestação de serviço associado',
+    ];
+
     public const IPTU_HELP = [
         'Locador(a)' => 'O locador(a) é o proprietário(a) do imóvel',
         'Locatário' => 'locatário (também chamado de inquilino) é quem ocupa o espaço mediante o pagamento do aluguel',
@@ -169,7 +179,7 @@ class ContractFields
         'VL_Parcial' => 'Valor parcial informado', 'VL_Total' => 'Valor inicial', 'VL_Acumulado' => 'Valor acumulado',
         'VL_Saldo_Contrato' => 'Saldo do contrato informado', 'VL_Saldo_Disp' => 'Saldo disponível informado',
         'Ext_Parcial' => 'Valor parcial por extenso', 'Ext_Total' => 'Valor inicial por extenso',
-        'Ext_Acumulado' => 'Valor acumulado por extenso', 'Tipo_Obra' => 'Tipo de obra',
+        'Ext_Acumulado' => 'Valor acumulado por extenso', 'Tipo_Obra' => 'Tipo da Obra',
         'Tipo_Garantia' => 'Tipo de garantia', '%_Garantia' => 'Percentual de garantia informado',
         'VL_Garantia' => 'Valor da garantia', 'Ext_Garantia' => 'Garantia por extenso', 'N_OS' => 'Número da ordem de serviço',
         'Data_OS' => 'Data da ordem de serviço', 'Prazo_Obra' => 'Prazo da obra', 'Local_Public' => 'Local de publicação',

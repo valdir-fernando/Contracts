@@ -297,7 +297,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         quantity.setCustomValidity(!manual.checked && !editing && selected && exceedsProductBalance(quantity.value, selected.remaining)
             ? 'A quantidade excede o saldo disponível.' : '');
         const total = selected ? productLineTotal(quantity.value, unitPrice.value) : '0.0000';
-        find('[data-product-line-total]').value = total === null ? '' : display(total);
+        find('[data-product-line-total]').value = total === null ? '' : formatFichaValue(total);
         resizeDescription();
     }
     function resizeDescription() {
@@ -324,7 +324,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
         find('[data-product-description]').value = product.description ?? '';
         root.querySelectorAll('[data-product-field]').forEach((input) => {
             const field = input.dataset.productField;
-            input.value = ['unit_price', 'disp'].includes(field) ? formatProductPrice(product[field]) ?? '' : product[field] ?? '';
+            input.value = field === 'unit_price' ? formatFichaValue(product[field])
+                : field === 'disp' ? formatProductPrice(product[field]) ?? '' : product[field] ?? '';
         });
         quantity.value = isEditing ? display(product.quantity) : '';
         const previousFicha = budget.value;
@@ -347,7 +348,10 @@ export function initializeContractProducts(root, fetcher = fetch) {
         find('[data-product-description]').value = '';
         root.querySelectorAll('[data-product-field]').forEach((input) => { input.value = ''; });
         quantity.value = '';
-        if (!budget.value.trim()) clearBudgetLookup();
+        if (!budget.value.trim()) {
+            clearBudgetLookup();
+            find('[data-product-contract-total]').value = formatFichaValue('0');
+        }
         else if (lastBudgetLookup !== budgetLookupKey()) lookupBudget();
         preview();
         find('[data-product-balance]').textContent = '';
@@ -383,7 +387,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             for (const product of data.products) {
                 const tr = element('tr');
                 const select = () => {
-                    if (busy || loading || stale || expected !== version.value || mode !== processCatalog.checked) return;
+                    if (!product.available || busy || loading || stale || expected !== version.value || mode !== processCatalog.checked) return;
                     choose(product);
                     pickerSelected = true;
                     picker.close();
@@ -391,11 +395,14 @@ export function initializeContractProducts(root, fetcher = fetch) {
                 const item = button(product.item, select);
                 item.disabled = !product.available;
                 cell(tr, item);
-                [product.code, product.description, product.brand, product.unit, display(product.remaining), formatProductPrice(product.unit_price) ?? '—'].forEach((value) => cell(tr, value));
+                [product.code, product.description, product.brand, product.unit, display(product.remaining), formatFichaValue(product.unit_price)].forEach((value) => cell(tr, value));
+                const use = button('Usar no Contrato', select);
+                use.disabled = !product.available;
+                cell(tr, use);
                 if (product.available) {
                     tr.dataset.selectable = '';
                     tr.addEventListener('click', (event) => { if (!event.target.closest('button')) select(); });
-                } else item.title = 'Produto indisponível: confira saldo e dados do cadastro.';
+                } else item.title = use.title = 'Produto indisponível: confira saldo e dados do cadastro.';
                 rows.append(tr);
             }
             pickerPage = data.page;
@@ -403,7 +410,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             find('[data-product-picker-page]').textContent = `Página ${pickerPage} de ${pickerLastPage}`;
             find('[data-product-picker-previous]').disabled = pickerPage <= 1;
             find('[data-product-picker-next]').disabled = pickerPage >= pickerLastPage;
-            status.textContent = data.products.length ? 'Clique no item para carregá-lo no cadastro.' : 'Nenhum produto encontrado.';
+            status.textContent = data.products.length ? 'Clique em Usar no Contrato para carregar o produto no cadastro.' : 'Nenhum produto encontrado.';
         } catch (error) {
             if (error.name !== 'AbortError' && sequence === pickerSequence && picker.open) status.textContent = error.message;
         } finally {
@@ -440,13 +447,13 @@ export function initializeContractProducts(root, fetcher = fetch) {
     }
     function updateTotal(label) {
         document.getElementById('contract-items-total').value = label;
-        find('[data-product-contract-total]').value = label;
         const headingTotal = find('[data-product-heading-total]');
-        if (headingTotal) headingTotal.textContent = label;
+        if (headingTotal) headingTotal.value = label;
         const financialTotal = document.getElementById('valor_total');
         if (financialTotal) financialTotal.textContent = label;
     }
     async function load() {
+        find('[data-product-contract-total]').value = formatFichaValue('0');
         const sequence = ++loadSequence;
         const expected = version.value;
         loading = true;
@@ -466,12 +473,13 @@ export function initializeContractProducts(root, fetcher = fetch) {
             fichas = data.fichas ?? [];
 
             updateTotal(data.total_label);
+            find('[data-product-contract-total]').value = formatFichaValue(data.selected_ficha_total);
             renderFichaValues(data.ficha_values ?? [], data.ficha_summary, fichas, data.product_ficha_values ?? [], data.ficha_panel);
             const list = find('[data-contract-product-list]');
             list.replaceChildren();
             for (const item of ficha === '' ? [] : data.items) {
                 const tr = element('tr');
-                [item.item, item.code, item.description, item.unit, display(item.quantity), item.brand, display(item.unit_price), display(item.total), item.Ficha || 'Sem ficha'].forEach((value) => cell(tr, value));
+                [item.item, item.code, item.description, item.unit, display(item.quantity), item.brand, formatFichaValue(item.unit_price), formatFichaValue(item.total), item.Ficha || 'Sem ficha'].forEach((value) => cell(tr, value));
                 cell(tr, button('Editar', () => choose(item, true)));
                 list.append(tr);
             }
@@ -548,7 +556,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         manualFields();
         if (enabled) {
             selected = { id: null };
-            quantity.value = '1,0000';
+            quantity.value = '0,0000';
             unitPrice.value = '0,0000';
             find('[data-product-balance]').textContent = '';
         }
@@ -598,11 +606,11 @@ export function initializeContractProducts(root, fetcher = fetch) {
     find('[data-product-description]').addEventListener('input', resizeDescription);
     new ResizeObserver(resizeDescription).observe(find('[data-product-description]').parentElement);
     unitPrice.addEventListener('input', preview);
-    unitPrice.addEventListener('blur', () => {
-        const formatted = formatProductPrice(unitPrice.value);
-        if (formatted !== null) unitPrice.value = formatted;
+    [quantity, unitPrice].forEach((input) => input.addEventListener('blur', () => {
+        const formatted = formatProductPrice(input.value);
+        if (formatted !== null) input.value = input === unitPrice ? formatFichaValue(decimalText(decimalUnits(formatted))) : formatted;
         preview();
-    });
+    }));
     itemInput.addEventListener('input', () => { if (!manual.checked) invalidateItem(); });
     itemInput.addEventListener('blur', (event) => { if (event.relatedTarget !== find('[data-product-item-search]')) lookupItem(); });
     find('[data-product-item-search]').addEventListener('click', openPicker);
@@ -620,6 +628,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
         refresh();
     };
     budget.addEventListener('input', () => {
+        find('[data-product-contract-total]').value = formatFichaValue('0');
         clearBudgetLookup();
         loadSequence++;
         find('[data-contract-product-list]').replaceChildren();
