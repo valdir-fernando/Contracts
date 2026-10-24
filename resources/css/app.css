@@ -1378,9 +1378,57 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .page-heading.calendar-page-heading { margin-bottom: 8px; gap: 12px; }
 .calendar-page-heading h1 { margin-block: 0 3px; }
 .workspace-content:has(> .reports-page-heading) > .workspace-top { min-height: 60px; margin-bottom: 4px; }
-.page-heading.reports-page-heading { margin-bottom: 8px; gap: 12px; }
-.reports-page-heading h1 { margin-block: 0 3px; }
+.page-heading.reports-page-heading { margin-bottom: 2px; gap: 12px; }
+.reports-page-heading h1 { margin-block: 0 3px; font-size: clamp(24px, 2vw, 30px); }
 .reports-page-heading .section-label { margin-bottom: 0; }
+.report-panel-navigation { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 10px; position: relative; top: -6px; }
+.report-contract-list { font-size: 11px; line-height: 1.3; table-layout: fixed; min-width: 1000px; }
+.report-contract-list :is(th, td):nth-child(1) { width: 6%; }
+.report-contract-list :is(th, td):nth-child(2) { width: 10%; white-space: nowrap; }
+.report-contract-list :is(th, td):nth-child(3) { width: 32%; overflow-wrap: anywhere; }
+.report-contract-list :is(th, td):nth-child(4) { width: 26%; overflow-wrap: anywhere; }
+.report-contract-list :is(th, td):is(:nth-child(5), :nth-child(6)) { width: 8%; }
+.report-contract-list :is(th, td):nth-child(7) { width: 10%; }
+.report-contract-list :is(th, td) { padding: 6px 10px; font-size: 11px; }
+.report-contract-list .text-link { font-size: inherit; }
+.report-contract-list td.money-cell { font-weight: 400; }
+.report-contract-list input.report-process-filter { width: 100%; min-height: 24px; height: 24px; margin-top: 3px; padding: 2px 5px; font-size: 11px; font-weight: 400; }
+.report-process-trigger { display: inline-flex; vertical-align: middle; align-items: center; padding: 3px; border: 1px solid var(--border); border-radius: 4px; background: white; color: var(--muted); }
+.report-process-trigger svg { width: 13px; height: 13px; }
+.report-process-trigger.active { background-color: #15803d; border-color: #15803d; color: #ffffff; }
+.report-process-trigger.active:is(:hover, :focus-visible) { background-color: #166534; border-color: #166534; color: #ffffff; }
+.report-contract-list th:is(:nth-child(3), :nth-child(4)) > .report-process-trigger { float: right; }
+.report-contract-list select.report-process-filter { width: 100%; height: 30px; min-height: 30px; padding: 3px 5px; font-size: 11px; font-weight: 400; }
+.report-process-popover { position: fixed; inset: auto; margin: 0; width: min(260px, calc(100vw - 16px)); padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--muted); box-shadow: var(--shadow); white-space: normal; font-size: 11px; font-weight: 400; }
+.report-process-popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.report-process-popover-heading button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; }
+.report-process-popover-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+.report-supplier-filter-field { display: block; margin-top: 8px; font-weight: 400; }
+.contract-section.report-contract-panel { padding-top: 8px; }
+.report-contract-count { margin: 0 0 4px; text-align: right; font-size: 11px; font-weight: 400; line-height: 1.7; color: var(--muted); }
+.report-list-toolbar { display: flex; justify-content: flex-end; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
+.report-list-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.report-list-heading > h2.report-contract-caption { margin: 0; font-size: 11px; font-weight: 400; line-height: 1.7; color: var(--muted); }
+.report-list-clear { display: flex; justify-content: space-between; align-items: center; min-width: 1000px; margin: 0 0 1px; padding: 0 10px; line-height: 1.3; }
+.report-validity-options { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11px; }
+.report-validity-options label { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; cursor: pointer; }
+.report-validity-options input { width: 13px; height: 13px; margin: 0; }
+.report-options-separator { height: 15px; border-left: 1px solid var(--border); }
+.report-list-clear > .text-link { color: var(--muted); font-size: 11px; font-weight: 400; }
+.report-list-toolbar > .report-contract-count { margin: 0; }
+.report-contract-panel > h2.report-contract-caption { margin: 0 0 8px; font-size: 11px; font-weight: 400; line-height: 1.7; color: var(--muted); }
+.page-heading.reports-page-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 800px); }
+.report-scope-selection { display: grid; grid-template-columns: 90px repeat(2, minmax(0, 1fr)); align-items: end; gap: 10px; min-width: 0; width: 100%; border-left: 1px solid var(--border); padding-left: 16px; }
+.report-scope-selection.report-year-only { grid-template-columns: 90px; }
+.report-scope-selection label.field { min-width: 0; margin-bottom: 0; gap: 1px; }
+.report-scope-selection :is(select, input) { width: 100%; min-width: 0; max-width: 100%; height: 30px; min-height: 30px; padding: 3px 10px; line-height: 22px; text-overflow: ellipsis; }
+@media (max-width: 1100px) {
+    .page-heading.reports-page-heading { grid-template-columns: minmax(0, 1fr); }
+    .report-scope-selection { max-width: 800px; }
+}
+@media (max-width: 480px) {
+    .report-scope-selection { grid-template-columns: minmax(0, 1fr); }
+}
 .workspace-content:has(> .account-page-heading) > .workspace-top { min-height: 60px; margin-bottom: 4px; }
 .page-heading.account-page-heading { margin-bottom: 8px; gap: 12px; }
 .account-page-heading h1 { margin-block: 0 3px; }
@@ -1504,13 +1552,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.report-process-trigger.active) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.report-process-trigger.active):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;

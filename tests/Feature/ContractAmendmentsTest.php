@@ -96,7 +96,7 @@ class ContractAmendmentsTest extends TestCase
         $this->assertNull($this->contract->fresh()->vigencia_fim_atual);
         $this->assertTrue($this->contract->fresh()->vigencia_em_revisao);
         $this->assertDatabaseHas('contract_audits', ['action' => 'amendment_created', 'actor_id' => $this->admin->id]);
-        $this->get('/reports?report=changes')->assertSee('001/26');
+        $this->get('/reports?report=changes')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
     }
 
     public function test_common_user_prepares_drafts_but_cannot_register_modify_registered_or_fabricate_scope(): void

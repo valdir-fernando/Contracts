@@ -1,38 +1,168 @@
 <x-layouts.app title="Relatórios">
-<div class="page-heading reports-page-heading"><div><span class="section-label">ANÁLISE E EXPORTAÇÃO</span><h1>Relatórios de contratos</h1><p>Filtre o acervo, escolha as colunas e exporte os resultados.</p></div><a class="secondary-button" href="{{ route('reports.exports') }}"><x-nav-icon name="reports"/>Minhas exportações</a></div>
-<details class="surface contract-section detail-disclosure report-config" open data-mobile-disclosure data-active-filters="{{ collect(request()->except('page'))->filter(fn($value) => $value !== null && $value !== '')->isNotEmpty() ? 'true' : 'false' }}"><summary class="panel-header"><div><h2>Configurar relatório</h2><p>Defina o tipo, o período e os órgãos que deseja consultar.</p></div></summary><form method="GET" class="form-grid">
-<label>Relatório<select name="report">@foreach(\App\Services\Reports\ContractReport::TYPES as $value => $label)<option value="{{ $value }}" @selected(($filters['report'] ?? 'general') === $value)>{{ $label }}</option>@endforeach</select></label>
-<label>Buscar contrato, processo ou fornecedor<input name="q" value="{{ $filters['q'] ?? '' }}"></label>
-<label>Fiscal<select name="inspector"><option value="">Todos os fiscais</option>@foreach($inspectors as $inspector)<option value="{{ $inspector }}" @selected(($filters['inspector'] ?? '') === $inspector)>{{ $inspector }}</option>@endforeach</select><span class="hint">Fiscal registrado no contrato; nomes iguais aparecem juntos.</span></label>
-<label>Exercício<input type="number" min="1" max="9999" name="year" value="{{ $filters['year'] ?? '' }}"></label>
-<label>Campo do período<select name="date_field">@foreach(['data_contrato'=>'Assinatura','vigencia_inicio'=>'Início da vigência','end'=>'Término informado'] as $value => $label)<option value="{{ $value }}" @selected(($filters['date_field'] ?? '') === $value)>{{ $label }}</option>@endforeach</select></label>
-<label>De<input type="date" name="from" value="{{ $filters['from'] ?? '' }}"></label><label>Até<input type="date" name="to" value="{{ $filters['to'] ?? '' }}"></label><label>Data de referência<input type="date" name="reference" value="{{ $filters['reference'] ?? today()->toDateString() }}"></label>
-@foreach(['fund'=>['Fundo',$funds],'department'=>['Secretaria',$departments]] as $name=>$choice)<label>{{ $choice[0] }}<select name="{{ $name }}"><option value="">Todos os autorizados</option>@foreach($choice[1] as $entry)<option value="{{ $entry->id }}" @selected((string)($filters[$name] ?? '') === (string)$entry->id)>{{ $entry->name }}</option>@endforeach</select></label>@endforeach
-@if(!empty($filters['review']))<input type="hidden" name="review" value="1"><p class="hint">Lista restrita a pendências de vigência ou órgão. <a class="text-link" href="{{ route('reports.index', collect($filters)->except('review')->all()) }}">Remover este filtro</a></p>@endif
-<details class="column-picker report-advanced" @if(collect(request()->only(['object','commitment','budget','type','modality','status','validity','min_value','max_value','include_personal']))->filter()->isNotEmpty()) open @endif><summary>Filtros avançados e ordenação</summary><div class="form-grid">
-@foreach(['object'=>'Objeto contém','commitment'=>'Empenho contém','budget'=>'Ficha contém','min_value'=>'Valor inicial mínimo','max_value'=>'Valor inicial máximo'] as $key=>$label)<label>{{ $label }}<input name="{{ $key }}" value="{{ $filters[$key] ?? '' }}"></label>@endforeach
-@foreach(['type'=>['Tipo',$types],'modality'=>['Modalidade',$modalities]] as $name=>$choice)<label>{{ $choice[0] }}<select name="{{ $name }}"><option value="">Todos</option>@foreach($choice[1] as $entry)<option value="{{ $entry }}" @selected(($filters[$name] ?? '') === $entry)>{{ $entry }}</option>@endforeach</select></label>@endforeach
-<label>Situação administrativa<select name="status"><option value="">Todas</option>@foreach(\App\Models\Contract::STATUSES as $value => $label)<option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>@endforeach</select></label>
-<label>Vigência<select name="validity"><option value="">Todas</option>@foreach(\App\Models\Contract::VALIDITY as $value => $label)<option value="{{ $value }}" @selected(($filters['validity'] ?? '') === $value)>{{ $label }}</option>@endforeach</select></label>
-<label>A vencer em até<select name="days">@foreach([30,60,90,365] as $days)<option value="{{ $days }}" @selected((int)($filters['days'] ?? 30) === $days)>{{ $days }} dias</option>@endforeach</select></label>
-<label>Ordenar por<select name="sort">@foreach(['numero'=>'Contrato','data_contrato'=>'Assinatura','valor_total'=>'Valor inicial','exercicio'=>'Exercício'] as $value=>$label)<option value="{{ $value }}" @selected(($filters['sort'] ?? '') === $value)>{{ $label }}</option>@endforeach</select></label><label>Direção<select name="direction"><option value="asc">Crescente</option><option value="desc" @selected(($filters['direction'] ?? '')==='desc')>Decrescente</option></select></label>
-@if(auth()->user()->isAdmin())<label><input type="checkbox" name="include_personal" value="1" @checked(!empty($filters['include_personal']))> Incluir CPF completo</label><label>Justificativa para dados pessoais<input name="reason" minlength="10" value="{{ $filters['reason'] ?? '' }}"></label>@endif
-</div></details>
-<details class="column-picker"><summary>Colunas do relatório</summary><div class="column-options">@foreach(\App\Services\Reports\ContractReport::COLUMNS as $index=>$column)<label class="checkbox-label"><input type="checkbox" name="columns[]" value="{{ $column }}" @checked(in_array($column,$filters['columns']??\App\Services\Reports\ContractReport::COLUMNS))>{{ \App\Services\Reports\ContractReport::HEADERS[$index] }}</label>@endforeach</div></details>
-<div class="filter-actions"><button class="primary-button compact">Aplicar filtros</button><a class="text-link" href="{{ route('reports.index') }}">Limpar filtros</a></div></form></details>
-<section class="surface contract-section report-summary"><header class="panel-header"><div><span class="section-label">RESULTADO DA CONSULTA</span><h2>{{ number_format($summary['count'], 0, ',', '.') }} contratos · {{ \App\Models\Contract::moneyLabel($summary['total']) }}</h2></div><span class="badge">Valor inicial</span></header><p>{{ $summary['missing'] }} registros sem valor inicial. Data de referência: {{ \Illuminate\Support\Carbon::parse($filters['reference'] ?? today())->format('d/m/Y') }}.</p><p class="hint">Valores iniciais informados; valores acumulados e saldos não integram o total. Valores e términos não conciliados exigem revisão.</p><div class="form-actions">@foreach(['pdf','xlsx','csv'] as $format)<a data-report-export class="secondary-button" href="{{ route('reports.export', ['format'=>$format] + $filters) }}">Exportar {{ strtoupper($format) }}</a>@endforeach</div>
-<x-report-generation/>
-@if($summary['groups'])<div class="table-scroll"><table class="data-table"><thead><tr><th>Grupo</th><th>Quantidade</th><th>Valor inicial</th></tr></thead><tbody>@foreach($summary['groups'] as $group)<tr><td>{{ $group['label'] }}</td><td>{{ $group['count'] }}</td><td>{{ \App\Models\Contract::moneyLabel($group['total']) }}</td></tr>@endforeach</tbody></table></div>@endif</section>
-<section class="surface contract-section"><h2>Meus relatórios personalizados</h2><form method="POST" action="{{ route('saved-reports.store') }}" class="preset-form">@csrf
-@foreach(collect($filters)->except(['include_personal','reason']) as $key=>$value)
-@if(is_array($value))
-@foreach($value as $item)<input type="hidden" name="filters[{{ $key }}][]" value="{{ $item }}">@endforeach
-@else
-<input type="hidden" name="filters[{{ $key }}]" value="{{ $value }}">
-@endif
-@endforeach
-<input type="hidden" name="filters[report]" value="{{ $filters['report']??'general' }}"><label class="field"><span class="field-caption">Nome do relatório <x-required-mark/></span><input name="name" maxlength="80" required placeholder="Ex.: contratos a vencer no meu órgão"></label><button class="secondary-button"><x-nav-icon name="save"/>Salvar personalização</button></form><p class="muted">Salva filtros e colunas. Resultados e permissões são consultados novamente ao abrir; CPF completo não é salvo.</p>
-@forelse($presets as $preset)<div class="preset-row"><a class="text-link" href="{{ route('saved-reports.show',$preset->id) }}">{{ $preset->name }}</a><form method="POST" action="{{ route('saved-reports.destroy',$preset->id) }}">@csrf @method('DELETE')<button class="secondary-button" aria-label="Remover {{ $preset->name }}">Remover personalização</button></form></div>@empty<p>Nenhum relatório personalizado salvo.</p>@endforelse
-</section>
-<section class="surface"><div class="table-scroll"><table class="data-table report-table"><thead><tr>@foreach($service->headers($filters) as $label)<th>{{ $label }}</th>@endforeach</tr></thead><tbody>@forelse($contracts as $contract)<tr data-row-href="{{ route('contracts.show', $contract) }}">@foreach(\App\Support\BrazilianLocale::reportRow($service->row($contract, auth()->user(), $filters), $filters, true) as $index => $value)@php($column = ($filters['columns'] ?? \App\Services\Reports\ContractReport::COLUMNS)[$index])<td @class(['money-cell' => $column === 'initial_amount', 'scope-cell' => in_array($column, ['supplier', 'fund', 'department']), 'nowrap-cell' => in_array($column, ['number', 'process', 'document', 'signed_at', 'starts_at', 'ends_at'])])>@if($loop->first)<a class="text-link" href="{{ route('contracts.show', $contract) }}" aria-label="Ver contrato {{ $contract->numero ?: $contract->id }}">{{ $value }}</a>@else{{ $value }}@endif</td>@endforeach</tr>@empty<tr><td colspan="{{ count($service->headers($filters)) }}">Nenhum contrato para os filtros e escopos atuais.</td></tr>@endforelse</tbody></table></div><div class="table-footer">{{ $contracts->links() }}</div></section>
+    <div class="page-heading reports-page-heading">
+        <div>
+            <h1>Relatórios de contratos</h1>
+        </div>
+        <form id="report-filters" method="GET" class="report-scope-selection {{ $canSelectScope ? '' : 'report-year-only' }}" x-data>
+            @if($reportScopeLocked)
+                <input type="hidden" name="report_year" value="{{ $reportYear }}">
+                @if($canSelectScope)
+                    <input type="hidden" name="report_fund" value="{{ $reportFundId > 0 ? $reportFundId : '' }}">
+                    <input type="hidden" name="report_department" value="{{ $reportDepartmentId }}">
+                @endif
+            @endif
+            <label class="field">Ano
+                <input type="number" name="report_year" min="1" max="9999" value="{{ $reportYear }}" @disabled($reportScopeLocked) @change="if ($el.checkValidity()) $el.form.requestSubmit()">
+            </label>
+            @if($canSelectScope)
+            <label class="field">Fundo
+                <select name="report_fund" @disabled($reportScopeLocked) @change="$refs.department.value = ''; $el.form.requestSubmit()">
+                    <option value="">Selecione o Fundo</option>
+                    @foreach($reportFunds as $fund)
+                        <option value="{{ $fund->id }}" @selected((int) $reportFundId === (int) $fund->id)>{{ $fund->name }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="field">Secretaria
+                <select name="report_department" x-ref="department" @disabled($reportScopeLocked || !$canSelectDepartment) @change="$el.form.requestSubmit()">
+                    <option value=""></option>
+                    @foreach($reportDepartments as $department)
+                        <option value="{{ $department->id }}" @selected((int) $reportDepartmentId === (int) $department->id)>{{ $department->name }}</option>
+                    @endforeach
+                </select>
+            </label>
+            @endif
+            <noscript><button class="secondary-button compact">Aplicar</button></noscript>
+        </form>
+    </div>
+    <nav class="report-panel-navigation" aria-label="Relatórios">
+        <button type="button" class="secondary-button compact">Relatório Contrato</button>
+        <button type="button" class="secondary-button compact">Relatório Aditivo</button>
+    </nav>
+    <div class="report-list-toolbar">
+        <p class="report-contract-count" role="status">Total de Contratos: {{ number_format($reportContracts->total(), 0, ',', '.') }}</p>
+    </div>
+    <section class="surface contract-section report-contract-panel" aria-label="Contratos do Fundo no ano atual">
+            <div class="report-list-heading">
+                @php
+                    $appliedFilters = [];
+                    if ($reportCurrent) {
+                        $appliedFilters[] = 'Somente contratos vigentes';
+                    }
+                    if ($reportDepartmentId !== null) {
+                        $appliedFilters[] = 'Secretaria: '.$reportDepartments->firstWhere('id', $reportDepartmentId)->name;
+                    }
+                    foreach ([
+                        'Processo contém' => $reportProcess,
+                        'Licitação contém' => $supplierFilters['report_bidding'],
+                        'Nº da licitação contém' => $supplierFilters['report_bidding_number'],
+                        'Nome do fornecedor contém' => $supplierFilters['report_supplier'],
+                        'Tipo de contrato' => $reportType,
+                    ] as $label => $value) {
+                        if ($value !== '') {
+                            $appliedFilters[] = $label.': '.$value;
+                        }
+                    }
+                    if ($reportEndFrom !== null) {
+                        $appliedFilters[] = 'Final a partir de: '.\Carbon\Carbon::parse($reportEndFrom)->format('d/m/Y');
+                    }
+                    if ($reportEndTo !== null) {
+                        $appliedFilters[] = 'Final até: '.\Carbon\Carbon::parse($reportEndTo)->format('d/m/Y');
+                    }
+                @endphp
+                <h2 class="report-contract-caption">Relatório de {{ $appliedFilters === [] ? 'todos os contratos' : 'contratos' }} do {{ $reportFundName }} {{ $reportYear === null ? 'referente a todos os exercícios' : 'referente ao ano de '.$reportYear }}.@if($appliedFilters !== []) Filtros aplicados: {{ implode('; ', $appliedFilters) }}.@endif</h2>
+            </div>
+            <div class="table-scroll">
+                <div class="report-list-clear">
+                    <div class="report-validity-options" x-data>
+                        <label><input type="radio" name="report_current" value="0" form="report-filters" @checked(!$reportCurrent) @change="$el.form.requestSubmit()"> Todos</label>
+                        <span class="report-options-separator" aria-hidden="true"></span>
+                        <label><input id="report-current" type="radio" name="report_current" value="1" form="report-filters" @checked($reportCurrent) @change="$el.form.requestSubmit()"> Somente Vigentes</label>
+                    </div>
+                    <a class="text-link" href="{{ route('reports.index') }}">Limpar filtros</a>
+                </div>
+                <table class="data-table report-contract-list">
+                    <thead><tr><th>Contrato</th><th x-data>
+                        Processo
+                        <button type="button" popovertarget="report-process-popover" x-ref="trigger" aria-label="Filtrar por processo" title="Filtrar por processo" @class(['report-process-trigger', 'active' => $reportProcess !== ''])><x-nav-icon name="filter"/></button>
+                        <div id="report-process-popover" class="report-process-popover" popover @toggle="if ($event.newState === 'open') { const rect = $refs.trigger.getBoundingClientRect(); $el.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 268)) + 'px'; $el.style.top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - $el.offsetHeight - 8)) + 'px'; }">
+                            <div class="report-process-popover-heading"><label for="report-process-input">Filtrar por processo</label><button type="button" popovertarget="report-process-popover" popovertargetaction="hide" aria-label="Fechar filtro de processo">×</button></div>
+                            <input id="report-process-input" class="report-process-filter" type="search" name="report_process" form="report-filters" value="{{ $reportProcess }}" maxlength="255" placeholder="Digite o processo" autofocus>
+                            <div class="report-process-popover-actions">
+                                <button type="button" class="secondary-button compact" @click="document.getElementById('report-process-input').value = ''; document.getElementById('report-filters').requestSubmit()">Limpar</button>
+                                <button type="submit" form="report-filters" class="primary-button compact">Aplicar</button>
+                            </div>
+                        </div>
+                    </th><th x-data>
+                        Fornecedor
+                        <button type="button" popovertarget="report-supplier-popover" x-ref="trigger" aria-label="Filtrar por licitação e fornecedor" title="Filtrar por licitação e fornecedor" @class(['report-process-trigger', 'active' => collect($supplierFilters)->contains(fn ($value) => $value !== '')])><x-nav-icon name="filter"/></button>
+                        <div id="report-supplier-popover" class="report-process-popover" popover @toggle="if ($event.newState === 'open') { const rect = $refs.trigger.getBoundingClientRect(); $el.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 268)) + 'px'; $el.style.top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - $el.offsetHeight - 8)) + 'px'; }">
+                            <div class="report-process-popover-heading"><span>Filtrar fornecedor</span><button type="button" popovertarget="report-supplier-popover" popovertargetaction="hide" aria-label="Fechar filtro de fornecedor">×</button></div>
+                            @foreach(['report_bidding' => 'Licitação', 'report_bidding_number' => 'Nº Licit', 'report_supplier' => 'Fornecedor'] as $name => $label)
+                                <label class="report-supplier-filter-field" for="{{ $name }}">{{ $label }}
+                                    <input id="{{ $name }}" class="report-process-filter" type="search" name="{{ $name }}" form="report-filters" value="{{ $supplierFilters[$name] }}" maxlength="255" @if($loop->first) autofocus @endif>
+                                </label>
+                            @endforeach
+                            <div class="report-process-popover-actions">
+                                <button type="button" class="secondary-button compact" @click="$el.closest('[popover]').querySelectorAll('input').forEach(input => input.value = ''); document.getElementById('report-filters').requestSubmit()">Limpar</button>
+                                <button type="submit" form="report-filters" class="primary-button compact">Aplicar</button>
+                            </div>
+                        </div>
+                    </th><th x-data>
+                        Objeto
+                        <button type="button" popovertarget="report-type-popover" x-ref="trigger" aria-label="Filtrar por tipo de contrato" title="Filtrar por tipo de contrato" @class(['report-process-trigger', 'active' => $reportType !== ''])><x-nav-icon name="filter"/></button>
+                        <div id="report-type-popover" class="report-process-popover" popover @toggle="if ($event.newState === 'open') { const rect = $refs.trigger.getBoundingClientRect(); $el.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 268)) + 'px'; $el.style.top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - $el.offsetHeight - 8)) + 'px'; }">
+                            <div class="report-process-popover-heading"><label for="report-type-input">Tipo Contrato</label><button type="button" popovertarget="report-type-popover" popovertargetaction="hide" aria-label="Fechar filtro de tipo de contrato">×</button></div>
+                            <select id="report-type-input" class="report-process-filter" name="report_type" form="report-filters" autofocus>
+                                <option value="">Todos os tipos</option>
+                                @foreach($reportTypes as $type)
+                                    <option value="{{ $type }}" @selected($reportType === $type)>{{ $type }}</option>
+                                @endforeach
+                            </select>
+                            <div class="report-process-popover-actions">
+                                <button type="button" class="secondary-button compact" @click="document.getElementById('report-type-input').value = ''; document.getElementById('report-filters').requestSubmit()">Limpar</button>
+                                <button type="submit" form="report-filters" class="primary-button compact">Aplicar</button>
+                            </div>
+                        </div>
+                    </th><th>Inicio</th><th x-data>
+                        Final
+                        <button type="button" popovertarget="report-end-popover" x-ref="trigger" aria-label="Filtrar por data final" title="Filtrar por data final" @class(['report-process-trigger', 'active' => $reportEndFrom !== null || $reportEndTo !== null])><x-nav-icon name="filter"/></button>
+                        <div id="report-end-popover" class="report-process-popover" popover @toggle="if ($event.newState === 'open') { const rect = $refs.trigger.getBoundingClientRect(); $el.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 268)) + 'px'; $el.style.top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - $el.offsetHeight - 8)) + 'px'; }">
+                            <div class="report-process-popover-heading"><span>Data final atualizada</span><button type="button" popovertarget="report-end-popover" popovertargetaction="hide" aria-label="Fechar filtro de data final">×</button></div>
+                            <input id="report-end-active" type="hidden" name="report_end_active" form="report-filters" value="{{ $reportEndActive ? '1' : '0' }}">
+                            <label class="report-supplier-filter-field" for="report-end-from">De<input id="report-end-from" class="report-process-filter" type="date" name="report_end_from" form="report-filters" value="{{ $reportEndFrom }}" autofocus></label>
+                            <label class="report-supplier-filter-field" for="report-end-to">Até<input id="report-end-to" class="report-process-filter" type="date" name="report_end_to" form="report-filters" value="{{ $reportEndTo }}"></label>
+                            <div class="report-process-popover-actions">
+                                <button type="button" class="secondary-button compact" @click="$el.closest('[popover]').querySelectorAll('input').forEach(input => input.value = ''); document.getElementById('report-filters').requestSubmit()">Limpar</button>
+                                <button type="submit" form="report-filters" class="primary-button compact" @click="document.getElementById('report-end-active').value = '1'">Aplicar</button>
+                            </div>
+                        </div>
+                    </th><th>VL_Atual</th></tr></thead>
+                    <tbody>
+                        @forelse($reportContracts as $contract)
+                            <tr data-row-href="{{ route('contracts.show', $contract) }}">
+                                <td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: $contract->id }}</a></td>
+                                <td>{{ $contract->processo }}</td>
+                                <td>
+                                    Licitação nº {{ $contract->n_licit }}<br>
+                                    {{ $contract->fornecedor_nome_snapshot }}
+                                    @php($amendmentNumber = trim((string) ($contract->latest_amendment_number ?? $contract->n_aditivo)))
+                                    @php($amendmentProcess = trim((string) ($contract->latest_amendment_number !== null ? $contract->latest_amendment_process : $contract->proc_aditivo)))
+                                    @if($amendmentNumber !== '' && $amendmentNumber !== '0')
+                                        <br>Aditivo {{ $amendmentNumber }}@if($amendmentProcess !== '') · Processo {{ $amendmentProcess }}@endif
+                                    @endif
+                                </td>
+                                <td>@if(filled($contract->tipo))<b>{{ $contract->tipo }}</b> - @endif{{ $contract->objeto }}</td>
+                                <td class="nowrap-cell">{{ $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado' }}</td>
+                                <td class="nowrap-cell">{{ $contract->vigencia_fim_atual?->format('d/m/Y') ?? 'Não informado' }}</td>
+                                <td class="money-cell">{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7">Nenhum contrato do Fundo selecionado{{ $reportYear === null ? '.' : ' para o ano '.$reportYear.'.' }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-footer">{{ $reportContracts->links() }}</div>
+    </section>
 </x-layouts.app>

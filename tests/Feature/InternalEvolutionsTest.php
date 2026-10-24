@@ -65,14 +65,21 @@ class InternalEvolutionsTest extends TestCase
         return $path;
     }
 
-    public function test_selected_columns_are_consistent_in_ui_csv_xlsx_pdf_and_invalid_columns_are_rejected(): void
+    public function test_selected_columns_are_consistent_in_csv_xlsx_pdf_and_invalid_columns_are_rejected(): void
     {
         $service = app(ContractReport::class);
         $filters = $service->filters(['columns' => ['initial_amount', 'number', 'document']]);
         $this->assertSame(['Valor inicial (decimal)', 'Contrato', 'Documento'], $service->headers($filters));
         $row = $service->row($this->contract, $this->admin, $filters);
         $this->assertSame(['1908.6300', '001/26', '•••4725'], $row);
-        $this->get('/reports?'.http_build_query($filters))->assertOk()->assertSee('Colunas do relatório');
+        $this->get('/reports?'.http_build_query($filters))->assertOk()
+            ->assertSee('Relatórios de contratos')
+            ->assertDontSee('Colunas do relatório')
+            ->assertDontSee('Configurar relatório')
+            ->assertDontSee('Exportar PDF')
+            ->assertDontSee('Minhas exportações')
+            ->assertDontSee('Meus relatórios personalizados')
+            ->assertDontSee('report-table', false);
         foreach (['csv', 'xlsx', 'pdf'] as $format) {
             $path = $this->temp();
             app(ReportRenderer::class)->write($this->admin, $filters, $format, $path);
@@ -107,7 +114,7 @@ class InternalEvolutionsTest extends TestCase
         $saved = SavedReport::sole();
         $this->assertSame($this->user->id, $saved->user_id);
         $this->get('/saved-reports/'.$saved->id)->assertRedirect();
-        $this->get('/reports')->assertSee('Meu relatório');
+        $this->get('/reports')->assertOk()->assertDontSee('Meu relatório');
         $this->post('/saved-reports', ['name' => 'PII', 'filters' => ['include_personal' => 1, 'reason' => 'Sensitive data request']])->assertSessionHasErrors();
         $this->post('/saved-reports', ['name' => 'Unknown', 'filters' => ['columns' => ['password']]])->assertSessionHasErrors();
         $this->post('/saved-reports', ['name' => 'Meu relatório', 'filters' => ['report' => 'fund']])->assertSessionHasErrors('name');

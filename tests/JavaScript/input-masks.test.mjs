@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { attachMask, maskCpf, maskCnpj, maskPhone, maskPis, maskDate, isoDate, dateInputAllowed } from '../../resources/js/input-masks.js';
+import { attachMask, maskCpf, maskCnpj, maskPhone, maskPis, maskDate, isoDate, dateInputAllowed, normalizeFormDates } from '../../resources/js/input-masks.js';
+
+test('form dates include external associated controls and preserve empty dates', () => {
+    const form = { elements: [
+        { name: 'report_end_from', value: '24/10/2026', matches: () => true },
+        { name: 'report_end_to', value: '', matches: () => true },
+        { name: 'disabled_date', value: '25/10/2026', matches: () => false },
+    ], querySelectorAll: () => [] };
+    const data = new Map();
+    normalizeFormDates(form, data);
+    assert.equal(data.get('report_end_from'), '2026-10-24');
+    assert.equal(data.get('report_end_to'), '');
+    assert.equal(data.has('disabled_date'), false);
+});
 
 test('CNPJ mask preserves leading zeroes and supports partial typing and formatted paste', () => {
     assert.equal(maskCnpj('02215895000121'), '02.215.895/0001-21');

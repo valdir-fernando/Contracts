@@ -1,5 +1,7 @@
 # Relatórios por fiscal
 
+> A interface atual usa a [lista de contratos e filtros nos cabeçalhos](contract-reports-screen.md). O seletor Fiscal e os controles de exportação descritos abaixo pertencem à interface anterior; os filtros e contratos de exportação continuam disponíveis nas rotas existentes.
+
 Em **Relatórios de contratos**, o campo **Fiscal** seleciona o nome registrado no contrato. Combine-o com Fundo, Secretaria, exercício e os demais filtros e clique em **Aplicar filtros**. A opção **Por fiscal** no seletor Relatório apresenta quantidade e valor inicial por nome de fiscal. A coluna **Fiscal** pode ser escolhida em Colunas do relatório.
 
 PDF, Excel, CSV e personalizações salvas preservam o filtro. As opções do seletor vêm exclusivamente dos contratos visíveis ao usuário; a consulta e as exportações reaplicam os escopos no servidor.

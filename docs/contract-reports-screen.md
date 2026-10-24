@@ -1,0 +1,13 @@
+# Tela de Relatórios de contratos
+
+A tela abre com o Fundo autorizado do login e o ano atual. Ano vazio consulta todos os exercícios. Administrador e Administrador Master podem escolher outro Fundo autorizado; Secretaria fica disponível somente para MUNICIPIO DE NIQUELÂNDIA. Usuários comuns não recebem os seletores de órgão, e parâmetros de alteração são recusados no servidor.
+
+A lista paginada exibe Contrato, Processo, Fornecedor, Objeto, Inicio, Final e VL_Atual. Final usa exclusivamente a data final atualizada; VL_Atual usa o valor acumulado, sem recalcular efeitos de aditivos. Fornecedor mostra licitação, nome e o último aditivo não excluído, por data e ID, com seu processo. Sem cadastro de aditivo, utiliza o resumo histórico do contrato. Objeto apresenta o tipo em negrito e o texto salvo.
+
+Filtros flutuantes nos cabeçalhos consultam Processo, Licitação, Nº Licit, parte do nome do Fornecedor, Tipo Contrato e intervalo da data Final. Filtros ativos ficam verdes. Aplicar Final sem De utiliza a data atual; Limpar remove o intervalo. Todos e Somente Vigentes são opções exclusivas, usando a classificação de vigência existente. Ano e órgãos ficam bloqueados enquanto houver filtros da lista, preservando os valores no envio. Limpar filtros retorna ao ano atual e ao Fundo do login.
+
+A mensagem descreve os filtros aplicados; o total conta todos os resultados, inclusive fora da página atual. Consultas reaplicam `Contract::visibleTo`, preservam soft delete e não expõem documentos pessoais. As datas externas associadas ao formulário são convertidas para ISO no envio, mantendo a apresentação brasileira. Os botões Relatório Contrato e Relatório Aditivo permanecem sem ação, conforme solicitado.
+
+Os parâmetros `report_*` desta tela são independentes dos filtros históricos de `ContractReport`. Os contratos anteriores das rotas de exportação e personalização permanecem disponíveis; seus controles antigos foram retirados desta interface.
+
+Cobertura: `ContractBrowsingTest` verifica órgãos, perfis, exercício, filtros, valores, vigência, datas e bloqueio dos controles. `AdvancedContractSearchTest`, `ContractCompletionTest` e `InternalEvolutionsTest` preservam verificações das consultas e exportações históricas sem exigir a tabela antiga. O teste JavaScript de `normalizeFormDates` cobre campos associados externos.

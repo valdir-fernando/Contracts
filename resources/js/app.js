@@ -29,7 +29,7 @@ import './contract-steward-registration';
 import './manager-registration';
 import './fund-registration';
 import { scrollContractSection } from './contract-panel-scroll';
-import { attachMask, maskDate, isoDate, dateInputAllowed } from './input-masks';
+import { attachMask, maskDate, isoDate, dateInputAllowed, normalizeFormDates } from './input-masks';
 
 document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -270,9 +270,7 @@ document.querySelectorAll('input[type="date"]').forEach((input) => {
 });
 document.querySelectorAll('form').forEach((form) => {
     form.addEventListener('formdata', (event) => {
-        form.querySelectorAll('[data-brazilian-date][name]:not(:disabled)').forEach((input) => {
-            event.formData.set(input.name, brazilianDate(input.value) ?? input.value);
-        });
+        normalizeFormDates(form, event.formData);
     });
     form.addEventListener('invalid', (event) => {
         const field = event.target;

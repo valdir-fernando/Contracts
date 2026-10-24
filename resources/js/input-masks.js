@@ -81,3 +81,8 @@ export function attachMask(input, formatter, allowed = /^[\d\s().-]*$/, acceptab
         input.setSelectionRange(caret, caret);
     });
 }
+export function normalizeFormDates(form, formData) {
+    Array.from(form.elements).filter((input) => input.matches('[data-brazilian-date][name]:not(:disabled)')).forEach((input) => {
+        formData.set(input.name, isoDate(input.value) ?? input.value);
+    });
+}

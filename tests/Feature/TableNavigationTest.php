@@ -74,7 +74,7 @@ class TableNavigationTest extends TestCase
 
     public function test_contract_report_and_dashboard_rows_link_to_the_corresponding_contract(): void
     {
-        $contract = $this->contract();
+        $contract = $this->contract(['exercicio' => today()->year]);
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
         foreach (['/contracts?year=', '/reports', '/dashboard?year=all', '/calendar?month=2026-12'] as $url) {
             $this->get($url)->assertOk()->assertSee('data-row-href="'.route('contracts.show', $contract).'"', false);

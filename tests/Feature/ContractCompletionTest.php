@@ -81,14 +81,14 @@ class ContractCompletionTest extends TestCase
     public function test_reports_apply_scope_exact_sums_reference_and_masking(): void
     {
         Contract::create(['numero' => 'SECRET', 'valor_total' => '999999.9999', 'quality_issues' => []]);
-        $this->actingAs($this->regular)->get('/reports')->assertOk()->assertSee('1.908,63')->assertDontSee('SECRET')->assertDontSee('52998224725');
-        $this->get('/reports?fund=999')->assertOk()->assertSee('0 contratos')->assertDontSee('001/26');
-        $this->get('/reports?report=expiring&reference=2026-10-01&days=30')->assertSee('001/26');
-        $this->get('/reports?report=expired&reference=2026-10-21')->assertSee('001/26');
-        $this->get('/reports?report=expired&reference=2026-10-20')->assertDontSee('001/26');
+        $this->actingAs($this->regular)->get('/reports')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['total'] === '1908.6300')->assertDontSee('SECRET')->assertDontSee('52998224725');
+        $this->get('/reports?fund=999')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)->assertDontSee('001/26');
+        $this->get('/reports?report=expiring&reference=2026-10-01&days=30')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
+        $this->get('/reports?report=expired&reference=2026-10-21')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
+        $this->get('/reports?report=expired&reference=2026-10-20')->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)->assertDontSee('001/26');
         $this->contract->update(['vigencia_em_revisao' => true]);
-        $this->get('/reports?report=expired&reference=2026-10-21')->assertDontSee('001/26');
-        $this->get('/reports?report=quality')->assertSee('001/26');
+        $this->get('/reports?report=expired&reference=2026-10-21')->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)->assertDontSee('001/26');
+        $this->get('/reports?report=quality')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
         $service = app(ContractReport::class);
         $this->assertSame('1908.6300', $service->summary($this->regular, [])['total']);
     }

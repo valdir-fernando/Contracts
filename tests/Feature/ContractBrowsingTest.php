@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\Overview;
 use App\Models\AccessScope;
 use App\Models\Contract;
+use App\Models\ContractAmendment;
 use App\Models\ImportRun;
 use App\Models\LegacyRecord;
 use App\Models\User;
@@ -60,6 +61,213 @@ class ContractBrowsingTest extends TestCase
         $user = $this->user();
         $user->forceFill(['is_active' => false])->save();
         $this->actingAs($user)->get('/contracts')->assertRedirect('/login');
+    }
+
+    public function test_reports_list_only_current_year_contracts_from_the_session_fund(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo selecionado');
+        $otherFund = $this->catalog('contract_funds', 'Outro fundo');
+        $current = $this->contract(['numero' => 'CONTRATO-ATUAL', 'fund_id' => $fund]);
+        $this->contract(['numero' => 'CONTRATO-ANTERIOR', 'fund_id' => $fund, 'exercicio' => 2025]);
+        $this->contract(['numero' => 'CONTRATO-OUTRO-FUNDO', 'fund_id' => $otherFund]);
+        $deleted = $this->contract(['numero' => 'CONTRATO-EXCLUIDO', 'fund_id' => $fund]);
+        $deleted->delete();
+
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])->get('/reports')->assertOk()
+            ->assertViewHas('reportYear', 2026)
+            ->assertSee('name="report_year" min="1" max="9999" value="2026"', false);
+
+        $this->withSession(['fund_id' => $fund])
+            ->get('/reports?fund='.$otherFund.'&year=2025')->assertOk()
+            ->assertSee('CONTRATO-ATUAL')->assertDontSee('CONTRATO-ANTERIOR')
+            ->assertDontSee('CONTRATO-OUTRO-FUNDO')->assertDontSee('CONTRATO-EXCLUIDO')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $current->id);
+
+        $this->get('/reports?report_year=2025')->assertOk()
+            ->assertSee('CONTRATO-ANTERIOR')->assertDontSee('CONTRATO-ATUAL')
+            ->assertSee('referente ao ano de 2025')
+            ->assertViewHas('reportYear', 2025);
+        $this->getJson('/reports?report_year=10000')->assertUnprocessable();
+        $this->get('/reports?report_year=')->assertOk()
+            ->assertSee('CONTRATO-ATUAL')->assertSee('CONTRATO-ANTERIOR')
+            ->assertDontSee('CONTRATO-OUTRO-FUNDO')->assertDontSee('CONTRATO-EXCLUIDO')
+            ->assertSee('referente a todos os exercícios')->assertViewHas('reportYear', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+
+        $this->withSession(['fund_id' => null])->get('/reports')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
+    }
+
+    public function test_report_scope_selectors_filter_authorized_funds_and_municipal_departments(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo Saúde');
+        $municipal = $this->catalog('contract_funds', 'MUNICIPIO DE NIQUELÂNDIA');
+        $department = $this->catalog('contract_departments', 'Secretaria Educação');
+        $otherDepartment = $this->catalog('contract_departments', 'Secretaria Obras');
+        $this->contract(['fund_id' => $fund, 'numero' => 'SAUDE']);
+        $one = $this->contract(['fund_id' => $municipal, 'department_id' => $department, 'numero' => 'EDUCACAO']);
+        $this->contract(['fund_id' => $municipal, 'department_id' => $otherDepartment, 'numero' => 'OBRAS']);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_fund='.$municipal.'&report_department='.$department)->assertOk()
+            ->assertViewHas('canSelectDepartment', true)
+            ->assertSee('referente ao ano de 2026. Filtros aplicados: Secretaria: Secretaria Educação.')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $one->id);
+        $this->get('/reports?report_fund='.$fund.'&report_department='.$department)->assertOk()
+            ->assertViewHas('canSelectDepartment', false)
+            ->assertViewHas('reportDepartmentId', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'SAUDE');
+        $this->get('/reports?report_fund='.$municipal.'&report_department=999999')->assertForbidden();
+
+        $user = User::create(['name' => 'Restrito', 'username' => 'RESTRITO', 'password' => 'TestingPassword123']);
+        $scope = AccessScope::create(['scope_key' => hash('sha256', 'report-scope'), 'fund' => 'Fundo Saúde', 'fund_id' => $fund]);
+        $user->scopes()->attach($scope);
+        $this->actingAs($user)->withSession(['fund_id' => $fund])
+            ->getJson('/reports?report_fund='.$municipal)->assertUnprocessable();
+        $this->get('/reports')->assertOk()->assertDontSee('name="report_fund"', false)
+            ->assertDontSee('name="report_department"', false)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'SAUDE');
+        $this->getJson('/reports?report_fund='.$fund)->assertUnprocessable();
+        $this->getJson('/reports?report_department='.$department)->assertUnprocessable();
+
+        $user->update(['user_type' => User::MASTER]);
+        $this->get('/reports')->assertOk()->assertSee('name="report_fund"', false)
+            ->assertSee('name="report_department"', false);
+    }
+
+    public function test_report_process_filter_searches_across_pages_without_leaking_other_funds(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $other = $this->catalog('contract_funds', 'Fundo B');
+        $match = $this->contract(['fund_id' => $fund, 'processo' => '2026-12345']);
+        $this->contract(['fund_id' => $fund, 'processo' => '2026-99999']);
+        $this->contract(['fund_id' => $other, 'processo' => '2026-12345']);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_process=12345')->assertOk()
+            ->assertSee('Filtros aplicados: Processo contém: 12345.')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $match->id)
+            ->assertSee('Total de Contratos: 1');
+        $this->get('/reports?report_process=')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+    }
+
+    public function test_report_supplier_filters_combine_bidding_number_and_partial_name(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $other = $this->catalog('contract_funds', 'Fundo B');
+        $attributes = ['fund_id' => $fund, 'modalidade' => 'Pregão eletrônico', 'n_licit' => '015/2026', 'fornecedor_nome_snapshot' => 'Empresa Materiais Brasil Ltda'];
+        $match = $this->contract($attributes);
+        $this->contract(array_replace($attributes, ['fund_id' => $other]));
+        $this->contract(array_replace($attributes, ['n_licit' => '099/2026']));
+        $this->contract(array_replace($attributes, ['modalidade' => 'Dispensa']));
+        $this->contract(array_replace($attributes, ['fornecedor_nome_snapshot' => 'Outra empresa']));
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?'.http_build_query(['report_bidding' => 'Pregão', 'report_bidding_number' => '015', 'report_supplier' => 'materiais brasil']))->assertOk()
+            ->assertSee('Filtros aplicados: Licitação contém: Pregão; Nº da licitação contém: 015; Nome do fornecedor contém: materiais brasil.')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $match->id)
+            ->assertSee('Total de Contratos: 1');
+        $this->get('/reports?report_supplier=')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
+    }
+
+    public function test_report_type_filter_lists_only_types_in_authorized_fund_and_year(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $other = $this->catalog('contract_funds', 'Fundo B');
+        $match = $this->contract(['fund_id' => $fund, 'tipo' => 'Fornecimento']);
+        $this->contract(['fund_id' => $fund, 'tipo' => 'Obras']);
+        $this->contract(['fund_id' => $other, 'tipo' => 'Tipo restrito']);
+        $this->contract(['fund_id' => $fund, 'tipo' => 'Tipo antigo', 'exercicio' => 2025]);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_type=Fornecimento')->assertOk()
+            ->assertSee('Filtros aplicados: Tipo de contrato: Fornecimento.')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $match->id)
+            ->assertViewHas('reportTypes', fn ($types) => $types->all() === ['Fornecimento', 'Obras']);
+        $this->get('/reports?report_type=')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+    }
+
+    public function test_report_final_filter_uses_updated_end_date_and_inclusive_limits(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2026-06-01']);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2026-06-30']);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2026-07-01']);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => null]);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_end_from=2026-06-01&report_end_to=2026-06-30')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2)
+            ->assertSee('Final a partir de: 01/06/2026; Final até: 30/06/2026');
+        $this->get('/reports?report_end_to=2026-06-30')->assertOk()
+            ->assertViewHas('reportEndFrom', '2026-10-09')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
+        $this->get('/reports?report_end_active=1&report_end_from=&report_end_to=')->assertOk()
+            ->assertViewHas('reportEndFrom', '2026-10-09')
+            ->assertSee('Final a partir de: 09/10/2026');
+        $this->get('/reports?report_end_active=&report_end_from=&report_end_to=')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
+        $this->get('/reports?report_end_from=2026-07-01')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1);
+        $this->getJson('/reports?report_end_from=2026-07-01&report_end_to=2026-06-30')->assertUnprocessable();
+    }
+
+    public function test_list_filters_lock_scope_controls_and_preserve_the_selected_year(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $this->contract(['fund_id' => $fund]);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund]);
+        foreach ([['report_process' => '123'], ['report_supplier' => 'Empresa'], ['report_bidding' => 'Pregão'],
+            ['report_bidding_number' => '01'], ['report_type' => 'Obras'], ['report_end_active' => 1]] as $filter) {
+            $response = $this->get('/reports?'.http_build_query($filter + ['report_year' => 2025, 'report_fund' => $fund]));
+            $response->assertOk()->assertViewHas('reportScopeLocked', true)
+                ->assertSee('name="report_year" min="1" max="9999" value="2025" disabled', false)
+                ->assertSee('name="report_fund" disabled', false)
+                ->assertSee('name="report_department" x-ref="department" disabled', false)
+                ->assertSee('type="hidden" name="report_year" value="2025"', false);
+        }
+        $this->get('/reports')->assertOk()->assertViewHas('reportScopeLocked', false)
+            ->assertDontSee('name="report_fund" disabled', false);
+    }
+
+    public function test_report_current_option_selects_only_current_contracts(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $current = $this->contract(['fund_id' => $fund]);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2026-10-08']);
+        $this->contract(['fund_id' => $fund, 'vigencia_inicio' => '2026-11-01']);
+        $this->contract(['fund_id' => $fund, 'vigencia_em_revisao' => true]);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_current=1')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $current->id)
+            ->assertViewHas('reportScopeLocked', true)->assertSee('Somente contratos vigentes');
+        $this->get('/reports?report_current=0')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4)
+            ->assertViewHas('reportScopeLocked', false);
+    }
+
+    public function test_report_list_displays_updated_dates_accumulated_amount_and_only_latest_amendment(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo selecionado');
+        $contract = $this->contract(['fund_id' => $fund, 'n_licit' => 'LIC-123',
+            'n_aditivo' => 'RESUMO-ANTIGO', 'vigencia_fim_atual' => '2027-06-30', 'valor_acumulado' => '2345.6700']);
+        $user = $this->user();
+        foreach (['ANTIGO' => '2026-01-01', 'ULTIMO' => '2026-10-01', 'EXCLUIDO' => '2026-11-01'] as $number => $date) {
+            $amendment = ContractAmendment::create(['contract_id' => $contract->id,
+                'number' => $number, 'event_date' => $date, 'payload' => ['Proc_ADT' => 'PROC-'.$number],
+                'created_by' => $user->id, 'updated_by' => $user->id]);
+            if ($number === 'EXCLUIDO') {
+                $amendment->delete();
+            }
+        }
+        $this->actingAs($user)->withSession(['fund_id' => $fund])->get('/reports')->assertOk()
+            ->assertSeeInOrder(['Licitação nº LIC-123', 'Fornecedor fictício', 'Aditivo ULTIMO', 'Processo PROC-ULTIMO', '01/01/2026', '30/06/2027', 'R$ 2.345,67'])
+            ->assertDontSee('PROC-ANTIGO')->assertDontSee('PROC-EXCLUIDO')
+            ->assertDontSee('Aditivo ANTIGO')->assertDontSee('Aditivo EXCLUIDO')
+            ->assertDontSee('RESUMO-ANTIGO')->assertDontSee('31/12/2026');
+
+        ContractAmendment::where('contract_id', $contract->id)->delete();
+        $contract->update(['n_aditivo' => '0', 'valor_acumulado' => null, 'vigencia_fim_atual' => null]);
+        $this->get('/reports')->assertOk()->assertDontSee('Aditivo 0')
+            ->assertDontSee('R$ 1.908,63')->assertDontSee('31/12/2026')->assertSee('Não informado');
     }
 
     public function test_admin_can_search_and_combine_filters_without_merging_duplicate_numbers(): void

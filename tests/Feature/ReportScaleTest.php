@@ -76,7 +76,11 @@ class ReportScaleTest extends TestCase
         Contract::create(['numero' => '001/26', 'supplier_document_key' => '52998224725', 'fornecedor_documento_snapshot' => '52998224725', 'quality_issues' => []]);
         $this->actingAs($admin)->get('/reports?report=supplier')->assertOk()->assertDontSee('52998224725');
         $this->get('/reports?include_personal=1')->assertSessionHasErrors('reason');
-        $this->get('/reports?include_personal=1&reason=Conferencia+administrativa')->assertOk()->assertSee('52998224725');
+        $this->get('/reports?include_personal=1&reason=Conferencia+administrativa')->assertOk()->assertDontSee('52998224725');
+        $service = app(ContractReport::class);
+        $this->assertContains('52998224725', $service->row(Contract::sole(), $admin, $service->filters([
+            'include_personal' => 1, 'reason' => 'Conferencia administrativa',
+        ])));
         $user = User::create(['name' => 'Regular', 'username' => 'REGULAR', 'password' => 'SenhaSegura12345']);
         $this->actingAs($user)->get('/reports/export/csv?include_personal=1&reason=Conferencia+administrativa')->assertForbidden();
     }
