@@ -1,8 +1,12 @@
 # Cadastro nativo de aditivos — 11/10/2026
 
-No detalhe do contrato, abra **Gerenciar aditivos**. O cadastro nativo mantém os 43 campos de conteúdo de `tb_Aditivos` e um identificador próprio, totalizando os 44 campos representados. O histórico importado permanece separado e preservado; seus IDs não são reutilizados como IDs nativos.
+No detalhe do contrato, abra **Gerenciar aditivos**. O cadastro nativo mantém os 43 campos de conteúdo de `tb_Aditivos` e um identificador próprio, totalizando os 44 campos representados. O histórico importado permanece preservado; seus IDs não são reutilizados como IDs nativos. O comando [de importação dos aditivos históricos](historical-amendment-import.md) copia os vinculados para essa mesma lista, com referência única à origem e situação **Importado do legado**.
 
 ## Cadastro e conferência
+
+No resumo do contrato, os dois atalhos **Gerenciar aditivos** abrem um painel modal amplo, no padrão do Cadastro de Produtos. A listagem, paginação, consulta e edição usam as rotas autenticadas existentes dentro do painel. O botão de fechar e Escape retornam ao resumo; o link de volta ao contrato também fecha o painel. Ao fechar, o conteúdo é descarregado e o foco volta ao atalho utilizado. Sem JavaScript, o link continua abrindo a página de aditivos normalmente.
+
+Validação do painel (25/10/2026): `docker compose exec -T app php vendor/bin/phpunit tests/Feature/ContractBrowsingTest.php tests/Feature/ContractAmendmentsTest.php --do-not-cache-result` passou com 32 testes e 547 asserções. `docker compose run --rm --no-deps node npm test` passou com 143 testes, incluindo abertura pelos dois atalhos, fechamento, foco, navegação e Escape com diálogos internos. `npm run build`, Pint do teste alterado e `git diff --check` passaram. Não houve ensaio visual em navegador nesta alteração.
 
 Informe número, data, processo, tipo e motivo do aditivo, além da justificativa da gravação. Os demais campos estão organizados por partes, fundamentação, períodos e informações financeiras/de execução. Números preservam zeros iniciais; valores aceitam formato brasileiro ou decimal, com até quatro casas. Períodos exigem término igual ou posterior ao início quando ambos são informados.
 

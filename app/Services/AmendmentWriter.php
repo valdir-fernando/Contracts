@@ -40,12 +40,12 @@ class AmendmentWriter
         return DB::transaction(function () use ($actor, $parent, $input, $id) {
             [$actor, $contract] = $this->lock($actor, $parent);
             $amendment = $id ? ContractAmendment::where('contract_id', $contract->id)->lockForUpdate()->findOrFail($id) : new ContractAmendment;
-            abort_if(! $actor->isAdmin() && $amendment->status === 'registrado', 403);
+            abort_if($id && ! $actor->isAdmin() && $amendment->status !== 'rascunho', 403);
             $payload = $id ? $amendment->payload : self::seed($contract);
             $rules = ['fields' => [$id ? 'sometimes' : 'required', 'array:'.implode(',', array_keys(AmendmentFields::MAP))],
                 'contract_version' => 'required|integer|min:1', 'version' => $id ? 'required|integer|min:1' : 'prohibited',
                 'reason' => 'required|string|min:5|max:1000', 'attachment_id' => 'sometimes|nullable|integer|min:1',
-                'status' => ['sometimes', Rule::in(array_keys(ContractAmendment::STATUSES))]];
+                'status' => ['sometimes', Rule::in($amendment->legacy_record_id ? array_keys(ContractAmendment::STATUSES) : ['rascunho', 'registrado'])]];
             foreach (AmendmentFields::MAP as $field => $definition) {
                 $key = 'fields.'.$field;
                 if (in_array($field, AmendmentFields::DERIVED) || ! $actor->isAdmin() && in_array($field, AmendmentFields::PERSONAL)) {

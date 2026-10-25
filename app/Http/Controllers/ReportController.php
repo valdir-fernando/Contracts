@@ -56,7 +56,7 @@ class ReportController extends Controller
         $reportEndFrom = $selection['report_end_from'] ?? null;
         $reportEndTo = $selection['report_end_to'] ?? null;
         $reportEndActive = $request->boolean('report_end_active') || $reportEndFrom !== null || $reportEndTo !== null;
-        if ($reportEndActive && $reportEndFrom === null) {
+        if ($reportEndActive && $reportEndFrom === null && $reportEndTo === null) {
             $reportEndFrom = today()->toDateString();
         }
         $supplierFilters = [
@@ -64,38 +64,57 @@ class ReportController extends Controller
             'report_bidding_number' => trim($selection['report_bidding_number'] ?? ''),
             'report_supplier' => trim($selection['report_supplier'] ?? ''),
         ];
+        if ($reportEndActive) {
+            $reportYear = null;
+            $request->query->remove('report_year');
+            $reportProcess = '';
+            $reportType = '';
+            $reportCurrent = false;
+            $supplierFilters = array_fill_keys(array_keys($supplierFilters), '');
+            foreach (['report_process', 'report_type', 'report_current', 'report_bidding', 'report_bidding_number', 'report_supplier'] as $filter) {
+                $request->query->remove($filter);
+            }
+        }
         $reportScopeLocked = $reportProcess !== '' || $reportType !== '' || $reportEndActive || $reportCurrent
             || collect($supplierFilters)->contains(fn ($value) => $value !== '');
         $reportFundId = $selection['report_fund'] ?? $selectedFund['id'] ?? -1;
+        if ($canSelectScope && $request->query->has('report_fund') && empty($selection['report_fund'])) {
+            $reportFundId = null;
+        }
+        $reportFundIds = $reportFundId === null ? $reportFunds->pluck('id')->all() : [$reportFundId];
         $reportFund = $reportFunds->firstWhere('id', $reportFundId);
-        $reportFundName = $reportFund?->name ?? ($selectedFund['name'] ?? 'Fundo não selecionado');
+        $reportFundName = $reportFundId === null ? 'Todos os Fundos' : ($reportFund?->name ?? ($selectedFund['name'] ?? 'Fundo não selecionado'));
         $canSelectDepartment = $reportFund && ManagerSignatory::isMunicipal($reportFund->name);
         $reportDepartments = $canSelectDepartment
             ? DB::table('contract_departments')->whereIn('id', (clone $visible)->where('fund_id', $reportFundId)->select('department_id'))->orderBy('name')->get(['id', 'name'])
             : collect();
         $reportDepartmentId = $canSelectDepartment ? ($selection['report_department'] ?? null) : null;
         abort_if($reportDepartmentId !== null && ! $reportDepartments->contains('id', $reportDepartmentId), 403);
-        $reportTypes = (clone $visible)->where('fund_id', $reportFundId)
+        $reportTypes = (clone $visible)->whereIn('fund_id', $reportFundIds)
             ->when($reportDepartmentId !== null, fn ($query) => $query->where('department_id', $reportDepartmentId))
-            ->when($reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))
+            ->when(! $reportEndActive && $reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))
             ->whereNotNull('tipo')->where('tipo', '<>', '')->distinct()->orderBy('tipo')->pluck('tipo');
         $reportContracts = (clone $visible)->select('contracts.*')->addSelect([
             'latest_amendment_number' => ContractAmendment::select('number')
                 ->whereColumn('contract_id', 'contracts.id')->orderByDesc('event_date')->orderByDesc('id')->limit(1),
             'latest_amendment_process' => ContractAmendment::select('payload->Proc_ADT')
                 ->whereColumn('contract_id', 'contracts.id')->orderByDesc('event_date')->orderByDesc('id')->limit(1),
-        ])->where('fund_id', $reportFundId)
+        ])->whereIn('fund_id', $reportFundIds)
             ->when($reportCurrent, fn ($query) => $query->withValidity('vigente'))
-            ->when($reportEndFrom !== null, fn ($query) => $query->whereDate('vigencia_fim_atual', '>=', $reportEndFrom))
-            ->when($reportEndTo !== null, fn ($query) => $query->whereDate('vigencia_fim_atual', '<=', $reportEndTo))
+            ->when($reportEndFrom !== null, fn ($query) => $query->whereDate(DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)'), '>=', $reportEndFrom))
+            ->when($reportEndTo !== null, fn ($query) => $query->whereDate(DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)'), '<=', $reportEndTo))
             ->when($reportType !== '', fn ($query) => $query->where('tipo', $reportType))
             ->when($reportProcess !== '', fn ($query) => $query->whereLike('processo', '%'.$reportProcess.'%'))
             ->when($supplierFilters['report_bidding'] !== '', fn ($query) => $query->whereLike('modalidade', '%'.$supplierFilters['report_bidding'].'%'))
             ->when($supplierFilters['report_bidding_number'] !== '', fn ($query) => $query->whereLike('n_licit', '%'.$supplierFilters['report_bidding_number'].'%'))
             ->when($supplierFilters['report_supplier'] !== '', fn ($query) => $query->whereLike('fornecedor_nome_snapshot', '%'.$supplierFilters['report_supplier'].'%'))
             ->when($reportDepartmentId !== null, fn ($query) => $query->where('department_id', $reportDepartmentId))
-            ->when($reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))->orderBy('Contrato')->orderBy('id')
-            ->paginate(20)->withQueryString();
+            ->when(! $reportEndActive && $reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))->orderBy('Contrato')->orderBy('id')
+            ->paginate(20)->appends(array_map(fn ($value) => $value ?? '', $request->query()));
+
+        if ($reportContracts->currentPage() > $reportContracts->lastPage()) {
+            return redirect()->to($reportContracts->url($reportContracts->lastPage()));
+        }
 
         return view('reports.index', compact('reportCurrent', 'reportScopeLocked', 'reportEndActive', 'reportEndFrom', 'reportEndTo', 'reportTypes', 'reportType', 'supplierFilters', 'reportProcess', 'reportYear', 'canSelectScope', 'reportFunds', 'reportFundId', 'reportFundName', 'reportDepartments', 'reportDepartmentId', 'canSelectDepartment') + ['reportContracts' => $reportContracts, 'currentYear' => $currentYear,
             'presets' => SavedReport::where('user_id', $request->user()->id)->orderBy('name')->get(), 'filters' => $filters, 'summary' => $service->summary($request->user(), $filters),

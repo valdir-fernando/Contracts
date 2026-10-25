@@ -5,6 +5,7 @@ import './enter-navigation';
 import './report-generation';
 import './count-up';
 import './contract-summary';
+import './contract-amendments-panel';
 import './supplier-assistance';
 import './supplier-picker';
 import './supplier-registration';
@@ -335,7 +336,7 @@ document.querySelectorAll('[data-fund-defaults-form]').forEach((form) => {
                 }
             });
             ['fundo_nome_snapshot', 'fundo_documento_snapshot'].forEach((name) => {
-                form.querySelector(`[data-derived-field="${name}"]`).textContent = values[name] ?? 'Não informado';
+                form.querySelector(`[data-derived-field="${name}"]`).textContent = values[name] ?? '';
             });
             notice.textContent = '';
         } catch (error) {

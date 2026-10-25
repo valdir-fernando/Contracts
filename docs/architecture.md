@@ -1,5 +1,9 @@
 # Arquitetura do Contracts
 
+Importação dos aditivos: `Infrastructure/Contracts/ImportHistoricalAmendments` copia históricos vinculados para `contract_amendments`, com origem única, autoria de sistema, status `importado`, auditoria e versão transacionais. O histórico original é preservado; nenhuma alteração financeira ou de vigência é aplicada. [Comando, fronteira de manutenção e pendências](historical-amendment-import.md).
+
+O botão **Contrato** também emite **Credenciamento Saúde**, usando o Word fornecido, os dados profissionais salvos e a conferência de produtos e dotações. [Campos, referências do modelo e validação](health-accreditation-contract.md).
+
 Contrato de Obras: `SupplyContractPdf::modelFor` seleciona `works` pelo tipo persistido. O interpretador usa o Word fornecido, a tabela de seis colunas e as dotações conferidas por ficha; `#Texto_Dotacao` concorda com a quantidade de linhas emitidas. Reutiliza captura, autorização, revalidação e auditoria existentes. [Fluxo e validação](works-contract.md).
 
 Data de criação de contratos (22/10/2026): `ContractCreationDate` é a porta de Application para preencher `data_cont_verd` apenas na criação. O adapter HTTPS obtém a data no fuso de Brasília antes da transação; falhas usam a data do sistema do servidor, sem aviso. Edições preservam o valor e ignoram manipulação do cliente. Nenhuma dependência de Laravel/HTTP entrou em Domain/Application. [Fluxo e testes](contract-creation-date.md).
@@ -77,6 +81,14 @@ Produtos de processos licitatórios: `Infrastructure/Contracts/ProcurementProduc
 Ordens de Serviço: o adaptador `Infrastructure/Contracts/RegisterServiceOrder.php` usa `ContractAccess::lockForSave` e `TransactionManager` para cadastrar registros documentais independentes por contrato/aditivo, com versão e auditoria transacionais. Atualiza o campo textual prazo_obra a partir do Período na mesma transação/auditoria, preservando snapshots históricos e sem efeitos financeiros ou de vigência. Datas opcionais starts_on/ends_on preservam clientes antigos; a janela exige ambas. ServiceOrderPdf captura projeções autorizadas sob locks, renderiza fora da transação e revalida antes da entrega privada/auditoria. Consulta, projeções HTTP, instalação e validação estão em [Ordens de Serviço](service-orders-2026-10-15.md).
 
 ## Objetivo e estado atual
+
+Relatórios: a opção Todos os Fundos no seletor administrativo envia `report_fund` vazio e consulta somente os IDs de fundos autorizados e ativos. O parâmetro omitido mantém o Fundo da sessão. A seleção global desabilita Secretaria e permanece nos links de paginação e nos filtros. Contas sem seleção administrativa mantêm seu escopo de sessão e permissões.
+
+Final considera o término atualizado, com retorno ao original quando ausente. Somente Até seleciona términos anteriores ou iguais ao limite; De e Até selecionam o intervalo inclusivo. Durante esse filtro, a coluna Final mostra a mesma data usada na consulta.
+
+Quando o filtro Final está ativo, a lista e as opções de tipo de contrato ignoram o exercício do campo Ano, que fica vazio e desabilitado, sem campo oculto para reenviar o ano anterior. Processo, fornecedor, licitação, número da licitação, tipo e Somente Vigentes são limpos, inclusive dos parâmetros de paginação. Fundo, Secretaria selecionada e escopos autorizados permanecem aplicados. O cabeçalho informa todos os exercícios; limpar Final libera o Ano, usando o exercício atual como padrão quando omitido.
+
+Filtro Final nos relatórios: informar somente Até aplica um limite superior inclusivo à data final atualizada, inclusive para datas passadas, sem acrescentar a data atual como limite inferior. Aplicar o filtro com ambas as datas vazias mantém o início padrão em hoje. Intervalos invertidos são impedidos com alerta na interface e rejeitados também pela validação HTTP.
 
 Exceção de catálogo autorizada: lançamentos manuais de objetos como locação usam `tb_Produtos_Contratos.product_id=null`. O mesmo adaptador `ProcurementProducts` valida os campos informados, protege contrato/ator/versão e audita snapshots e total na transação; não cria nem movimenta `tb_Produtos`. A origem persistida determina edição/estorno, sem aceitar conversão pelo cliente. A migration 000005 apenas torna o vínculo opcional, mantendo dados e chave estrangeira para origens existentes.
 

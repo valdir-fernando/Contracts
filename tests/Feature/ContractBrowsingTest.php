@@ -105,18 +105,34 @@ class ContractBrowsingTest extends TestCase
         $department = $this->catalog('contract_departments', 'Secretaria Educação');
         $otherDepartment = $this->catalog('contract_departments', 'Secretaria Obras');
         $this->contract(['fund_id' => $fund, 'numero' => 'SAUDE']);
-        $one = $this->contract(['fund_id' => $municipal, 'department_id' => $department, 'numero' => 'EDUCACAO']);
-        $this->contract(['fund_id' => $municipal, 'department_id' => $otherDepartment, 'numero' => 'OBRAS']);
+        $one = $this->contract(['fund_id' => $municipal, 'department_id' => $department, 'secretaria_nome_snapshot' => 'Secretaria Educação', 'numero' => 'EDUCACAO', 'vigencia_fim_atual' => '2027-06-30']);
+        $this->contract(['fund_id' => $municipal, 'department_id' => $otherDepartment, 'numero' => 'OBRAS', 'vigencia_fim_atual' => '2027-06-30']);
         $this->actingAs($this->user())->withSession(['fund_id' => $fund])
             ->get('/reports?report_fund='.$municipal.'&report_department='.$department)->assertOk()
             ->assertViewHas('canSelectDepartment', true)
             ->assertSee('referente ao ano de 2026. Filtros aplicados: Secretaria: Secretaria Educação.')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $one->id);
+        $this->get('/reports?report_fund='.$municipal.'&report_department='.$department.'&report_year=2025&report_process=INEXISTENTE&report_end_to=2027-06-30')->assertOk()
+            ->assertViewHas('reportDepartmentId', $department)
+            ->assertViewHas('reportProcess', '')
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $one->id);
         $this->get('/reports?report_fund='.$fund.'&report_department='.$department)->assertOk()
             ->assertViewHas('canSelectDepartment', false)
             ->assertViewHas('reportDepartmentId', null)
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'SAUDE');
         $this->get('/reports?report_fund='.$municipal.'&report_department=999999')->assertForbidden();
+        $this->get('/reports?report_fund=')->assertOk()
+            ->assertSee('Secretaria: Secretaria Educação')
+            ->assertSee('Secretaria: Não informada')
+            ->assertSee('Fundo: Fundo Saúde')
+            ->assertDontSee('Fundo: MUNICIPIO DE NIQUELÂNDIA')
+            ->assertViewHas('reportFundId', null)
+            ->assertViewHas('reportFundName', 'Todos os Fundos')
+            ->assertViewHas('reportDepartmentId', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 3);
+        $this->get('/reports?report_fund=&report_end_to=2027-06-30')->assertOk()
+            ->assertViewHas('reportFundId', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 3);
 
         $user = User::create(['name' => 'Restrito', 'username' => 'RESTRITO', 'password' => 'TestingPassword123']);
         $scope = AccessScope::create(['scope_key' => hash('sha256', 'report-scope'), 'fund' => 'Fundo Saúde', 'fund_id' => $fund]);
@@ -128,6 +144,8 @@ class ContractBrowsingTest extends TestCase
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'SAUDE');
         $this->getJson('/reports?report_fund='.$fund)->assertUnprocessable();
         $this->getJson('/reports?report_department='.$department)->assertUnprocessable();
+        $this->get('/reports?report_fund=')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'SAUDE');
 
         $user->update(['user_type' => User::MASTER]);
         $this->get('/reports')->assertOk()->assertSee('name="report_fund"', false)
@@ -198,16 +216,43 @@ class ContractBrowsingTest extends TestCase
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2)
             ->assertSee('Final a partir de: 01/06/2026; Final até: 30/06/2026');
         $this->get('/reports?report_end_to=2026-06-30')->assertOk()
-            ->assertViewHas('reportEndFrom', '2026-10-09')
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
+            ->assertViewHas('reportEndFrom', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+        $this->get('/reports?report_end_from=2026-06-30&report_end_to=2026-06-30')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1);
         $this->get('/reports?report_end_active=1&report_end_from=&report_end_to=')->assertOk()
             ->assertViewHas('reportEndFrom', '2026-10-09')
             ->assertSee('Final a partir de: 09/10/2026');
         $this->get('/reports?report_end_active=&report_end_from=&report_end_to=')->assertOk()
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
         $this->get('/reports?report_end_from=2026-07-01')->assertOk()
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1);
-        $this->getJson('/reports?report_end_from=2026-07-01&report_end_to=2026-06-30')->assertUnprocessable();
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+        $this->get('/reports?report_end_from=&report_end_to=2026-12-31')->assertOk()
+            ->assertViewHas('reportEndFrom', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
+        $this->getJson('/reports?report_end_from=2026-07-01&report_end_to=2026-06-30')->assertUnprocessable()
+            ->assertJsonValidationErrors('report_end_to')
+            ->assertJsonPath('errors.report_end_to.0', 'A data Até deve ser igual ou posterior à data De.');
+    }
+
+    public function test_final_filter_clears_other_filters_and_keeps_authorized_fund(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo A');
+        $other = $this->catalog('contract_funds', 'Fundo B');
+        $match = $this->contract(['fund_id' => $fund, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-06-30']);
+        $this->contract(['fund_id' => $fund, 'exercicio' => 2026, 'processo' => 'OUTRO', 'vigencia_fim_atual' => '2027-06-30']);
+        $this->contract(['fund_id' => $other, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-06-30']);
+        $this->contract(['fund_id' => $fund, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-07-01']);
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_year=2026&report_process=PROCESSO-ALVO&report_supplier=INEXISTENTE&report_bidding=INEXISTENTE&report_bidding_number=INEXISTENTE&report_type=INEXISTENTE&report_current=1&report_end_from=2027-06-01&report_end_to=2027-06-30')
+            ->assertOk()->assertSee('referente a todos os exercícios')
+            ->assertViewHas('reportProcess', '')
+            ->assertViewHas('reportType', '')
+            ->assertViewHas('reportCurrent', false)
+            ->assertViewHas('supplierFilters', fn ($filters) => array_values($filters) === ['', '', ''])
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2 && $rows->contains('id', $match->id));
+        $this->get('/reports?report_year=2026&report_process=PROCESSO-ALVO')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
     }
 
     public function test_list_filters_lock_scope_controls_and_preserve_the_selected_year(): void
@@ -216,7 +261,7 @@ class ContractBrowsingTest extends TestCase
         $this->contract(['fund_id' => $fund]);
         $this->actingAs($this->user())->withSession(['fund_id' => $fund]);
         foreach ([['report_process' => '123'], ['report_supplier' => 'Empresa'], ['report_bidding' => 'Pregão'],
-            ['report_bidding_number' => '01'], ['report_type' => 'Obras'], ['report_end_active' => 1]] as $filter) {
+            ['report_bidding_number' => '01'], ['report_type' => 'Obras']] as $filter) {
             $response = $this->get('/reports?'.http_build_query($filter + ['report_year' => 2025, 'report_fund' => $fund]));
             $response->assertOk()->assertViewHas('reportScopeLocked', true)
                 ->assertSee('name="report_year" min="1" max="9999" value="2025" disabled', false)
@@ -224,7 +269,14 @@ class ContractBrowsingTest extends TestCase
                 ->assertSee('name="report_department" x-ref="department" disabled', false)
                 ->assertSee('type="hidden" name="report_year" value="2025"', false);
         }
+        $this->get('/reports?report_year=2025&report_end_active=1')->assertOk()
+            ->assertViewHas('reportYear', null)
+            ->assertViewHas('reportScopeLocked', true)
+            ->assertSee('name="report_year" min="1" max="9999" value="" disabled', false)
+            ->assertDontSee('type="hidden" name="report_year"', false);
         $this->get('/reports')->assertOk()->assertViewHas('reportScopeLocked', false)
+            ->assertViewHas('reportYear', 2026)
+            ->assertDontSee('name="report_year" min="1" max="9999" value="2026" disabled', false)
             ->assertDontSee('name="report_fund" disabled', false);
     }
 
@@ -244,10 +296,31 @@ class ContractBrowsingTest extends TestCase
             ->assertViewHas('reportScopeLocked', false);
     }
 
+    public function test_report_row_opens_summary_with_editing_available_only_in_summary(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo selecionado');
+        $contract = $this->contract(['fund_id' => $fund]);
+
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?report_process=PROCESSO-TESTE')->assertOk()
+            ->assertDontSee('href="'.route('contracts.edit', $contract).'"', false)
+            ->assertSee('href="'.route('contracts.show', $contract).'" aria-label="Resumo do contrato '.$contract->numero.'"', false)
+            ->assertSee('data-row-href="'.route('contracts.show', $contract).'"', false);
+
+        $this->get(route('contracts.edit', $contract))->assertOk()
+            ->assertViewIs('contracts.form')->assertViewHas('contract', fn ($saved) => $saved->id === $contract->id)
+            ->assertDontSee('id="report-filters"', false);
+        $this->get(route('contracts.show', $contract))->assertOk()->assertViewIs('contracts.show')
+            ->assertSee('href="'.route('contracts.edit', $contract).'"', false)->assertSee('Editar contrato')
+            ->assertSee('data-contract-amendments-open aria-haspopup="dialog" aria-controls="contract-amendments-panel"', false)
+            ->assertSee('id="contract-amendments-panel"', false)
+            ->assertSee('name="contracts-amendments-panel"', false);
+    }
+
     public function test_report_list_displays_updated_dates_accumulated_amount_and_only_latest_amendment(): void
     {
         $fund = $this->catalog('contract_funds', 'Fundo selecionado');
-        $contract = $this->contract(['fund_id' => $fund, 'n_licit' => 'LIC-123',
+        $contract = $this->contract(['fund_id' => $fund, 'n_licit' => 'LIC-123', 'modalidade' => 'Pregão eletrônico',
             'n_aditivo' => 'RESUMO-ANTIGO', 'vigencia_fim_atual' => '2027-06-30', 'valor_acumulado' => '2345.6700']);
         $user = $this->user();
         foreach (['ANTIGO' => '2026-01-01', 'ULTIMO' => '2026-10-01', 'EXCLUIDO' => '2026-11-01'] as $number => $date) {
@@ -259,7 +332,7 @@ class ContractBrowsingTest extends TestCase
             }
         }
         $this->actingAs($user)->withSession(['fund_id' => $fund])->get('/reports')->assertOk()
-            ->assertSeeInOrder(['Licitação nº LIC-123', 'Fornecedor fictício', 'Aditivo ULTIMO', 'Processo PROC-ULTIMO', '01/01/2026', '30/06/2027', 'R$ 2.345,67'])
+            ->assertSeeInOrder(['Pregão eletrônico nº LIC-123', 'Fornecedor fictício', 'Aditivo ULTIMO', 'Processo PROC-ULTIMO', '01/01/2026', '30/06/2027', 'R$ 2.345,67'])
             ->assertDontSee('PROC-ANTIGO')->assertDontSee('PROC-EXCLUIDO')
             ->assertDontSee('Aditivo ANTIGO')->assertDontSee('Aditivo EXCLUIDO')
             ->assertDontSee('RESUMO-ANTIGO')->assertDontSee('31/12/2026');
@@ -314,6 +387,52 @@ class ContractBrowsingTest extends TestCase
             ->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)
             ->assertViewHas('years', fn ($years) => $years->all() === [2027, 2026]);
         $this->get('/contracts?year=invalid')->assertSessionHasErrors('year');
+    }
+
+    public function test_report_pagination_navigates_forward_and_back_with_final_filter(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo paginação');
+        for ($i = 1; $i <= 45; $i++) {
+            $this->contract(['fund_id' => $fund, 'numero' => sprintf('%03d/25', $i), 'exercicio' => 2025, 'vigencia_fim_atual' => '2024-12-31']);
+        }
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund]);
+        foreach ([1, 2, 3, 2, 1] as $page) {
+            $response = $this->get('/reports?report_year=2026&report_end_to=2024-12-31&page='.$page)->assertOk();
+            $response->assertViewHas('reportContracts', fn ($rows) => $rows->currentPage() === $page && $rows->total() === 45 && $rows->count() === ($page === 3 ? 5 : 20))
+                ->assertSee('aria-current="page" aria-label="Página '.$page.'"', false);
+            if ($page < 3) {
+                $response->assertSee('href="'.url('/reports').'?report_end_to=2024-12-31&amp;page='.($page + 1).'"', false);
+            }
+        }
+    }
+
+    public function test_report_pagination_preserves_all_years_and_all_funds_when_following_links(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo paginação');
+        for ($i = 1; $i <= 21; $i++) {
+            $this->contract(['fund_id' => $fund, 'exercicio' => 2025]);
+        }
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund]);
+        $response = $this->get('/reports?report_year=&report_fund=')->assertOk();
+        $next = $response->viewData('reportContracts')->nextPageUrl();
+        $this->get($next)->assertOk()->assertViewHas('reportYear', null)->assertViewHas('reportFundId', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->currentPage() === 2 && $rows->total() === 21 && $rows->count() === 1);
+    }
+
+    public function test_report_out_of_range_page_returns_to_last_page_with_filters_and_working_previous_link(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo paginação');
+        for ($i = 1; $i <= 21; $i++) {
+            $this->contract(['fund_id' => $fund, 'exercicio' => 2025]);
+        }
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund]);
+        $response = $this->get('/reports?report_year=2025&report_fund='.$fund.'&page=3')->assertRedirect();
+        $last = $this->get($response->headers->get('Location'))->assertOk()
+            ->assertViewHas('reportYear', 2025)->assertViewHas('reportFundId', (string) $fund)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->currentPage() === 2 && $rows->count() === 1);
+        $this->get($last->viewData('reportContracts')->previousPageUrl())->assertOk()
+            ->assertViewHas('reportYear', 2025)->assertViewHas('reportFundId', (string) $fund)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->currentPage() === 1 && $rows->count() === 20);
     }
 
     public function test_archive_pagination_and_reports_keep_the_default_year_filter(): void

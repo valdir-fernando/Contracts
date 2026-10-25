@@ -12,7 +12,7 @@ class ContractAmendment extends Model
 {
     use SoftDeletes;
 
-    public const STATUSES = ['rascunho' => 'Rascunho', 'registrado' => 'Registrado após conferência'];
+    public const STATUSES = ['rascunho' => 'Rascunho', 'registrado' => 'Registrado após conferência', 'importado' => 'Importado do legado'];
 
     protected $guarded = ['id'];
 

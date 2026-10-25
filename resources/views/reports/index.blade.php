@@ -3,9 +3,11 @@
         <div>
             <h1>Relatórios de contratos</h1>
         </div>
-        <form id="report-filters" method="GET" class="report-scope-selection {{ $canSelectScope ? '' : 'report-year-only' }}" x-data>
+        <form id="report-filters" method="GET" class="report-scope-selection {{ $canSelectScope ? '' : 'report-year-only' }}" x-data @submit="const from = $el.elements.namedItem('report_end_from'); const to = $el.elements.namedItem('report_end_to'); if (from.value && to.value && from.value > to.value) { $event.preventDefault(); alert('A data inicial (De) não pode ser posterior à data final (Até).'); document.getElementById('report-end-popover').showPopover(); to.focus(); }">
             @if($reportScopeLocked)
+                @unless($reportEndActive)
                 <input type="hidden" name="report_year" value="{{ $reportYear }}">
+                @endunless
                 @if($canSelectScope)
                     <input type="hidden" name="report_fund" value="{{ $reportFundId > 0 ? $reportFundId : '' }}">
                     <input type="hidden" name="report_department" value="{{ $reportDepartmentId }}">
@@ -17,7 +19,7 @@
             @if($canSelectScope)
             <label class="field">Fundo
                 <select name="report_fund" @disabled($reportScopeLocked) @change="$refs.department.value = ''; $el.form.requestSubmit()">
-                    <option value="">Selecione o Fundo</option>
+                    <option value="" @selected($reportFundId === null)>Todos os Fundos</option>
                     @foreach($reportFunds as $fund)
                         <option value="{{ $fund->id }}" @selected((int) $reportFundId === (int) $fund->id)>{{ $fund->name }}</option>
                     @endforeach
@@ -38,10 +40,8 @@
     <nav class="report-panel-navigation" aria-label="Relatórios">
         <button type="button" class="secondary-button compact">Relatório Contrato</button>
         <button type="button" class="secondary-button compact">Relatório Aditivo</button>
-    </nav>
-    <div class="report-list-toolbar">
         <p class="report-contract-count" role="status">Total de Contratos: {{ number_format($reportContracts->total(), 0, ',', '.') }}</p>
-    </div>
+    </nav>
     <section class="surface contract-section report-contract-panel" aria-label="Contratos do Fundo no ano atual">
             <div class="report-list-heading">
                 @php
@@ -70,7 +70,7 @@
                         $appliedFilters[] = 'Final até: '.\Carbon\Carbon::parse($reportEndTo)->format('d/m/Y');
                     }
                 @endphp
-                <h2 class="report-contract-caption">Relatório de {{ $appliedFilters === [] ? 'todos os contratos' : 'contratos' }} do {{ $reportFundName }} {{ $reportYear === null ? 'referente a todos os exercícios' : 'referente ao ano de '.$reportYear }}.@if($appliedFilters !== []) Filtros aplicados: {{ implode('; ', $appliedFilters) }}.@endif</h2>
+                <h2 class="report-contract-caption">Relatório de {{ $appliedFilters === [] ? 'todos os contratos' : 'contratos' }} do {{ $reportFundName }} {{ $reportEndActive || $reportYear === null ? 'referente a todos os exercícios' : 'referente ao ano de '.$reportYear }}.@if($appliedFilters !== []) Filtros aplicados: {{ implode('; ', $appliedFilters) }}.@endif</h2>
             </div>
             <div class="table-scroll">
                 <div class="report-list-clear">
@@ -137,28 +137,39 @@
                                 <button type="submit" form="report-filters" class="primary-button compact" @click="document.getElementById('report-end-active').value = '1'">Aplicar</button>
                             </div>
                         </div>
-                    </th><th>VL_Atual</th></tr></thead>
+                    </th><th>VL_Atual</th><th>Ações</th></tr></thead>
                     <tbody>
                         @forelse($reportContracts as $contract)
                             <tr data-row-href="{{ route('contracts.show', $contract) }}">
                                 <td><a class="text-link" href="{{ route('contracts.show', $contract) }}">{{ $contract->numero ?: $contract->id }}</a></td>
                                 <td>{{ $contract->processo }}</td>
                                 <td>
-                                    Licitação nº {{ $contract->n_licit }}<br>
-                                    {{ $contract->fornecedor_nome_snapshot }}
+                                    {{ $contract->modalidade ?: 'Licitação' }} nº {{ $contract->n_licit }}<br>
+                                    <strong>{{ $contract->fornecedor_nome_snapshot }}</strong>
                                     @php($amendmentNumber = trim((string) ($contract->latest_amendment_number ?? $contract->n_aditivo)))
                                     @php($amendmentProcess = trim((string) ($contract->latest_amendment_number !== null ? $contract->latest_amendment_process : $contract->proc_aditivo)))
                                     @if($amendmentNumber !== '' && $amendmentNumber !== '0')
                                         <br>Aditivo {{ $amendmentNumber }}@if($amendmentProcess !== '') · Processo {{ $amendmentProcess }}@endif
                                     @endif
+                                    @if($reportFundId === null)
+                                        @php($contractFundName = $reportFunds->firstWhere('id', $contract->fund_id)?->name ?? $contract->fundo_nome_snapshot)
+                                        @if(\App\Infrastructure\Managers\ManagerSignatory::isMunicipal($contractFundName ?? ''))
+                                            <br>Secretaria: {{ $contract->secretaria_nome_snapshot ?: 'Não informada' }}
+                                        @else
+                                            <br>Fundo: {{ $contractFundName ?: 'Não informado' }}
+                                        @endif
+                                    @endif
                                 </td>
                                 <td>@if(filled($contract->tipo))<b>{{ $contract->tipo }}</b> - @endif{{ $contract->objeto }}</td>
                                 <td class="nowrap-cell">{{ $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado' }}</td>
-                                <td class="nowrap-cell">{{ $contract->vigencia_fim_atual?->format('d/m/Y') ?? 'Não informado' }}</td>
+                                <td class="nowrap-cell">{{ ($reportEndActive ? $contract->end_date : $contract->vigencia_fim_atual)?->format('d/m/Y') ?? 'Não informado' }}</td>
                                 <td class="money-cell">{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}</td>
+                                <td><div class="report-row-actions">
+                                    <a class="secondary-button compact" href="{{ route('contracts.show', $contract) }}" aria-label="Resumo do contrato {{ $contract->numero ?: $contract->id }}">Resumo</a>
+                                </div></td>
                             </tr>
                         @empty
-                            <tr><td colspan="7">Nenhum contrato do Fundo selecionado{{ $reportYear === null ? '.' : ' para o ano '.$reportYear.'.' }}</td></tr>
+                            <tr><td colspan="8">Nenhum contrato do Fundo selecionado{{ $reportEndActive || $reportYear === null ? '.' : ' para o ano '.$reportYear.'.' }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

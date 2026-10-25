@@ -6,6 +6,9 @@
         if (window.self !== window.top && window.name === 'contracts-supplier-catalog') {
             document.documentElement.dataset.supplierCatalog = 'true';
         }
+        if (window.self !== window.top && window.name === 'contracts-amendments-panel') {
+            document.documentElement.dataset.amendmentsPanel = 'true';
+        }
         try { document.documentElement.dataset.sidebarCollapsed = String(localStorage.getItem('contracts.sidebar-collapsed') === 'true'); } catch {}
     </script>
     <div @class(['workspace', 'workspace-contract-editor' => $contractEditor])>

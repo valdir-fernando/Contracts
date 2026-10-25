@@ -69,7 +69,7 @@ class ContractAmendmentController extends Controller
     {
         Gate::authorize('update', $contract);
         $amendment = ContractAmendment::where('contract_id', $contract->id)->findOrFail($amendment);
-        abort_if(! auth()->user()->isAdmin() && $amendment->status === 'registrado', 403);
+        abort_if(! auth()->user()->isAdmin() && $amendment->status !== 'rascunho', 403);
 
         return $this->form($contract, $amendment);
     }
@@ -84,7 +84,7 @@ class ContractAmendmentController extends Controller
             Gate::forUser($actor)->authorize('update', $contract);
             Auth::setUser($actor);
             $current = ContractAmendment::where('contract_id', $contract->id)->findOrFail($amendment);
-            abort_if(! $actor->isAdmin() && $current->status === 'registrado', 403);
+            abort_if(! $actor->isAdmin() && $current->status !== 'rascunho', 403);
 
             return $this->form($contract, $current, $request->all(), true);
         }

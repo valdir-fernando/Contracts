@@ -40,6 +40,19 @@ class ContractAmendmentsTest extends TestCase
         $this->actingAs($this->admin);
     }
 
+    public function test_list_shows_current_contract_accumulated_value_instead_of_historical_amount_or_status(): void
+    {
+        $this->create(['VL_ADT' => '100.0000', 'VL_Acumulado' => '9000.0000']);
+        $this->get($this->base())->assertOk()
+            ->assertSeeInOrder(['<th>ADT</th>', '<th>VL_ADT</th>', '<th>VL_Acumulado</th>', 'R$ 100,00', 'R$ 5.100,00'], false)
+            ->assertDontSee('R$ 9.000,00')->assertDontSee('<th>Registro</th>', false)
+            ->assertDontSee('Aditivos atuais')->assertDontSee('Aditivos excluídos')
+            ->assertDontSee('Aditivos cadastrados e importados do legado. Valores e prazos não são aplicados automaticamente.');
+
+        $this->contract->update(['valor_acumulado' => '6200.5000']);
+        $this->get($this->base())->assertOk()->assertSee('R$ 6.200,50')->assertDontSee('R$ 5.100,00');
+    }
+
     private function base(): string
     {
         return '/contracts/'.$this->contract->id.'/amendments';

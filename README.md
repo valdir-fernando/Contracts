@@ -1,5 +1,9 @@
 # Contracts
 
+Os aditivos históricos podem ser copiados para `contract_amendments` por `contracts:import-amendments --apply`, com origem, histórico e auditoria preservados. Sem `--apply`, apenas simula. [Procedimento e pendências](docs/historical-amendment-import.md).
+
+O botão **Contrato** também emite **Credenciamento Saúde**, usando o Word fornecido, os dados profissionais salvos e a conferência de produtos e dotações. [Campos, referências do modelo e validação](docs/health-accreditation-contract.md).
+
 [Entrega de 23/10/2026 e validação antes do push](docs/delivery-2026-10-23.md).
 
 O botão **Contrato** também emite o PDF de **Obras**, usando o modelo Word fornecido e concordância automática para uma ou várias dotações. [Preenchimento e validação](docs/works-contract.md).
