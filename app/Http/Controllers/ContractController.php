@@ -198,7 +198,7 @@ class ContractController extends Controller
                 || ContractHistoryRecord::where('contract_id', $contract->id)->where('kind', 'amendment')->where('match_status', 'matched')->where('amount', '!=', '0')->exists()
             ),
             'latestServiceOrder' => $contract->exists ? ContractServiceOrder::where('contract_id', $contract->id)->orderByDesc('issued_on')->orderByDesc('id')->first(['number', 'issued_on']) : null,
-            'contractTypes' => collect(ContractFields::CONTRACT_TYPES)->sortByDesc(fn (string $type) => mb_strlen($type))->values(),
+            'contractTypes' => collect(ContractFields::CONTRACT_TYPES)->sort()->values(),
             'typeRules' => ContractTypeRule::orderBy('name')->get(),
             'history' => ContractHistoryRecord::where('contract_id', $contract->id)->orderBy('event_date')->get(),
             'groups' => collect($formFields)->except(['Fornecedor', 'ID_Contrato', 'Contrato', 'Cont_Inteiro', 'Data_Cont_Verd', 'Data_Licit', 'N_Solicit', 'Tipo_Contrato', 'Reforma', 'Tipo_Fornecimento'])->groupBy('group', preserveKeys: true),

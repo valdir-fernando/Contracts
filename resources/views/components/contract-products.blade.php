@@ -86,7 +86,7 @@
         <label>Valor Total do Contrato<input data-product-heading-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label>
         @if($showAccumulatedValue)
             <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
-            <label>Valor Acumulado do Contrato<input data-product-accumulated-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}"></label>
+            <label class="contract-accumulated-label">Valor Acumulado do Contrato<input data-product-accumulated-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}"></label>
         @endif
         @if($sessionFund = request()->attributes->get('selected_fund'))
             <div class="product-session-fund" aria-label="Fundo logado">

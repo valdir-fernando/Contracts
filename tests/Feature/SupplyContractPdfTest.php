@@ -106,6 +106,45 @@ class SupplyContractPdfTest extends TestCase
         return [[false], [true]];
     }
 
+    #[DataProvider('worksBudgets')]
+    public function test_health_accreditation_uses_saved_fields_and_word_table(bool $multiple): void
+    {
+        $this->contract->update(['tipo' => 'Credenciamento Saúde', 'cargo_credenc' => 'Médico <clínico>',
+            'local_servico' => 'Unidade de saúde', 'doc_prof' => 'CRM TESTE 123', 'rg_fornec' => 'RG PRIVADO',
+            'fornecedor_documento_snapshot' => '52998224725', 'vl_parcial' => '210.9100', 'ext_parcial' => 'Duzentos e dez reais e noventa e um centavos']);
+        $this->product($multiple ? ['quantity' => '1.0000', 'unit_price' => '1000.0000', 'total' => '1000.0000'] : []);
+        if ($multiple) {
+            $this->product(['item' => '2', 'Ficha' => '002', 'quantity' => '1.0000', 'unit_price' => '1530.9200', 'total' => '1530.9200']);
+        }
+        $renderer = $this->renderer();
+        $response = $this->get($this->url().'&tipo=Fornecimento')->assertOk()
+            ->assertHeader('Content-Disposition', 'inline; filename="contrato-credenciamento-saude-'.$this->contract->id.'.pdf"')
+            ->assertHeader('Cache-Control', 'no-store, private');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="utf-8" ?>'.$renderer->html);
+        $xpath = new \DOMXPath($document);
+        $text = $xpath->evaluate('string(//body)');
+        foreach (['SAÚDE PÚBLICA N° 015/26', 'Médico <clínico>', 'Unidade de saúde', 'CRM TESTE 123', 'RG PRIVADO',
+            '529.982.247-25', '210,91', '2.530,92', '01.02.03.4.5', 'CREDENCIANTE', 'CREDENCIADO(A)',
+            $multiple ? 'nas dotações abaixo discriminadas:' : 'na dotação abaixo discriminada:'] as $value) {
+            $this->assertStringContainsString($value, $text);
+        }
+        $this->assertDoesNotMatchRegularExpression('/#[\p{L}_]/u', $text);
+        $this->assertSame(7, $xpath->query('//table[@class="products"]/thead/tr/th')->length);
+        $this->assertSame('Produto exclusivo do contrato', $xpath->evaluate('string((//table[@class="products"]/tbody/tr)[1]/td[2])'));
+        $this->assertSame('30149', $xpath->evaluate('string((//table[@class="products"]/tbody/tr)[1]/td[3])'));
+        $this->assertSame($multiple ? 2 : 1, $xpath->query('//table[@class="budget-lines"]/tbody/tr')->length);
+        $this->assertSame('health-accreditation', ActivityEvent::sole()->metadata['model']);
+        $this->assertNull(SupplyContractPdf::modelFor('Credenciamento'));
+        $this->blade('<x-contract-document-actions :contract="$contract"/>', ['contract' => $this->contract])
+            ->assertSee('data-contract-document-url=', false)->assertSee('Abrir contrato de credenciamento saúde em PDF.');
+        ActivityEvent::query()->delete();
+        $this->contract->update(['valor_total' => '2530.9300']);
+        $this->getJson($this->url())->assertUnprocessable();
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_works_without_products_uses_saved_object_and_omits_product_table(): void
     {
         $this->contract->update(['tipo' => 'Obras', 'objeto' => 'Construção de escola <exemplo> & instalações']);
@@ -186,9 +225,15 @@ class SupplyContractPdfTest extends TestCase
         $this->assertDatabaseCount('activity_events', 0);
     }
 
-    public function test_services_masks_personal_fields_and_requires_issuance_permission(): void
+    public static function personalDocumentModels(): array
     {
-        $this->contract->update(['tipo' => 'Serviços Diversos']);
+        return [['Serviços Diversos'], ['Credenciamento Saúde']];
+    }
+
+    #[DataProvider('personalDocumentModels')]
+    public function test_services_masks_personal_fields_and_requires_issuance_permission(string $type): void
+    {
+        $this->contract->update(['tipo' => $type, 'fornecedor_documento_snapshot' => '52998224725', 'rg_fornec' => 'RG FORNECEDOR PRIVADO']);
         $this->product();
         $user = User::create(['name' => 'Emissor', 'username' => 'SERVICES_ISSUER', 'password' => 'Synthetic123']);
         $scope = AccessScope::create(['scope_key' => 'services-pdf', 'fund_id' => $this->contract->fund_id, 'fund' => 'Fundo de teste']);
@@ -202,6 +247,7 @@ class SupplyContractPdfTest extends TestCase
         $this->assertStringNotContainsString('529.982.247-25', $renderer->html);
         $this->assertStringNotContainsString('RG SOCIO PRIVADO', $renderer->html);
         $this->assertStringNotContainsString('RG GESTOR PRIVADO', $renderer->html);
+        $this->assertStringNotContainsString('RG FORNECEDOR PRIVADO', $renderer->html);
     }
 
     public function test_property_lease_model_uses_saved_values_and_its_seven_column_table(): void
@@ -593,10 +639,16 @@ class SupplyContractPdfTest extends TestCase
         return array_map(static fn ($case) => [$case[0], 'Obras'], self::changesDuringRendering());
     }
 
+    public static function healthChangesDuringRendering(): array
+    {
+        return array_map(static fn ($case) => [$case[0], 'Credenciamento Saúde'], self::changesDuringRendering());
+    }
+
     #[DataProvider('changesDuringRendering')]
     #[DataProvider('leaseChangesDuringRendering')]
     #[DataProvider('serviceChangesDuringRendering')]
     #[DataProvider('worksChangesDuringRendering')]
+    #[DataProvider('healthChangesDuringRendering')]
     public function test_changes_during_rendering_prevent_delivery_and_audit(string $change, string $type = 'Fornecimento'): void
     {
         $this->contract->update(['tipo' => $type]);

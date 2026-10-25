@@ -27,7 +27,7 @@ class ContractFields
         'cpf_fiscal', 'nome_fiscal', 'rg_fiscal', 'decreto_fiscal'];
 
     public const CONTRACT_TYPES = [
-        'Serviços Diversos', 'Fornecimento', 'Credenciamento', 'Show',
+        'Serviços Diversos', 'Fornecimento', 'Credenciamento', 'Credenciamento Saúde', 'Show',
         'Locação de Imóvel', 'Locação de Veículo', 'Locação de Equipamento',
         'Obras', 'Transporte Diversos', 'Transporte Pessoas', 'Transporte Escolar',
     ];
@@ -166,9 +166,9 @@ class ContractFields
         'Doc_Prof' => 'Documento profissional', 'PIS_PASEP' => 'PIS/PASEP',
         'End_Fornec' => 'Endereço do fornecedor', 'Socio' => 'Sócio / representante',
         'CPF_Socio' => 'CPF do sócio', 'RG_Socio' => 'RG do sócio', 'CNPJ_Fundo' => 'CNPJ do fundo',
-        'End_Fundo' => 'Endereço do fundo', 'CPF_Gestor' => 'CPF do gestor', 'Nome_Gestor' => 'Gestor',
-        'RG_Gestor' => 'RG do gestor', 'Cargo_Gestor' => 'Cargo do gestor', 'CPF_Fiscal' => 'CPF do fiscal',
-        'Nome_Fiscal' => 'Fiscal', 'RG_Fiscal' => 'RG do fiscal', 'Decreto_Fiscal' => 'Decreto do fiscal',
+        'End_Fundo' => 'Endereço do fundo', 'CPF_Gestor' => 'CPF do gestor do Fundo', 'Nome_Gestor' => 'Gestor do Fundo',
+        'RG_Gestor' => 'RG do gestor do Fundo', 'Cargo_Gestor' => 'Cargo do gestor', 'CPF_Fiscal' => 'CPF do fiscal de Contrato',
+        'Nome_Fiscal' => 'Fiscal de Contrato', 'RG_Fiscal' => 'RG do fiscal de Contrato', 'Decreto_Fiscal' => 'Decreto do fiscal',
         'Tipo_Contrato' => 'Tipo de contrato', 'Tipo_Veiculo' => 'Tipo de veículo', 'Dados_Veiculo' => 'Dados do veículo',
         'End_Imovel' => 'Endereço do imóvel', 'Cargo_Credenc' => 'Cargo Credenciamento - Saúde',
         'Local_Servico' => 'Local do serviço', 'IPTU' => 'IPTU por conta do(a)>', 'Instalacoes' => 'Instalações', 'AreaTerreno' => 'Área do terreno',

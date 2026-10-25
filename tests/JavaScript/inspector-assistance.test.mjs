@@ -28,10 +28,10 @@ test('opening an existing contract without a saved inspector does not request th
     const state = setup(async () => {
         calls++;
         return { ok: true, json: async () => ({ values: { nome_fiscal: 'Fiscal atual do catálogo' } }) };
-    }, true, false, 'Não informado');
+    }, true, false, '');
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(calls, 0);
-    assert.equal(state.name.textContent, 'Não informado');
+    assert.equal(state.name.textContent, '');
     assert.equal(state.status.textContent, '');
 });
 
@@ -77,13 +77,13 @@ test('looks up fund inspector on creation without sending a disabled department,
         return { ok: true, json: async () => ({ values: { nome_fiscal: null } }) };
     }, false, true);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(state.name.textContent, 'Não informado');
+    assert.equal(state.name.textContent, '');
     assert.match(state.status.textContent, /Nenhum fiscal único/);
 });
 
 test('clears old inspector values and reports denied lookup without guessing a replacement', async () => {
     const state = setup(async () => ({ ok: false, status: 403 }));
     await state.change();
-    assert.equal(state.name.textContent, 'Não informado');
+    assert.equal(state.name.textContent, '');
     assert.match(state.status.textContent, /Não foi possível/);
 });

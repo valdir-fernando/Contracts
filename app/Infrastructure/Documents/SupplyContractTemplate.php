@@ -21,6 +21,7 @@ final class SupplyContractTemplate
             'supply' => 'supply.docx',
             'services' => 'services.docx',
             'works' => 'works.docx',
+            'health-accreditation' => 'health-accreditation.docx',
             'property-lease' => 'property-lease.docx',
             default => throw new RuntimeException('Modelo de contrato desconhecido.'),
         });
@@ -30,6 +31,7 @@ final class SupplyContractTemplate
     {
         // The Word paragraph already supplies the trailing colon.
         $fields['#Texto_Dotacao'] = count($budgets) > 1 ? 'nas dotações abaixo discriminadas' : 'na dotação abaixo discriminada';
+        $fields['#TEXTO_DOTACAO'] = $fields['#Texto_Dotacao'];
         $zip = new ZipArchive;
         if ($zip->open($this->path($model), ZipArchive::RDONLY) !== true) {
             throw new RuntimeException('Modelo do contrato de fornecimento indisponível.');
@@ -136,6 +138,7 @@ final class SupplyContractTemplate
                     $clauseOpen = false;
                 }
                 $html .= (str_contains(mb_strtoupper($node->textContent), 'DISCRIMINAÇÃO')
+                    || ($model === 'health-accreditation' && str_contains($node->textContent, '#ESPECIFICACAO'))
                     || ($model === 'works' && str_contains($node->textContent, '#SERVIÇO'))
                     || ($model === 'services' && str_contains(mb_strtoupper($node->textContent), 'DISRIMINAÇÃO')))
                     ? $this->products($products, $productsTotal, $model)
@@ -228,6 +231,9 @@ final class SupplyContractTemplate
         if ($model === 'supply') {
             $columns['Marca'] = 9;
         }
+        if ($model === 'health-accreditation') {
+            $columns = ['ITEM' => 6, 'ESPECIFICAÇÃO' => 48, 'CATSER' => 7];
+        }
         $columns += ['UND' => 7, 'QTD' => 8, 'VL_Unit' => 11, 'VL_Total' => 13];
         foreach ($columns as $label => $width) {
             $html .= '<th style="width:'.$width.'%">'.$label.'</th>';
@@ -237,7 +243,10 @@ final class SupplyContractTemplate
             // Dompdf cannot split a single table cell over pages. Use continuation rows for long descriptions.
             foreach ($this->textParts($row['description'], 2000) as $index => $description) {
                 $html .= '<tr>';
-                foreach (['item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total'] as $field) {
+                $productFields = $model === 'health-accreditation'
+                    ? ['item', 'description', 'code', 'unit', 'quantity', 'unit_price', 'total']
+                    : ['item', 'code', 'description', 'brand', 'unit', 'quantity', 'unit_price', 'total'];
+                foreach ($productFields as $field) {
                     if (($field === 'brand' && $model !== 'supply') || ($field === 'code' && in_array($model, ['services', 'works'], true))) {
                         continue;
                     }

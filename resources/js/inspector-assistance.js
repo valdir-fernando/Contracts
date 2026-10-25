@@ -9,7 +9,7 @@ export function initializeInspectorAssistance(form, fetcher = fetch) {
     const display = (values = {}) => {
         for (const field of fields) {
             const output = form.querySelector(`[data-contractor-field="${field}"]`);
-            if (output) output.textContent = values[field] || 'Não informado';
+            if (output) output.textContent = values[field] || '';
             const protectedOutput = form.querySelector(`[data-contractor-private-field="${field}"]`);
             if (protectedOutput) protectedOutput.textContent = 'Acesso restrito';
         }

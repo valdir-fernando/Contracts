@@ -225,6 +225,10 @@ final class LaravelContractInputValidator implements ContractInputValidator
         }
 
         if ($this->request->routeIs('contracts.store', 'contracts.update')) {
+            if (array_key_exists('vl_garantia', $fields)
+                && (! $updating || $fields['vl_garantia'] !== $contract->vl_garantia)) {
+                $fields['ext_garantia'] = GuaranteeAmountWords::format($fields['vl_garantia']);
+            }
             $fields = array_diff_key($fields, array_flip(ContractFields::CONTRACTOR_CATALOG));
             $actor = User::findOrFail($context->actor->id);
             $fundId = (int) ($data['fund_id'] ?? $contract->fund_id);

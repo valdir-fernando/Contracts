@@ -30,6 +30,7 @@ class ContractDocumentController extends Controller
             'property-lease' => 'locacao-imovel',
             'services' => 'servicos',
             'works' => 'obras',
+            'health-accreditation' => 'credenciamento-saude',
             default => 'fornecimento',
         };
 

@@ -25,6 +25,7 @@ class SupplyContractPdf
             'FORNECIMENTO' => 'supply',
             'SERVICOS DIVERSOS' => 'services',
             'OBRAS' => 'works',
+            'CREDENCIAMENTO SAUDE' => 'health-accreditation',
             'LOCACAO DE IMOVEL' => 'property-lease',
             default => null,
         };
@@ -35,7 +36,7 @@ class SupplyContractPdf
         $snapshot = DB::transaction(function () use ($expected, $id, $version) {
             [$actor, $contract] = $this->authorize($expected, $id);
             abort_unless((int) $contract->version === $version, 409, 'O contrato mudou. Recarregue a página antes de emitir.');
-            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento, Serviços Diversos, Obras e Locação de Imóvel.');
+            abort_if(self::modelFor($contract->tipo) === null, 422, 'O modelo de contrato está disponível para Fornecimento, Serviços Diversos, Obras, Credenciamento Saúde e Locação de Imóvel.');
 
             return $this->snapshot($actor, $contract);
         });
@@ -117,6 +118,18 @@ class SupplyContractPdf
             '#EXTENSO_TOTAL' => $text($contract->ext_total),
             '#ADM' => $settings->administration_start_year.'/'.$settings->administration_end_year,
         ];
+
+        if (self::modelFor($contract->tipo) === 'health-accreditation') {
+            $appointment = $this->leaseAppointment($contract, $signer);
+            $fields += [
+                '#CONT' => $fields['#CONTRATO'], '#CPF' => $fields['#CNPJ_FORNECEDOR'],
+                '#RG' => $display('RG_Fornec'), '#DOC_PROF' => $display('Doc_Prof'),
+                '#ENDEREÇO' => $fields['#END_FORNECEDOR'], '#DECRETO' => $text($appointment['Decreto'] ?? null),
+                '#CARGOCREDENCIADO' => $text($contract->cargo_credenc), '#LOCAL_SERVICO' => $text($contract->local_servico),
+                '#VL_MENSAL' => str_replace('R$ ', '', Contract::moneyLabel($contract->vl_parcial)),
+                '#EXTENSO_MENSAL' => $text($contract->ext_parcial),
+            ];
+        }
 
         if (self::modelFor($contract->tipo) === 'property-lease') {
             $appointment = $this->leaseAppointment($contract, $signer);

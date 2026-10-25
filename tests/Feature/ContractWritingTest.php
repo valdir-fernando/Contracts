@@ -262,16 +262,40 @@ class ContractWritingTest extends TestCase
             ->get('/contracts/'.$contract->id.'/edit')->assertOk()->assertSee('Correção ainda não salva')->assertSee('value="2026-09-20"', false);
     }
 
-    public function test_contract_type_select_uses_fixed_options_ordered_by_character_count_and_preserves_history(): void
+    public function test_contract_selects_start_blank_and_preserve_saved_choices(): void
+    {
+        $response = $this->get('/contracts/create')->assertOk();
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        foreach (['tipo', 'tipo_obra', 'escopo', 'iptu'] as $field) {
+            $selected = (new \DOMXPath($html))->query('//select[@id="'.$field.'"]/option[@selected]');
+            $this->assertCount(1, $selected);
+            $this->assertSame('', $selected->item(0)->getAttribute('value'));
+            $this->assertSame('', trim($selected->item(0)->textContent));
+        }
+
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data());
+        $choices = ['tipo' => 'Obras', 'tipo_obra' => ContractFields::WORK_TYPES[1], 'escopo' => 'Contínuo', 'iptu' => 'Locatário'];
+        $contract->update($choices);
+        $response = $this->get('/contracts/'.$contract->id.'/edit')->assertOk();
+        @$html->loadHTML('<?xml encoding="utf-8" ?>'.$response->getContent());
+        foreach ($choices as $field => $value) {
+            $selected = (new \DOMXPath($html))->query('//select[@id="'.$field.'"]/option[@selected]');
+            $this->assertCount(1, $selected);
+            $this->assertSame($value, $selected->item(0)->getAttribute('value'));
+        }
+    }
+
+    public function test_contract_type_select_uses_fixed_options_ordered_alphabetically_and_preserves_history(): void
     {
         $contract = app(ContractWriter::class)->save($this->admin, $this->data(['tipo' => 'Tipo importado']));
         $this->actingAs($this->regular());
         $response = $this->get('/contracts/create')->assertOk()
             ->assertSee('<select id="tipo" name="tipo"', false)
             ->assertViewHas('contractTypes', fn ($types) => $types->all() === [
-                'Locação de Equipamento', 'Transporte Diversos', 'Locação de Veículo', 'Transporte Pessoas',
-                'Transporte Escolar', 'Serviços Diversos', 'Locação de Imóvel', 'Credenciamento',
-                'Fornecimento', 'Obras', 'Show',
+                'Credenciamento', 'Credenciamento Saúde', 'Fornecimento', 'Locação de Equipamento',
+                'Locação de Imóvel', 'Locação de Veículo', 'Obras', 'Serviços Diversos', 'Show',
+                'Transporte Diversos', 'Transporte Escolar', 'Transporte Pessoas',
             ])->assertDontSee('value="Tipo importado"', false);
         foreach (ContractFields::CONTRACT_TYPES as $type) {
             $this->assertSame(1, substr_count($response->getContent(), 'value="'.$type.'"'));
@@ -410,6 +434,44 @@ class ContractWritingTest extends TestCase
             $this->assertSame(1, $message->length);
             $this->assertSame($words, trim($message->item(0)->textContent));
         }
+    }
+
+    public function test_financial_and_products_buttons_are_enabled_only_after_contract_is_saved(): void
+    {
+        $create = $this->get('/contracts/create')->assertOk();
+        $html = new \DOMDocument;
+        @$html->loadHTML('<?xml encoding="utf-8" ?>'.$create->getContent());
+        $xpath = new \DOMXPath($html);
+        $tab = '//nav[@aria-label="Seções do contrato"]/button[contains(.,"6. Financeiro")]';
+        $this->assertSame(1, $xpath->query($tab.'[@disabled and @title="Salve o contrato para acessar o Financeiro."]')->length);
+        $products = '//nav[@aria-label="Seções do contrato"]/button[@data-contract-products-open]';
+        $this->assertSame(1, $xpath->query($products.'[@disabled and @title="Salve o contrato para acessar os Produtos."]')->length);
+        $this->assertSame(1, $xpath->query('//nav[@aria-label="Seções do contrato"]/button[contains(.,"5. Vigência/OS/Garantia") and not(@disabled)]')->length);
+
+        $this->post('/contracts', $this->data())->assertSessionHasNoErrors()->assertRedirect();
+        $contract = Contract::firstOrFail();
+        $edit = $this->get('/contracts/'.$contract->id.'/edit')->assertOk();
+        @$html->loadHTML('<?xml encoding="utf-8" ?>'.$edit->getContent());
+        $xpath = new \DOMXPath($html);
+        $this->assertSame(1, $xpath->query($tab.'[not(@disabled)]')->length);
+        $this->assertSame(1, $xpath->query($products.'[not(@disabled)]')->length);
+    }
+
+    public function test_guarantee_words_are_recomputed_on_save_with_a_changed_amount_and_audited(): void
+    {
+        $this->post('/contracts', $this->data(['vl_garantia' => '1000', 'ext_garantia' => 'Texto manipulado']))
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $contract = Contract::latest('id')->firstOrFail();
+        $this->assertSame('mil reais', $contract->ext_garantia);
+        $this->get('/contracts/'.$contract->id.'/edit')->assertOk()
+            ->assertSee('data-contract-saved="true"', false)
+            ->assertSee('O valor da garantia foi alterado. O extenso será atualizado após salvar o contrato.');
+        $this->assertSame('mil reais', $contract->fresh()->ext_garantia);
+        $this->put('/contracts/'.$contract->id, ['version' => $contract->version, 'reason' => 'Alterar garantia', 'vl_garantia' => '2.000,50'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('dois mil reais e cinquenta centavos', $contract->fresh()->ext_garantia);
+        $audit = ContractAudit::where('contract_id', $contract->id)->latest('id')->firstOrFail();
+        $this->assertSame(['before' => 'mil reais', 'after' => 'dois mil reais e cinquenta centavos'], $audit->changes['ext_garantia']);
     }
 
     public function test_guarantee_words_are_readonly_below_amount_and_preserved_when_omitted(): void
@@ -668,6 +730,10 @@ class ContractWritingTest extends TestCase
         @$html->loadHTML($response->getContent());
         $control = $html->getElementById('iptu');
         $this->assertSame('select', $control->tagName);
+        $emptyOption = $control->getElementsByTagName('option')->item(0);
+        $this->assertSame('', $emptyOption->getAttribute('value'));
+        $this->assertSame('', trim($emptyOption->textContent));
+        $this->assertTrue($emptyOption->hasAttribute('selected'));
         $options = [];
         foreach ($control->getElementsByTagName('option') as $option) {
             if ($option->getAttribute('value') !== '') {
