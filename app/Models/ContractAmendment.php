@@ -14,6 +14,8 @@ class ContractAmendment extends Model
 
     public const STATUSES = ['rascunho' => 'Rascunho', 'registrado' => 'Registrado após conferência', 'importado' => 'Importado do legado'];
 
+    protected $table = 'tb_Aditivos';
+
     protected $guarded = ['id'];
 
     protected function casts(): array

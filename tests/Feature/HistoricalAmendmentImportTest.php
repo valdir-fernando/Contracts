@@ -118,7 +118,7 @@ class HistoricalAmendmentImportTest extends TestCase
         } finally {
             ContractAudit::flushEventListeners();
         }
-        $this->assertDatabaseCount('contract_amendments', 0);
+        $this->assertDatabaseCount('tb_Aditivos', 0);
         $this->assertSame(1, $contract->fresh()->version);
         $this->assertDatabaseCount('import_runs', 1);
     }
@@ -131,7 +131,7 @@ class HistoricalAmendmentImportTest extends TestCase
         $counts = app(ImportHistoricalAmendments::class)->run(false);
         $this->assertSame(2, $counts['conflict']);
         $this->assertSame(0, $counts['imported']);
-        $this->assertDatabaseCount('contract_amendments', 0);
+        $this->assertDatabaseCount('tb_Aditivos', 0);
         $this->assertSame(1, $contract->fresh()->version);
     }
 

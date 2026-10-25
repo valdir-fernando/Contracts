@@ -38,39 +38,15 @@
         </form>
     </div>
     <nav class="report-panel-navigation" aria-label="Relatórios">
-        <button type="button" class="secondary-button compact">Relatório Contrato</button>
-        <button type="button" class="secondary-button compact">Relatório Aditivo</button>
+        <button type="button" class="secondary-button compact"><x-nav-icon name="reports"/>Relatório Contrato</button>
+        <button type="button" class="secondary-button compact"><x-nav-icon name="reports"/>Relatório Aditivo</button>
+        <button type="button" class="secondary-button compact"><x-nav-icon name="reports"/>Relatório de Ata</button>
+        <a class="secondary-button compact report-pdf-button" href="{{ route('reports.panel-pdf', request()->except('page')) }}"><x-nav-icon name="printer"/>Gerar PDF</a>
         <p class="report-contract-count" role="status">Total de Contratos: {{ number_format($reportContracts->total(), 0, ',', '.') }}</p>
     </nav>
     <section class="surface contract-section report-contract-panel" aria-label="Contratos do Fundo no ano atual">
             <div class="report-list-heading">
-                @php
-                    $appliedFilters = [];
-                    if ($reportCurrent) {
-                        $appliedFilters[] = 'Somente contratos vigentes';
-                    }
-                    if ($reportDepartmentId !== null) {
-                        $appliedFilters[] = 'Secretaria: '.$reportDepartments->firstWhere('id', $reportDepartmentId)->name;
-                    }
-                    foreach ([
-                        'Processo contém' => $reportProcess,
-                        'Licitação contém' => $supplierFilters['report_bidding'],
-                        'Nº da licitação contém' => $supplierFilters['report_bidding_number'],
-                        'Nome do fornecedor contém' => $supplierFilters['report_supplier'],
-                        'Tipo de contrato' => $reportType,
-                    ] as $label => $value) {
-                        if ($value !== '') {
-                            $appliedFilters[] = $label.': '.$value;
-                        }
-                    }
-                    if ($reportEndFrom !== null) {
-                        $appliedFilters[] = 'Final a partir de: '.\Carbon\Carbon::parse($reportEndFrom)->format('d/m/Y');
-                    }
-                    if ($reportEndTo !== null) {
-                        $appliedFilters[] = 'Final até: '.\Carbon\Carbon::parse($reportEndTo)->format('d/m/Y');
-                    }
-                @endphp
-                <h2 class="report-contract-caption">Relatório de {{ $appliedFilters === [] ? 'todos os contratos' : 'contratos' }} do {{ $reportFundName }} {{ $reportEndActive || $reportYear === null ? 'referente a todos os exercícios' : 'referente ao ano de '.$reportYear }}.@if($appliedFilters !== []) Filtros aplicados: {{ implode('; ', $appliedFilters) }}.@endif</h2>
+                <h2 class="report-contract-caption">@include('reports.panel-title')</h2>
             </div>
             <div class="table-scroll">
                 <div class="report-list-clear">
@@ -160,7 +136,13 @@
                                         @endif
                                     @endif
                                 </td>
-                                <td>@if(filled($contract->tipo))<b>{{ $contract->tipo }}</b> - @endif{{ $contract->objeto }}</td>
+                                <td>@if(filled($contract->tipo))<b>{{ $contract->tipo }}</b> - @endif{{ $contract->objeto }}
+                                    @if(in_array(mb_strtolower(trim((string) $contract->tipo)), ['obra', 'obras'], true) && $contract->serviceOrders->isNotEmpty())
+                                        @foreach($contract->serviceOrders as $serviceOrder)
+                                            <br><small>OS {{ $serviceOrder->number }} · {{ $serviceOrder->issued_on?->format('d/m/Y') ?? 'Não informada' }} · Período da Obra/Serviço: {{ $serviceOrder->deadline }}</small>
+                                        @endforeach
+                                    @endif
+                                </td>
                                 <td class="nowrap-cell">{{ $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado' }}</td>
                                 <td class="nowrap-cell">{{ ($reportEndActive ? $contract->end_date : $contract->vigencia_fim_atual)?->format('d/m/Y') ?? 'Não informado' }}</td>
                                 <td class="money-cell">{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}</td>

@@ -1,6 +1,20 @@
 # Importação dos aditivos históricos
 
-`contracts:import-amendments` simula a cópia dos registros de `contract_history_records` de tipo `amendment`, originários de `tb_Aditivos`, para `contract_amendments`. `--apply` persiste a execução. Não depende de um novo dump.
+A lista de aditivos agora aparece diretamente no resumo do contrato, abaixo dos dados e objeto, com cadastro, consulta e paginação independente (`amendments_page`). A tabela compartilhada em `amendments/list.blade.php` preserva a listagem anterior e suas rotas. O resumo não abre mais o modal “Gerenciar aditivos”; os links de retorno do cadastro/detalhe do aditivo levam à lista integrada. Leituras continuam autorizadas pelo contrato e limitadas ao seu ID, excluindo registros apagados logicamente.
+
+Validação dessa integração: testes de aditivos e navegação executados (40 aprovados, uma falha em `test_detail_renders_all_fields_masks_personal_documents_and_escapes_source`); esse teste ainda exige os detalhes completos, pendências e documentos pessoais removidos do resumo por solicitação anterior. Sua asserção foi preservada. Pint dos três PHP alterados e `git diff --check` passaram. O teste novo verifica ações, valores, término, paginação e isolamento entre contratos.
+
+A lista também apresenta **Fim da vigência**, obtido exclusivamente de `payload.Final_Prorrog` de cada aditivo, em dia/mês/ano. Ausência aparece como “Não informado”; não usa término do contrato ou de execução do serviço como substituto. Validação: `docker compose exec -T app php artisan test --filter=ContractAmendmentsTest --compact` (10 testes, 164 asserções), Pint do teste e `git diff --check` aprovados.
+
+A coluna `VL_Acumulado` da lista apresenta `payload.VL_Acumulado` do próprio aditivo, formatado como dinheiro pelo helper existente. Alterar o acumulado do contrato não modifica o valor exibido nessa coluna. Validação dessa apresentação: `docker compose exec -T app php artisan test --filter=ContractAmendmentsTest --compact` (9 testes, 154 asserções), Pint do teste e `git diff --check`, aprovados. Sem conferência visual autenticada.
+
+O painel **Gerenciar aditivos** consulta a tabela local `tb_Aditivos` pelo model `ContractAmendment`. A migration `2026_10_25_000002_rename_contract_amendments_to_tb_aditivos.php` renomeia `contract_amendments`, preservando IDs, registros, exclusões lógicas e chaves estrangeiras. A estrutura Laravel e os campos históricos em `payload` permanecem; não é necessário reimportar. Se ambas as tabelas existirem, a migration recusa a operação sem sobrescrever dados.
+
+`composer check` após a renomeação: Pint aprovado (352 arquivos); 816 testes, 8.479 asserções, uma falha e um ignorado. A única falha é a já documentada abaixo em `SelectedFundTest::test_editing_a_contract_preserves_its_existing_manager`, por proibir o rótulo existente “Gestor do Fundo”. Nenhuma asserção desse teste foi alterada. `git diff --check` aprovado. Sem conferência visual autenticada.
+
+Aplicação local em 25/10/2026: migration executada pelo caminho específico com `--force`; consulta posterior confirmou 978 registros na `tb_Aditivos`. Validação via Docker: 26 testes de aditivos/importação/OS (322 asserções), `composer check:architecture` (3 testes), `composer test:unit` (81 testes), Pint dos cinco PHP alterados e `npm run build` passaram. Testes usam SQLite e storage temporários.
+
+`contracts:import-amendments` simula a cópia dos registros de `contract_history_records` de tipo `amendment`, originários de `tb_Aditivos`, para `tb_Aditivos`. `--apply` persiste a execução. Não depende de um novo dump.
 
 Antes de executar, aplique a migration `2026_10_25_000001_add_amendment_import_origin.php`. Ela acrescenta a referência única e anulável `legacy_record_id` e permite autoria de sistema (`created_by`/`updated_by` nulos). O cadastro humano continua exigindo ator autenticado. O rollback dessa migration preserva esses dados.
 

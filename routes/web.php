@@ -115,6 +115,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/administration/export/{format}', [AdministrationController::class, 'export'])->middleware('throttle:10,1')->name('administration.export');
     Route::post('/administration/history/{history}/reconcile', [AdministrationController::class, 'reconcile'])->name('administration.reconcile');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/panel-pdf', [ReportController::class, 'index'])->middleware('throttle:10,1')->name('reports.panel-pdf');
     Route::get('/reports/exports', [ReportController::class, 'exports'])->name('reports.exports');
     Route::get('/reports/download/{export}', [ReportController::class, 'download'])->name('reports.download');
     Route::get('/reports/status/{export}', [ReportController::class, 'status'])->middleware('throttle:300,1')->name('reports.status');

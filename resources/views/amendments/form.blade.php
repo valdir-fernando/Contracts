@@ -1,5 +1,5 @@
 <x-layouts.app :title="$amendment->exists ? 'Editar aditivo' : 'Novo aditivo'">
-    <div class="page-heading"><div><a class="text-link" href="{{ route('contracts.amendments.index', $contract) }}">← Aditivos do contrato {{ $contract->numero }}</a><h1>{{ $amendment->exists ? 'Editar aditivo '.$amendment->number : 'Novo aditivo' }}</h1><p>Cadastro documental. Os valores e prazos do contrato permanecem separados.</p></div></div>
+    <div class="page-heading"><div><a class="text-link" href="{{ route('contracts.show', $contract).'#contract-amendments' }}">← Aditivos do contrato {{ $contract->numero }}</a><h1>{{ $amendment->exists ? 'Editar aditivo '.$amendment->number : 'Novo aditivo' }}</h1><p>Cadastro documental. Os valores e prazos do contrato permanecem separados.</p></div></div>
     @if($conflict)<div class="notice notice-error" role="alert">O contrato ou o aditivo mudou. Seus dados digitados estão abaixo para consulta. Recarregue e revise as diferenças antes de salvar. <a class="text-link" href="{{ $amendment->exists ? route('contracts.amendments.edit', [$contract,$amendment->id]) : route('contracts.amendments.create', $contract) }}">Recarregar dados</a></div>@endif
     <form method="POST" action="{{ $amendment->exists ? route('contracts.amendments.update', [$contract,$amendment->id]) : route('contracts.amendments.store', $contract) }}">
         @csrf @if($amendment->exists)@method('PUT')<input type="hidden" name="version" value="{{ $values['version'] ?? $amendment->version }}">@endif
@@ -29,7 +29,7 @@
             @endforeach
         </div></section>@endforeach
         <section class="surface contract-section"><label><span class="field-caption">Justificativa desta operação <x-required-mark/></span><textarea name="reason" minlength="5" maxlength="1000" required>{{ old('reason', $values['reason'] ?? '') }}</textarea></label></section>
-        <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ route('contracts.amendments.index', $contract) }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)><x-nav-icon name="save"/>Salvar aditivo</button></div>
+        <div class="form-actions sticky-actions"><a class="secondary-button" href="{{ route('contracts.show', $contract).'#contract-amendments' }}">Cancelar</a><button class="primary-button compact" @disabled($conflict)><x-nav-icon name="save"/>Salvar aditivo</button></div>
     </form>
     @if($amendment->exists)<x-service-orders-dialog :contract="$contract" :amendment="$amendment"/>@endif
 </x-layouts.app>

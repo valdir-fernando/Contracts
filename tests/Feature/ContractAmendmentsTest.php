@@ -40,17 +40,65 @@ class ContractAmendmentsTest extends TestCase
         $this->actingAs($this->admin);
     }
 
-    public function test_list_shows_current_contract_accumulated_value_instead_of_historical_amount_or_status(): void
+    public function test_list_shows_each_amendment_accumulated_value_independently_of_contract(): void
     {
         $this->create(['VL_ADT' => '100.0000', 'VL_Acumulado' => '9000.0000']);
         $this->get($this->base())->assertOk()
-            ->assertSeeInOrder(['<th>ADT</th>', '<th>VL_ADT</th>', '<th>VL_Acumulado</th>', 'R$ 100,00', 'R$ 5.100,00'], false)
-            ->assertDontSee('R$ 9.000,00')->assertDontSee('<th>Registro</th>', false)
+            ->assertSeeInOrder(['<th>ADT</th>', '<th>VL_ADT</th>', '<th>VL_Acumulado</th>', 'R$ 100,00', 'R$ 9.000,00'], false)
+            ->assertDontSee('R$ 5.100,00')->assertDontSee('<th>Registro</th>', false)
             ->assertDontSee('Aditivos atuais')->assertDontSee('Aditivos excluídos')
             ->assertDontSee('Aditivos cadastrados e importados do legado. Valores e prazos não são aplicados automaticamente.');
 
         $this->contract->update(['valor_acumulado' => '6200.5000']);
-        $this->get($this->base())->assertOk()->assertSee('R$ 6.200,50')->assertDontSee('R$ 5.100,00');
+        $this->post($this->base(), $this->data(['N_ADT' => '002', 'VL_ADT' => '200.0000', 'VL_Acumulado' => '9200.0000']))->assertRedirect();
+        $this->get($this->base())->assertOk()->assertSee('R$ 9.000,00')->assertSee('R$ 9.200,00')
+            ->assertDontSee('R$ 6.200,50')->assertDontSee('R$ 5.100,00');
+    }
+
+    public function test_list_reads_tb_aditivos_with_contract_and_soft_delete_filters(): void
+    {
+        $this->assertSame('tb_Aditivos', (new ContractAmendment)->getTable());
+        $row = ['contract_id' => $this->contract->id, 'number' => 'TABLE-ADT',
+            'event_date' => '2026-10-25', 'status' => 'rascunho',
+            'payload' => json_encode(['N_ADT' => 'TABLE-ADT', 'Data_ADT' => '2026-10-25', 'Tipo_ADT' => 'Prorrogação'])];
+        DB::table('tb_Aditivos')->insert($row);
+        $other = Contract::create(['numero' => 'OTHER/26', 'ownership_resolved' => false, 'quality_issues' => []]);
+        DB::table('tb_Aditivos')->insert(array_replace($row, ['contract_id' => $other->id, 'number' => 'OTHER-ADT']));
+        DB::table('tb_Aditivos')->insert(array_replace($row, ['number' => 'DELETED-ADT', 'deleted_at' => now()]));
+
+        $this->get($this->base())->assertOk()->assertSee('TABLE-ADT')
+            ->assertDontSee('OTHER-ADT')->assertDontSee('DELETED-ADT');
+    }
+
+    public function test_list_shows_amendment_validity_end_and_handles_missing_date(): void
+    {
+        $this->contract->update(['vigencia_fim_atual' => '2029-12-31']);
+        $this->create(['Final_Prorrog' => '2027-06-30', 'Final_Servico' => '2027-05-31']);
+        $this->get($this->base())->assertOk()->assertSee('Fim da vigência')->assertSee('30/06/2027')
+            ->assertDontSee('31/12/2029')->assertDontSee('31/05/2027');
+
+        $this->post($this->base(), $this->data(['N_ADT' => '002', 'Final_Prorrog' => null]))->assertRedirect();
+        $this->get($this->base())->assertOk()->assertSee('30/06/2027')->assertSee('Não informado');
+    }
+
+    public function test_contract_summary_embeds_paginated_amendments_with_actions_and_contract_scope(): void
+    {
+        $amendment = $this->create(['VL_Acumulado' => '21188.0000', 'Final_Prorrog' => '2027-06-30']);
+        $other = Contract::create(['numero' => 'OTHER/26', 'ownership_resolved' => false, 'quality_issues' => []]);
+        ContractAmendment::create(['contract_id' => $other->id, 'number' => 'FOREIGN-ADT',
+            'event_date' => '2026-10-25', 'payload' => [], 'created_by' => $this->admin->id, 'updated_by' => $this->admin->id]);
+        for ($i = 2; $i <= 21; $i++) {
+            ContractAmendment::create(['contract_id' => $this->contract->id, 'number' => 'ADT-'.$i,
+                'event_date' => '2026-10-25', 'payload' => [], 'created_by' => $this->admin->id, 'updated_by' => $this->admin->id]);
+        }
+        $this->get(route('contracts.show', $this->contract))->assertOk()
+            ->assertViewHas('amendments', fn ($rows) => $rows->total() === 21 && $rows->count() === 20)
+            ->assertSeeInOrder(['Dados do contrato', 'amendments-table', 'Excluir contrato'])
+            ->assertSee('Novo aditivo')->assertSee('Ver aditivo')->assertSee('Impressora')
+            ->assertDontSee('FOREIGN-ADT')->assertDontSee('data-contract-amendments-panel', false);
+        $this->get(route('contracts.show', $this->contract).'?amendments_page=2')->assertOk()
+            ->assertViewHas('amendments', fn ($rows) => $rows->count() === 1 && $rows->first()->id === $amendment->id)
+            ->assertSee('R$ 21.188,00')->assertSee('30/06/2027');
     }
 
     private function base(): string
@@ -143,7 +191,7 @@ class ContractAmendmentsTest extends TestCase
         $document = ContractAttachment::create(['contract_id' => $other->id, 'uploaded_by' => $this->admin->id, 'name' => 'Outro',
             'path' => 'other.pdf', 'mime_type' => 'application/pdf', 'size' => 10, 'sha256' => str_repeat('a', 64)]);
         $this->post($this->base(), $this->data([], ['attachment_id' => $document->id]))->assertSessionHasErrors('attachment_id');
-        $this->assertDatabaseCount('contract_amendments', 0);
+        $this->assertDatabaseCount('tb_Aditivos', 0);
     }
 
     public function test_update_preserves_omitted_fields_and_conflicts_preserve_typed_values_without_writing(): void
@@ -156,7 +204,7 @@ class ContractAmendmentsTest extends TestCase
         $this->put($url, ['contract_version' => 2, 'version' => 1, 'reason' => 'Aba desatualizada', 'fields' => ['Motivo_ADT' => 'Texto digitado antigo']])->assertStatus(409)->assertSee('Texto digitado antigo')->assertSee('Recarregar dados');
         $this->assertSame('Motivo revisado', $amendment->fresh()->payload['Motivo_ADT']);
         $this->post($this->base(), $this->data(['N_ADT' => '002'], ['contract_version' => 1]))->assertStatus(409)->assertSee('002');
-        $this->assertDatabaseCount('contract_amendments', 1);
+        $this->assertDatabaseCount('tb_Aditivos', 1);
         $this->assertDatabaseHas('contract_audits', ['action' => 'amendment_updated']);
     }
 
@@ -177,7 +225,7 @@ class ContractAmendmentsTest extends TestCase
         $this->assertTrue($this->contract->fresh()->vigencia_em_revisao);
         $this->contract->delete();
         $this->get($url)->assertNotFound();
-        $this->assertDatabaseHas('contract_amendments', ['id' => $amendment->id, 'deleted_at' => null]);
+        $this->assertDatabaseHas('tb_Aditivos', ['id' => $amendment->id, 'deleted_at' => null]);
         $this->contract->restore();
         $this->get($url)->assertOk();
         $this->assertDatabaseHas('contract_audits', ['action' => 'amendment_deleted']);
@@ -195,7 +243,7 @@ class ContractAmendmentsTest extends TestCase
         } finally {
             ContractAudit::flushEventListeners();
         }
-        $this->assertDatabaseCount('contract_amendments', 0);
+        $this->assertDatabaseCount('tb_Aditivos', 0);
         $this->assertSame(1, $this->contract->fresh()->version);
         $this->assertFalse($this->contract->fresh()->vigencia_em_revisao);
     }
@@ -208,6 +256,6 @@ class ContractAmendmentsTest extends TestCase
         $this->put('/contracts/'.$other->id.'/amendments/'.$amendment->id, $this->data([], ['version' => 1]))->assertNotFound();
         DB::table('users')->where('id', $this->admin->id)->update(['session_version' => 1]);
         $this->post($this->base(), $this->data(['N_ADT' => '002']))->assertForbidden();
-        $this->assertDatabaseCount('contract_amendments', 1);
+        $this->assertDatabaseCount('tb_Aditivos', 1);
     }
 }

@@ -53,9 +53,13 @@ class ContractController extends Controller
     public function show(Contract $contract)
     {
         Gate::authorize('view', $contract);
+        request()->validate(['amendments_page' => 'nullable|integer|min:1']);
 
         return view('contracts.show', [
             'contract' => $contract,
+            'amendments' => ContractAmendment::where('contract_id', $contract->id)->orderByDesc('event_date')->orderByDesc('id')
+                ->paginate(20, ['*'], 'amendments_page')->withQueryString(),
+            'serviceOrders' => ContractServiceOrder::where('contract_id', $contract->id)->orderByDesc('issued_on')->orderByDesc('id')->get(),
             'attachments' => ContractAttachment::with('uploader')->where('contract_id', $contract->id)->latest()->paginate(10, ['*'], 'documents_page'),
             'removedAttachments' => auth()->user()->isAdmin() ? ContractAttachment::onlyTrashed()->where('contract_id', $contract->id)->latest()->paginate(10, ['*'], 'removed_documents_page') : collect(),
             'history' => ContractHistoryRecord::where('contract_id', $contract->id)->orderBy('event_date')->get(),

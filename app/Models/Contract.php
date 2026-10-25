@@ -12,6 +12,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Contract extends Model
@@ -25,6 +26,11 @@ class Contract extends Model
     protected $guarded = ['id', ...self::SIGNED_DOCUMENT_COLUMNS];
 
     protected $hidden = ['legacy_record_id', ...self::SIGNED_DOCUMENT_COLUMNS];
+
+    public function serviceOrders(): HasMany
+    {
+        return $this->hasMany(ContractServiceOrder::class);
+    }
 
     /** Preserve the application's public field name while storing it in contracts.Contrato. */
     public function getNumeroAttribute($value): ?string

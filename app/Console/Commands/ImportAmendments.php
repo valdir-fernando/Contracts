@@ -10,7 +10,7 @@ class ImportAmendments extends Command
 {
     protected $signature = 'contracts:import-amendments {--apply : Persistir; sem esta opção apenas simula}';
 
-    protected $description = 'Copia aditivos históricos vinculados para contract_amendments sem recalcular contratos';
+    protected $description = 'Copia aditivos históricos vinculados para tb_Aditivos sem recalcular contratos';
 
     public function handle(ImportHistoricalAmendments $importer): int
     {

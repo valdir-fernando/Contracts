@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\ContractFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -53,6 +54,26 @@ class ContractBrowsingTest extends TestCase
             'name' => $name, 'name_key' => $name, 'raw_payload' => '{}', 'created_at' => now(), 'updated_at' => now()]);
     }
 
+    public function test_contract_summary_number_is_readonly_below_header(): void
+    {
+        $contract = $this->contract();
+        $response = $this->actingAs($this->user())->get('/contracts/'.$contract->id)->assertOk();
+        $response->assertSeeInOrder(['</header>', 'contract-summary-readonly', 'id="contract-summary-number"'], false);
+        $response->assertDontSee('data-contract-search-open', false)->assertDontSee('data-contract-search-url', false);
+        $this->assertMatchesRegularExpression('/<input[^>]*id="contract-summary-number"[^>]*value="019\/26"[^>]*readonly[^>]*>/', $response->getContent());
+    }
+
+    public function test_contract_information_panel_shows_saved_updated_values(): void
+    {
+        $contract = $this->contract(['tipo' => 'Fornecimento', 'data_contrato' => '2026-01-02',
+            'modalidade' => 'Pregão', 'n_licit' => 'LIC-123', 'nome_fiscal' => 'Fiscal de teste',
+            'vigencia_fim_atual' => '2027-06-30', 'valor_acumulado' => '2500.5000', 'objeto' => 'Objeto salvo de teste']);
+        $this->actingAs($this->user())->get('/contracts/'.$contract->id)->assertOk()
+            ->assertSeeInOrder(['Fundo Contratante', 'Dados do contrato', 'Tipo do Contrato', 'Fornecimento',
+                '02/01/2026', 'Pregão', 'LIC-123', 'Fiscal de teste', '01/01/2026', '30/06/2027',
+                'R$ 2.500,50', 'Objeto salvo de teste', 'Excluir contrato']);
+    }
+
     public function test_guest_and_inactive_user_cannot_browse_contracts(): void
     {
         $contract = $this->contract();
@@ -61,6 +82,67 @@ class ContractBrowsingTest extends TestCase
         $user = $this->user();
         $user->forceFill(['is_active' => false])->save();
         $this->actingAs($user)->get('/contracts')->assertRedirect('/login');
+    }
+
+    public function test_panel_pdf_exports_all_filtered_rows_in_a4_landscape_with_the_panel_title(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo selecionado');
+        $otherFund = $this->catalog('contract_funds', 'Outro fundo');
+        for ($i = 1; $i <= 23; $i++) {
+            $this->contract(['numero' => sprintf('%03d/26', $i), 'fund_id' => $fund, 'valor_acumulado' => '1234.5600']);
+        }
+        $this->contract(['numero' => 'OUTRO-FUNDO', 'fund_id' => $otherFund]);
+        $this->contract(['numero' => 'OUTRO-ANO', 'fund_id' => $fund, 'exercicio' => 2025]);
+        $inspected = false;
+        View::composer('reports.panel-pdf', function ($view) use (&$inspected) {
+            $inspected = true;
+            $data = $view->getData();
+            $this->assertCount(23, $data['rows']);
+            $this->assertSame('023/26', $data['rows'][22]['number']);
+            $this->assertStringContainsString('Relatório de todos os contratos do Fundo selecionado referente ao ano de 2026.', $data['title']);
+            $this->assertSame('01/01/2026', $data['rows'][0]['starts']);
+            $this->assertArrayNotHasKey('fornecedor_documento_snapshot', $data['rows'][0]);
+        });
+
+        $response = $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get(route('reports.panel-pdf', ['page' => 2]));
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringContainsString('private', $response->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $this->assertMatchesRegularExpression('/\/MediaBox\s*\[0\.0+ 0\.0+ 841\.89\d* 595\.28\d*\]/', $response->getContent());
+        $this->assertTrue($inspected);
+        $this->assertDatabaseHas('activity_events', ['action' => 'report_exported']);
+    }
+
+    public function test_panel_pdf_applies_final_date_filters_and_revalidates_access_after_rendering(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo selecionado');
+        $contract = $this->contract(['fund_id' => $fund, 'exercicio' => 2025, 'vigencia_fim_atual' => '2027-06-30']);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2027-07-01']);
+        $inspected = false;
+        View::composer('reports.panel-pdf', function ($view) use ($contract, &$inspected) {
+            $inspected = true;
+            $data = $view->getData();
+            $this->assertCount(1, $data['rows']);
+            $this->assertSame('30/06/2027', $data['rows'][0]['ends']);
+            $this->assertStringContainsString('referente a todos os exercícios', $data['title']);
+            $this->assertStringContainsString('Final até: 30/06/2027', $data['title']);
+            $contract->increment('version');
+        });
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get(route('reports.panel-pdf', ['report_year' => 2026, 'report_end_to' => '2027-06-30']))->assertForbidden();
+        $this->assertTrue($inspected);
+        $this->assertDatabaseMissing('activity_events', ['action' => 'report_exported']);
+    }
+
+    public function test_panel_pdf_requires_authentication_and_valid_filters(): void
+    {
+        $this->get(route('reports.panel-pdf'))->assertRedirect('/login');
+        $fund = $this->catalog('contract_funds', 'Fundo selecionado');
+        $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->getJson(route('reports.panel-pdf', ['report_end_from' => '2026-07-01', 'report_end_to' => '2026-06-01']))
+            ->assertUnprocessable();
     }
 
     public function test_reports_list_only_current_year_contracts_from_the_session_fund(): void
@@ -312,9 +394,9 @@ class ContractBrowsingTest extends TestCase
             ->assertDontSee('id="report-filters"', false);
         $this->get(route('contracts.show', $contract))->assertOk()->assertViewIs('contracts.show')
             ->assertSee('href="'.route('contracts.edit', $contract).'"', false)->assertSee('Editar contrato')
-            ->assertSee('data-contract-amendments-open aria-haspopup="dialog" aria-controls="contract-amendments-panel"', false)
-            ->assertSee('id="contract-amendments-panel"', false)
-            ->assertSee('name="contracts-amendments-panel"', false);
+            ->assertSee('amendments-table', false)->assertSee('Novo aditivo')
+            ->assertDontSee('data-contract-amendments-open', false)
+            ->assertDontSee('id="contract-amendments-panel"', false);
     }
 
     public function test_report_list_displays_updated_dates_accumulated_amount_and_only_latest_amendment(): void

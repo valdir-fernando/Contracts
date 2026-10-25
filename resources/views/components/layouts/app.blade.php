@@ -108,6 +108,7 @@
                 @isset($headerBack)</div>@endisset
                 @unless($summaryInHeader)<div class="topbar-account"><span class="workspace-date"><x-nav-icon name="calendar"/>{{ today()->format('d/m/Y') }}</span><a class="account-avatar-link" href="{{ route('account.edit') }}" aria-label="Abrir minha conta" title="{{ auth()->user()->name }}"><x-account-avatar :user="auth()->user()"/></a></div>@endunless
                 @if($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endif
+                @isset($headerClose){{ $headerClose }}@endisset
             </header>
             @unless($contractEditor)
             @isset($contractSummary)<div class="contract-context-row">@endisset

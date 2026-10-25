@@ -1,6 +1,6 @@
 # Arquitetura do Contracts
 
-Importação dos aditivos: `Infrastructure/Contracts/ImportHistoricalAmendments` copia históricos vinculados para `contract_amendments`, com origem única, autoria de sistema, status `importado`, auditoria e versão transacionais. O histórico original é preservado; nenhuma alteração financeira ou de vigência é aplicada. [Comando, fronteira de manutenção e pendências](historical-amendment-import.md).
+Importação dos aditivos: `Infrastructure/Contracts/ImportHistoricalAmendments` copia históricos vinculados para `tb_Aditivos`, com origem única, autoria de sistema, status `importado`, auditoria e versão transacionais. O histórico original é preservado; nenhuma alteração financeira ou de vigência é aplicada. [Comando, fronteira de manutenção e pendências](historical-amendment-import.md).
 
 O botão **Contrato** também emite **Credenciamento Saúde**, usando o Word fornecido, os dados profissionais salvos e a conferência de produtos e dotações. [Campos, referências do modelo e validação](health-accreditation-contract.md).
 

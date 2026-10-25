@@ -128,6 +128,36 @@ p { margin-block: 0 16px; }
 .contract-number-field input { width: min(100%, 18rem); min-height: 44px; font-size: 24px; font-weight: 750; color: var(--nav); background: #f6f8fc; }
 .contract-number-control { position: relative; width: min(100%, 18rem); }
 .contract-number-control input { width: 100%; padding-inline: 44px; text-align: center; }
+.contract-summary-readonly { display: flex; align-items: flex-end; gap: 16px; }
+.contract-summary-edit { flex-shrink: 0; align-self: flex-end; padding-left: 16px; border-left: 1px solid #9ca3af; }
+.contract-summary-edit .primary-button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+.detail-summary.contract-organizations-summary { display: flex; align-items: stretch; gap: 16px; padding: 7px 12px; }
+.contract-organizations-summary:has(+ .contract-information-summary) { margin-bottom: 8px; }
+.action-toolbar:has(+ .contract-organizations-summary) { margin-bottom: 8px; }
+.contract-organizations-summary span { margin-bottom: 3px; }
+.contract-organizations-summary > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.contract-organizations-summary > div + div { padding-left: 20px; border-left: 1px solid #9ca3af; }
+.detail-summary.contract-information-summary { gap: 8px 16px; padding: 7px 12px; }
+.contract-information-summary:has(+ #contract-amendments) { margin-bottom: 8px; }
+#contract-amendments > .primary-button { min-height: 30px; padding-block: 4px; white-space: nowrap; }
+#contract-amendments { margin-bottom: 8px; }
+.detail-summary:is(.contract-organizations-summary, .contract-information-summary) span { margin-bottom: 2px; font-size: 10px; line-height: 1.3; }
+.detail-summary:is(.contract-organizations-summary, .contract-information-summary) strong { font-size: 12px; line-height: 1.4; }
+.contract-information-summary span { margin-bottom: 3px; }
+.contract-information-summary .contract-information-object { grid-column: 1 / -1; padding-top: 6px; border-top: 1px solid #9ca3af; }
+.contract-information-object strong { white-space: pre-line; }
+.contract-service-order-summary-list { display: grid; gap: 4px; }
+.contract-service-order-summary-list > strong { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; font-weight: 500; }
+.contract-service-order-summary-list > strong > span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
+.workspace-top > .contract-summary-close { flex-shrink: 0; width: 40px; min-height: 40px; margin-left: auto; padding: 0; font-size: 28px; line-height: 1; }
+.contract-summary-readonly .contract-number-field { flex: 0 0 9rem; min-width: 0; justify-items: start; text-align: left; }
+.contract-summary-readonly .contract-number-control { width: 100%; }
+.contract-summary-readonly .contract-heading-supplier { flex: 1; min-width: 0; margin: 0; padding-left: 16px; border-left: 1px solid #9ca3af; font-size: 18px; line-height: 1.3; }
+.contract-summary-readonly .contract-number-field label { font-size: 11px; }
+.contract-summary-readonly .contract-number-control input { min-height: 34px; font-size: 18px; text-align: left; padding: 4px 10px; border: 1px solid #94a3b8; border-radius: 6px; }
+.workspace-content:has(.contract-summary-readonly) > .workspace-top { min-height: 52px; margin-bottom: 8px; }
+.contract-context-row:has(.contract-summary-readonly) { position: static; padding-block: 0; margin-bottom: 9px; }
+.contract-context-row:has(.contract-summary-readonly) > .contract-context-heading { flex-basis: 100%; text-align: left; }
 .contract-number-search { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 6px; color: var(--primary); }
 .contract-number-search:hover { background: #a9c9ed; color: #000; }
 .contract-number-search svg { width: 20px; height: 20px; }
@@ -389,11 +419,12 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .catalog-modal.contract-products-dialog { width: min(1600px, calc(100vw - 32px)); max-width: none; height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); padding: 20px 24px; border-radius: 12px; }
 .contract-products-dialog[open] { display: flex; flex-direction: column; }
 .catalog-modal.contract-amendments-dialog { width: min(1600px, calc(100vw - 32px)); max-width: none; height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); padding: 12px 24px; border-radius: 12px; }
-.contract-amendments-dialog[open] { display: flex; flex-direction: column; }
+.contract-amendments-dialog[open] { display: flex; flex-direction: column; inset-inline: 0; margin-inline: auto; translate: 0 -24px; }
 .contract-amendments-dialog > .modal-header { flex-shrink: 0; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .contract-amendments-dialog > .modal-header h2 { margin: 0; font-size: 24px; }
 .contract-amendments-dialog > iframe { flex: 1; width: 100%; min-height: 0; border: 0; }
 .amendment-supplier-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.page-heading:has(.amendment-supplier-heading) { margin-bottom: 8px; }
 .amendment-supplier-separator { width: 1px; height: 24px; flex-shrink: 0; background-color: #9ca3af; }
 .amendment-supplier-heading > .amendment-supplier-document { font-size: 16px; font-weight: 400; letter-spacing: normal; }
 body:has(.contract-amendments-dialog[open]) { overflow: hidden; }
@@ -401,6 +432,9 @@ html[data-amendments-panel=true] .workspace { display: block; min-height: 0; }
 html[data-amendments-panel=true] .workspace > .workspace-nav,
 html[data-amendments-panel=true] .workspace-top { display: none; }
 html[data-amendments-panel=true] .workspace-content { padding: 8px; }
+html[data-amendments-panel=true] .page-heading:has(.amendment-supplier-heading) { justify-content: flex-end; }
+html[data-amendments-panel=true] .page-heading:has(.amendment-supplier-heading) > div { display: none; }
+html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padding: 0; border: 0; box-shadow: none; }
 .contract-products-dialog > .contract-section { padding: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .contract-products-dialog [data-contract-products] { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .contract-products-dialog [data-contract-products] > :not(.product-contract-list) { flex-shrink: 0; }
@@ -410,9 +444,9 @@ html[data-amendments-panel=true] .workspace-content { padding: 8px; }
 .contract-products-dialog > .modal-header h2 { flex-shrink: 0; }
 .product-title-supplier { flex: 1; min-width: 0; margin-left: auto; padding-right: 16px; border-right: 1px solid var(--border); }
 .product-title-supplier .contract-heading-supplier { margin: 0; text-align: right; }
-.contract-products-dialog > .modal-header .modal-close { flex-shrink: 0; width: 40px; height: 40px; margin: 0; border: 1px solid var(--border); border-radius: 8px; background: #f7f8fb; color: var(--muted); font-size: 30px; font-weight: 750; line-height: 1; }
-.contract-products-dialog > .modal-header .modal-close:hover { background: #f7f8fb; color: #26364b; }
-.contract-products-dialog > .modal-header .modal-close:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+:is(.contract-products-dialog, .contract-amendments-dialog) > .modal-header .modal-close { flex-shrink: 0; width: 40px; height: 40px; margin: 0; border: 1px solid var(--border); border-radius: 8px; background: #f7f8fb; color: var(--muted); font-size: 30px; font-weight: 750; line-height: 1; }
+:is(.contract-products-dialog, .contract-amendments-dialog) > .modal-header .modal-close:hover { background: #f7f8fb; color: #26364b; }
+:is(.contract-products-dialog, .contract-amendments-dialog) > .modal-header .modal-close:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 .catalog-modal.contract-products-dialog { padding-block: 12px; }
 .contract-products-dialog [data-product-feedback]:empty,
 .contract-products-dialog [data-product-budget-status]:empty,
@@ -531,6 +565,17 @@ html[data-amendments-panel=true] .workspace-content { padding: 8px; }
 .data-table td strong { display: block; font-weight: 550; }
 .data-table small { display: block; margin-top: 4px; font-size: 11px; line-height: 1.6; color: var(--muted); }
 .data-table .text-link { font-size: 12px; }
+.amendments-table :is(th, td) { font-size: 12px; }
+.amendment-row-actions { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.amendment-print-icon { display: inline-flex; align-items: center; color: #163b65; }
+.amendment-print-icon svg { width: 20px; height: 20px; }
+.data-table.amendments-table :is(th, td) { padding: 8px; border: 1px solid var(--border); }
+.data-table.amendments-table thead th { padding-block: 4px; line-height: 1.2; }
+.data-table.amendments-table :is(th, td):is(:nth-child(4), :nth-child(5)) { text-align: right; }
+.data-table.amendments-table :is(th, td):is(:nth-child(1), :nth-child(2), :nth-child(6), :nth-child(7)) { text-align: center; }
+.data-table.amendments-table tr:last-child td { border-bottom: 1px solid var(--border); }
+.contract-section > .table-scroll:has(> .amendments-table) { margin-top: 0; }
+.contract-section:has(> .table-scroll > .amendments-table) { padding-top: 5px; }
 .data-table .secondary-button { min-height: 36px; padding: 7px 12px; font-size: 12px; white-space: nowrap; }
 .scope-cell { min-width: 180px; max-width: 280px; }
 .money-cell { text-align: right; white-space: nowrap; font-weight: 550; font-variant-numeric: tabular-nums; }
@@ -1392,10 +1437,10 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .page-heading.calendar-page-heading { margin-bottom: 8px; gap: 12px; }
 .calendar-page-heading h1 { margin-block: 0 3px; }
 .workspace-content:has(> .reports-page-heading) > .workspace-top { min-height: 60px; margin-bottom: 4px; }
-.page-heading.reports-page-heading { margin-bottom: 2px; gap: 12px; }
+.page-heading.reports-page-heading { margin-bottom: 8px; gap: 12px; }
 .reports-page-heading h1 { margin-block: 0 3px; font-size: clamp(24px, 2vw, 30px); }
 .reports-page-heading .section-label { margin-bottom: 0; }
-.report-panel-navigation { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 10px; position: relative; top: -6px; }
+.report-panel-navigation { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 10px; position: relative; }
 .report-contract-list { font-size: 11px; line-height: 1.3; table-layout: fixed; min-width: 1000px; }
 .report-contract-list :is(th, td):nth-child(1) { width: 6%; }
 .report-contract-list :is(th, td):nth-child(2) { width: 10%; white-space: nowrap; }
@@ -1437,14 +1482,14 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .report-panel-navigation { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .report-panel-navigation > .report-contract-count { align-self: flex-end; margin: 0 0 0 auto; transform: translateY(8px); }
 .report-contract-panel > h2.report-contract-caption { margin: 0 0 8px; font-size: 11px; font-weight: 400; line-height: 1.7; color: var(--muted); }
-.page-heading.reports-page-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 800px); }
-.report-scope-selection { display: grid; grid-template-columns: 90px repeat(2, minmax(0, 1fr)); align-items: end; gap: 10px; min-width: 0; width: 100%; border-left: 1px solid var(--border); padding-left: 16px; }
-.report-scope-selection.report-year-only { grid-template-columns: 90px; }
+.page-heading.reports-page-heading { display: grid; grid-template-columns: max-content minmax(0, 1fr); }
+.report-scope-selection { display: grid; grid-template-columns: 76px repeat(2, minmax(0, 1fr)); align-items: end; gap: 10px; min-width: 0; width: 100%; border-left: 1px solid var(--border); padding-left: 12px; }
+.report-scope-selection.report-year-only { grid-template-columns: 76px; }
 .report-scope-selection label.field { min-width: 0; margin-bottom: 0; gap: 1px; }
 .report-scope-selection :is(select, input) { width: 100%; min-width: 0; max-width: 100%; height: 30px; min-height: 30px; padding: 3px 10px; line-height: 22px; text-overflow: ellipsis; }
 @media (max-width: 1100px) {
     .page-heading.reports-page-heading { grid-template-columns: minmax(0, 1fr); }
-    .report-scope-selection { max-width: 800px; }
+    .report-scope-selection { max-width: 100%; }
 }
 @media (max-width: 480px) {
     .report-scope-selection { grid-template-columns: minmax(0, 1fr); }
@@ -1572,13 +1617,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;
@@ -1637,3 +1682,6 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     border-inline: 1px solid #dce4ef;
     pointer-events: none;
 }
+
+.report-panel-navigation .report-pdf-button { background-color: #15803d; border-color: #15803d; color: #fff; }
+.report-panel-navigation .report-pdf-button:is(:hover, :focus-visible) { background-color: #166534; border-color: #166534; color: #fff; }

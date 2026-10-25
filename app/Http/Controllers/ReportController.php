@@ -26,6 +26,9 @@ class ReportController extends Controller
 
     public function index(Request $request, ContractReport $service)
     {
+        Gate::authorize('viewAny', Contract::class);
+        $panelPdf = $request->routeIs('reports.panel-pdf');
+        $accessHash = $panelPdf ? ReportExport::accessHash($request->user()) : null;
         $filters = $service->filters($request->query());
         $visible = Contract::visibleTo($request->user());
         $currentYear = today()->year;
@@ -94,12 +97,13 @@ class ReportController extends Controller
             ->when($reportDepartmentId !== null, fn ($query) => $query->where('department_id', $reportDepartmentId))
             ->when(! $reportEndActive && $reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))
             ->whereNotNull('tipo')->where('tipo', '<>', '')->distinct()->orderBy('tipo')->pluck('tipo');
-        $reportContracts = (clone $visible)->select('contracts.*')->addSelect([
+        $reportQuery = (clone $visible)->select('contracts.*')->addSelect([
             'latest_amendment_number' => ContractAmendment::select('number')
                 ->whereColumn('contract_id', 'contracts.id')->orderByDesc('event_date')->orderByDesc('id')->limit(1),
             'latest_amendment_process' => ContractAmendment::select('payload->Proc_ADT')
                 ->whereColumn('contract_id', 'contracts.id')->orderByDesc('event_date')->orderByDesc('id')->limit(1),
-        ])->whereIn('fund_id', $reportFundIds)
+        ])->with(['serviceOrders' => fn ($query) => $query->orderBy('issued_on')->orderBy('id')])
+            ->whereIn('fund_id', $reportFundIds)
             ->when($reportCurrent, fn ($query) => $query->withValidity('vigente'))
             ->when($reportEndFrom !== null, fn ($query) => $query->whereDate(DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)'), '>=', $reportEndFrom))
             ->when($reportEndTo !== null, fn ($query) => $query->whereDate(DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)'), '<=', $reportEndTo))
@@ -109,8 +113,53 @@ class ReportController extends Controller
             ->when($supplierFilters['report_bidding_number'] !== '', fn ($query) => $query->whereLike('n_licit', '%'.$supplierFilters['report_bidding_number'].'%'))
             ->when($supplierFilters['report_supplier'] !== '', fn ($query) => $query->whereLike('fornecedor_nome_snapshot', '%'.$supplierFilters['report_supplier'].'%'))
             ->when($reportDepartmentId !== null, fn ($query) => $query->where('department_id', $reportDepartmentId))
-            ->when(! $reportEndActive && $reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))->orderBy('Contrato')->orderBy('id')
-            ->paginate(20)->appends(array_map(fn ($value) => $value ?? '', $request->query()));
+            ->when(! $reportEndActive && $reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))->orderBy('Contrato')->orderBy('id');
+
+        if ($panelPdf) {
+            $title = trim(view('reports.panel-title', compact('reportCurrent', 'reportDepartmentId', 'reportDepartments', 'reportProcess', 'supplierFilters', 'reportType', 'reportEndFrom', 'reportEndTo', 'reportFundName', 'reportEndActive', 'reportYear'))->render());
+            $rows = $reportQuery->get()->map(fn (Contract $contract) => [
+                'number' => $contract->numero ?: (string) $contract->id,
+                'process' => $contract->processo,
+                'supplier' => $contract->fornecedor_nome_snapshot,
+                'bidding' => ($contract->modalidade ?: 'Licitação').' nº '.$contract->n_licit,
+                'amendment' => trim((string) ($contract->latest_amendment_number ?? $contract->n_aditivo)),
+                'amendment_process' => trim((string) ($contract->latest_amendment_number !== null ? $contract->latest_amendment_process : $contract->proc_aditivo)),
+                'fund' => $reportFundId === null ? ($contract->fundo_nome_snapshot ?: 'Não informado') : null,
+                'department' => $reportFundId === null ? $contract->secretaria_nome_snapshot : null,
+                'object' => ($contract->tipo ? $contract->tipo.' - ' : '').$contract->objeto,
+                'service_orders' => in_array(mb_strtolower(trim((string) $contract->tipo)), ['obra', 'obras'], true)
+                    ? $contract->serviceOrders->map(fn ($order) => [
+                        'number' => $order->number,
+                        'issued_on' => $order->issued_on?->format('d/m/Y') ?? 'Não informada',
+                        'period' => $order->deadline,
+                    ])->all()
+                    : [],
+                'starts' => $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado',
+                'ends' => ($reportEndActive ? $contract->end_date : $contract->vigencia_fim_atual)?->format('d/m/Y') ?? 'Não informado',
+                'amount' => Contract::moneyLabel($contract->valor_acumulado),
+            ])->all();
+            $pdf = new Dompdf(['isRemoteEnabled' => false]);
+            $pdf->setPaper('A4', 'landscape');
+            $pdf->loadHtml(view('reports.panel-pdf', compact('title', 'rows'))->render());
+            $pdf->render();
+            $content = $pdf->output();
+            DB::transaction(function () use ($request, $accessHash, $rows, $reportFundIds) {
+                $actor = $this->actors->lock($request->user());
+                Gate::forUser($actor)->authorize('viewAny', Contract::class);
+                foreach (array_unique([...$reportFundIds, (int) $request->session()->get('fund_id')]) as $fundId) {
+                    abort_unless(app(SelectedFund::class)->allows($actor, $fundId), 403);
+                }
+                abort_unless(hash_equals($accessHash, ReportExport::accessHash($actor)), 403);
+                ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'report_exported',
+                    'metadata' => ['format' => 'pdf', 'report' => 'contract-panel', 'count' => count($rows)], 'created_at' => now()]);
+            });
+
+            return response($content, 200, ['Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="relatorio-contratos-'.today()->format('Y-m-d').'.pdf"',
+                'Cache-Control' => 'private, no-store']);
+        }
+
+        $reportContracts = $reportQuery->paginate(20)->appends(array_map(fn ($value) => $value ?? '', $request->query()));
 
         if ($reportContracts->currentPage() > $reportContracts->lastPage()) {
             return redirect()->to($reportContracts->url($reportContracts->lastPage()));

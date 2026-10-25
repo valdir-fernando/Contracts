@@ -1,6 +1,8 @@
 # Contracts
 
-Os aditivos históricos podem ser copiados para `contract_amendments` por `contracts:import-amendments --apply`, com origem, histórico e auditoria preservados. Sem `--apply`, apenas simula. [Procedimento e pendências](docs/historical-amendment-import.md).
+O botão **Gerar PDF** em **Relatórios de contratos** exporta a lista filtrada em **A4 horizontal**, com o título da mensagem do painel. [Formato, filtros e validação](docs/contract-panel-pdf.md).
+
+Os aditivos históricos podem ser copiados para `tb_Aditivos` por `contracts:import-amendments --apply`, com origem, histórico e auditoria preservados. Sem `--apply`, apenas simula. [Procedimento e pendências](docs/historical-amendment-import.md).
 
 O botão **Contrato** também emite **Credenciamento Saúde**, usando o Word fornecido, os dados profissionais salvos e a conferência de produtos e dotações. [Campos, referências do modelo e validação](docs/health-accreditation-contract.md).
 
