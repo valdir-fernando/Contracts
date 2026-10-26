@@ -104,7 +104,7 @@ class BrazilianLocale
                 'include_personal', 'review', 'deleted' => $value ? 'Sim' : 'Não',
                 'direction' => $value === 'desc' ? 'Decrescente' : 'Crescente',
                 'sort' => ContractFields::labelColumn($value),
-                'date_field' => ['data_contrato' => 'Assinatura', 'vigencia_inicio' => 'Início da vigência', 'end' => 'Término informado'][$value] ?? 'Período',
+                'date_field' => ['data_contrato' => 'Assinatura', 'vigencia_inicio' => 'Início da vigência', 'end' => 'Término atualizado'][$value] ?? 'Período',
                 'columns' => implode(', ', app(ContractReport::class)->headers($filters)),
                 default => is_array($value) ? implode(', ', $value) : (string) $value,
             };

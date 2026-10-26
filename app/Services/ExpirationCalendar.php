@@ -11,7 +11,7 @@ class ExpirationCalendar
 {
     public function query(User $user, CarbonInterface $from, CarbonInterface $to): Builder
     {
-        return Contract::visibleTo($user)->endingBetween($from, $to)
-            ->orderByRaw('COALESCE(vigencia_fim_atual, vigencia_fim_original)')->orderBy('id');
+        return Contract::visibleTo($user)->reportEndingBetween($from, $to)
+            ->orderBy('vigencia_fim_atual')->orderBy('id');
     }
 }

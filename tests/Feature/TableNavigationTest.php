@@ -43,7 +43,7 @@ class TableNavigationTest extends TestCase
     {
         return Contract::create(array_replace(['numero' => 'VISIBLE-001', 'fund_id' => $this->fund, 'department_id' => $this->department,
             'supplier_id' => $this->supplier, 'ownership_resolved' => true, 'quality_issues' => [], 'vigencia_inicio' => '2026-01-01',
-            'vigencia_fim_original' => '2026-12-01', 'cpf_gestor' => '11144477735'], $extra));
+            'vigencia_fim_original' => '2026-12-01', 'vigencia_fim_atual' => '2026-12-01', 'cpf_gestor' => '11144477735'], $extra));
     }
 
     public function test_supplier_details_preserve_scope_and_explicit_fields(): void
@@ -76,9 +76,13 @@ class TableNavigationTest extends TestCase
     {
         $contract = $this->contract(['exercicio' => today()->year]);
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
-        foreach (['/contracts?year=', '/reports', '/dashboard?year=all', '/calendar?month=2026-12'] as $url) {
+        foreach (['/contracts?year=', '/reports', '/calendar?month=2026-12'] as $url) {
             $this->get($url)->assertOk()->assertSee('data-row-href="'.route('contracts.show', $contract).'"', false);
         }
+        $contract->update(['vigencia_fim_atual' => today()->addDays(5)]);
+        $this->actingAs($this->admin->fresh())->get('/dashboard?year=all')->assertOk()->assertDontSee('Contratos recentes')
+            ->assertDontSee('data-row-href=', false)
+            ->assertSee('href="'.route('contracts.show', $contract).'"', false)->assertSee($contract->numero);
         $contract->delete();
         $this->get('/contracts?deleted=1&year=')->assertOk()->assertSee('Restaurar')->assertDontSee('data-row-href="'.route('contracts.show', $contract).'"', false);
     }

@@ -17,17 +17,21 @@ class ContractValidityParityTest extends TestCase
     use RefreshDatabase;
 
     #[DataProviderExternal(ContractValidityTest::class, 'situations')]
-    public function test_model_sql_and_report_share_the_same_classification(bool $review, ?string $start, ?string $end, string $reference, string $expected): void
+    public function test_historical_classification_is_preserved_while_reports_ignore_review_and_use_updated_end(bool $review, ?string $start, ?string $end, string $reference, string $expected): void
     {
         $this->travelTo(CarbonImmutable::parse($reference));
         $actor = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaFicticia123', 'user_type' => 'Administrador']);
-        $contract = Contract::create(['numero' => '001/26', 'vigencia_inicio' => $start, 'vigencia_fim_original' => $end, 'vigencia_em_revisao' => $review, 'quality_issues' => []]);
+        $contract = Contract::create(['numero' => '001/26', 'vigencia_inicio' => $start, 'vigencia_fim_original' => $end, 'vigencia_fim_atual' => $end, 'vigencia_em_revisao' => $review, 'quality_issues' => []]);
         $this->assertSame($expected, $contract->validity);
         $report = app(ContractReport::class);
-        $this->assertSame([Contract::VALIDITY[$expected]], $report->row($contract, $actor, ['reference' => $reference, 'columns' => ['validity']]));
+        $reportExpected = $end === null ? 'indeterminado' : ($end > $reference ? 'vigente' : 'vencido');
+        $this->assertSame($reportExpected, $contract->reportValidityOn(CarbonImmutable::parse($reference)));
+        $this->assertSame([Contract::VALIDITY[$reportExpected]], $report->row($contract, $actor, ['reference' => $reference, 'columns' => ['validity']]));
         foreach (array_keys(Contract::VALIDITY) as $status) {
             $this->assertSame($status === $expected, Contract::withValidity($status)->whereKey($contract->id)->exists());
-            $this->assertSame($status === $expected, $report->query($actor, ['reference' => $reference, 'validity' => $status])->whereKey($contract->id)->exists());
+        }
+        foreach (array_keys(Contract::REPORT_VALIDITY) as $status) {
+            $this->assertSame($status === $reportExpected, $report->query($actor, ['reference' => $reference, 'validity' => $status])->whereKey($contract->id)->exists());
         }
     }
 
@@ -61,13 +65,13 @@ class ContractValidityParityTest extends TestCase
             ['2026-10-01', '2026-10-31', false, true],
             ['2026-10-01', '2026-11-01', false, false],
             ['2026-10-01', '2026-09-30', false, false],
-            [null, '2026-10-15', false, false],
+            [null, '2026-10-15', false, true],
             ['2026-10-01', null, false, false],
-            ['2026-10-01', '2026-10-15', true, false],
+            ['2026-10-01', '2026-10-15', true, true],
             // Preserve the calendar's inclusion of contracts that have yet to start.
             ['2026-10-20', '2026-10-25', false, true],
         ] as [$start, $end, $review, $included]) {
-            $contract = Contract::create(['vigencia_inicio' => $start, 'vigencia_fim_original' => $end, 'vigencia_em_revisao' => $review, 'quality_issues' => []]);
+            $contract = Contract::create(['vigencia_inicio' => $start, 'vigencia_fim_original' => '2030-12-31', 'vigencia_fim_atual' => $end, 'vigencia_em_revisao' => $review, 'quality_issues' => []]);
             if ($included) {
                 $expected[] = $contract->id;
             }

@@ -38,7 +38,7 @@ class ContractCompletionTest extends TestCase
         $this->regular->scopes()->attach($scope);
         $this->contract = Contract::create(['numero' => '001/26', 'processo' => 'PROC', 'fund_id' => $fund, 'ownership_resolved' => true,
             'fornecedor_nome_snapshot' => 'Fornecedor', 'fornecedor_documento_snapshot' => '52998224725', 'valor_total' => '1908.6300',
-            'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-10-20', 'quality_issues' => []]);
+            'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-10-20', 'vigencia_fim_atual' => '2026-10-20', 'valor_acumulado' => '1908.6300', 'quality_issues' => []]);
     }
 
     private function confirmation(): array
@@ -85,10 +85,10 @@ class ContractCompletionTest extends TestCase
         $this->get('/reports?fund=999')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)->assertDontSee('001/26');
         $this->get('/reports?report=expiring&reference=2026-10-01&days=30')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
         $this->get('/reports?report=expired&reference=2026-10-21')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
-        $this->get('/reports?report=expired&reference=2026-10-20')->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)->assertDontSee('001/26');
+        $this->get('/reports?report=expired&reference=2026-10-20')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
         $this->contract->update(['vigencia_em_revisao' => true]);
-        $this->get('/reports?report=expired&reference=2026-10-21')->assertViewHas('contracts', fn ($rows) => $rows->total() === 0)->assertDontSee('001/26');
-        $this->get('/reports?report=quality')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
+        $this->get('/reports?report=expired&reference=2026-10-21')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);
+        $this->get('/reports?report=quality')->assertViewHas('contracts', fn ($rows) => $rows->total() === 0);
         $service = app(ContractReport::class);
         $this->assertSame('1908.6300', $service->summary($this->regular, [])['total']);
     }

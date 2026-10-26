@@ -144,7 +144,7 @@
                                     @endif
                                 </td>
                                 <td class="nowrap-cell">{{ $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado' }}</td>
-                                <td class="nowrap-cell">{{ ($reportEndActive ? $contract->end_date : $contract->vigencia_fim_atual)?->format('d/m/Y') ?? 'Não informado' }}</td>
+                                <td class="nowrap-cell">{{ $contract->vigencia_fim_atual?->format('d/m/Y') ?? 'Não informado' }}</td>
                                 <td class="money-cell">{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}</td>
                                 <td><div class="report-row-actions">
                                     <a class="secondary-button compact" href="{{ route('contracts.show', $contract) }}" aria-label="Resumo do contrato {{ $contract->numero ?: $contract->id }}">Resumo</a>

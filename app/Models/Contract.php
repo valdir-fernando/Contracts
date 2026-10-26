@@ -115,6 +115,40 @@ class Contract extends Model
 
     public const VALIDITY = ['a_iniciar' => 'A iniciar', 'vigente' => 'Vigente', 'vencido' => 'Vencido', 'indeterminado' => 'Indeterminado', 'em_revisao' => 'Em revisão'];
 
+    public const REPORT_VALIDITY = ['vigente' => 'Vigente', 'vencido' => 'Vencido', 'indeterminado' => 'Término não informado'];
+
+    public function getReportValidityAttribute(): string
+    {
+        return $this->reportValidityOn(today());
+    }
+
+    public function reportValidityOn(DateTimeInterface $reference): string
+    {
+        $end = $this->vigencia_fim_atual;
+
+        return $end === null ? 'indeterminado'
+            : ($end->format('Y-m-d') > $reference->format('Y-m-d') ? 'vigente' : 'vencido');
+    }
+
+    public function scopeWithReportValidity(Builder $query, string $status, ?DateTimeInterface $reference = null): Builder
+    {
+        $date = ($reference ?? today())->format('Y-m-d');
+
+        return match ($status) {
+            'vigente' => $query->whereDate('vigencia_fim_atual', '>', $date),
+            'vencido' => $query->whereDate('vigencia_fim_atual', '<=', $date),
+            'indeterminado' => $query->whereNull('vigencia_fim_atual'),
+            'a_iniciar' => $query->whereDate('vigencia_inicio', '>', $date)->whereDate('vigencia_fim_atual', '>', $date),
+            default => $query,
+        };
+    }
+
+    public function scopeReportEndingBetween(Builder $query, DateTimeInterface $from, DateTimeInterface $to): Builder
+    {
+        return $query->whereDate('vigencia_fim_atual', '>=', $from->format('Y-m-d'))
+            ->whereDate('vigencia_fim_atual', '<=', $to->format('Y-m-d'));
+    }
+
     public function scopePendingReview(Builder $query): Builder
     {
         return $query->where(fn (Builder $pending) => $pending->where('vigencia_em_revisao', true)->orWhere('ownership_resolved', false));

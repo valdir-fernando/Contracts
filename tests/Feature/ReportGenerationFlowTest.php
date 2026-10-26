@@ -103,7 +103,7 @@ class ReportGenerationFlowTest extends TestCase
     {
         Bus::fake();
         $actor = $this->admin();
-        Contract::create(['numero' => 'FLOW-001', 'valor_total' => '10.1001', 'quality_issues' => []]);
+        Contract::create(['numero' => 'FLOW-001', 'valor_acumulado' => '10.1001', 'quality_issues' => []]);
         $response = $this->actingAs($actor)->getJson('/reports/export/csv?background=1')->assertStatus(202);
         $export = ReportExport::findOrFail($response->json('id'));
         $this->getJson($response->json('status_url'))->assertJsonPath('status', 'pending');
@@ -119,8 +119,8 @@ class ReportGenerationFlowTest extends TestCase
         $fund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo', 'name_key' => 'FUNDO', 'raw_payload' => '{}']);
         $scope = AccessScope::create(['scope_key' => 'scope', 'fund' => 'Fundo', 'fund_id' => $fund]);
         $actor->scopes()->attach($scope);
-        Contract::create(['numero' => 'VISIBLE', 'fund_id' => $fund, 'ownership_resolved' => true, 'objeto' => str_repeat('Large ', 1000), 'cpf_gestor' => '11144477735', 'valor_total' => '10.1001', 'quality_issues' => []]);
-        Contract::create(['numero' => 'SECRET', 'valor_total' => '100.0000', 'quality_issues' => []]);
+        Contract::create(['numero' => 'VISIBLE', 'fund_id' => $fund, 'ownership_resolved' => true, 'objeto' => str_repeat('Large ', 1000), 'cpf_gestor' => '11144477735', 'valor_acumulado' => '10.1001', 'quality_issues' => []]);
+        Contract::create(['numero' => 'SECRET', 'valor_acumulado' => '100.0000', 'quality_issues' => []]);
         $hydrated = [];
         Contract::retrieved(function ($model) use (&$hydrated) {
             $hydrated[] = $model->getAttributes();

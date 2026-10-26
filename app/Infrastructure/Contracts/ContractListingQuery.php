@@ -29,13 +29,15 @@ class ContractListingQuery
         ContractSearch::apply($contracts, $filters);
         ContractSearch::applyIdentityFilters($contracts, $filters);
         if ($filters['validity'] ?? null) {
-            $contracts->withValidity($filters['validity']);
+            $contracts->withReportValidity($filters['validity']);
         }
 
         return [
             'contracts' => $contracts->select(['deleted_at', 'version', 'administrative_status', 'tipo', 'id', 'Contrato', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot',
-                'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'valor_total', 'vigencia_inicio', 'vigencia_fim_original',
-                'vigencia_fim_atual', 'vigencia_em_revisao', 'ownership_resolved'])->orderBy(($filters['sort'] ?? '') === 'numero' ? 'Contrato' : ($filters['sort'] ?? 'exercicio'), $filters['direction'] ?? 'desc')->orderByDesc('id')->paginate(20)->withQueryString(),
+                'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'valor_total', 'valor_acumulado', 'vigencia_inicio', 'vigencia_fim_original',
+                'vigencia_fim_atual', 'vigencia_em_revisao', 'ownership_resolved'])->orderBy(match ($filters['sort'] ?? 'exercicio') {
+                    'numero' => 'Contrato', 'valor_total' => 'valor_acumulado', default => $filters['sort'] ?? 'exercicio'
+                }, $filters['direction'] ?? 'desc')->orderByDesc('id')->paginate(20)->withQueryString(),
             'funds' => $funds, 'departments' => $departments, 'years' => $years, 'types' => $types, 'modalities' => $modalities,
         ];
     }

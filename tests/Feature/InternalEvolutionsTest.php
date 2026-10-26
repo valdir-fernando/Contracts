@@ -43,7 +43,7 @@ class InternalEvolutionsTest extends TestCase
         $this->contract = Contract::create(['numero' => '001/26', 'fund_id' => $fund, 'ownership_resolved' => true, 'quality_issues' => [],
             'fornecedor_nome_snapshot' => 'Fornecedor', 'fornecedor_documento_snapshot' => '52998224725', 'fundo_nome_snapshot' => 'Fundo',
             'processo' => 'PROC001', 'valor_total' => '1908.6300', 'valor_acumulado' => '2000.0000', 'vl_saldo_disp' => '1000.0000',
-            'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-12-31']);
+            'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-12-31', 'vigencia_fim_atual' => '2026-12-31']);
         $this->actingAs($this->admin);
     }
 
@@ -69,9 +69,9 @@ class InternalEvolutionsTest extends TestCase
     {
         $service = app(ContractReport::class);
         $filters = $service->filters(['columns' => ['initial_amount', 'number', 'document']]);
-        $this->assertSame(['Valor inicial (decimal)', 'Contrato', 'Documento'], $service->headers($filters));
+        $this->assertSame(['Valor atualizado (decimal)', 'Contrato', 'Documento'], $service->headers($filters));
         $row = $service->row($this->contract, $this->admin, $filters);
-        $this->assertSame(['1908.6300', '001/26', '•••4725'], $row);
+        $this->assertSame(['2000.0000', '001/26', '•••4725'], $row);
         $this->get('/reports?'.http_build_query($filters))->assertOk()
             ->assertSee('Relatórios de contratos')
             ->assertDontSee('Colunas do relatório')
@@ -91,12 +91,12 @@ class InternalEvolutionsTest extends TestCase
                 }
                 fclose($stream);
                 $this->assertSame($service->headers($filters), $lines[count($lines) - 2]);
-                $this->assertSame(['1908,6300', '001/26', '•••4725'], $lines[count($lines) - 1]);
+                $this->assertSame(['2000,0000', '001/26', '•••4725'], $lines[count($lines) - 1]);
             } elseif ($format === 'xlsx') {
                 $book = IOFactory::load($path);
                 $sheet = $book->getActiveSheet();
                 $this->assertSame('C', $sheet->getHighestColumn());
-                $this->assertSame(['1908,6300', '001/26', '•••4725'], $sheet->rangeToArray('A10:C10')[0]);
+                $this->assertSame(['2000,0000', '001/26', '•••4725'], $sheet->rangeToArray('A10:C10')[0]);
                 $book->disconnectWorksheets();
             } else {
                 $this->assertStringStartsWith('%PDF', file_get_contents($path));
@@ -168,15 +168,27 @@ class InternalEvolutionsTest extends TestCase
         $other->save();
         $metrics = app(OverviewMetrics::class)->for($this->user);
         $this->assertSame(1, array_sum(array_column($metrics['validities'], 'count')));
-        $this->assertSame('1908.6300', $metrics['summary']['total']);
+        $this->assertSame('2000.0000', $metrics['summary']['total']);
         $this->assertSame(1, $metrics['months'][2]['count']);
         $this->assertSame(1, $metrics['funds'][0]['count']);
         $this->contract->update(['vigencia_em_revisao' => true]);
         $metrics = app(OverviewMetrics::class)->for($this->user);
-        $this->assertSame(0, array_sum(array_column($metrics['months'], 'count')));
-        $this->assertSame(1, collect($metrics['validities'])->firstWhere('key', 'em_revisao')['count']);
+        $this->assertSame(1, array_sum(array_column($metrics['months'], 'count')));
+        $this->assertSame(1, collect($metrics['validities'])->firstWhere('key', 'vigente')['count']);
         $this->actingAs($this->user);
-        $this->withSession(['fund_id' => $this->contract->fund_id])->get('/dashboard?year=all')->assertOk()->assertSee('Distribuição e vencimentos')->assertSee('meter', false);
+        $this->withSession(['fund_id' => $this->contract->fund_id])->get('/dashboard?year=all')->assertOk()
+            ->assertSee('data-kpi="all"', false)
+            ->assertSee('data-kpi="current"', false)
+            ->assertSee('data-kpi="expired"', false)
+            ->assertSee('Distribuição dos contratos por vigência')
+            ->assertDontSee('Situação temporal')
+            ->assertSee('Próximos vencimentos')
+            ->assertDontSee('data-kpi="review"', false)
+            ->assertDontSee('Sem término atualizado')
+            ->assertDontSee('Distribuição e vencimentos')
+            ->assertDontSee('Contratos recentes')
+            ->assertDontSee('overview-search')
+            ->assertDontSee('Contratos do Fundo');
         $this->user->scopes()->detach();
         $this->assertSame(0, app(OverviewMetrics::class)->for($this->user)['summary']['count']);
     }

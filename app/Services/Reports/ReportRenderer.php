@@ -34,7 +34,7 @@ class ReportRenderer
         $service = $this->service;
         $metadata = ['Relatório' => ContractReport::TYPES[$filters['report'] ?? 'general'], 'Emitente' => $actor->name,
             'Emitido em' => now()->format('d/m/Y H:i:s').' (horário de Brasília)', 'Filtros' => BrazilianLocale::filters($filters),
-            'Registros' => $summary['count'], 'Indicador' => 'Valor inicial; não inclui acumulados ou saldos', 'Total decimal (R$)' => BrazilianLocale::decimal($summary['total'], $format === 'pdf')];
+            'Registros' => $summary['count'], 'Indicador' => 'Valor atualizado do contrato', 'Total decimal (R$)' => BrazilianLocale::decimal($summary['total'], $format === 'pdf')];
         if ($format === 'csv') {
             $stream = fopen($path, 'wb');
             fwrite($stream, "\xEF\xBB\xBF");
@@ -48,7 +48,7 @@ class ReportRenderer
             }
             if ($summary['groups']) {
                 fputcsv($stream, [], ';', '"', '');
-                fputcsv($stream, ['Grupo', 'Quantidade', 'Valor inicial decimal'], ';', '"', '');
+                fputcsv($stream, ['Grupo', 'Quantidade', 'Valor atualizado decimal'], ';', '"', '');
                 foreach ($summary['groups'] as $group) {
                     fputcsv($stream, [$this->safeCsv($group['label']), $group['count'], BrazilianLocale::decimal($group['total'])], ';', '"', '');
                 }
@@ -81,7 +81,7 @@ class ReportRenderer
             }
             if ($summary['groups']) {
                 $groupSheet = $book->createSheet()->setTitle('Agrupamentos');
-                $groupSheet->fromArray(['Grupo', 'Quantidade', 'Valor inicial decimal'], null, 'A1');
+                $groupSheet->fromArray(['Grupo', 'Quantidade', 'Valor atualizado decimal'], null, 'A1');
                 foreach ($summary['groups'] as $index => $group) {
                     foreach ([$group['label'], $group['count'], BrazilianLocale::decimal($group['total'])] as $column => $value) {
                         $groupSheet->setCellValueExplicit([$column + 1, $index + 2], (string) $value, DataType::TYPE_STRING);

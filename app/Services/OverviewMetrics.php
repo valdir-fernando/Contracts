@@ -21,8 +21,8 @@ class OverviewMetrics
             $visible->where('exercicio', $year);
         }
         $validities = [];
-        foreach (Contract::VALIDITY as $key => $label) {
-            $validities[] = ['key' => $key, 'label' => $label, 'count' => (clone $visible)->withValidity($key)->count()];
+        foreach (Contract::REPORT_VALIDITY as $key => $label) {
+            $validities[] = ['key' => $key, 'label' => $label, 'count' => (clone $visible)->withReportValidity($key)->count()];
         }
         $months = [];
         for ($index = 0; $index < 6; $index++) {
@@ -42,7 +42,7 @@ class OverviewMetrics
         $portfolioTotal = BigDecimal::of('0.0000');
         $missingValue = 0;
         foreach ((clone $visible)->select(['valor_acumulado', 'valor_total'])->cursor() as $contract) {
-            $value = $contract->valor_acumulado ?? $contract->valor_total;
+            $value = $contract->valor_acumulado;
             $missingValue += $value === null ? 1 : 0;
             $portfolioTotal = $portfolioTotal->plus($value ?? '0');
         }

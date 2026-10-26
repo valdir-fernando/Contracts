@@ -43,6 +43,8 @@ class OverviewYearTest extends TestCase
 
     private function contract(array $values = []): Contract
     {
+        $values += ['vigencia_fim_atual' => $values['vigencia_fim_original'] ?? '2026-10-20', 'valor_acumulado' => $values['valor_total'] ?? null];
+
         return Contract::create(array_replace(['numero' => 'TEST', 'fund_id' => $this->fund, 'fundo_nome_snapshot' => 'Fundo A',
             'ownership_resolved' => true, 'quality_issues' => [], 'exercicio' => 2026,
             'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-10-20'], $values));
@@ -51,11 +53,11 @@ class OverviewYearTest extends TestCase
     public function test_initial_dashboard_filters_every_contract_indicator_to_current_exercise(): void
     {
         Livewire::test(Overview::class)->assertSet('year', '2026')->assertViewHas('count', 3)
-            ->assertViewHas('expired', 1)->assertViewHas('review', 1)->assertViewHas('alertCount', 1)
+            ->assertViewHas('expired', 1)->assertViewHas('review', 0)->assertViewHas('alertCount', 2)
             ->assertViewHas('years', fn ($years) => $years->all() === [2026, 2025])
             ->assertViewHas('metrics', fn ($metrics) => $metrics['summary']['total'] === '13.3001'
                 && $metrics['summary']['count'] === 3 && array_sum(array_column($metrics['validities'], 'count')) === 3
-                && array_sum(array_column($metrics['months'], 'count')) === 2 && $metrics['funds'][0]['count'] === 3)
+                && array_sum(array_column($metrics['months'], 'count')) === 3 && $metrics['funds'][0]['count'] === 3)
             ->assertViewHas('recent', fn ($rows) => $rows->total() === 3 && $rows->every(fn ($row) => $row->exercicio === 2026))
             ->assertSee('Todos os anos')->assertDontSee('PREVIOUS-A')->assertDontSee('WITHOUT-YEAR')->assertDontSee('PRIVATE-2024');
         $this->get('/dashboard')->assertOk()->assertSee('CURRENT-A')->assertDontSee('PREVIOUS-A');
@@ -70,7 +72,7 @@ class OverviewYearTest extends TestCase
             ->assertViewHas('recent', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'PREVIOUS-A')
             ->assertSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'validity' => 'vigente']))
             ->assertSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'validity' => 'vencido']))
-            ->assertSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'review' => 1]));
+            ->assertDontSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'validity' => 'indeterminado']));
         $this->get('/contracts?year=2025')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 1);
         $component->set('search', 'CURRENT')->assertViewHas('recent', fn ($rows) => $rows->total() === 0)
             ->assertViewHas('count', 1);
@@ -80,7 +82,7 @@ class OverviewYearTest extends TestCase
     {
         $component = Livewire::test(Overview::class)->set('year', 'all')->assertViewHas('count', 5)
             ->assertViewHas('metrics', fn ($metrics) => $metrics['summary']['total'] === '1113.3001' && $metrics['summary']['count'] === 5)
-            ->assertViewHas('alertCount', 2)->assertViewHas('recent', fn ($rows) => $rows->total() === 5)
+            ->assertViewHas('alertCount', 4)->assertViewHas('recent', fn ($rows) => $rows->total() === 5)
             ->assertSee('PREVIOUS-A')->assertSee('WITHOUT-YEAR')->assertDontSee('PRIVATE-2024')->assertDontSee('DELETED')
             ->assertViewHas('yearFilters', ['fund' => $this->fund]);
         $this->user->scopes()->detach();
@@ -88,7 +90,7 @@ class OverviewYearTest extends TestCase
             ->assertViewHas('years', fn ($years) => $years->all() === [2026])->assertDontSee('PREVIOUS-A');
     }
 
-    public function test_portfolio_value_prefers_accumulated_and_falls_back_per_contract_without_replacing_zero(): void
+    public function test_portfolio_value_uses_only_accumulated_without_replacing_zero_or_missing_values(): void
     {
         $this->contract(['valor_acumulado' => '100.1234', 'valor_total' => '999.0000']);
         $this->contract(['valor_acumulado' => null, 'valor_total' => '7.0001']);
@@ -99,14 +101,14 @@ class OverviewYearTest extends TestCase
         $deleted = $this->contract(['valor_acumulado' => '444.0000']);
         $deleted->delete();
         Livewire::test(Overview::class)
-            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '120.4236', 'missing' => 1]
-                && $metrics['summary']['total'] === '9019.3002')
-            ->assertSee('Valor de todos os contratos do Fundo realizados no exercício 2026.')->assertSee('R$ 120,42')
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '113.4235', 'missing' => 2]
+                && $metrics['summary']['total'] === '113.4235')
+            ->assertSee('Valor de todos os contratos do Fundo realizados no exercício 2026.')->assertSee('R$ 113,42')
             ->set('year', '2025')
             ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '877.0000', 'missing' => 0])
             ->set('year', 'all')
             ->assertSee('Valor de todos os contratos do Fundo realizados em todos os exercícios.')
-            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '1997.4236', 'missing' => 1]);
+            ->assertViewHas('metrics', fn ($metrics) => $metrics['portfolioValue'] === ['total' => '1990.4235', 'missing' => 2]);
     }
 
     public function test_portfolio_value_keeps_selected_fund_filter_for_administrators(): void

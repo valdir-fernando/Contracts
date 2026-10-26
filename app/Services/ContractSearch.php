@@ -6,7 +6,6 @@ use App\Models\Contract;
 use App\Services\Legacy\Normalizer;
 use Brick\Math\BigDecimal;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -56,9 +55,6 @@ class ContractSearch
 
     public static function apply(Builder $query, array $filters): void
     {
-        if (! empty($filters['review'])) {
-            $query->pendingReview();
-        }
         foreach (['object' => 'objeto', 'commitment' => 'empenho', 'budget' => 'ficha'] as $key => $column) {
             if (trim($filters[$key] ?? '') !== '') {
                 $query->whereLike($column, '%'.trim($filters[$key]).'%');
@@ -69,8 +65,8 @@ class ContractSearch
                 $query->where($column, $filters[$key]);
             }
         }
-        $column = ($filters['date_field'] ?? 'data_contrato') === 'end'
-            ? DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)') : ($filters['date_field'] ?? 'data_contrato');
+        $column = ($filters['date_field'] ?? 'vigencia_inicio') === 'end'
+            ? 'vigencia_fim_atual' : ($filters['date_field'] ?? 'vigencia_inicio');
         foreach (['from' => '>=', 'to' => '<='] as $key => $operator) {
             if ($filters[$key] ?? null) {
                 $query->whereDate($column, $operator, $filters[$key]);
@@ -83,7 +79,7 @@ class ContractSearch
         }
         foreach ([$min, $max] as $index => $amount) {
             if ($amount !== null) {
-                $query->where('valor_total', $index === 0 ? '>=' : '<=', $amount);
+                $query->where('valor_acumulado', $index === 0 ? '>=' : '<=', $amount);
             }
         }
     }

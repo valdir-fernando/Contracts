@@ -118,10 +118,13 @@ class HistoryAndOperationsTest extends TestCase
     {
         Contract::create(['numero' => 'SECRET', 'quality_issues' => []]);
         $this->withSession(['fund_id' => $this->contract->fund_id]);
-        Livewire::actingAs($this->regular)->withQueryParams(['year' => 'all'])->test(Overview::class)->assertSee('001/26')->assertDontSee('SECRET')
-            ->set('search', 'SECRET')->assertDontSee('001/26')->assertSee('Nenhum contrato encontrado');
+        Livewire::actingAs($this->regular)->withQueryParams(['year' => 'all'])->test(Overview::class)
+            ->assertViewHas('recent', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id)
+            ->assertDontSee('SECRET')->assertDontSee('Contratos recentes')
+            ->set('search', 'SECRET')->assertViewHas('recent', fn ($rows) => $rows->total() === 0)->assertDontSee('SECRET');
         $this->regular->scopes()->detach();
-        Livewire::actingAs($this->regular)->test(Overview::class)->assertDontSee('001/26');
+        Livewire::actingAs($this->regular)->test(Overview::class)->assertDontSee('001/26')
+            ->assertViewHas('count', 0)->assertViewHas('recent', fn ($rows) => $rows->total() === 0);
         $this->regular->is_active = false;
         $this->regular->save();
         Livewire::actingAs($this->regular)->test(Overview::class)->assertForbidden();

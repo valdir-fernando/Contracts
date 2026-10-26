@@ -602,7 +602,8 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .detail-summary strong { color: #30445f; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 
 /* Overview: real metrics, compact charts and next deadlines */
-.overview-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; margin-bottom: 24px; }
+.overview-kpis { --overview-card-height: 128px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 2.4fr); align-items: start; gap: 12px; margin-bottom: 8px; }
+.overview-kpis > .kpi-card { height: var(--overview-card-height); }
 .overview-year-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; margin-bottom: 24px; }
 .fund-session-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 24px; }
 .fund-session-form .field { width: min(100%, 420px); margin-bottom: 0; }
@@ -623,6 +624,46 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .overview-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px; }
 .overview-grid > .surface { margin-bottom: 0; }
 .overview-grid + .overview-grid { margin-top: 22px; margin-bottom: 22px; }
+.overview-kpis > .overview-alerts { position: relative; min-width: 0; }
+.overview-alert-body { height: var(--overview-card-height); margin: 0; padding: 8px 12px; }
+.overview-alerts .panel-header { position: absolute; bottom: calc(100% + 4px); inset-inline: 0; margin: 0; gap: 8px; flex-wrap: nowrap; align-items: center; }
+.overview-alerts .panel-header h2 { margin: 0 0 4px; font-size: 13px; font-weight: 700; }
+.overview-alert-heading { display: flex; align-items: center; gap: 8px; overflow-x: auto; white-space: nowrap; }
+.overview-alerts .panel-header .text-link { font-size: 11px; }
+.overview-alert-preferences { width: min(420px, calc(100vw - 32px)); }
+.overview-alert-preferences form { padding: 20px; }
+.overview-alert-preferences .quick-actions { justify-content: flex-end; }
+.overview-alert-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 0 12px; height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+@media (hover: hover) and (min-width: 961px) {
+    .overview-alerts[data-expanded=true] { height: var(--overview-card-height); }
+    .overview-alerts[data-expanded=true]:hover .overview-alert-body { position: absolute; top: 0; inset-inline: 0; z-index: 5; height: auto; min-height: var(--overview-card-height); }
+    .overview-alerts[data-expanded=true]:hover .overview-alert-list { height: auto; max-height: calc(var(--overview-alert-max-height, 400px) - 18px); }
+}
+.overview-alert-list .alert-row { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px 6px; padding: 5px 0; }
+.overview-alert-list .alert-date { width: 28px; min-height: 34px; }
+.alert-contract-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 6px; }
+.alert-end-date { color: #64748b; font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.overview-alerts .alert-empty { grid-column: 1 / -1; padding: 6px; font-size: 11px; }
+.overview-alerts .alert-empty > span { display: none; }
+.overview-charts + .recent-panel { margin-top: 22px; }
+.overview-charts { position: relative; }
+.overview-charts::before, .overview-charts::after { content: ''; position: absolute; inset-inline: 0; height: 1px; background: var(--border); }
+.overview-charts::before { top: 0; }
+.overview-charts::after { bottom: 0; }
+.overview-chart { position: relative; min-width: 0; border: 1px solid transparent; }
+.overview-chart:has(> .month-chart, > .validity-chart) { padding-top: 5px; padding-bottom: 8px; }
+.overview-chart + .overview-chart::before { content: ''; position: absolute; inset-block: 16px; left: -12px; width: 1px; background: var(--border); }
+.overview-chart h2 { margin: 0 0 4px; color: #30445f; font-size: 15px; font-weight: 600; letter-spacing: -.25px; }
+.overview-expiration-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.overview-expiration-heading h2 { margin: 0; }
+.overview-expiration-divider { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
+.overview-chart > .panel-header { margin-bottom: 9px; }
+@media (max-width: 960px), (min-width: 1025px) and (max-width: 1200px) {
+    .overview-chart + .overview-chart::before { inset-block: auto; top: -12px; inset-inline: 16px; width: auto; height: 1px; }
+}
+.dashboard-overview .kpi-card { padding: 12px 14px; gap: 8px; }
+.dashboard-overview .kpi-card strong { font-size: 25px; }
+.dashboard-overview .kpi-icon { width: 28px; height: 28px; }
 .validity-chart { display: flex; align-items: center; justify-content: space-around; gap: 28px; padding-block: 10px 12px; }
 .donut-chart { display: grid; place-items: center; width: 155px; height: 155px; border-radius: 50%; flex-shrink: 0; background: var(--donut-fill, #e5ebf4); }
 .donut-center { display: grid; place-content: center; text-align: center; width: 117px; height: 117px; background: white; border-radius: 50%; }
@@ -640,7 +681,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .month-column:first-child .month-bar { background: var(--primary); }
 .month-count { color: #64748b; font-size: 11px; font-weight: 600; }
 .month-column > span { color: var(--muted); font-size: 11px; white-space: nowrap; }
-.portfolio-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+.portfolio-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
 .portfolio-summary strong { color: #34465f; font-size: 13px; font-weight: 650; }
 .metrics-bars { display: grid; gap: 15px; margin-block: 4px 0; }
 .metric-bar { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(40px, 1fr) 36px; align-items: center; gap: 16px; color: #64748b; font-size: 11px; }
@@ -728,6 +769,8 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 }
 @media (max-width: 960px) {
     .overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .overview-kpis > .overview-alerts { grid-column: 1 / -1; }
+    .overview-alerts .panel-header { position: static; margin-bottom: 4px; }
     .page-heading { align-items: flex-start; flex-wrap: wrap; gap: 16px; }
     .filter-bar, .contract-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .overview-grid { grid-template-columns: minmax(0, 1fr); }
@@ -1314,7 +1357,23 @@ a.kpi-warning { --kpi-accent: #b97708; --kpi-tint: #fff8e8; --kpi-border: #f3e1b
 
 /* Charts reveal their actual geometry once, while labels remain readable. */
 @property --chart-sweep { syntax: '<angle>'; inherits: false; initial-value: 360deg; }
-.donut-chart::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--donut-fill, #e5ebf4); mask-image: conic-gradient(#000 0deg var(--chart-sweep), transparent var(--chart-sweep) 360deg); animation: chart-sweep .9s cubic-bezier(.22, 1, .36, 1) both; }
+.donut-chart::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--donut-fill, #e5ebf4); mask-image: radial-gradient(circle, transparent 53%, #000 54%); box-shadow: inset 0 3px 3px #ffffff80; }
+.dashboard-overview .validity-chart { padding: 0 12px 16px; }
+.dashboard-overview .donut-chart { transform: rotateX(28deg); background: none; box-shadow: 0 5px 0 #ccd6e4, 0 10px 0 #bcc9dc, 0 15px 0 #a9bad2, 0 24px 24px -8px #24447740; }
+.dashboard-overview .donut-chart::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, #fff5, transparent 45%, #142b4926); mask-image: radial-gradient(circle, transparent 53%, #000 54%); pointer-events: none; }
+.dashboard-overview .donut-center { width: 74%; height: 74%; background: linear-gradient(145deg, #fff, #edf3fc); box-shadow: inset 0 5px 9px #38567c25, 0 1px 0 #fff; }
+.dashboard-overview .chart-legend { max-width: 240px; gap: 10px; }
+.dashboard-overview .chart-legend li { padding: 10px 0; border-bottom: 1px solid #e8eef7; }
+.dashboard-overview .chart-dot { width: 9px; height: 9px; box-shadow: 0 2px 3px #233c5826; }
+.dashboard-overview .chart-legend small { min-width: 42px; text-align: right; color: #64748b; font-size: 10px; font-variant-numeric: tabular-nums; }
+.dashboard-overview .month-chart { height: 202px; padding: 16px 14px 6px; border: 1px solid transparent; }
+.dashboard-overview .month-track { position: relative; flex-shrink: 0; height: 130px; border-bottom: 1px solid #cbd8ed; background: repeating-linear-gradient(to top, #dce6f380 0, #dce6f380 1px, transparent 1px, transparent 50px); }
+.dashboard-overview .month-bar { position: relative; width: min(65%, 36px); border-radius: 2px 0 0 0; background: linear-gradient(90deg, #4b9cff, #3478ef 65%, #2862d6); box-shadow: -4px 6px 10px #2563eb1a; }
+.dashboard-overview .month-bar::before { content: ''; position: absolute; left: 0; right: 0; height: 9px; top: -9px; background: #83baff; transform: skewX(-40deg); transform-origin: bottom left; }
+.dashboard-overview .month-bar::after { content: ''; position: absolute; top: 0; bottom: 0; right: -8px; width: 8px; background: linear-gradient(#2862d6, #1845a4); transform: skewY(-50deg); transform-origin: top left; }
+.dashboard-overview .month-bar-empty::before, .dashboard-overview .month-bar-empty::after { display: none; }
+.dashboard-overview .month-count { padding: 3px 8px; border-radius: 6px; background: #eaf2ff; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .dashboard-overview .validity-chart { flex-direction: column; gap: 30px; } .dashboard-overview .month-chart { gap: 8px; padding-inline: 6px; } .dashboard-overview .chart-legend { max-width: none; } }
 .donut-center { position: relative; z-index: 1; }
 .month-bar { transform-origin: center bottom; animation: chart-grow-y .7s cubic-bezier(.22, 1, .36, 1) var(--chart-delay, 0ms) both; }
 .metric-bar meter { transform-origin: left center; animation: chart-grow-x .7s cubic-bezier(.22, 1, .36, 1) var(--chart-delay, 0ms) both; }
@@ -1431,6 +1490,7 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 /* Keep the dashboard controls close to the workspace header. */
 .workspace-content:has(> .dashboard-overview) > .workspace-top { min-height: 60px; margin-bottom: 4px; }
 .page-heading.dashboard-page-heading { margin-bottom: 8px; gap: 12px; }
+.dashboard-page-heading > .quick-actions { align-self: flex-start; }
 .dashboard-page-heading h1 { margin-block: 0 3px; }
 .dashboard-page-heading .section-label { margin-bottom: 0; }
 .workspace-content:has(> .calendar-page-heading) > .workspace-top { min-height: 60px; margin-bottom: 4px; }
@@ -1582,10 +1642,10 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     .account-password-row { grid-template-columns: minmax(0, 1fr); }
 }
 .overview-heading-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-.overview-heading-divider { color: var(--muted); font-size: 24px; }
-.overview-heading-year { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.overview-heading-year label { margin: 0; color: var(--muted); font-size: 12px; }
-.overview-heading-year select { width: auto; max-width: 100%; min-width: 150px; }
+.overview-heading-divider { width: 1px; height: 30px; background: var(--border); flex-shrink: 0; }
+.overview-heading-year { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.overview-heading-year label { align-self: flex-start; transform: translate(calc(100% + 10px), calc(-100% - 4px)); margin: 0; color: var(--muted); font-size: 12px; }
+.overview-heading-year select { width: auto; max-width: 100%; min-width: 150px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px; background-color: #fff; }
 
 /* Shared action buttons follow the contract editor toolbar. */
 :is(.primary-button, .secondary-button, .danger-button, .section-tab, .document-action) {

@@ -31,8 +31,8 @@ class ReportSnapshotTest extends TestCase
     {
         $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaFicticia123', 'user_type' => 'Administrador']);
         $contract = Contract::create(['numero' => 'DATAS', 'data_contrato' => '2026-02-01', 'vigencia_inicio' => '2026-02-03',
-            'vigencia_fim_original' => '2026-12-30', 'quality_issues' => []]);
-        $storedDates = $contract->fresh()->only(['data_contrato', 'vigencia_inicio', 'vigencia_fim_original']);
+            'vigencia_fim_atual' => '2026-12-30', 'quality_issues' => []]);
+        $storedDates = $contract->fresh()->only(['data_contrato', 'vigencia_inicio', 'vigencia_fim_atual']);
         $original = $contract->fresh()->getRawOriginal();
         $filters = ['columns' => ['ends_at', 'number', 'signed_at', 'starts_at'], 'reference' => '2026-03-04'];
         $expected = ['30/12/2026', 'DATAS', '01/02/2026', '03/02/2026'];
@@ -80,13 +80,13 @@ class ReportSnapshotTest extends TestCase
     public function test_rows_and_totals_are_captured_once_and_rendered_after_commit(string $format): void
     {
         $admin = User::create(['name' => 'Admin', 'username' => 'ADMIN', 'password' => 'SenhaFicticia123', 'user_type' => 'Administrador']);
-        $contract = Contract::create(['numero' => 'ORIGINAL', 'valor_total' => '10.1001', 'quality_issues' => []]);
+        $contract = Contract::create(['numero' => 'ORIGINAL', 'valor_acumulado' => '10.1001', 'quality_issues' => []]);
         $level = DB::transactionLevel();
         $captured = false;
         Event::listen(TransactionCommitted::class, function () use ($contract, &$captured, $level) {
             if (! $captured && DB::transactionLevel() === $level) {
                 $captured = true;
-                $contract->update(['numero' => 'ALTERADO', 'valor_total' => '20.0000']);
+                $contract->update(['numero' => 'ALTERADO', 'valor_acumulado' => '20.0000']);
             }
         });
         $queries = 0;

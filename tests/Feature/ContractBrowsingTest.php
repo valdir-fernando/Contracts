@@ -35,6 +35,10 @@ class ContractBrowsingTest extends TestCase
 
     private function contract(array $attributes = []): Contract
     {
+        $attributes += [
+            'vigencia_fim_atual' => array_key_exists('vigencia_fim_original', $attributes) ? $attributes['vigencia_fim_original'] : '2026-12-31',
+            'valor_acumulado' => $attributes['valor_total'] ?? '1908.6300',
+        ];
         $id = Contract::withTrashed()->count() + 1;
         $run = ImportRun::create(['source_hash' => str_repeat('a', 64), 'status' => 'completed', 'started_at' => now()]);
         $record = LegacyRecord::create(['source_table' => 'TB_Contratos', 'legacy_id' => (string) $id,
@@ -308,10 +312,10 @@ class ContractBrowsingTest extends TestCase
         $this->get('/reports?report_end_active=&report_end_from=&report_end_to=')->assertOk()
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
         $this->get('/reports?report_end_from=2026-07-01')->assertOk()
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1);
         $this->get('/reports?report_end_from=&report_end_to=2026-12-31')->assertOk()
             ->assertViewHas('reportEndFrom', null)
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 3);
         $this->getJson('/reports?report_end_from=2026-07-01&report_end_to=2026-06-30')->assertUnprocessable()
             ->assertJsonValidationErrors('report_end_to')
             ->assertJsonPath('errors.report_end_to.0', 'A data Até deve ser igual ou posterior à data De.');
@@ -362,19 +366,28 @@ class ContractBrowsingTest extends TestCase
             ->assertDontSee('name="report_fund" disabled', false);
     }
 
-    public function test_report_current_option_selects_only_current_contracts(): void
+    public function test_report_current_option_uses_only_end_date_strictly_after_today(): void
     {
         $fund = $this->catalog('contract_funds', 'Fundo A');
-        $current = $this->contract(['fund_id' => $fund]);
+        $expected = collect([
+            $this->contract(['fund_id' => $fund]),
+            $this->contract(['fund_id' => $fund, 'vigencia_inicio' => '2026-11-01']),
+            $this->contract(['fund_id' => $fund, 'vigencia_em_revisao' => true]),
+            $this->contract(['fund_id' => $fund, 'vigencia_inicio' => null, 'exercicio' => 2025]),
+            $this->contract(['fund_id' => $fund, 'vigencia_fim_original' => '2026-01-01', 'vigencia_fim_atual' => '2026-10-10']),
+        ])->pluck('id')->sort()->values()->all();
         $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2026-10-08']);
-        $this->contract(['fund_id' => $fund, 'vigencia_inicio' => '2026-11-01']);
-        $this->contract(['fund_id' => $fund, 'vigencia_em_revisao' => true]);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_atual' => '2026-10-09']);
+        $this->contract(['fund_id' => $fund, 'vigencia_fim_original' => null]);
+        $this->contract(['fund_id' => $this->catalog('contract_funds', 'Outro Fundo')]);
+        $deleted = $this->contract(['fund_id' => $fund]);
+        $deleted->delete();
         $this->actingAs($this->user())->withSession(['fund_id' => $fund])
-            ->get('/reports?report_current=1')->assertOk()
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $current->id)
+            ->get('/reports?report_year=&report_current=1')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 5 && $rows->pluck('id')->sort()->values()->all() === $expected)
             ->assertViewHas('reportScopeLocked', true)->assertSee('Somente contratos vigentes');
-        $this->get('/reports?report_current=0')->assertOk()
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4)
+        $this->get('/reports?report_year=&report_current=0')->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 8)
             ->assertViewHas('reportScopeLocked', false);
     }
 
@@ -622,19 +635,17 @@ class ContractBrowsingTest extends TestCase
     {
         $cases = [
             'vigente' => [],
-            'a_iniciar' => ['vigencia_inicio' => '2026-11-01'],
-            'vencido' => ['vigencia_fim_original' => '2026-10-08'],
-            'indeterminado' => ['vigencia_inicio' => null],
-            'em_revisao' => ['vigencia_em_revisao' => true],
+            'vencido' => ['vigencia_fim_atual' => '2026-10-08', 'vigencia_em_revisao' => true],
+            'indeterminado' => ['vigencia_fim_atual' => null],
         ];
         $this->actingAs($this->user());
         foreach ($cases as $status => $attributes) {
             $contract = $this->contract($attributes);
-            $this->assertSame($status, $contract->validity);
+            $this->assertSame($status, $contract->report_validity);
         }
         foreach (array_keys($cases) as $status) {
             $this->get('/contracts?validity='.$status)->assertOk()
-                ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->validity === $status);
+                ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->report_validity === $status);
         }
     }
 
@@ -650,25 +661,25 @@ class ContractBrowsingTest extends TestCase
         $deleted->delete();
         $admin = $this->user();
         $this->withSession(['fund_id' => $fund]);
-        Livewire::actingAs($admin)->test(Overview::class)->assertViewHas('count', 5)->assertViewHas('expired', 1)->assertViewHas('review', 3)
+        Livewire::actingAs($admin)->test(Overview::class)->assertViewHas('count', 5)->assertViewHas('expired', 1)->assertViewHas('review', 0)
             ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'validity' => 'vigente']))
             ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'validity' => 'vencido']))
-            ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'review' => 1]));
+            ->assertDontSee(route('contracts.index', ['year' => 2026, 'fund' => $fund, 'validity' => 'indeterminado']));
         $this->actingAs($admin)->get('/contracts?review=1')->assertOk()
-            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 3 && $rows->pluck('id')->sort()->values()->all() === collect([$review->id, $unresolved->id, $both->id])->sort()->values()->all());
-        $this->get('/contracts?validity=vigente')->assertViewHas('contracts', fn ($rows) => $rows->total() === 2 && $rows->contains('id', $current->id));
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 5 && $rows->pluck('id')->sort()->values()->all() === collect([$current->id, $expired->id, $review->id, $unresolved->id, $both->id])->sort()->values()->all());
+        $this->get('/contracts?validity=vigente')->assertViewHas('contracts', fn ($rows) => $rows->total() === 4 && $rows->contains('id', $current->id));
         $this->get('/contracts?validity=vencido')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $expired->id);
         $this->get('/contracts?review=1&q=UNRESOLVED')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1);
-        $this->get('/reports?review=1')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 3);
+        $this->get('/reports?review=1')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 5);
         $this->get('/contracts?review=invalid')->assertSessionHasErrors('review');
 
         $this->contract(['numero' => 'SECRET', 'vigencia_em_revisao' => true]);
         $user = User::create(['name' => 'Scoped', 'username' => 'SCOPED', 'password' => 'TestPassword12345']);
         $scope = AccessScope::create(['scope_key' => hash('sha256', 'card-scope'), 'fund' => 'Fundo autorizado', 'fund_id' => $fund]);
         $user->scopes()->attach($scope);
-        Livewire::actingAs($user)->test(Overview::class)->assertViewHas('review', 1);
+        Livewire::actingAs($user)->test(Overview::class)->assertViewHas('review', 0);
         $this->actingAs($user)->get('/contracts?review=1')->assertOk()
-            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $review->id);
-        $this->get('/reports?review=1')->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $review->id);
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 3 && $rows->contains('id', $review->id) && ! $rows->contains('id', $unresolved->id) && ! $rows->contains('id', $both->id));
+        $this->get('/reports?review=1')->assertViewHas('contracts', fn ($rows) => $rows->total() === 3 && $rows->contains('id', $review->id));
     }
 }

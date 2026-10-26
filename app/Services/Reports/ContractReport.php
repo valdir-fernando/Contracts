@@ -2,7 +2,6 @@
 
 namespace App\Services\Reports;
 
-use App\Domain\Contracts\ContractValidity;
 use App\Models\Contract;
 use App\Models\ContractAmendment;
 use App\Models\ContractHistoryRecord;
@@ -23,7 +22,7 @@ class ContractReport
         'changes' => 'Vigências e alterações', 'quality' => 'Qualidade dos dados'];
 
     public const HEADERS = ['Contrato', 'Processo', 'Fornecedor', 'Documento', 'Fundo', 'Secretaria', 'Tipo', 'Modalidade',
-        'Valor inicial (decimal)', 'Assinatura', 'Início', 'Término informado', 'Situação administrativa', 'Vigência', 'Pendências', 'Dias até o término', 'Origem do término', 'Fiscal'];
+        'Valor atualizado (decimal)', 'Assinatura', 'Início', 'Término atualizado', 'Situação administrativa', 'Vigência', 'Pendências', 'Dias até o término', 'Origem do término', 'Fiscal'];
 
     public const COLUMNS = ['number', 'process', 'supplier', 'document', 'fund', 'department', 'type', 'modality',
         'initial_amount', 'signed_at', 'starts_at', 'ends_at', 'administrative_status', 'validity', 'issues', 'remaining_days', 'end_source', 'inspector'];
@@ -66,24 +65,26 @@ class ContractReport
         $report = $filters['report'] ?? 'general';
         if (in_array($report, ['expiring', 'expired'])) {
             if ($report === 'expired') {
-                $query->withValidity('vencido', CarbonImmutable::parse($reference));
+                $query->withReportValidity('vencido', CarbonImmutable::parse($reference));
             } else {
                 $from = CarbonImmutable::parse($reference);
-                $query->endingBetween($from, $from->addDays((int) ($filters['days'] ?? 30)));
+                $query->reportEndingBetween($from, $from->addDays((int) ($filters['days'] ?? 30)));
             }
         }
         if ($report === 'quality') {
-            $query->where(fn ($q) => $q->where('ownership_resolved', false)->orWhere('vigencia_em_revisao', true)->orWhereJsonLength('quality_issues', '>', 0));
+            $query->where(fn ($q) => $q->where('ownership_resolved', false)->orWhereJsonLength('quality_issues', '>', 0));
         }
         if ($report === 'changes') {
-            $query->where(fn ($q) => $q->where('vigencia_em_revisao', true)->orWhereNotNull('vigencia_fim_atual')->orWhereIn('id', ContractHistoryRecord::where('kind', 'amendment')->select('contract_id'))
+            $query->where(fn ($q) => $q->whereNotNull('vigencia_fim_atual')->orWhereIn('id', ContractHistoryRecord::where('kind', 'amendment')->select('contract_id'))
                 ->orWhereIn('id', ContractAmendment::where('status', 'registrado')->select('contract_id')));
         }
         if ($validity = $filters['validity'] ?? null) {
-            $query->withValidity($validity, CarbonImmutable::parse($reference));
+            $query->withReportValidity($validity, CarbonImmutable::parse($reference));
         }
 
-        return $query->orderBy(($filters['sort'] ?? 'numero') === 'numero' ? 'Contrato' : $filters['sort'], $filters['direction'] ?? 'asc')->orderBy('id');
+        return $query->orderBy(match ($filters['sort'] ?? 'numero') {
+            'numero' => 'Contrato', 'valor_total' => 'valor_acumulado', default => $filters['sort']
+        }, $filters['direction'] ?? 'asc')->orderBy('id');
     }
 
     public function summary(User $actor, array $filters): array
@@ -96,7 +97,7 @@ class ContractReport
         // No personal fields, object text or source JSON outside the report projection.
         return $this->query($actor, $filters)->select(['id', 'Contrato', 'processo', 'fornecedor_nome_snapshot',
             'fornecedor_documento_snapshot', 'supplier_document_key', 'fund_id', 'department_id', 'fundo_nome_snapshot',
-            'secretaria_nome_snapshot', 'tipo', 'modalidade', 'valor_total', 'data_contrato', 'vigencia_inicio',
+            'secretaria_nome_snapshot', 'tipo', 'modalidade', 'valor_acumulado', 'data_contrato', 'vigencia_inicio',
             'vigencia_fim_original', 'vigencia_fim_atual', 'administrative_status', 'quality_issues',
             'ownership_resolved', 'vigencia_em_revisao', 'nome_fiscal']);
     }
@@ -123,16 +124,16 @@ class ContractReport
         $report = $filters['report'] ?? 'general';
         foreach ($contracts as $contract) {
             $count++;
-            $amount = BigDecimal::of($contract->valor_total ?? '0')->toScale(4);
+            $amount = BigDecimal::of($contract->valor_acumulado ?? '0')->toScale(4);
             $total = $total->plus($amount);
-            $missing += $contract->valor_total === null ? 1 : 0;
+            $missing += $contract->valor_acumulado === null ? 1 : 0;
             $key = match ($report) {
                 'inspector' => 'inspector:'.($contract->nome_fiscal ?? ''),
                 'fund' => 'fund:'.($contract->fund_id ?? 'unknown:'.$contract->fundo_nome_snapshot),
                 'department' => 'department:'.($contract->department_id ?? 'unknown:'.$contract->secretaria_nome_snapshot),
                 'supplier' => 'supplier:'.(Normalizer::validDocument($contract->supplier_document_key ?? '') ? $contract->supplier_document_key : 'unknown:'.$contract->id),
-                'type' => Normalizer::name($contract->tipo),
-                'modality' => Normalizer::name($contract->modalidade),
+                'type' => 'type:'.Normalizer::name($contract->tipo),
+                'modality' => 'modality:'.Normalizer::name($contract->modalidade),
                 default => '',
             };
             if ($key !== '') {
@@ -140,7 +141,7 @@ class ContractReport
                     'inspector' => $contract->nome_fiscal,
                     'fund' => $contract->fundo_nome_snapshot, 'department' => $contract->secretaria_nome_snapshot,
                     'supplier' => $contract->fornecedor_nome_snapshot.' · '.$this->document($contract, $actor, $filters),
-                    'type' => $key, 'modality' => $key,
+                    'type' => Normalizer::name($contract->tipo), 'modality' => Normalizer::name($contract->modalidade),
                 };
                 $groups[$key] ??= ['label' => $label ?: 'Não informado', 'count' => 0, 'total' => '0.0000'];
                 $groups[$key]['count']++;
@@ -168,18 +169,17 @@ class ContractReport
     {
         $reference ??= CarbonImmutable::parse($filters['reference'] ?? today()->toDateString());
         $start = $contract->vigencia_inicio;
-        $end = $contract->end_date;
-        $review = (bool) $contract->vigencia_em_revisao;
-        $validity = ContractValidity::classify($review, $start, $end, $reference);
+        $end = $contract->vigencia_fim_atual;
+        $validity = $contract->reportValidityOn($reference);
 
         $values = [$contract->numero, $contract->processo, $contract->fornecedor_nome_snapshot,
             $this->document($contract, $actor, $filters), $contract->fundo_nome_snapshot, $contract->secretaria_nome_snapshot,
-            $contract->tipo, $contract->modalidade, $contract->valor_total, $contract->data_contrato?->toDateString(),
+            $contract->tipo, $contract->modalidade, $contract->valor_acumulado, $contract->data_contrato?->toDateString(),
             $start?->toDateString(), $end?->toDateString(),
             Contract::STATUSES[$contract->administrative_status] ?? 'Não classificada', Contract::VALIDITY[$validity],
-            count($contract->quality_issues ?? []) + (int) ! $contract->ownership_resolved + (int) $contract->vigencia_em_revisao,
-            ! $review && $end ? (string) (int) $reference->diffInDays($end, false) : 'Em revisão / indeterminado',
-            $contract->vigencia_fim_atual ? 'Término atualizado informado; sujeito a conciliação' : ($contract->vigencia_fim_original ? 'Término original' : 'Não informado'), $contract->nome_fiscal];
+            count($contract->quality_issues ?? []) + (int) ! $contract->ownership_resolved,
+            $end ? (string) (int) $reference->diffInDays($end, false) : 'Não informado',
+            $end ? 'Término atualizado' : 'Não informado', $contract->nome_fiscal];
 
         return array_map(fn ($key) => $values[array_search($key, self::COLUMNS, true)], $filters['columns'] ?? self::COLUMNS);
     }

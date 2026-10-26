@@ -30,7 +30,7 @@ class ReportScaleTest extends TestCase
                         break;
                     }
                     DB::table('contracts')->insert(array_map(fn ($index) => ['Contrato' => str_pad((string) $index, 5, '0', STR_PAD_LEFT).'/26',
-                        'valor_total' => '0.1001', 'quality_issues' => '[]', 'administrative_status' => 'rascunho'], $chunk));
+                        'valor_acumulado' => '0.1001', 'quality_issues' => '[]', 'administrative_status' => 'rascunho'], $chunk));
                 }
                 $summary = $report->summary($admin, []);
                 $this->assertSame($count, $summary['count']);

@@ -30,17 +30,17 @@ class AdvancedContractSearchTest extends TestCase
         $this->contract = Contract::create(['numero' => 'BUSCA-VISIVEL', 'fund_id' => $fund, 'ownership_resolved' => true,
             'objeto' => 'Manutenção de veículos', 'empenho' => '00019/26', 'ficha' => '00008', 'tipo' => 'Serviço', 'modalidade' => 'Pregão',
             'administrative_status' => 'ativo', 'data_contrato' => '2026-10-31', 'exercicio' => 2026,
-            'vigencia_inicio' => '2026-10-10', 'vigencia_fim_original' => '2026-11-09', 'valor_total' => '1908.6300',
+            'vigencia_inicio' => '2026-10-10', 'vigencia_fim_atual' => '2026-11-09', 'valor_acumulado' => '1908.6300',
             'supplier_document_key' => '11222333000181', 'fornecedor_documento_snapshot' => '11222333000181', 'quality_issues' => []]);
         Contract::create(['numero' => 'BUSCA-SEGREDO', 'objeto' => 'Manutenção de veículos', 'empenho' => '00019/26', 'ficha' => '00008',
-            'tipo' => 'TIPO-SECRETO', 'modalidade' => 'MODALIDADE-SECRETA', 'valor_total' => '1908.6300', 'quality_issues' => []]);
+            'tipo' => 'TIPO-SECRETO', 'modalidade' => 'MODALIDADE-SECRETA', 'valor_acumulado' => '1908.6300', 'quality_issues' => []]);
         $this->actingAs($this->user);
     }
 
     public function test_advanced_search_and_report_export_share_filters_scope_and_exact_totals(): void
     {
         $filters = ['object' => 'veículos', 'commitment' => '00019', 'budget' => '00008', 'type' => 'Serviço', 'modality' => 'Pregão',
-            'status' => 'ativo', 'year' => 2026, 'from' => '2026-10-31', 'to' => '2026-10-31', 'min_value' => '1.908,6300', 'max_value' => '1908.6300'];
+            'status' => 'ativo', 'year' => 2026, 'date_field' => 'data_contrato', 'from' => '2026-10-31', 'to' => '2026-10-31', 'min_value' => '1.908,6300', 'max_value' => '1908.6300'];
         $query = http_build_query($filters);
         $this->get('/contracts?'.$query)->assertOk()->assertSee('BUSCA-VISIVEL')->assertDontSee('BUSCA-SEGREDO')->assertDontSee('TIPO-SECRETO')->assertDontSee('MODALIDADE-SECRETA');
         $this->get('/reports?'.$query)->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $this->contract->id);

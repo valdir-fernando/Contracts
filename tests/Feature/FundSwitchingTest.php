@@ -40,7 +40,7 @@ class FundSwitchingTest extends TestCase
         $this->contract($this->fundA, 'A-PREVIOUS', 2025, '200.0000');
         $this->contract($this->fundB, 'B-CURRENT', 2026, '1000.0000', $this->department);
         $expired = $this->contract($this->fundB, 'B-EXPIRED', 2026, '2000.0000');
-        $expired->update(['vigencia_fim_original' => '2026-10-10']);
+        $expired->update(['vigencia_fim_atual' => '2026-10-10']);
         $this->contract($this->fundB, 'B-PREVIOUS', 2024, '3000.0000');
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fundA]);
     }
@@ -53,8 +53,8 @@ class FundSwitchingTest extends TestCase
     private function contract(int $fund, string $number, int $year, string $amount, ?int $department = null): Contract
     {
         return Contract::create(['fund_id' => $fund, 'department_id' => $department, 'numero' => $number, 'exercicio' => $year,
-            'valor_total' => $amount, 'ownership_resolved' => true, 'quality_issues' => [], 'fundo_nome_snapshot' => $fund === $this->fundA ? 'Fundo A' : 'Fundo B',
-            'vigencia_inicio' => '2026-01-01', 'vigencia_fim_original' => '2026-10-20']);
+            'valor_total' => '1.0000', 'valor_acumulado' => $amount, 'ownership_resolved' => true, 'quality_issues' => [], 'fundo_nome_snapshot' => $fund === $this->fundA ? 'Fundo A' : 'Fundo B',
+            'vigencia_inicio' => '2026-01-01', 'vigencia_fim_atual' => '2026-10-20']);
     }
 
     private function grant(User $user, int $fund, ?int $department = null): void
@@ -67,15 +67,15 @@ class FundSwitchingTest extends TestCase
 
     public function test_admin_indicators_and_links_use_selected_fund_and_exercise(): void
     {
-        Livewire::test(Overview::class)->assertViewHas('count', 2)->assertViewHas('expired', 0)->assertViewHas('review', 1)
-            ->assertViewHas('alertCount', 1)->assertViewHas('years', fn ($years) => $years->all() === [2026, 2025])
+        Livewire::test(Overview::class)->assertViewHas('count', 2)->assertViewHas('expired', 0)->assertViewHas('review', 0)
+            ->assertViewHas('alertCount', 2)->assertViewHas('years', fn ($years) => $years->all() === [2026, 2025])
             ->assertViewHas('metrics', fn ($metrics) => $metrics['summary']['total'] === '12.4457' && $metrics['summary']['count'] === 2
-                && array_sum(array_column($metrics['validities'], 'count')) === 2 && array_sum(array_column($metrics['months'], 'count')) === 1)
+                && array_sum(array_column($metrics['validities'], 'count')) === 2 && array_sum(array_column($metrics['months'], 'count')) === 2)
             ->assertViewHas('recent', fn ($rows) => $rows->total() === 2 && $rows->every(fn ($row) => $row->fund_id === $this->fundA))
-            ->assertSee(route('contracts.index', ['year' => 2026, 'fund' => $this->fundA, 'review' => 1]))
+            ->assertDontSee(route('contracts.index', ['year' => 2026, 'fund' => $this->fundA, 'validity' => 'indeterminado']))
             ->assertDontSee('B-CURRENT')->assertDontSee('B-EXPIRED');
         $this->get('/contracts?year=2026&fund='.$this->fundA.'&review=1')->assertOk()
-            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'A-REVIEW');
+            ->assertViewHas('contracts', fn ($rows) => $rows->total() === 2 && $rows->contains('numero', 'A-REVIEW'));
     }
 
     public function test_switch_preserves_authentication_and_year_and_updates_header_metrics_and_new_contract_defaults(): void

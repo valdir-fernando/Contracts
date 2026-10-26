@@ -27,15 +27,15 @@ class CalendarController extends Controller
         $month = CarbonImmutable::createFromFormat('!Y-m', $selected);
         $query = $calendar->query($actor, $month, $month->endOfMonth())->where('fund_id', $fundId);
         $visible = Contract::visibleTo($actor)->where('fund_id', $fundId);
-        $counts = (clone $query)->reorder()->selectRaw('DATE(COALESCE(vigencia_fim_atual, vigencia_fim_original)) AS end_day, COUNT(*) AS total')
-            ->groupByRaw('DATE(COALESCE(vigencia_fim_atual, vigencia_fim_original))')->pluck('total', 'end_day');
+        $counts = (clone $query)->reorder()->selectRaw('DATE(vigencia_fim_atual) AS end_day, COUNT(*) AS total')
+            ->groupByRaw('DATE(vigencia_fim_atual)')->pluck('total', 'end_day');
 
         return view('calendar.index', ['month' => $month, 'counts' => $counts,
             'contracts' => $query->paginate(30)->withQueryString(),
             'user' => $actor,
             'showDepartment' => Normalizer::name($fund?->name) === 'MUNICIPIO DE NIQUELANDIA',
-            'reviewCount' => (clone $visible)->withValidity('em_revisao')->count(),
-            'unknownCount' => (clone $visible)->withValidity('indeterminado')->count(),
+            'reviewCount' => 0,
+            'unknownCount' => (clone $visible)->withReportValidity('indeterminado')->count(),
         ]);
     }
 

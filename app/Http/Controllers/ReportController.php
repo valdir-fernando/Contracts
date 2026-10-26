@@ -104,9 +104,9 @@ class ReportController extends Controller
                 ->whereColumn('contract_id', 'contracts.id')->orderByDesc('event_date')->orderByDesc('id')->limit(1),
         ])->with(['serviceOrders' => fn ($query) => $query->orderBy('issued_on')->orderBy('id')])
             ->whereIn('fund_id', $reportFundIds)
-            ->when($reportCurrent, fn ($query) => $query->withValidity('vigente'))
-            ->when($reportEndFrom !== null, fn ($query) => $query->whereDate(DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)'), '>=', $reportEndFrom))
-            ->when($reportEndTo !== null, fn ($query) => $query->whereDate(DB::raw('COALESCE(vigencia_fim_atual, vigencia_fim_original)'), '<=', $reportEndTo))
+            ->when($reportCurrent, fn ($query) => $query->withReportValidity('vigente'))
+            ->when($reportEndFrom !== null, fn ($query) => $query->whereDate('vigencia_fim_atual', '>=', $reportEndFrom))
+            ->when($reportEndTo !== null, fn ($query) => $query->whereDate('vigencia_fim_atual', '<=', $reportEndTo))
             ->when($reportType !== '', fn ($query) => $query->where('tipo', $reportType))
             ->when($reportProcess !== '', fn ($query) => $query->whereLike('processo', '%'.$reportProcess.'%'))
             ->when($supplierFilters['report_bidding'] !== '', fn ($query) => $query->whereLike('modalidade', '%'.$supplierFilters['report_bidding'].'%'))
@@ -135,7 +135,7 @@ class ReportController extends Controller
                     ])->all()
                     : [],
                 'starts' => $contract->vigencia_inicio?->format('d/m/Y') ?? 'Não informado',
-                'ends' => ($reportEndActive ? $contract->end_date : $contract->vigencia_fim_atual)?->format('d/m/Y') ?? 'Não informado',
+                'ends' => $contract->vigencia_fim_atual?->format('d/m/Y') ?? 'Não informado',
                 'amount' => Contract::moneyLabel($contract->valor_acumulado),
             ])->all();
             $pdf = new Dompdf(['isRemoteEnabled' => false]);

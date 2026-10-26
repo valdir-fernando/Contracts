@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Infrastructure\Accounts\UpdateExpirationAlertDays;
 use App\Infrastructure\Security\SelectedFund;
 use App\Models\Contract;
 use App\Services\ExpirationCalendar;
@@ -22,8 +23,11 @@ class Overview extends Component
     #[Url]
     public string $year = '';
 
+    public $alertDaysInput = '';
+
     public function mount(): void
     {
+        $this->alertDaysInput = (string) auth()->user()->expiration_alert_days;
         if ($this->year === '') {
             $this->year = (string) today()->year;
         }
@@ -44,6 +48,14 @@ class Overview extends Component
     public function updatingSearch(): void
     {
         $this->resetPage();
+    }
+
+    public function saveAlertDays(UpdateExpirationAlertDays $preferences): void
+    {
+        $preferences->save(auth()->user(), $this->alertDaysInput);
+        auth()->user()->refresh();
+        $this->resetValidation('alertDaysInput');
+        $this->dispatch('alert-days-saved');
     }
 
     public function render()
@@ -81,9 +93,9 @@ class Overview extends Component
             'alertDays' => $user->expiration_alert_days,
             'alertsEnabled' => $user->expiration_alert_enabled,
             'alertCount' => $user->expiration_alert_enabled ? (clone $alerts)->count() : 0,
-            'alerts' => $user->expiration_alert_enabled ? $alerts->limit(5)->get() : collect(),
-            'expired' => (clone $visible)->withValidity('vencido')->count(),
-            'review' => (clone $visible)->pendingReview()->count(),
+            'alerts' => $user->expiration_alert_enabled ? $alerts->get(['id', 'Contrato', 'vigencia_fim_atual', 'fornecedor_nome_snapshot']) : collect(),
+            'expired' => (clone $visible)->withReportValidity('vencido')->count(),
+            'review' => (clone $visible)->withReportValidity('indeterminado')->count(),
             'recent' => $query->latest('id')->paginate(10)]);
     }
 }
