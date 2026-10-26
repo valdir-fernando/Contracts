@@ -17,11 +17,20 @@ export function initializeContractObject(form) {
     const type = field('tipo');
     const object = field('objeto');
     if (!type || !object) return;
-    const refresh = () => {
+    const sources = () => {
         const value = (name) => field(name)?.value ?? '';
-        const suggestion = suggestedContractObject({ type: type.value, address: value('end_imovel'), facilities: value('instalacoes'),
-            role: value('cargo_credenc'), workplace: value('local_servico'), document: value('fornecedor_documento_snapshot'),
-            documentType: !field('fornecedor_documento_snapshot') ? form.querySelector('[data-supplier-document-type]')?.dataset.supplierDocumentType : undefined });
+        return { type: type.value, address: value('end_imovel'), facilities: value('instalacoes'),
+            role: value('cargo_credenc'), workplace: value('local_servico'), document: value('fornecedor_documento_snapshot').replace(/[\s.\/-]/g, ''),
+            documentType: !field('fornecedor_documento_snapshot') ? form.querySelector('[data-supplier-document-type]')?.dataset.supplierDocumentType : undefined };
+    };
+    // Focusing and leaving a saved field must not replace its historical object.
+    let previousSources = field('version') ? JSON.stringify(sources()) : null;
+    const refresh = () => {
+        const currentSources = sources();
+        const signature = JSON.stringify(currentSources);
+        if (signature === previousSources) return;
+        previousSources = signature;
+        const suggestion = suggestedContractObject(currentSources);
         if (suggestion === null) return;
         if (object.value === suggestion) return;
         object.value = suggestion;

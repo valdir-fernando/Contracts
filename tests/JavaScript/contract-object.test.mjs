@@ -63,3 +63,26 @@ test('each source field change refreshes the object and supplier selection uses 
     controls.tipo.value = 'Fornecimento'; controls.objeto.value = 'Manual';
     listeners.focusout(); assert.equal(controls.objeto.value, 'Manual');
 });
+
+test('saved credentialing object survives unchanged focusout and document formatting but follows actual source edits', () => {
+    const controls = {};
+    for (const [name, value] of Object.entries({ version: '3', tipo: 'Credenciamento', objeto: 'Objeto histórico conferido',
+        cargo_credenc: 'Médica', local_servico: 'Hospital', fornecedor_documento_snapshot: '52998224725' })) {
+        controls[name] = { value, listeners: {}, addEventListener(event, callback) { this.listeners[event] = callback; } };
+    }
+    const emitted = [];
+    controls.objeto.dispatchEvent = event => emitted.push(event);
+    initializeContractObject({ elements: { namedItem: name => controls[name] }, addEventListener() {} });
+    controls.tipo.listeners.focusout();
+    controls.fornecedor_documento_snapshot.value = '529.982.247-25';
+    controls.fornecedor_documento_snapshot.listeners.focusout();
+    assert.equal(controls.objeto.value, 'Objeto histórico conferido');
+    assert.equal(emitted.length, 0);
+    controls.cargo_credenc.value = 'Enfermeira';
+    controls.cargo_credenc.listeners.input();
+    assert.match(controls.objeto.value, /Enfermeira.*Hospital/);
+    assert.equal(emitted.length, 1);
+    controls.objeto.value = 'Objeto ajustado manualmente';
+    controls.cargo_credenc.listeners.focusout();
+    assert.equal(controls.objeto.value, 'Objeto ajustado manualmente');
+});

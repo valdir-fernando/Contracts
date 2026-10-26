@@ -2,6 +2,10 @@
 
 O botão **Publicação** gera um PDF privado em uma nova aba para contratos salvos, usando o modelo fornecido para o Diário Público. A cópia original em Reference/Modelos_Doc/Extratos/Public_Diario/Public_Diario.docx permanece intacta; a cópia de execução fica em resources/documents/extracts/publication.docx. Alterações pendentes precisam ser salvas antes de emitir.
 
+Ao abrir contratos salvos, sair de Tipo ou de outro campo de origem sem alterar seu valor preserva o Objeto histórico. Isso evita que um clique em Publicação gere uma alteração automática e bloqueie a emissão indevidamente. Mudanças reais nos campos de origem continuam atualizando a sugestão e exigindo salvar antes de emitir; formatação equivalente de CPF/CNPJ não conta como mudança de origem.
+
+Validação da correção (26/10/2026): `docker compose run --rm --no-deps node npm test` passou com 144 testes; `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram. Reprodução em Edge headless com cópia local da tela e HTTP simulado confirmou o bloqueio antes da correção, a abertura da URL de publicação sem alterações após a correção e a manutenção do bloqueio quando um campo de origem é realmente editado. A conferência somente de leitura do modelo e dos dados persistidos também renderizou um PDF válido; não foi chamada a emissão auditada nem houve gravação no contrato ou no banco instalado. A cópia temporária da tela foi removida após o diagnóstico.
+
 | Marcador | Campo usado |
 | --- | --- |
 | #FUNDO | Nome do Fundo no snapshot do contrato |
