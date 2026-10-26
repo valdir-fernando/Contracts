@@ -1,5 +1,9 @@
 # Contracts
 
+[Entrega de 26/10/2026: relatórios, Painel de Acompanhamento e validação](docs/delivery-2026-10-26.md).
+
+Relatórios e indicadores usam início de vigência, término atualizado e valor atualizado, desconsiderando revisão na seleção. [Critérios e compatibilidade](docs/report-criteria-2026-10-26.md).
+
 O botão **Gerar PDF** em **Relatórios de contratos** exporta a lista filtrada em **A4 horizontal**, com o título da mensagem do painel. [Formato, filtros e validação](docs/contract-panel-pdf.md).
 
 Os aditivos históricos podem ser copiados para `tb_Aditivos` por `contracts:import-amendments --apply`, com origem, histórico e auditoria preservados. Sem `--apply`, apenas simula. [Procedimento e pendências](docs/historical-amendment-import.md).

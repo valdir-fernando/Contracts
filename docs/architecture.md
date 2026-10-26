@@ -1,5 +1,9 @@
 # Arquitetura do Contracts
 
+Alertas do Início: o link de antecedência abre um diálogo de 1 a 365 dias. `Overview::saveAlertDays` chama `Infrastructure/Accounts/UpdateExpirationAlertDays`, que bloqueia e revalida o ator autenticado, autoriza a leitura de contratos, valida o intervalo e salva a preferência pessoal com auditoria na mesma transação. Mantém a ativação atual dos avisos e recalcula os alertas no Fundo/exercício selecionados, sem sair do painel. A lista em duas colunas com rolagem inclui todos os contratos contados no período, sem o antigo limite de cinco, selecionando somente ID, número, término atualizado e fornecedor. O endpoint existente do calendário permanece compatível.
+
+Relatórios (26/10/2026): leituras do painel, Acervo, calendário, Início e exportações usam início de vigência, término atualizado e valor acumulado, sem fallback aos originais ou exclusão por revisão. Escopos específicos do model mantêm a regra de leitura separada da classificação histórica e da escrita. [Critérios e compatibilidade](report-criteria-2026-10-26.md).
+
 Importação dos aditivos: `Infrastructure/Contracts/ImportHistoricalAmendments` copia históricos vinculados para `tb_Aditivos`, com origem única, autoria de sistema, status `importado`, auditoria e versão transacionais. O histórico original é preservado; nenhuma alteração financeira ou de vigência é aplicada. [Comando, fronteira de manutenção e pendências](historical-amendment-import.md).
 
 O botão **Contrato** também emite **Credenciamento Saúde**, usando o Word fornecido, os dados profissionais salvos e a conferência de produtos e dotações. [Campos, referências do modelo e validação](health-accreditation-contract.md).
