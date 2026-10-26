@@ -52,6 +52,7 @@ Route::middleware('guest')->group(function () {
 });
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::view('/atas', 'atas.dashboard')->name('atas.dashboard');
     Route::get('/publication', [SignedDocumentController::class, 'index'])->name('publication.index');
     Route::post('/publication/contracts/{contract}', [SignedDocumentController::class, 'store'])->middleware('throttle:20,1')->name('publication.store');
     Route::get('/publication/contracts/{contract}/documents/{document}', [SignedDocumentController::class, 'download'])->whereNumber('document')->name('publication.download');

@@ -107,6 +107,18 @@ p { margin-block: 0 16px; }
 .workspace-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 77px; margin-bottom: 32px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; }
 .workspace-top > span { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .workspace-top strong { color: #34465f; font-weight: 550; }
+.header-modules { display: flex; align-items: center; flex-shrink: 0; gap: 8px; padding-right: 14px; border-right: 1px solid var(--border); }
+.header-module-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 7px 10px; border: 1px solid #163b65; border-radius: 7px; background: #163b65; color: #fff; font-size: 11px; font-weight: 650; line-height: 1.2; text-decoration: none; white-space: nowrap; }
+.header-module-button svg { width: 17px; height: 17px; flex-shrink: 0; }
+.header-module-button:is(:hover, :focus-visible):not(:disabled) { background: #214e80; border-color: #214e80; color: #fff; }
+.header-module-button:focus-visible { outline: 2px solid #7dbbff; outline-offset: 3px; }
+.header-module-button:disabled { cursor: default; opacity: 1; }
+.header-module-button[aria-current=page] { box-shadow: inset 0 -3px 0 #7dbbff; }
+@media (max-width: 760px) {
+    .workspace-top:has(> .header-modules) { flex-wrap: wrap; }
+    .header-modules { padding-block: 6px; }
+    .header-module-button { min-height: 44px; }
+}
 .workspace-top { container-type: inline-size; }
 .workspace-top.workspace-top-compact { margin-bottom: 8px; }
 .fund-header-group { flex: 1; min-width: 0; padding-block: 10px; }
@@ -627,7 +639,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .overview-kpis > .overview-alerts { position: relative; min-width: 0; }
 .overview-alert-body { height: var(--overview-card-height); margin: 0; padding: 8px 12px; }
 .overview-alerts .panel-header { position: absolute; bottom: calc(100% + 4px); inset-inline: 0; margin: 0; gap: 8px; flex-wrap: nowrap; align-items: center; }
-.overview-alerts .panel-header h2 { margin: 0 0 4px; font-size: 13px; font-weight: 700; }
+.overview-alerts .panel-header h2 { margin: 0; font-size: 13px; font-weight: 700; }
 .overview-alert-heading { display: flex; align-items: center; gap: 8px; overflow-x: auto; white-space: nowrap; }
 .overview-alerts .panel-header .text-link { font-size: 11px; }
 .overview-alert-preferences { width: min(420px, calc(100vw - 32px)); }
@@ -1292,6 +1304,10 @@ body.modal-open { overflow: hidden; }
 /* Vivid status colors make the overview easier to scan and explore. */
 a.kpi-card { --kpi-accent: #3478f6; --kpi-tint: #eff5ff; --kpi-border: #d6e5ff; }
 .overview-kpis > a.kpi-card { border-color: var(--kpi-border); border-top: 3px solid var(--kpi-accent); background: var(--kpi-tint); color: inherit; text-decoration: none; transition: transform .18s, box-shadow .18s, border-color .18s; }
+.atas-overview .kpi-card { --kpi-accent: #3478f6; border-color: #d6e5ff; border-top: 3px solid var(--kpi-accent); background: #eff5ff; }
+.atas-overview .kpi-success { --kpi-accent: #059669; border-color: #c8eedc; background: #eefbf5; }
+.atas-overview .kpi-danger { --kpi-accent: #e83e61; border-color: #f8d4df; background: #fff1f4; }
+.atas-overview .kpi-icon { color: #fff; background: var(--kpi-accent); }
 a.kpi-card:hover { transform: translateY(-3px); border-color: var(--kpi-accent); box-shadow: 0 8px 24px #23427012; }
 a.kpi-card small { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 a.kpi-card small svg { width: 16px; height: 16px; color: var(--kpi-accent); transition: transform .18s; }
@@ -1677,13 +1693,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;
