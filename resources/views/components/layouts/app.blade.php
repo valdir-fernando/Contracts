@@ -98,10 +98,12 @@
         </aside>
         <main class="workspace-content" id="main-content" tabindex="-1" @if($contractEditor) data-contract-editor @endif>
             <header @class(['workspace-top', 'workspace-top-compact' => request()->routeIs('contracts.create'), 'workspace-top-contract' => $summaryInHeader])>
+                @if(request()->routeIs('dashboard', 'atas.dashboard'))
                 <nav class="header-modules" aria-label="Módulos do sistema">
                     <a class="header-module-button" href="{{ route('dashboard') }}" @if(request()->routeIs('dashboard')) aria-current="page" @endif><x-nav-icon name="contracts"/><span>CONTRATOS</span></a>
                     <a class="header-module-button" href="{{ route('atas.dashboard') }}" @if(request()->routeIs('atas.dashboard')) aria-current="page" @endif><x-nav-icon name="documents"/><span>ATAS</span></a>
                 </nav>
+                @endif
                 @isset($headerBack)<div class="fund-header-group">{{ $headerBack }}@endisset
                 @if($selectedFund = request()->attributes->get('selected_fund'))
                     <span class="fund-breadcrumb"><strong class="selected-fund-name"{{ $summaryInHeader ? ' data-fit-fund-name' : '' }}>@isset($fundName){{ $fundName }}@else{{ $selectedFund['name'] }}@endisset</strong>@unless(request()->routeIs('dashboard', 'atas.dashboard') || $summaryInHeader) <span class="breadcrumb-divider" aria-hidden="true">/</span>{{ $title }}@endunless</span>
