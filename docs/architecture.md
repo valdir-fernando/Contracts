@@ -1,5 +1,7 @@
 # Arquitetura do Contracts
 
+Atas: `/atas` (`atas.dashboard`) abre `AtasOverview`, um painel inicial preparatório com o mesmo layout do Início de contratos. Revalida ator e Fundo autorizado da sessão; indicadores e gráficos ficam vazios, sem consultar contratos nem persistir atas. O exercício é validado e mantido na URL. Os botões CONTRATOS e ATAS do cabeçalho abrem seus respectivos painéis; cadastro e consultas de atas aguardam implementação funcional.
+
 Alertas do Início: o link de antecedência abre um diálogo de 1 a 365 dias. `Overview::saveAlertDays` chama `Infrastructure/Accounts/UpdateExpirationAlertDays`, que bloqueia e revalida o ator autenticado, autoriza a leitura de contratos, valida o intervalo e salva a preferência pessoal com auditoria na mesma transação. Mantém a ativação atual dos avisos e recalcula os alertas no Fundo/exercício selecionados, sem sair do painel. A lista em duas colunas com rolagem inclui todos os contratos contados no período, sem o antigo limite de cinco, selecionando somente ID, número, término atualizado e fornecedor. O endpoint existente do calendário permanece compatível.
 
 Relatórios (26/10/2026): leituras do painel, Acervo, calendário, Início e exportações usam início de vigência, término atualizado e valor acumulado, sem fallback aos originais ou exclusão por revisão. Escopos específicos do model mantêm a regra de leitura separada da classificação histórica e da escrita. [Critérios e compatibilidade](report-criteria-2026-10-26.md).
