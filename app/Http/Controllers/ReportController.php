@@ -36,7 +36,7 @@ class ReportController extends Controller
         $canSelectScope = $request->user()->isAdmin();
         $reportFunds = $canSelectScope ? app(SelectedFund::class)->options($request->user()) : collect();
         $selection = $request->validate([
-            'report_year' => ['nullable', 'integer', 'min:1', 'max:9999'],
+            'report_year' => $request->query('report_year') === 'all' ? ['in:all'] : ['nullable', 'integer', 'min:1', 'max:'.$currentYear],
             'report_process' => ['nullable', 'string', 'max:255'],
             'report_bidding' => ['nullable', 'string', 'max:255'],
             'report_bidding_number' => ['nullable', 'string', 'max:255'],
@@ -53,6 +53,19 @@ class ReportController extends Controller
             'report_end_to' => 'Até (data final atualizada)',
         ]);
         $reportYear = $request->query->has('report_year') ? ($selection['report_year'] ?? null) : $currentYear;
+        if ($reportYear === 'all') {
+            $reportYear = null;
+        }
+        if ($reportYear === null) {
+            $request->query->set('report_year', 'all');
+        }
+        $reportYears = (clone $visible)->where('fund_id', $selectedFund['id'] ?? -1)
+            ->whereNotNull('exercicio')->where('exercicio', '<=', $currentYear)
+            ->distinct()->orderByDesc('exercicio')->pluck('exercicio')->push($currentYear);
+        if ($reportYear !== null) {
+            $reportYears->push((int) $reportYear);
+        }
+        $reportYears = $reportYears->unique()->sortDesc()->values();
         $reportProcess = trim($selection['report_process'] ?? '');
         $reportType = trim($selection['report_type'] ?? '');
         $reportCurrent = $request->boolean('report_current');
@@ -165,7 +178,7 @@ class ReportController extends Controller
             return redirect()->to($reportContracts->url($reportContracts->lastPage()));
         }
 
-        return view('reports.index', compact('reportCurrent', 'reportScopeLocked', 'reportEndActive', 'reportEndFrom', 'reportEndTo', 'reportTypes', 'reportType', 'supplierFilters', 'reportProcess', 'reportYear', 'canSelectScope', 'reportFunds', 'reportFundId', 'reportFundName', 'reportDepartments', 'reportDepartmentId', 'canSelectDepartment') + ['reportContracts' => $reportContracts, 'currentYear' => $currentYear,
+        return view('reports.index', compact('reportYears', 'reportCurrent', 'reportScopeLocked', 'reportEndActive', 'reportEndFrom', 'reportEndTo', 'reportTypes', 'reportType', 'supplierFilters', 'reportProcess', 'reportYear', 'canSelectScope', 'reportFunds', 'reportFundId', 'reportFundName', 'reportDepartments', 'reportDepartmentId', 'canSelectDepartment') + ['reportContracts' => $reportContracts, 'currentYear' => $currentYear,
             'presets' => SavedReport::where('user_id', $request->user()->id)->orderBy('name')->get(), 'filters' => $filters, 'summary' => $service->summary($request->user(), $filters),
             'contracts' => $service->query($request->user(), $filters)->paginate(20)->withQueryString(), 'service' => $service,
             'funds' => DB::table('contract_funds')->whereNull('deleted_at')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(),

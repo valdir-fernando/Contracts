@@ -6,7 +6,7 @@
         <form id="report-filters" method="GET" class="report-scope-selection {{ $canSelectScope ? '' : 'report-year-only' }}" x-data @submit="const from = $el.elements.namedItem('report_end_from'); const to = $el.elements.namedItem('report_end_to'); if (from.value && to.value && from.value > to.value) { $event.preventDefault(); alert('A data inicial (De) não pode ser posterior à data final (Até).'); document.getElementById('report-end-popover').showPopover(); to.focus(); }">
             @if($reportScopeLocked)
                 @unless($reportEndActive)
-                <input type="hidden" name="report_year" value="{{ $reportYear }}">
+                <input type="hidden" name="report_year" value="{{ $reportYear ?? 'all' }}">
                 @endunless
                 @if($canSelectScope)
                     <input type="hidden" name="report_fund" value="{{ $reportFundId > 0 ? $reportFundId : '' }}">
@@ -14,7 +14,12 @@
                 @endif
             @endif
             <label class="field">Ano
-                <input type="number" name="report_year" min="1" max="9999" value="{{ $reportYear }}" @disabled($reportScopeLocked) @change="if ($el.checkValidity()) $el.form.requestSubmit()">
+                <select name="report_year" @disabled($reportScopeLocked) @change="$el.form.requestSubmit()">
+                    @foreach($reportYears as $option)
+                        <option value="{{ $option }}" @selected($reportYear !== null && (int) $reportYear === (int) $option)>{{ $option }}{{ (int) $option === $currentYear ? ' (ano atual)' : '' }}</option>
+                    @endforeach
+                    <option value="all" @selected($reportYear === null)>Todos os anos</option>
+                </select>
             </label>
             @if($canSelectScope)
             <label class="field">Fundo

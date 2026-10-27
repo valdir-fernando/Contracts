@@ -130,7 +130,7 @@ class ContractBrowsingTest extends TestCase
             $data = $view->getData();
             $this->assertCount(1, $data['rows']);
             $this->assertSame('30/06/2027', $data['rows'][0]['ends']);
-            $this->assertStringContainsString('referente a todos os exercícios', $data['title']);
+            $this->assertStringContainsString('referente a todos os anos', $data['title']);
             $this->assertStringContainsString('Final até: 30/06/2027', $data['title']);
             $contract->increment('version');
         });
@@ -155,13 +155,13 @@ class ContractBrowsingTest extends TestCase
         $otherFund = $this->catalog('contract_funds', 'Outro fundo');
         $current = $this->contract(['numero' => 'CONTRATO-ATUAL', 'fund_id' => $fund]);
         $this->contract(['numero' => 'CONTRATO-ANTERIOR', 'fund_id' => $fund, 'exercicio' => 2025]);
-        $this->contract(['numero' => 'CONTRATO-OUTRO-FUNDO', 'fund_id' => $otherFund]);
-        $deleted = $this->contract(['numero' => 'CONTRATO-EXCLUIDO', 'fund_id' => $fund]);
+        $this->contract(['numero' => 'CONTRATO-OUTRO-FUNDO', 'fund_id' => $otherFund, 'exercicio' => 2024]);
+        $deleted = $this->contract(['numero' => 'CONTRATO-EXCLUIDO', 'fund_id' => $fund, 'exercicio' => 2023]);
         $deleted->delete();
 
         $this->actingAs($this->user())->withSession(['fund_id' => $fund])->get('/reports')->assertOk()
             ->assertViewHas('reportYear', 2026)
-            ->assertSee('name="report_year" min="1" max="9999" value="2026"', false);
+            ->assertSee('value="2026" selected', false);
 
         $this->withSession(['fund_id' => $fund])
             ->get('/reports?fund='.$otherFund.'&year=2025')->assertOk()
@@ -174,10 +174,18 @@ class ContractBrowsingTest extends TestCase
             ->assertSee('referente ao ano de 2025')
             ->assertViewHas('reportYear', 2025);
         $this->getJson('/reports?report_year=10000')->assertUnprocessable();
+        $this->getJson('/reports?report_year=2027')->assertUnprocessable();
+        $this->get('/reports?report_year=all')->assertOk()
+            ->assertViewHas('reportYears', fn ($years) => $years->all() === [2026, 2025])
+            ->assertSee('2026 (ano atual)')
+            ->assertSee('value="all" selected', false)
+            ->assertViewHas('reportYear', null)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
         $this->get('/reports?report_year=')->assertOk()
             ->assertSee('CONTRATO-ATUAL')->assertSee('CONTRATO-ANTERIOR')
             ->assertDontSee('CONTRATO-OUTRO-FUNDO')->assertDontSee('CONTRATO-EXCLUIDO')
-            ->assertSee('referente a todos os exercícios')->assertViewHas('reportYear', null)
+            ->assertSee('referente a todos os anos')->assertViewHas('reportYear', null)
+            ->assertSee('value="all" selected', false)
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
 
         $this->withSession(['fund_id' => null])->get('/reports')->assertOk()
@@ -331,7 +339,7 @@ class ContractBrowsingTest extends TestCase
         $this->contract(['fund_id' => $fund, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-07-01']);
         $this->actingAs($this->user())->withSession(['fund_id' => $fund])
             ->get('/reports?report_year=2026&report_process=PROCESSO-ALVO&report_supplier=INEXISTENTE&report_bidding=INEXISTENTE&report_bidding_number=INEXISTENTE&report_type=INEXISTENTE&report_current=1&report_end_from=2027-06-01&report_end_to=2027-06-30')
-            ->assertOk()->assertSee('referente a todos os exercícios')
+            ->assertOk()->assertSee('referente a todos os anos')
             ->assertViewHas('reportProcess', '')
             ->assertViewHas('reportType', '')
             ->assertViewHas('reportCurrent', false)
@@ -350,7 +358,7 @@ class ContractBrowsingTest extends TestCase
             ['report_bidding_number' => '01'], ['report_type' => 'Obras']] as $filter) {
             $response = $this->get('/reports?'.http_build_query($filter + ['report_year' => 2025, 'report_fund' => $fund]));
             $response->assertOk()->assertViewHas('reportScopeLocked', true)
-                ->assertSee('name="report_year" min="1" max="9999" value="2025" disabled', false)
+                ->assertSee('name="report_year" disabled', false)
                 ->assertSee('name="report_fund" disabled', false)
                 ->assertSee('name="report_department" x-ref="department" disabled', false)
                 ->assertSee('type="hidden" name="report_year" value="2025"', false);
@@ -358,11 +366,12 @@ class ContractBrowsingTest extends TestCase
         $this->get('/reports?report_year=2025&report_end_active=1')->assertOk()
             ->assertViewHas('reportYear', null)
             ->assertViewHas('reportScopeLocked', true)
-            ->assertSee('name="report_year" min="1" max="9999" value="" disabled', false)
+            ->assertSee('name="report_year" disabled', false)
+            ->assertSee('value="all" selected', false)
             ->assertDontSee('type="hidden" name="report_year"', false);
         $this->get('/reports')->assertOk()->assertViewHas('reportScopeLocked', false)
             ->assertViewHas('reportYear', 2026)
-            ->assertDontSee('name="report_year" min="1" max="9999" value="2026" disabled', false)
+            ->assertDontSee('name="report_year" disabled', false)
             ->assertDontSee('name="report_fund" disabled', false);
     }
 
@@ -510,6 +519,7 @@ class ContractBrowsingTest extends TestCase
         $this->actingAs($this->user())->withSession(['fund_id' => $fund]);
         $response = $this->get('/reports?report_year=&report_fund=')->assertOk();
         $next = $response->viewData('reportContracts')->nextPageUrl();
+        $this->assertStringContainsString('report_year=all', $next);
         $this->get($next)->assertOk()->assertViewHas('reportYear', null)->assertViewHas('reportFundId', null)
             ->assertViewHas('reportContracts', fn ($rows) => $rows->currentPage() === 2 && $rows->total() === 21 && $rows->count() === 1);
     }
