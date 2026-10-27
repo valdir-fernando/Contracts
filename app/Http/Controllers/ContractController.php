@@ -255,9 +255,12 @@ class ContractController extends Controller
             ->where('Contrato', $contract->numero)->where('fund_id', $contract->fund_id)
             ->where('exercicio', $contract->exercicio)->where('processo', $contract->processo)->exists();
         $stayInEditor = $request->input('_stay_in_editor') === '1';
-        $editorMessage = $request->routeIs('contracts.store') ? 'Regstro Efetuado com Sucesso' : 'Contrato alterado com sucesso.';
+        $editorMessage = $request->routeIs('contracts.store') ? 'Contrato Registado com Sucesso' : 'Contrato Atualizado com Sucesso';
         $response = redirect()->route($stayInEditor ? 'contracts.edit' : 'contracts.show', $contract)
             ->with('status', $stayInEditor ? $editorMessage : $message);
+        if ($stayInEditor) {
+            $response->with('contract_saved', true);
+        }
         if ($request->routeIs('contracts.store')) {
             $response->with('contract_created', true);
         }

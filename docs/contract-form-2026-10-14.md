@@ -1,5 +1,15 @@
 # Formulário de contratos — 14/10/2026
 
+## Aviso de salvamento em janela — 27/10/2026
+
+Após salvar no editor, a janela padrão do sistema abre automaticamente com **Contrato Registado com Sucesso** na criação e **Contrato Atualizado com Sucesso** nos salvamentos de um registro existente. O botão **OK** e Escape fecham a janela. A mensagem usa flash de sessão e não reaparece ao recarregar o editor; falhas de validação não recebem confirmação de sucesso. Este comportamento substitui os textos e a apresentação em aviso inline registrados em 22/10 abaixo.
+
+O controlador define a mensagem pela rota efetivamente concluída e sinaliza `contract_saved` somente após a gravação bem-sucedida com `_stay_in_editor=1`. O layout do editor reutiliza `catalog-modal`, `data-modal-auto-open` e `data-modal-close`, sem JavaScript novo. Requisições externas sem a preferência de editor preservam respostas anteriores.
+
+`docker compose exec -T -e COMPOSER_PROCESS_TIMEOUT=0 app composer check` concluiu: Pint passou em 357 arquivos; PHPUnit executou 836 testes, 8.580 asserções, 12 falhas e 1 ignorado. A quantidade de falhas permanece igual à registrada anteriormente em `architecture.md`, em testes de apresentação de detalhes, documentos, aditivos e `SelectedFundTest`. A rodada focada inicial incluindo `test_save_confirmation_renders_with_maintenance_audit_metadata` teve uma falha porque a tela de detalhes atual não contém “Histórico de alterações”; o template de detalhes já não contém esse bloco no HEAD. Essa asserção foi preservada. Não se declara aprovação integral de `composer check`.
+
+Validação: testes focados de criação/atualização/falha (`docker compose exec -T app php vendor/bin/phpunit --filter='ContractWritingTest::test_new_contract_from_editor|ContractWritingTest::test_editor_save_returns|ContractWritingTest::test_failed_editor_save' --do-not-cache-result`) passaram: 3 testes, 43 asserções, incluindo janela acessível, botão OK, versão atual e ausência do aviso após recarga. `composer check:architecture` (3 testes), `composer test:unit` (81 testes), Pint dos PHP alterados, build Docker (`docker compose run --rm --no-deps node npm run build`), `php artisan view:clear` e `git diff --check` passaram. Testes com SQLite em memória e storage/cache temporários; sem mutações no banco instalado ou conferência visual autenticada.
+
 ## Painéis reservados no acervo — 22/10/2026
 
 Na tela Contratos, os botões Aditivo e Distrato aparecem após Novo contrato, sob a mesma permissão de apresentação. Cada botão abre um painel modal vazio com título e fechamento por X ou Escape, reservado para implementação futura. Não há formulários de gravação, novas rotas ou alteração dos fluxos existentes de aditivos/distrato.

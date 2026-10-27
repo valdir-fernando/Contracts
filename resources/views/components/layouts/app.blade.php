@@ -120,7 +120,13 @@
             @isset($contractSummary)<div class="contract-context-row">@endisset
             @isset($contractSummary)@unless($summaryInHeader)<div class="contract-context-heading">{{ $contractSummary }}</div>@endunless</div>@endisset
             @endunless
-            @if(session('status'))<div class="notice" role="status">{{ session('status') }}</div>@endif
+            @if($contractEditor && session('contract_saved') && session('status'))
+                <dialog id="contract-save-success" class="catalog-modal product-item-warning" role="alertdialog" aria-labelledby="contract-save-success-title" aria-describedby="contract-save-success-message" data-modal-auto-open>
+                    <div class="modal-header"><h2 id="contract-save-success-title">Salvar contrato</h2></div>
+                    <p id="contract-save-success-message">{{ session('status') }}</p>
+                    <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-modal-close autofocus>OK</button></div>
+                </dialog>
+            @elseif(session('status'))<div class="notice" role="status">{{ session('status') }}</div>@endif
             @if($errors->any())<div class="notice notice-error" role="alert"><strong>Confira os dados informados.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             {{ $slot }}
         </main>

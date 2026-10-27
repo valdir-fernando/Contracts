@@ -139,9 +139,12 @@ class ContractWritingTest extends TestCase
         $response = $this->post(route('contracts.store'), $this->data(['_stay_in_editor' => '1']));
         $contract = Contract::sole();
         $response->assertSessionHasNoErrors()->assertRedirect(route('contracts.edit', $contract))
-            ->assertSessionHas('status', 'Regstro Efetuado com Sucesso')->assertSessionHas('contract_created', true);
-        $this->get($response->headers->get('Location'))->assertOk()->assertSee('Regstro Efetuado com Sucesso')
+            ->assertSessionHas('status', 'Contrato Registado com Sucesso')->assertSessionHas('contract_created', true)
+            ->assertSessionHas('contract_saved', true);
+        $page = $this->get($response->headers->get('Location'))->assertOk()->assertSee('Contrato Registado com Sucesso')
             ->assertSee('name="version" value="1"', false)->assertSee('data-contract-products', false);
+        $this->assertSaveSuccessDialog($page->getContent(), 'Contrato Registado com Sucesso');
+        $this->get(route('contracts.edit', $contract))->assertOk()->assertDontSee('id="contract-save-success"', false);
         $this->assertDatabaseHas('contract_audits', ['contract_id' => $contract->id, 'actor_id' => $this->admin->id, 'action' => 'created']);
     }
 
@@ -155,16 +158,38 @@ class ContractWritingTest extends TestCase
         $response = $this->put(route('contracts.update', $contract), ['version' => $contract->version,
             '_stay_in_editor' => '1', 'department_id' => $department, 'reason' => 'Correção de Secretaria']);
         $response->assertSessionHasNoErrors()->assertRedirect(route('contracts.edit', $contract))
-            ->assertSessionHas('status', 'Contrato alterado com sucesso.');
+            ->assertSessionHas('status', 'Contrato Atualizado com Sucesso')->assertSessionHas('contract_saved', true);
         $this->assertSame($department, $contract->fresh()->department_id);
         $this->assertSame(2, $contract->fresh()->version);
-        $page = $this->get($response->headers->get('Location'))->assertOk()->assertSee('Contrato alterado com sucesso.');
+        $page = $this->get($response->headers->get('Location'))->assertOk()->assertSee('Contrato Atualizado com Sucesso');
+        $this->assertSaveSuccessDialog($page->getContent(), 'Contrato Atualizado com Sucesso');
         $document = new \DOMDocument;
         @$document->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
         $xpath = new \DOMXPath($document);
         $this->assertSame('2', $xpath->query('//input[@name="version"]')->item(0)->getAttribute('value'));
         $this->assertSame((string) $department, $xpath->query('//select[@name="department_id"]/option[@selected]')->item(0)->getAttribute('value'));
         $this->assertDatabaseHas('contract_audits', ['contract_id' => $contract->id, 'actor_id' => $this->admin->id, 'action' => 'updated']);
+    }
+
+    private function assertSaveSuccessDialog(string $html, string $message): void
+    {
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($document);
+        $dialog = '//dialog[@id="contract-save-success" and @role="alertdialog" and @data-modal-auto-open]';
+        $this->assertSame(1, $xpath->query($dialog)->length);
+        $this->assertSame($message, $xpath->evaluate('string('.$dialog.'/p[@id="contract-save-success-message"])'));
+        $this->assertSame(1, $xpath->query($dialog.'//button[@data-modal-close and @autofocus]')->length);
+    }
+
+    public function test_failed_editor_save_does_not_show_success_dialog(): void
+    {
+        $this->get(route('contracts.create'))->assertOk()->assertDontSee('id="contract-save-success"', false);
+        $this->from(route('contracts.create'))->post(route('contracts.store'), $this->data([
+            '_stay_in_editor' => '1', 'tipo' => '',
+        ]))->assertSessionHasErrors('tipo')->assertSessionMissing('contract_saved');
+        $this->get(route('contracts.create'))->assertOk()->assertDontSee('id="contract-save-success"', false);
+        $this->assertDatabaseCount('contracts', 0);
     }
 
     public function test_historical_type_can_be_kept_or_corrected_with_audited_save(): void
