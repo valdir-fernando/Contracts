@@ -25,3 +25,13 @@ Prévia sintética sem acesso ao banco: `docker compose exec -T app php scripts/
 - Na primeira rodada focada, o novo teste de preservação textual não configurava a expectativa de `#TEXTO_DOTACAO`; a expectativa foi corrigida para conferir a frase efetivamente emitida, mantendo a verificação integral dos parágrafos. A rodada final focada passou.
 
 Testes usam SQLite em memória e storage/cache temporários. Nenhuma migration ou operação no banco instalado. Prévia gerada sem consulta ao banco; sem conferência visual autenticada no navegador ou rasterização do PDF.
+
+## Reconferência em 27/10/2026
+
+O arquivo `Reference/Modelos_Doc/Contratos/Modelo_Credenciamento_Medico.docx` é idêntico à cópia usada na emissão (`SHA-256: 537bc22ac86a7e1d124f17884eb433494220d0af9068f674eb66ca63f5c3062c`). O fluxo já estava implementado; não foi necessário alterar código ou modelo. Para emitir, salve um contrato com tipo **Credenciamento Saúde** e use o botão **Contrato** com um usuário autorizado.
+
+- `docker compose exec -T app php vendor/bin/phpunit --filter='SupplyContractPdfTest|SupplyContractTemplateTest|SupplyContractFiguresTest' --do-not-cache-result`: passou, 125 testes e 1.747 asserções.
+- `docker compose exec -T app composer check:architecture`: passou, 3 testes e 4 asserções.
+- `docker compose exec -T app composer test:unit`: passou, 81 testes e 195 asserções.
+- `docker compose exec -T app php scripts/preview-health-accreditation-contract.php`: gerou novamente a prévia sintética em `build/health-accreditation-contract-preview/contract.pdf`, sem consultar o banco.
+- `git diff --check`: passou. Suíte completa e build de assets não foram repetidos nesta reconferência; não houve alteração de código ou assets. Sem conferência visual autenticada ou rasterização do PDF.
