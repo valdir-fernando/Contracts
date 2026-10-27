@@ -10,12 +10,12 @@
 .nav-submenu { margin-left: 12px; border-left: 1px solid #91acd244; padding-left: 8px; }
 .nav-submenu .nav-link { font-size: 12px; }
 .nav-submenu .nav-link[aria-current=page] { background: #284775; color: white; }
-@media (min-width: 768px) {
-    html[data-sidebar-collapsed=true] .nav-submenu { margin-left: 0; padding-left: 0; border: 0; }
+@media (min-width: 1025px) {
     html[data-sidebar-collapsed=true] .nav-catalogs > summary::after { display: none; }
-    html[data-sidebar-collapsed=true] .nav-catalogs:hover .nav-submenu .nav-link > span,
-    html[data-sidebar-collapsed=true] .nav-catalogs:focus-within .nav-submenu .nav-link > span { position: static; width: auto; height: auto; margin: 0; clip-path: none; }
-    html[data-sidebar-collapsed=true] .nav-catalogs:is(:hover, :focus-within) .nav-submenu { position: absolute; left: 76px; width: 210px; padding: 8px; background: #172b49; border-radius: 8px; z-index: 30; }
+    html[data-sidebar-collapsed=true] .nav-submenu { display: none; }
+    html[data-sidebar-collapsed=true] .nav-submenu:popover-open { display: block; position: fixed; inset: auto; margin: 0; width: 230px; max-width: calc(100vw - 100px); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 8px; border: 1px solid #739fe644; border-radius: 8px; background: #172b49; color: #f6f7fc; box-shadow: 0 8px 24px #10213b33; }
+    html[data-sidebar-collapsed=true] .nav-submenu:popover-open .nav-link { justify-content: flex-start; gap: 10px; }
+    html[data-sidebar-collapsed=true] .nav-submenu:popover-open .nav-link > span { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip-path: none; white-space: normal; }
 }
 
 @font-face { font-family: Inter; font-style: normal; font-weight: 400 800; font-display: swap; src: url('../fonts/inter-latin.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
@@ -616,6 +616,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 /* Overview: real metrics, compact charts and next deadlines */
 .overview-kpis { --overview-card-height: 128px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 2.4fr); align-items: start; gap: 12px; margin-bottom: 8px; }
 .overview-kpis > .kpi-card { height: var(--overview-card-height); }
+.dashboard-overview .overview-kpis > :not([data-kpi="all"]) { position: relative; top: 10px; }
 .overview-year-filter { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; margin-bottom: 24px; }
 .fund-session-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 24px; }
 .fund-session-form .field { width: min(100%, 420px); margin-bottom: 0; }
@@ -659,8 +660,9 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .overview-alerts .alert-empty > span { display: none; }
 .overview-charts + .recent-panel { margin-top: 22px; }
 .overview-charts { position: relative; }
+.dashboard-overview .overview-charts > .overview-chart { top: 10px; }
 .overview-charts::before, .overview-charts::after { content: ''; position: absolute; inset-inline: 0; height: 1px; background: var(--border); }
-.overview-charts::before { top: 0; }
+.overview-charts::before { top: 10px; }
 .overview-charts::after { bottom: 0; }
 .overview-chart { position: relative; min-width: 0; border: 1px solid transparent; }
 .overview-chart:has(> .month-chart, > .validity-chart) { padding-top: 5px; padding-bottom: 8px; }

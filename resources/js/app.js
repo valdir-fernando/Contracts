@@ -171,6 +171,7 @@ const hideNavTooltip = () => {
 document.querySelectorAll('[data-nav-label]').forEach((link) => {
     const show = () => {
         hideNavTooltip();
+        if (link.closest('.nav-catalogs')) return;
         if (document.documentElement.dataset.sidebarCollapsed !== 'true' || window.matchMedia('(max-width: 1024px)').matches) return;
         const rect = link.getBoundingClientRect();
         navTooltip.textContent = link.dataset.navLabel;
@@ -189,6 +190,55 @@ window.addEventListener('resize', hideNavTooltip);
 document.addEventListener('scroll', hideNavTooltip, true);
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hideNavTooltip(); });
 document.querySelector('[data-sidebar-toggle]')?.addEventListener('click', hideNavTooltip);
+
+// Use the top layer so scrolling navigation cannot clip collapsed submenus.
+document.querySelectorAll('.nav-catalogs').forEach((group) => {
+    const trigger = group.querySelector('summary');
+    const submenu = group.querySelector('.nav-submenu');
+    const desktop = window.matchMedia('(min-width: 1025px)');
+    let closeTimer;
+    let previousOpen;
+    const collapsed = () => desktop.matches && document.documentElement.dataset.sidebarCollapsed === 'true';
+    const close = () => {
+        clearTimeout(closeTimer);
+        if (previousOpen === undefined) return;
+        submenu.hidePopover();
+        submenu.removeAttribute('popover');
+        group.open = previousOpen;
+        previousOpen = undefined;
+    };
+    const show = () => {
+        clearTimeout(closeTimer);
+        if (!collapsed()) return;
+        if (previousOpen === undefined) {
+            previousOpen = group.open;
+            group.open = true;
+            submenu.setAttribute('popover', 'manual');
+            submenu.showPopover();
+        }
+        const rect = trigger.getBoundingClientRect();
+        submenu.style.left = `${rect.right}px`;
+        submenu.style.top = `${Math.max(8, Math.min(rect.top, innerHeight - submenu.offsetHeight - 8))}px`;
+    };
+    const scheduleClose = () => { closeTimer = setTimeout(close, 150); };
+    group.addEventListener('mouseenter', show);
+    group.addEventListener('mouseleave', scheduleClose);
+    submenu.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+    submenu.addEventListener('mouseleave', scheduleClose);
+    group.addEventListener('focusin', show);
+    group.addEventListener('focusout', (event) => {
+        if (!group.contains(event.relatedTarget)) scheduleClose();
+    });
+    trigger.addEventListener('click', (event) => {
+        if (collapsed()) { event.preventDefault(); show(); }
+    });
+    group.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { trigger.focus(); close(); }
+    });
+    window.addEventListener('resize', close);
+    document.querySelector('[data-sidebar-toggle]')?.addEventListener('click', close);
+    new MutationObserver(close).observe(document.documentElement, { attributes: true, attributeFilter: ['data-sidebar-collapsed'] });
+});
 
 // Native dialogs provide focus containment and Escape without a custom focus trap.
 document.querySelectorAll('.catalog-modal').forEach((dialog) => {
