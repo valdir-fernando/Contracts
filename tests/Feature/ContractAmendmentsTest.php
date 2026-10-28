@@ -101,6 +101,25 @@ class ContractAmendmentsTest extends TestCase
             ->assertSee('R$ 21.188,00')->assertSee('30/06/2027');
     }
 
+    public function test_contract_summary_lists_imported_amendments_by_id_and_excludes_other_contracts_and_deleted_rows(): void
+    {
+        $attributes = ['contract_id' => $this->contract->id, 'number' => 'IMPORTADO-RESUMO',
+            'event_date' => '2026-10-25', 'amount' => '1250.5000', 'status' => 'importado',
+            'payload' => ['Tipo_ADT' => 'Prorrogação', 'VL_Acumulado' => '6250.5000', 'Final_Prorrog' => '2027-06-30']];
+        $amendment = ContractAmendment::create($attributes);
+        $other = Contract::create(['numero' => $this->contract->numero, 'ownership_resolved' => false, 'quality_issues' => []]);
+        ContractAmendment::create(array_replace($attributes, ['contract_id' => $other->id, 'number' => 'OUTRO-RESUMO']));
+        ContractAmendment::create(array_replace($attributes, ['number' => 'EXCLUIDO-RESUMO', 'deleted_at' => now()]));
+
+        $this->get(route('contracts.show', $this->contract))->assertOk()
+            ->assertViewHas('amendments', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $amendment->id)
+            ->assertSee('IMPORTADO-RESUMO')->assertSee('25/10/2026')->assertSee('Prorrogação')
+            ->assertSee('R$ 1.250,50')->assertSee('R$ 6.250,50')->assertSee('30/06/2027')
+            ->assertSee(route('contracts.amendments.show', [$this->contract, $amendment]))
+            ->assertDontSee('OUTRO-RESUMO')->assertDontSee('EXCLUIDO-RESUMO')
+            ->assertDontSee('Nenhum aditivo cadastrado nesta lista.');
+    }
+
     private function base(): string
     {
         return '/contracts/'.$this->contract->id.'/amendments';

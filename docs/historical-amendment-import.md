@@ -1,5 +1,33 @@
 # Importação dos aditivos históricos
 
+## Importação no banco local em uso em 28/10/2026
+
+Após relato de lista vazia ao abrir Resumo pela lista de relatórios, a consulta confirmou zero registros em `tb_Aditivos` e zero históricos de aditivos no banco configurado do container app. A consulta de `ContractController::show` e o componente compartilhado estavam corretos: usam `contract_id`, paginação independente e exclusão lógica.
+
+Foi utilizada somente a seção `tb_Aditivos` do arquivo local `database-example/u910323952_bdgestao_niq.sql`, sem executar o SQL. Um recorte privado foi comparado integralmente com os 985 registros lidos do arquivo original por `SqlDumpReader`, garantindo que nenhum produto fosse incluído. O procedimento local `build/recover-summary-amendments.php` combina os adaptadores existentes `HistoryImporter` e `ImportHistoricalAmendments`, sob lock compartilhado e transação externa única; sem `--apply`, reverte a simulação inteira.
+
+Resultado aplicado: 985 históricos preservados, 978 aditivos importados e 577 contratos com aditivos. No Fundo Municipal de Saúde: 556 aditivos em 278 contratos. Cinco registros sem vínculo e dois com número em conflito continuam como pendências, sem associação arbitrária. Não houve sobrescrita de registros existentes ou importação de produtos.
+
+Cada contrato afetado recebeu versões e auditorias de sistema dos importadores. O importador histórico marca `vigencia_em_revisao` conforme sua regra existente. Antes do commit, todos os atributos dos 2.145 contratos, incluindo excluídos logicamente, foram comparados por hash, permitindo diferenças apenas em versão, revisão, updated_at e updated_by. Valores, datas, tipo de contrato, origem e demais atributos foram preservados. A nova simulação confirmou zero novas importações, 985 históricos e 978 aditivos já existentes, mantendo as sete pendências.
+
+Comandos e validação:
+
+- `docker compose exec -T app php build/diagnose-summary-amendments.php`: confirmou zero aditivos antes e 978 após a operação; 985 históricos após.
+- `docker compose exec -T app php build/recover-summary-amendments.php`: simulação inicial de 978 aditivos e nova simulação idempotente após aplicação.
+- `docker compose exec -T app php build/recover-summary-amendments.php --apply`: resultado descrito acima, com preservação dos contratos conferida antes do commit.
+- `docker compose exec -T app php artisan test --compact --filter=test_contract_summary_lists_imported_amendments_by_id`: 1 teste, 12 asserções, aprovado. O teste novo verifica resumo com aditivo importado, valores, data final, link de consulta, isolamento mesmo com outro contrato de mesmo número e exclusão lógica.
+- `docker compose exec -T app php artisan test --compact --filter='test_list_reads_tb_aditivos_with_contract_and_soft_delete_filters|test_list_shows_amendment_validity_end|test_list_shows_each_amendment_accumulated_value'`: 3 testes, 29 asserções, aprovados.
+- `docker compose exec -T app php artisan test --compact --filter='test_contract_summary_lists_imported_amendments_by_id|test_import_preserves_origin_exact_money|test_history_preserves_raw_normalizes|test_dry_run_and_truncated_history|test_list_reads_tb_aditivos_with_contract_and_soft_delete_filters'`: 5 testes, 56 asserções, aprovados.
+- `docker compose exec -T app php vendor/bin/phpunit tests/Feature/HistoricalAmendmentImportTest.php tests/Feature/HistoryAndOperationsTest.php --do-not-cache-result`: 13 testes, 105 asserções, duas falhas de apresentação já existentes em `test_imported_amendment_is_visible_and_masked_but_cannot_be_edited_by_regular_users` e `test_ambiguous_history_requires_admin_review_and_never_changes_money_or_end_dates`. Ambas constam no log anterior `build/report-composer-check-final.log`. As asserções foram preservadas; log atual `build/summary-amendment-import-check.log`.
+- `docker compose exec -T app vendor/bin/pint tests/Feature/ContractAmendmentsTest.php`: aprovado.
+- `docker compose exec -T app composer check:architecture`: 3 testes, 4 asserções, aprovados.
+- `docker compose exec -T app composer test:unit`: 81 testes, 195 asserções, aprovados.
+- `git diff --check`: aprovado.
+
+Os testes usaram SQLite em memória e storage/cache temporários. Nenhum teste, migration ou restauração de banco foi executado sobre o banco instalado. Não houve mudança de código funcional ou assets; build e suíte completa não foram repetidos. Sem conferência visual autenticada.
+
+## Histórico da implementação
+
 A lista de aditivos agora aparece diretamente no resumo do contrato, abaixo dos dados e objeto, com cadastro, consulta e paginação independente (`amendments_page`). A tabela compartilhada em `amendments/list.blade.php` preserva a listagem anterior e suas rotas. O resumo não abre mais o modal “Gerenciar aditivos”; os links de retorno do cadastro/detalhe do aditivo levam à lista integrada. Leituras continuam autorizadas pelo contrato e limitadas ao seu ID, excluindo registros apagados logicamente.
 
 Validação dessa integração: testes de aditivos e navegação executados (40 aprovados, uma falha em `test_detail_renders_all_fields_masks_personal_documents_and_escapes_source`); esse teste ainda exige os detalhes completos, pendências e documentos pessoais removidos do resumo por solicitação anterior. Sua asserção foi preservada. Pint dos três PHP alterados e `git diff --check` passaram. O teste novo verifica ações, valores, término, paginação e isolamento entre contratos.
