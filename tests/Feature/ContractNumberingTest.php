@@ -45,7 +45,7 @@ class ContractNumberingTest extends TestCase
     private function input(array $values = []): array
     {
         return array_replace(['fund_id' => $this->fund, 'processo' => 'PROC', 'fornecedor_nome_snapshot' => 'Fornecedor',
-            'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço',
+            'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço', 'indice_reajuste' => 'IPCA',
             'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'valor_total' => '100.0000', 'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13',
             'vigencia_fim_original' => '2027-10-13'], $values);
     }

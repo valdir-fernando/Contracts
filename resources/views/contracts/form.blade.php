@@ -73,6 +73,7 @@
                             default => 3,
                         };
                     @endphp
+                    @if($column === 'escopo')<div class="contract-scope-index-row">@endif
                     @if($column === 'iptu')<div class="property-field-pair">@endif
                     @if($column === 'tipo_veiculo')<div class="contract-vehicle-work-row">@endif
                     @if($column === 'instalacoes')<div class="property-area-row">@endif
@@ -88,22 +89,28 @@
                                 <button type="button" class="field-info-button" aria-label="Entenda as opções Escopo e Contínuo" aria-describedby="scope-help" popovertarget="scope-help" data-field-help="scope-help"><span aria-hidden="true">i</span></button>
                             </div>
                             <div id="scope-help" class="field-help-popover" popover>
+                                <img class="field-help-image" src="{{ asset('images/field-help/scope-help.png') }}" alt="" aria-hidden="true">
+                                <div class="sr-only">
                                 <p>A principal diferença está na <strong>finalidade do serviço e na forma como o contrato chega ao fim</strong>: o contrato por escopo busca um <strong>resultado final</strong>; o contínuo atende a uma <strong>necessidade permanente ou prolongada</strong> do órgão público.</p>
                                 <p>Compare os dois modelos sob a ótica da <strong>Nova Lei de Licitações (Lei nº 14.133/2021)</strong>:</p>
                                 <h3>Tabela Comparativa</h3>
-                                <div class="scope-comparison-scroll" tabindex="0" role="region" aria-label="Comparação entre contrato por escopo e contrato continuado">
-                                    <table class="scope-comparison-table">
-                                        <thead><tr><th scope="col">Critério</th><th scope="col">Contrato por Escopo</th><th scope="col">Contrato Continuado</th></tr></thead>
-                                        <tbody>
-                                            <tr><th scope="row">Objetivo Principal</th><td>Entregar um <strong>produto ou resultado final específico</strong>.</td><td>Manter uma <strong>atividade rotineira</strong> ou atender necessidade permanente ou prolongada.</td></tr>
-                                            <tr><th scope="row">Foco da Execução</th><td>A <strong>conclusão</strong> da obra ou serviço.</td><td>A <strong>permanência</strong> do serviço no tempo.</td></tr>
-                                            <tr><th scope="row">Exemplos Comuns</th><td>Construção de uma creche, reforma de um hospital, elaboração de projeto e pintura de uma fachada.</td><td>Vigilância, limpeza predial, copeiragem, suporte de TI e manutenção de elevadores, conforme a necessidade contratada.</td></tr>
-                                            <tr><th scope="row">Como Termina?</th><td>Com a <strong>conclusão e o recebimento do objeto</strong>, sem prejuízo de outras hipóteses legais de extinção.</td><td>Ao chegar ao <strong>fim da vigência</strong>, sem prorrogação, ou por extinção antecipada.</td></tr>
-                                            <tr><th scope="row">Vigência e Prazos</th><td>Vinculada à <strong>conclusão do objeto</strong>. O art. 111 prevê prorrogação automática se ele não for concluído no prazo; havendo culpa do contratado, cabem mora, sanções e possível extinção.</td><td>Em regra, prazo inicial de até <strong>5 anos</strong>, com prorrogações até o limite de <strong>10 anos</strong>, conforme os requisitos dos arts. 106 e 107, ressalvadas hipóteses específicas.</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <h4>Critério: Objetivo Principal</h4>
+                                <p><strong>Contrato por Escopo:</strong> Entregar um <strong>produto ou resultado final específico</strong>.</p>
+                                <p><strong>Contrato Continuado:</strong> Manter uma <strong>atividade rotineira</strong> ou atender necessidade permanente ou prolongada.</p>
+                                <h4>Critério: Foco da Execução</h4>
+                                <p><strong>Contrato por Escopo:</strong> A <strong>conclusão</strong> da obra ou serviço.</p>
+                                <p><strong>Contrato Continuado:</strong> A <strong>permanência</strong> do serviço no tempo.</p>
+                                <h4>Critério: Exemplos Comuns</h4>
+                                <p><strong>Contrato por Escopo:</strong> Construção de uma creche, reforma de um hospital, elaboração de projeto e pintura de uma fachada.</p>
+                                <p><strong>Contrato Continuado:</strong> Vigilância, limpeza predial, copeiragem, suporte de TI e manutenção de elevadores, conforme a necessidade contratada.</p>
+                                <h4>Critério: Como Termina?</h4>
+                                <p><strong>Contrato por Escopo:</strong> Com a <strong>conclusão e o recebimento do objeto</strong>, sem prejuízo de outras hipóteses legais de extinção.</p>
+                                <p><strong>Contrato Continuado:</strong> Ao chegar ao <strong>fim da vigência</strong>, sem prorrogação, ou por extinção antecipada.</p>
+                                <h4>Critério: Vigência e Prazos</h4>
+                                <p><strong>Contrato por Escopo:</strong> Vinculada à <strong>conclusão do objeto</strong>. O art. 111 prevê prorrogação automática se ele não for concluído no prazo; havendo culpa do contratado, cabem mora, sanções e possível extinção.</p>
+                                <p><strong>Contrato Continuado:</strong> Em regra, prazo inicial de até <strong>5 anos</strong>, com prorrogações até o limite de <strong>10 anos</strong>, conforme os requisitos dos arts. 106 e 107, ressalvadas hipóteses específicas.</p>
                                 <small>Referência: Lei nº 14.133/2021, arts. 6º, XV e XVII, 106, 107 e 111. Observe os documentos e as condições da contratação.</small>
+                                </div>
                             </div>
                         @elseif($column === 'tipo_obra')
                             <div class="field-label-row">
@@ -111,6 +118,8 @@
                                 <button type="button" class="field-info-button" aria-label="Entenda os tipos de empreitada e contratação" aria-describedby="work-type-help" popovertarget="work-type-help" data-field-help="work-type-help"><span aria-hidden="true">i</span></button>
                             </div>
                             <div id="work-type-help" class="field-help-popover" popover>
+                                <img class="field-help-image" src="{{ asset('images/field-help/work-types.jpg') }}" alt="" aria-hidden="true">
+                                <div class="sr-only">
                                 <h3>Tipos de empreitada e contratação</h3>
                                 <ul>
                                     <li><strong>Empreitada por preço global:</strong> Contratação da obra ou serviço por um preço certo e total.</li>
@@ -121,6 +130,7 @@
                                     <li><strong>Contratação semi-integrada:</strong> Exclusivo para engenharia; o projeto básico é elaborado pela Administração Pública e a contratada fica responsável pelo projeto executivo e pela execução da obra.</li>
                                     <li><strong>Fornecimento e prestação de serviço associado:</strong> Regime em que o objeto principal (como o fornecimento de um bem) vem vinculado à obrigação de prestar serviços de operação e/ou manutenção.</li>
                                 </ul>
+                                </div>
                             </div>
                         @elseif($column === 'iptu')
                             <div class="field-label-row">
@@ -128,20 +138,22 @@
                                 <button type="button" class="field-info-button" aria-label="Entenda Locador(a) e Locatário no IPTU" aria-describedby="iptu-help" popovertarget="iptu-help" data-field-help="iptu-help"><span aria-hidden="true">i</span></button>
                             </div>
                             <div id="iptu-help" class="field-help-popover" popover>
+                                <img class="field-help-image" src="{{ asset('images/field-help/iptu-help.png') }}" alt="" aria-hidden="true">
+                                <div class="sr-only">
                                 <p>Este campo indica <strong>quem assume o pagamento do IPTU no contrato de locação</strong>. Locador(a) é quem disponibiliza o imóvel para alugar; Locatário é quem o aluga para utilizar.</p>
                                 <h3>Locador(a) ou Locatário?</h3>
-                                <div class="scope-comparison-scroll" tabindex="0" role="region" aria-label="Comparação entre Locador(a) e Locatário">
-                                    <table class="scope-comparison-table">
-                                        <thead><tr><th scope="col">Critério</th><th scope="col">Locador(a)</th><th scope="col">Locatário</th></tr></thead>
-                                        <tbody>
-                                            <tr><th scope="row">Quem é?</th><td>Quem cede o uso do imóvel, geralmente seu proprietário.</td><td>Quem recebe o imóvel para uso mediante aluguel, também chamado de inquilino.</td></tr>
-                                            <tr><th scope="row">Quando selecionar?</th><td>Quando o pagamento do IPTU fica a cargo de quem aluga o imóvel para terceiros.</td><td>Quando o contrato atribui expressamente o pagamento do IPTU a quem utiliza o imóvel alugado.</td></tr>
-                                            <tr><th scope="row">Exemplo</th><td>O proprietário mantém o pagamento do IPTU.</td><td>O Município aluga um imóvel e assume o IPTU por cláusula expressa.</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <h4>Critério: Quem é?</h4>
+                                <p><strong>Locador(a):</strong> Quem cede o uso do imóvel, geralmente seu proprietário.</p>
+                                <p><strong>Locatário:</strong> Quem recebe o imóvel para uso mediante aluguel, também chamado de inquilino.</p>
+                                <h4>Critério: Quando selecionar?</h4>
+                                <p><strong>Locador(a):</strong> Quando o pagamento do IPTU fica a cargo de quem aluga o imóvel para terceiros.</p>
+                                <p><strong>Locatário:</strong> Quando o contrato atribui expressamente o pagamento do IPTU a quem utiliza o imóvel alugado.</p>
+                                <h4>Critério: Exemplo</h4>
+                                <p><strong>Locador(a):</strong> O proprietário mantém o pagamento do IPTU.</p>
+                                <p><strong>Locatário:</strong> O Município aluga um imóvel e assume o IPTU por cláusula expressa.</p>
                                 <p>Nas locações regidas pela Lei do Inquilinato, impostos e taxas cabem ao locador, salvo previsão contratual expressa em contrário. <strong>Confira a cláusula de IPTU antes de selecionar.</strong></p>
                                 <small>Referência: Lei nº 8.245/1991, art. 22, VIII. A seleção registra a responsabilidade prevista no contrato.</small>
+                                </div>
                             </div>
                         @else
                             <label for="{{ $column }}">{{ match ($column) { 'vigencia_fim_original' => 'Final da Vigência', 'garantia' => '(%) Garantia', 'vl_parcial' => 'Valor_Mensal', 'valor_total' => 'Valor do Contrato', 'valor_acumulado' => 'Valor acumulado Aditivo', default => \App\Support\ContractFields::label($source) } }}<x-required-mark :explain="true" :when="$required && !in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado', 'nome_fiscal'])"/></label>
@@ -193,6 +205,19 @@
                             @if($contract->exists)<p class="hint" data-guarantee-save-notice role="status" hidden>O valor da garantia foi alterado. O extenso será atualizado após salvar o contrato.</p>@endif
                         @endif
                     </div>
+                    @if($column === 'escopo')
+                        <div class="field">
+                            <label for="indice_reajuste">Indice Reajuste<x-required-mark :explain="true"/></label>
+                            <select id="indice_reajuste" name="indice_reajuste" required @if($errors->has('indice_reajuste')) aria-invalid="true" aria-describedby="indice_reajuste-error" @endif>
+                                <option value="" @selected(blank($formValue('indice_reajuste', array_key_exists('indice_reajuste', $values) ? $values['indice_reajuste'] : $contract->indice_reajuste)))>Selecione o índice</option>
+                                @foreach(\App\Support\ContractFields::ADJUSTMENT_INDICES as $index => $label)
+                                    <option value="{{ $index }}" @selected($formValue('indice_reajuste', array_key_exists('indice_reajuste', $values) ? $values['indice_reajuste'] : $contract->indice_reajuste) === $index)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('indice_reajuste')<p class="field-error" id="indice_reajuste-error">{{ $message }}</p>@enderror
+                        </div>
+                        </div>
+                    @endif
                     @if($column === 'vigencia_fim_original')
                         <div class="field">
                             <label for="vigencia_fim_atual">Final_Vig_Atualizada</label>

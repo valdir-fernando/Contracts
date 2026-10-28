@@ -32,7 +32,7 @@ class ContractTypeRulesTest extends TestCase
     private function data(array $extra = []): array
     {
         return array_replace(['numero' => 'TIPO/26', 'processo' => 'Processo', 'fornecedor_nome_snapshot' => 'Fornecedor',
-            'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto de teste', 'tipo' => 'Locação',
+            'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto de teste', 'tipo' => 'Locação', 'indice_reajuste' => 'IPCA',
             'data_contrato' => '2026-10-10', 'vigencia_inicio' => '2026-10-10', 'vigencia_fim_original' => '2027-10-10',
             'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'valor_total' => '1908.6300', 'fund_id' => $this->fund], $extra);
     }

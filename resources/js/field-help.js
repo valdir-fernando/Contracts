@@ -27,6 +27,9 @@ document.querySelectorAll('[data-field-help]').forEach((button) => {
     popup.addEventListener('mouseenter', () => clearTimeout(timer));
     popup.addEventListener('mouseleave', close);
     popup.addEventListener('toggle', (event) => { if (event.newState === 'open') position(); });
+    popup.querySelectorAll('img').forEach((image) => {
+        image.addEventListener('load', () => { if (popup.matches(':popover-open')) position(); });
+    });
     window.addEventListener('resize', () => { if (popup.matches(':popover-open')) position(); });
     document.addEventListener('scroll', () => { if (popup.matches(':popover-open')) position(); }, true);
 });

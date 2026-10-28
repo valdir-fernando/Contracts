@@ -1,5 +1,15 @@
 # Contracts
 
+[Entrega de 28/10/2026: conciliação, relatórios, índice de reajuste e validação](docs/delivery-2026-10-28.md).
+
+Na aba **Dados do Objeto**, **Indice Reajuste** fica ao lado de **Escopo**, com seleção obrigatória e inicialmente vazia. [Opções, persistência e validação](docs/contract-adjustment-index.md).
+
+Conciliação do acumulado: `contracts:reconcile-accumulated-values` simula a conferência de valor original + soma dos aditivos; `--apply` corrige divergências com auditoria. [Regras, pendências e execução](docs/accumulated-value-reconciliation.md).
+
+Em **Relatórios de contratos**, o filtro **Final** pode ser combinado com **Tipo do contrato** (Objeto), Processo, Licitação, Fornecedor e Somente Vigentes. [Comportamento e validação](docs/report-combined-filters.md).
+
+No filtro **Fornecedor**, as opções exclusivas **PF** e **PJ** selecionam contratos de pessoas físicas ou jurídicas e também são aplicadas ao PDF. [Como usar](docs/report-combined-filters.md#pessoa-do-fornecedor-pf-e-pj).
+
 [Entrega de 26/10/2026: relatórios, Painel de Acompanhamento e validação](docs/delivery-2026-10-26.md).
 
 Relatórios e indicadores usam início de vigência, término atualizado e valor atualizado, desconsiderando revisão na seleção. [Critérios e compatibilidade](docs/report-criteria-2026-10-26.md).

@@ -1,5 +1,7 @@
 # Referências aos documentos assinados
 
+Atualização de 28/10/2026: a migration aditiva de índice de reajuste acrescenta `indice_reajuste` depois desse bloco de seis referências. O teste de schema confere agora exatamente as sete colunas finais, mantendo a ordem das referências e todas as verificações de nulidade, chave estrangeira, privacidade e proteção contra atribuição em massa. Os documentos existentes não são alterados.
+
 Evolução posterior: o [menu Publicação](publication-module-2026-10-20.md) implementa o envio, a vinculação e a consulta por categoria. O texto abaixo registra a etapa inicial de preparação do schema.
 
 O banco atual usa a tabela `contracts`; `TB_Contratos` é o nome da origem importada. A migration `2026_10_20_000004_add_signed_document_references_to_contracts` acrescenta ao final, nesta ordem, `Contrato_PDF`, `Aditivo_PDF`, `OS_PDF`, `Concordancia_PDF`, `Distrato_PDF` e `ATA_PDF`.

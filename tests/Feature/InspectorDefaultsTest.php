@@ -55,7 +55,7 @@ class InspectorDefaultsTest extends TestCase
 
     private function data(array $extra = []): array
     {
-        return array_replace(['processo' => 'PROC', 'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto',
+        return array_replace(['indice_reajuste' => 'IPCA', 'processo' => 'PROC', 'fornecedor_documento_snapshot' => '11222333000181', 'objeto' => 'Objeto',
             'tipo' => 'Serviços Diversos', 'data_contrato' => '2026-10-01', 'vigencia_inicio' => '2026-10-01',
             'vigencia_fim_original' => '2027-10-01', 'modalidade' => 'Pregão', 'n_licit' => '001/26', 'valor_total' => '100.0000'], $extra);
     }

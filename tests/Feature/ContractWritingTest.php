@@ -45,6 +45,57 @@ class ContractWritingTest extends TestCase
         $this->withSession(['fund_id' => $this->fund]);
     }
 
+    public function test_adjustment_index_is_next_to_scope_and_saved_with_audit(): void
+    {
+        $page = $this->get(route('contracts.create'))->assertOk();
+        $page->assertSeeInOrder(['id="escopo"', 'for="indice_reajuste">Indice Reajuste', 'id="indice_reajuste" name="indice_reajuste" required', 'id="tipo_veiculo"'], false);
+        $page->assertSee('value="" selected>Selecione o índice', false);
+        foreach (array_keys(ContractFields::ADJUSTMENT_INDICES) as $index) {
+            $page->assertDontSee('value="'.$index.'" selected', false);
+        }
+        foreach (ContractFields::ADJUSTMENT_INDICES as $index => $label) {
+            $page->assertSee($label);
+            $this->post('/contracts', $this->data(['indice_reajuste' => $index]))->assertSessionHasNoErrors()->assertRedirect();
+            $contract = Contract::latest('id')->firstOrFail();
+            $this->assertSame($index, $contract->indice_reajuste);
+            $this->assertSame($index, DB::table('contracts')->where('id', $contract->id)->value('indice_reajuste'));
+            $this->assertSame($index, ContractAudit::where('contract_id', $contract->id)->latest('id')->firstOrFail()->changes['indice_reajuste']['after']);
+            $savedPage = $this->get(route('contracts.edit', $contract))->assertOk();
+            $document = new \DOMDocument;
+            @$document->loadHTML('<?xml encoding="UTF-8">'.$savedPage->getContent());
+            $xpath = new \DOMXPath($document);
+            $selected = $xpath->query('//select[@id="indice_reajuste"]/option[@selected]');
+            $this->assertSame(1, $selected->length);
+            $this->assertSame($index, $selected->item(0)->getAttribute('value'));
+            $this->assertSame($label, trim($selected->item(0)->textContent));
+        }
+        $this->get(route('contracts.edit', $contract))->assertOk()->assertSee('value="ICTI" selected', false);
+    }
+
+    public function test_adjustment_index_can_change_preserves_omitted_selection_and_rejects_empty_or_invalid_values(): void
+    {
+        $contract = app(ContractWriter::class)->save($this->admin, $this->data(['indice_reajuste' => 'IPCA']));
+        $this->put('/contracts/'.$contract->id, ['version' => 1, 'reason' => 'Preservar índice', 'objeto' => 'Objeto atualizado'])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('IPCA', $contract->fresh()->indice_reajuste);
+        $this->put('/contracts/'.$contract->id, ['version' => 2, 'reason' => 'Índice inválido', 'indice_reajuste' => 'INDICE INVENTADO'])
+            ->assertSessionHasErrors('indice_reajuste');
+        $this->assertSame(2, $contract->fresh()->version);
+        $this->assertSame('IPCA', $contract->fresh()->indice_reajuste);
+        $this->put('/contracts/'.$contract->id, ['version' => 2, 'reason' => 'Atualizar índice', 'indice_reajuste' => 'INPC'])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('INPC', $contract->fresh()->indice_reajuste);
+        $this->put('/contracts/'.$contract->id, ['version' => 3, 'reason' => 'Limpar seleção do índice', 'indice_reajuste' => ''])
+            ->assertSessionHasErrors('indice_reajuste');
+        $this->assertSame('INPC', $contract->fresh()->indice_reajuste);
+        $this->assertSame(3, $contract->fresh()->version);
+        $this->assertSame(['before' => 'IPCA', 'after' => 'INPC'], ContractAudit::where('contract_id', $contract->id)->latest('id')->firstOrFail()->changes['indice_reajuste']);
+        $this->post('/contracts', $this->data(['indice_reajuste' => 'INVALIDO']))->assertSessionHasErrors('indice_reajuste');
+        $this->post('/contracts', array_diff_key($this->data(), ['indice_reajuste' => true]))->assertSessionHasErrors('indice_reajuste');
+        $this->post('/contracts', $this->data(['indice_reajuste' => '']))->assertSessionHasErrors('indice_reajuste');
+        $this->assertDatabaseCount('contracts', 1);
+    }
+
     public function test_save_confirmation_renders_with_maintenance_audit_metadata(): void
     {
         $contract = app(ContractWriter::class)->save($this->admin, $this->data());
@@ -214,7 +265,7 @@ class ContractWritingTest extends TestCase
         return array_replace(['numero' => '001/26', 'processo' => 'PROC-001', 'fornecedor_nome_snapshot' => 'Fornecedor fictício',
             'fornecedor_documento_snapshot' => '11.222.333/0001-81', 'objeto' => 'Objeto fictício', 'tipo' => 'Serviço',
             'data_contrato' => '2026-10-01', 'vigencia_inicio' => '2026-10-01', 'vigencia_fim_original' => '2027-10-01',
-            'valor_total' => '1.908,6300', 'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'fund_id' => $this->fund, 'department_id' => $this->department], $extra);
+            'valor_total' => '1.908,6300', 'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'indice_reajuste' => 'IPCA', 'fund_id' => $this->fund, 'department_id' => $this->department], $extra);
     }
 
     public function test_guarantee_percentage_requires_between_one_hundredth_and_one_hundred_percent(): void
@@ -628,8 +679,10 @@ class ContractWritingTest extends TestCase
         $this->get('/contracts/create')->assertOk()->assertSee('<select id="escopo" name="escopo"', false)
             ->assertSee('value="Escopo"', false)->assertSee('value="Contínuo"', false)
             ->assertSee('aria-describedby="scope-help"', false)->assertSee('id="scope-help" class="field-help-popover" popover', false)
+            ->assertSee('images/field-help/scope-help.png', false)
             ->assertSee('Tabela Comparativa')->assertSee('Contrato por Escopo')->assertSee('Contrato Continuado')
-            ->assertSee('Objetivo Principal')->assertSee('Vigência e Prazos')->assertSee('necessidade permanente ou prolongada');
+            ->assertSee('Objetivo Principal')->assertSee('Vigência e Prazos')->assertSee('necessidade permanente ou prolongada')
+            ->assertDontSee('scope-comparison-table');
         $this->post('/contracts', $this->data(['escopo' => 'Inválido']))->assertSessionHasErrors('escopo');
         foreach (['Escopo', 'Contínuo'] as $scope) {
             $this->post('/contracts', $this->data(['escopo' => $scope, 'duplicate_confirmation' => true]))->assertRedirect()->assertSessionHasNoErrors();
@@ -724,6 +777,7 @@ class ContractWritingTest extends TestCase
         $this->assertSame(1, $xpath->query('//div[@class="contract-vehicle-work-row"]//select[@id="tipo_obra"]')->length);
         $this->assertSame(1, $xpath->query('//button[@type="button" and @popovertarget="work-type-help" and @data-field-help="work-type-help"]')->length);
         $this->assertSame(7, $xpath->query('//*[@id="work-type-help" and @popover]//li')->length);
+        $this->assertSame(1, $xpath->query('//*[@id="work-type-help"]//img[contains(@src, "images/field-help/work-types.jpg")]')->length);
         foreach (ContractFields::WORK_TYPES as $choice) {
             $this->assertStringContainsString($choice.':', $html->getElementById('work-type-help')->textContent);
         }
@@ -750,6 +804,7 @@ class ContractWritingTest extends TestCase
             ->assertSee('aria-describedby="iptu-help"', false)
             ->assertSee('data-field-help="iptu-help"', false)
             ->assertSee('id="iptu-help" class="field-help-popover" popover', false)
+            ->assertSee('images/field-help/iptu-help.png', false)
             ->assertSee('Locador(a) ou Locatário?')->assertSee('cláusula expressa');
         $html = new \DOMDocument;
         @$html->loadHTML($response->getContent());

@@ -15,10 +15,12 @@ class SignedDocumentSchemaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_signed_document_columns_are_last_nullable_and_reference_existing_private_attachments(): void
+    public function test_signed_document_columns_precede_adjustment_index_and_reference_existing_private_attachments(): void
     {
-        $this->assertSame(Contract::SIGNED_DOCUMENT_COLUMNS, array_slice(Schema::getColumnListing('contracts'), -6));
+        // The additive adjustment-index migration follows the six document references.
+        $this->assertSame([...Contract::SIGNED_DOCUMENT_COLUMNS, 'indice_reajuste'], array_slice(Schema::getColumnListing('contracts'), -7));
         $contract = Contract::create(['quality_issues' => [], 'objeto' => 'Preservar objeto']);
+        $this->assertNull($contract->fresh()->indice_reajuste);
         foreach (Contract::SIGNED_DOCUMENT_COLUMNS as $column) {
             $this->assertNull($contract->fresh()->getAttribute($column));
         }

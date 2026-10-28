@@ -76,8 +76,13 @@ final class LaravelContractInputValidator implements ContractInputValidator
             // Total is exclusively maintained by transactional product distribution.
             unset($input['valor_total']);
         }
+        $indexRequired = $this->request->routeIs('contracts.store', 'contracts.update');
         $rules = ['fund_id' => [$updating ? 'sometimes' : 'required', 'nullable', 'integer', 'exists:contract_funds,id'],
             'department_id' => 'sometimes|nullable|integer|exists:contract_departments,id',
+            'indice_reajuste' => [
+                $indexRequired && ! $updating ? 'required' : 'sometimes',
+                $indexRequired ? 'required' : 'nullable', 'string', Rule::in(array_keys(ContractFields::ADJUSTMENT_INDICES)),
+            ],
             'version' => $updating ? 'required|integer|min:1' : 'prohibited',
             'administrative_status' => ['sometimes', Rule::in(array_keys(Contract::STATUSES))],
             'reason' => $updating ? 'required|string|min:5|max:1000' : 'nullable|string|max:1000',
@@ -197,13 +202,16 @@ final class LaravelContractInputValidator implements ContractInputValidator
                 };
             }
         }
-        $labels = ['duplicate_confirmation' => 'confirmação de duplicidade'];
+        $labels = ['duplicate_confirmation' => 'confirmação de duplicidade', 'indice_reajuste' => 'Indice Reajuste'];
         foreach (ContractFields::MAP as $source => $definition) {
             $labels[$definition['column']] = ContractFields::label($source);
         }
 
         $data = $this->validated($input, $rules, $labels);
         $fields = [];
+        if (array_key_exists('indice_reajuste', $data)) {
+            $fields['indice_reajuste'] = $data['indice_reajuste'];
+        }
         if (isset($data['administrative_status'])) {
             $fields['administrative_status'] = $data['administrative_status'];
         }

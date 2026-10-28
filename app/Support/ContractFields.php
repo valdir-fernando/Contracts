@@ -14,6 +14,15 @@ class ContractFields
 
     public const SCOPE_OPTIONS = ['Escopo', 'Contínuo'];
 
+    public const ADJUSTMENT_INDICES = [
+        'IPCA' => 'IPCA — Índice Nacional de Preços ao Consumidor Amplo (IBGE)',
+        'INPC' => 'INPC — Índice Nacional de Preços ao Consumidor (IBGE)',
+        'IGP-M' => 'IGP-M — Índice Geral de Preços – Mercado (FGV)',
+        'INCC' => 'INCC — Índice Nacional de Custo da Construção (FGV)',
+        'IST' => 'IST — Índice de Serviços de Telecomunicações (Anatel)',
+        'ICTI' => 'ICTI — Índice de Custo da Tecnologia da Informação (Ipea)',
+    ];
+
     // Explicit historical equivalents confirmed against the affected contract objects.
     public const TYPE_CORRECTIONS = [
         'Servicos Diversos' => 'Serviços Diversos',
@@ -149,6 +158,7 @@ class ContractFields
         }
 
         return match ($column) {
+            'indice_reajuste' => 'Indice Reajuste',
             'fund_id' => 'Fundo cadastrado', 'department_id' => 'Secretaria cadastrada', 'supplier_id' => 'Fornecedor cadastrado',
             'supplier_document_key' => 'Documento normalizado do fornecedor', 'exercicio' => 'Exercício',
             'ownership_resolved' => 'Órgão conciliado', 'vigencia_em_revisao' => 'Vigência em revisão',

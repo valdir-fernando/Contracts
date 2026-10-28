@@ -54,7 +54,7 @@ class SupplierAutofillTest extends TestCase
     private function contractInput(array $extra = []): array
     {
         return array_replace(['fund_id' => $this->fund, 'processo' => 'CATALOG-ONLY', 'fornecedor_documento_snapshot' => '11222333000181',
-            'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço', 'valor_total' => '100.0000',
+            'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço', 'valor_total' => '100.0000', 'indice_reajuste' => 'IPCA',
             'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13', 'vigencia_fim_original' => '2027-10-13'], $extra);
     }
 
@@ -234,7 +234,7 @@ class SupplierAutofillTest extends TestCase
     {
         $values = $this->postJson('/suppliers/lookup', ['document' => '11222333000181'])->assertOk()->json('values');
         $this->post('/contracts', $values + ['fund_id' => $this->fund, 'numero' => 'AUTOFILL/26', 'processo' => 'PROC-AUTOFILL',
-            'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço', 'valor_total' => '100.0000', 'data_contrato' => '2026-10-13',
+            'modalidade' => 'Pregão', 'n_licit' => '001/2026', 'objeto' => 'Objeto sintético', 'tipo' => 'Serviço', 'valor_total' => '100.0000', 'indice_reajuste' => 'IPCA', 'data_contrato' => '2026-10-13',
             'vigencia_inicio' => '2026-10-13', 'vigencia_fim_original' => '2027-10-13'])->assertRedirect();
         $contract = Contract::where('processo', 'PROC-AUTOFILL')->firstOrFail();
         foreach ($values as $field => $value) {

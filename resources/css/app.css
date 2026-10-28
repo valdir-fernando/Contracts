@@ -191,20 +191,15 @@ p { margin-block: 0 16px; }
 .field-info-button { display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border: 1px solid #163b65; border-radius: 50%; color: #163b65; font-size: 13px; font-weight: 750; }
 .field-info-button[hidden] { display: none; }
 .field-info-button:hover, .field-info-button:focus-visible { background: #a9c9ed; }
-.field-help-popover { position: fixed; inset: auto; margin: 0; width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 16px; border: 1px solid #c8d9f3; border-radius: 10px; background: #dbeafe; color: #163b65; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 13px; line-height: 1.6; box-shadow: 0 8px 28px #172b4933; }
+.field-help-popover { position: fixed; inset: auto; margin: 0; box-sizing: border-box; width: min(400px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 14px; border: 1px solid #c8d9f3; border-radius: 10px; background: #dbeafe; color: #163b65; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; box-shadow: 0 8px 28px #172b4933; }
 .field-help-popover p { margin: 8px 0; }
-:is(#scope-help, #iptu-help, #work-type-help) { width: min(760px, calc(100vw - 24px)); padding: 20px 24px; font-size: 14px; }
+.field-help-popover h3 { margin: 0 0 10px; font-size: 15px; font-weight: 750; color: #163b65; }
+.field-help-popover h4 { margin: 12px 0 4px; font-size: inherit; font-weight: 750; }
+.field-help-popover > :last-child { margin-bottom: 0; }
+:is(#scope-help, #iptu-help, #work-type-help) { width: min(940px, calc(100vw - 16px)); padding: 12px; }
+.field-help-image { display: block; width: 100%; height: auto; }
 #work-type-help ul { padding-left: 20px; list-style: disc; }
-#work-type-help li { margin-block: 12px; }
-:is(#scope-help, #iptu-help) > p:first-child { margin-top: 0; }
-:is(#scope-help, #iptu-help) h3 { margin: 20px 0 14px; font-size: 20px; font-weight: 750; color: #163b65; }
-.scope-comparison-scroll { max-width: 100%; overflow-x: auto; margin-bottom: 14px; }
-.scope-comparison-table { width: 100%; min-width: 540px; border-collapse: collapse; text-align: left; }
-.scope-comparison-table th, .scope-comparison-table td { padding: 12px 10px; border-bottom: 1px solid #dce1e8; vertical-align: top; }
-.scope-comparison-table th:first-child { width: 18%; padding-left: 0; }
-.scope-comparison-table td { width: 41%; }
-.scope-comparison-table th { font-weight: 750; }
-.scope-comparison-table strong { font-weight: 750; }
+#work-type-help li { margin-block: 8px; }
 .field-label-divider { color: var(--muted); }
 .contract-document-actions { margin-left: auto; max-width: 100%; }
 .contract-document-actions nav { display: flex; justify-content: end; flex-wrap: wrap; gap: 8px; }
@@ -293,6 +288,8 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .form-grid > :where(button, .primary-button, .secondary-button, .text-link) { align-self: end; justify-self: start; }
 .field-wide { grid-column: 1 / -1; }
 .field.field-iptu { width: min(100%, 12rem); }
+.contract-scope-index-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; align-items: start; }
+.contract-scope-index-row > .field { min-width: 0; margin-bottom: 0; }
 .contract-vehicle-work-row { display: grid; grid-template-columns: minmax(0, 60%) minmax(0, 1fr); gap: 12px; min-width: 0; align-items: start; }
 .contract-vehicle-work-row > .field { min-width: 0; margin-bottom: 0; }
 .property-field-pair { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: 24px; width: 100%; align-items: start; }
@@ -1558,6 +1555,9 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .report-process-popover-heading button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; }
 .report-process-popover-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
 .report-supplier-filter-field { display: block; margin-top: 8px; font-weight: 400; }
+.report-person-options { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding: 0; border: 0; }
+.report-person-options legend { margin-bottom: 6px; }
+.report-person-options label { display: flex; align-items: center; gap: 5px; font-weight: 400; }
 .contract-section.report-contract-panel { padding-top: 8px; }
 .report-contract-count { margin: 0 0 4px; text-align: right; font-size: 11px; font-weight: 400; line-height: 1.7; color: var(--muted); }
 .report-list-toolbar { display: flex; justify-content: flex-end; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 4px; }
@@ -1708,13 +1708,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;
@@ -1733,11 +1733,12 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 
 /* Join the selected contract tab to the panel outline. */
 [data-contract-form] > .contract-section-navigation {
+    --contract-panel-outline: #dce4ef;
     position: relative;
     z-index: 2;
     margin-bottom: 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #dce4ef;
+    padding-bottom: 0;
+    border-bottom: 1px solid var(--contract-panel-outline);
     align-items: end;
 }
 [data-contract-form] > .contract-panels-scroll {
@@ -1754,23 +1755,27 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 :root [data-contract-form] > .contract-section-navigation .section-tab.active:not(.expand-all-button) {
     position: relative;
     bottom: -1px;
-    border-color: #dce4ef;
+    z-index: 1;
+    height: 46px;
+    min-height: 46px;
+    max-height: 46px;
+    border: 1px solid var(--contract-panel-outline);
     border-bottom-color: #fff;
     border-radius: 6px 6px 0 0;
     background: #fff;
-    color: #000;
+    color: #002395;
+    font-weight: 700;
     box-shadow: none;
     overflow: visible;
 }
 :root [data-contract-form] > .contract-section-navigation .section-tab.active:not(.expand-all-button)::after {
     content: '';
     position: absolute;
-    left: -1px;
-    right: -1px;
-    bottom: -8px;
-    height: 8px;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
     background: #fff;
-    border-inline: 1px solid #dce4ef;
     pointer-events: none;
 }
 
