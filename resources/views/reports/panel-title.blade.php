@@ -17,6 +17,9 @@
                             $appliedFilters[] = $label.': '.$value;
                         }
                     }
+                    if ($supplierFilters['report_person'] !== '') {
+                        $appliedFilters[] = 'Pessoa do fornecedor: '.($supplierFilters['report_person'] === 'PF' ? 'Pessoa física (PF)' : 'Pessoa jurídica (PJ)');
+                    }
                     if ($reportEndFrom !== null) {
                         $appliedFilters[] = 'Final a partir de: '.\Carbon\Carbon::parse($reportEndFrom)->format('d/m/Y');
                     }

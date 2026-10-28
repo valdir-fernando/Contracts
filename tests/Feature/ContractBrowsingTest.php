@@ -208,8 +208,8 @@ class ContractBrowsingTest extends TestCase
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $one->id);
         $this->get('/reports?report_fund='.$municipal.'&report_department='.$department.'&report_year=2025&report_process=INEXISTENTE&report_end_to=2027-06-30')->assertOk()
             ->assertViewHas('reportDepartmentId', $department)
-            ->assertViewHas('reportProcess', '')
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $one->id);
+            ->assertViewHas('reportProcess', 'INEXISTENTE')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
         $this->get('/reports?report_fund='.$fund.'&report_department='.$department)->assertOk()
             ->assertViewHas('canSelectDepartment', false)
             ->assertViewHas('reportDepartmentId', null)
@@ -281,6 +281,85 @@ class ContractBrowsingTest extends TestCase
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 4);
     }
 
+    public function test_report_person_filter_is_exclusive_validated_and_preserved_in_pagination_and_pdf(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo Saúde');
+        $other = $this->catalog('contract_funds', 'Outro Fundo');
+        $attributes = ['fund_id' => $fund, 'tipo' => 'Credenciamento Saúde', 'exercicio' => 2025,
+            'vigencia_fim_atual' => '2027-06-30', 'supplier_document_key' => '52998224725',
+            'fornecedor_documento_snapshot' => '529.982.247-25', 'fornecedor_nome_snapshot' => 'Profissional Saúde',
+            'modalidade' => 'Inexigibilidade', 'n_licit' => '015/2025', 'processo' => 'PROC-SAÚDE'];
+        for ($i = 1; $i <= 21; $i++) {
+            $this->contract($attributes + ['numero' => sprintf('%03d/25', $i)]);
+        }
+        $company = $this->contract(array_replace($attributes, ['supplier_document_key' => '11222333000181', 'fornecedor_documento_snapshot' => '11.222.333/0001-81']));
+        foreach ([['fund_id' => $other], ['tipo' => 'Obras'], ['vigencia_fim_atual' => '2029-01-01'],
+            ['supplier_document_key' => null], ['supplier_document_key' => '1234'], ['modalidade' => 'Pregão'],
+            ['n_licit' => '099/2025'], ['fornecedor_nome_snapshot' => 'Outro fornecedor'], ['processo' => 'OUTRO']] as $mismatch) {
+            $this->contract(array_replace($attributes, $mismatch));
+        }
+        $filters = ['report_year' => 'all', 'report_end_from' => '2026-10-28', 'report_end_to' => '2028-12-31',
+            'report_type' => 'Credenciamento Saúde', 'report_person' => 'PF', 'report_supplier' => 'Saúde',
+            'report_bidding' => 'Inexigibilidade', 'report_bidding_number' => '015', 'report_process' => 'PROC-SAÚDE'];
+        $response = $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?'.http_build_query($filters))->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 21)
+            ->assertSee('Pessoa do fornecedor: Pessoa física (PF)')
+            ->assertDontSee('52998224725')->assertDontSee('529.982.247-25');
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($html);
+        $this->assertSame(2, $xpath->query('//input[@type="radio" and @name="report_person" and @form="report-filters"]')->length);
+        $this->assertSame(1, $xpath->query('//input[@name="report_person" and @checked]')->length);
+        $this->assertSame('PF', $xpath->query('//input[@name="report_person" and @checked]')->item(0)->getAttribute('value'));
+        $this->assertSame(1, $xpath->query('//button[@popovertarget="report-supplier-popover" and contains(concat(" ", normalize-space(@class), " "), " active ")]')->length);
+        $next = $this->get($response->viewData('reportContracts')->nextPageUrl())->assertOk()
+            ->assertViewHas('supplierFilters', fn ($values) => $values['report_person'] === 'PF')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 21 && $rows->count() === 1);
+        $this->get($next->viewData('reportContracts')->previousPageUrl())->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 21 && $rows->count() === 20);
+        $this->get('/reports?'.http_build_query(array_replace($filters, ['report_person' => 'PJ'])))->assertOk()
+            ->assertSee('Pessoa do fornecedor: Pessoa jurídica (PJ)')
+            ->assertSee('value="PJ" form="report-filters" checked', false)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $company->id);
+        $this->get('/reports?'.http_build_query(array_replace($filters, ['report_person' => ''])))->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 24);
+        $inspected = false;
+        View::composer('reports.panel-pdf', function ($view) use (&$inspected) {
+            $inspected = true;
+            $this->assertCount(21, $view->getData()['rows']);
+            $this->assertStringContainsString('Pessoa do fornecedor: Pessoa física (PF)', $view->getData()['title']);
+        });
+        $this->get(route('reports.panel-pdf', $filters))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertTrue($inspected);
+        foreach (['PF,PJ', 'INVALIDO', ['PF', 'PJ']] as $invalid) {
+            $this->getJson('/reports?'.http_build_query(['report_person' => $invalid]))->assertUnprocessable()
+                ->assertJsonValidationErrors('report_person');
+            $this->getJson(route('reports.panel-pdf', ['report_person' => $invalid]))->assertUnprocessable()
+                ->assertJsonValidationErrors('report_person');
+        }
+    }
+
+    public function test_report_person_filter_alone_activates_supplier_indicator_and_respects_user_scope(): void
+    {
+        $fund = $this->catalog('contract_funds', 'Fundo autorizado');
+        $other = $this->catalog('contract_funds', 'Fundo restrito');
+        $match = $this->contract(['fund_id' => $fund, 'supplier_document_key' => '52998224725']);
+        $this->contract(['fund_id' => $other, 'supplier_document_key' => '52998224725']);
+        $this->contract(['fund_id' => $fund, 'supplier_document_key' => '11222333000181']);
+        $user = $this->user(false);
+        $scope = AccessScope::create(['scope_key' => hash('sha256', 'person-filter'), 'fund' => 'Fundo autorizado', 'fund_id' => $fund]);
+        $user->scopes()->attach($scope);
+        $response = $this->actingAs($user)->withSession(['fund_id' => $fund])->get('/reports?report_person=PF')->assertOk()
+            ->assertViewHas('reportScopeLocked', true)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $match->id);
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($html);
+        $this->assertSame(1, $xpath->query('//button[@popovertarget="report-supplier-popover" and contains(concat(" ", normalize-space(@class), " "), " active ")]')->length);
+        $this->get('/reports')->assertOk()->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);
+    }
+
     public function test_report_type_filter_lists_only_types_in_authorized_fund_and_year(): void
     {
         $fund = $this->catalog('contract_funds', 'Fundo A');
@@ -329,24 +408,81 @@ class ContractBrowsingTest extends TestCase
             ->assertJsonPath('errors.report_end_to.0', 'A data Até deve ser igual ou posterior à data De.');
     }
 
-    public function test_final_filter_clears_other_filters_and_keeps_authorized_fund(): void
+    public function test_final_filter_combines_other_filters_and_keeps_authorized_fund(): void
     {
         $fund = $this->catalog('contract_funds', 'Fundo A');
         $other = $this->catalog('contract_funds', 'Fundo B');
-        $match = $this->contract(['fund_id' => $fund, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-06-30']);
-        $this->contract(['fund_id' => $fund, 'exercicio' => 2026, 'processo' => 'OUTRO', 'vigencia_fim_atual' => '2027-06-30']);
-        $this->contract(['fund_id' => $other, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-06-30']);
-        $this->contract(['fund_id' => $fund, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO', 'vigencia_fim_atual' => '2027-07-01']);
+        $attributes = ['fund_id' => $fund, 'exercicio' => 2025, 'processo' => 'PROCESSO-ALVO',
+            'tipo' => 'Credenciamento Saúde', 'modalidade' => 'Inexigibilidade', 'n_licit' => '015/2025',
+            'fornecedor_nome_snapshot' => 'Clínica de Saúde', 'vigencia_fim_atual' => '2027-06-30'];
+        $match = $this->contract($attributes);
+        foreach ([['fund_id' => $other], ['processo' => 'OUTRO'], ['tipo' => 'Fornecimento'],
+            ['modalidade' => 'Pregão'], ['n_licit' => '099/2025'], ['fornecedor_nome_snapshot' => 'Outra empresa'],
+            ['vigencia_fim_atual' => '2027-05-31'], ['vigencia_fim_atual' => '2027-07-01'],
+            ['vigencia_fim_atual' => '2026-10-09']] as $mismatch) {
+            $this->contract(array_replace($attributes, $mismatch));
+        }
+        $filters = ['report_year' => 2026, 'report_process' => 'PROCESSO-ALVO', 'report_supplier' => 'Clínica',
+            'report_bidding' => 'Inexigibilidade', 'report_bidding_number' => '015', 'report_type' => 'Credenciamento Saúde',
+            'report_current' => 1, 'report_end_from' => '2027-06-01', 'report_end_to' => '2027-06-30'];
         $this->actingAs($this->user())->withSession(['fund_id' => $fund])
-            ->get('/reports?report_year=2026&report_process=PROCESSO-ALVO&report_supplier=INEXISTENTE&report_bidding=INEXISTENTE&report_bidding_number=INEXISTENTE&report_type=INEXISTENTE&report_current=1&report_end_from=2027-06-01&report_end_to=2027-06-30')
+            ->get('/reports?'.http_build_query($filters))
             ->assertOk()->assertSee('referente a todos os anos')
-            ->assertViewHas('reportProcess', '')
-            ->assertViewHas('reportType', '')
-            ->assertViewHas('reportCurrent', false)
-            ->assertViewHas('supplierFilters', fn ($filters) => array_values($filters) === ['', '', ''])
-            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2 && $rows->contains('id', $match->id));
+            ->assertViewHas('reportProcess', 'PROCESSO-ALVO')
+            ->assertViewHas('reportType', 'Credenciamento Saúde')
+            ->assertViewHas('reportCurrent', true)
+            ->assertViewHas('supplierFilters', fn ($values) => array_values($values) === ['Inexigibilidade', '015', 'Clínica', ''])
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 1 && $rows->first()->id === $match->id);
+        $this->get('/reports?'.http_build_query(array_replace($filters, ['report_end_from' => '2026-01-01', 'report_end_to' => '2026-10-09'])))
+            ->assertOk()->assertViewHas('reportCurrent', true)
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
         $this->get('/reports?report_year=2026&report_process=PROCESSO-ALVO')->assertOk()
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 0);
+    }
+
+    public function test_report_final_and_type_filters_preserve_indicators_pagination_pdf_and_independent_clearing(): void
+    {
+        $fund = $this->catalog('contract_funds', 'FUNDO MUNICIPAL DE SAÚDE');
+        $attributes = ['fund_id' => $fund, 'exercicio' => 2025, 'tipo' => 'Credenciamento Saúde', 'vigencia_fim_atual' => '2027-06-30'];
+        for ($i = 1; $i <= 21; $i++) {
+            $this->contract($attributes + ['numero' => sprintf('%03d/25', $i)]);
+        }
+        $this->contract(array_replace($attributes, ['tipo' => 'Fornecimento']));
+        $this->contract(array_replace($attributes, ['vigencia_fim_atual' => '2029-01-01']));
+        $filters = ['report_year' => 'all', 'report_current' => 0, 'report_end_from' => '2026-10-28',
+            'report_end_to' => '2028-12-31', 'report_type' => 'Credenciamento Saúde'];
+        $response = $this->actingAs($this->user())->withSession(['fund_id' => $fund])
+            ->get('/reports?'.http_build_query($filters))->assertOk()
+            ->assertViewHas('reportType', 'Credenciamento Saúde')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 21)
+            ->assertSee('value="Credenciamento Saúde" selected', false)
+            ->assertSee('Tipo de contrato: Credenciamento Saúde; Final a partir de: 28/10/2026; Final até: 31/12/2028');
+        $html = new \DOMDocument;
+        @$html->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($html);
+        foreach (['report-type-popover', 'report-end-popover'] as $popover) {
+            $this->assertSame(1, $xpath->query('//button[@popovertarget="'.$popover.'" and contains(concat(" ", normalize-space(@class), " "), " active ")]')->length);
+        }
+        $next = $this->get($response->viewData('reportContracts')->nextPageUrl())->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 21 && $rows->count() === 1);
+        $this->get($next->viewData('reportContracts')->previousPageUrl())->assertOk()
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 21 && $rows->count() === 20);
+        $inspected = false;
+        View::composer('reports.panel-pdf', function ($view) use (&$inspected) {
+            $inspected = true;
+            $this->assertCount(21, $view->getData()['rows']);
+            $this->assertStringContainsString('Tipo de contrato: Credenciamento Saúde; Final a partir de: 28/10/2026; Final até: 31/12/2028', $view->getData()['title']);
+        });
+        $this->get(route('reports.panel-pdf', $filters + ['page' => 2]))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertTrue($inspected);
+        $this->get('/reports?'.http_build_query(array_replace($filters, ['report_type' => ''])))->assertOk()
+            ->assertViewHas('reportEndActive', true)
+            ->assertViewHas('reportType', '')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 22);
+        $this->get('/reports?'.http_build_query(array_replace($filters, ['report_end_from' => '', 'report_end_to' => '', 'report_end_active' => 0])))->assertOk()
+            ->assertViewHas('reportEndActive', false)
+            ->assertViewHas('reportType', 'Credenciamento Saúde')
+            ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 22);
     }
 
     public function test_list_filters_lock_scope_controls_and_preserve_the_selected_year(): void

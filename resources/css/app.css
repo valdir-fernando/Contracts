@@ -1515,6 +1515,19 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .page-heading.calendar-page-heading { margin-bottom: 8px; gap: 12px; }
 .calendar-page-heading h1 { margin-block: 0 3px; }
 .workspace-content:has(> .reports-page-heading) > .workspace-top { min-height: 60px; margin-bottom: 4px; }
+.workspace:has(.reports-page-heading) { height: 100dvh; min-height: 0; overflow: hidden; }
+.workspace-content:has(> .reports-page-heading) { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: 12px; overflow: hidden; }
+.workspace-content:has(> .reports-page-heading) > :not(.report-contract-panel) { flex-shrink: 0; }
+.report-contract-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0; }
+.report-contract-panel > :not(.table-scroll) { flex-shrink: 0; }
+.report-contract-panel > .table-scroll { flex: 1; min-height: 0; margin-top: 0; overflow: auto; overscroll-behavior: contain; }
+.report-contract-panel > .report-list-clear { min-width: 0; flex-wrap: wrap; gap: 8px; }
+.report-contract-list { border-collapse: separate; border-spacing: 0; }
+.report-contract-list thead th { position: sticky; top: 0; z-index: 2; }
+@media (max-width: 1024px) {
+    .workspace:has(.reports-page-heading) { grid-template-rows: auto minmax(0, 1fr); }
+    .workspace:has(.reports-page-heading) > .workspace-nav { max-height: 35dvh; overflow-y: auto; }
+}
 .page-heading.reports-page-heading { margin-bottom: 8px; gap: 12px; }
 .reports-page-heading h1 { margin-block: 0 3px; font-size: clamp(24px, 2vw, 30px); }
 .reports-page-heading .section-label { margin-bottom: 0; }

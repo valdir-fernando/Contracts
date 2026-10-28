@@ -41,6 +41,7 @@ class ReportController extends Controller
             'report_bidding' => ['nullable', 'string', 'max:255'],
             'report_bidding_number' => ['nullable', 'string', 'max:255'],
             'report_supplier' => ['nullable', 'string', 'max:255'],
+            'report_person' => ['nullable', Rule::in(['PF', 'PJ'])],
             'report_type' => ['nullable', 'string', 'max:255'],
             'report_end_from' => ['bail', 'nullable', 'date_format:Y-m-d'],
             'report_end_active' => ['nullable', 'boolean'],
@@ -79,17 +80,11 @@ class ReportController extends Controller
             'report_bidding' => trim($selection['report_bidding'] ?? ''),
             'report_bidding_number' => trim($selection['report_bidding_number'] ?? ''),
             'report_supplier' => trim($selection['report_supplier'] ?? ''),
+            'report_person' => $selection['report_person'] ?? '',
         ];
         if ($reportEndActive) {
             $reportYear = null;
             $request->query->remove('report_year');
-            $reportProcess = '';
-            $reportType = '';
-            $reportCurrent = false;
-            $supplierFilters = array_fill_keys(array_keys($supplierFilters), '');
-            foreach (['report_process', 'report_type', 'report_current', 'report_bidding', 'report_bidding_number', 'report_supplier'] as $filter) {
-                $request->query->remove($filter);
-            }
         }
         $reportScopeLocked = $reportProcess !== '' || $reportType !== '' || $reportEndActive || $reportCurrent
             || collect($supplierFilters)->contains(fn ($value) => $value !== '');
@@ -125,6 +120,7 @@ class ReportController extends Controller
             ->when($supplierFilters['report_bidding'] !== '', fn ($query) => $query->whereLike('modalidade', '%'.$supplierFilters['report_bidding'].'%'))
             ->when($supplierFilters['report_bidding_number'] !== '', fn ($query) => $query->whereLike('n_licit', '%'.$supplierFilters['report_bidding_number'].'%'))
             ->when($supplierFilters['report_supplier'] !== '', fn ($query) => $query->whereLike('fornecedor_nome_snapshot', '%'.$supplierFilters['report_supplier'].'%'))
+            ->when($supplierFilters['report_person'] !== '', fn ($query) => $query->whereRaw('LENGTH(supplier_document_key) = ?', [$supplierFilters['report_person'] === 'PF' ? 11 : 14]))
             ->when($reportDepartmentId !== null, fn ($query) => $query->where('department_id', $reportDepartmentId))
             ->when(! $reportEndActive && $reportYear !== null, fn ($query) => $query->where('exercicio', $reportYear))->orderBy('Contrato')->orderBy('id');
 

@@ -53,7 +53,6 @@
             <div class="report-list-heading">
                 <h2 class="report-contract-caption">@include('reports.panel-title')</h2>
             </div>
-            <div class="table-scroll">
                 <div class="report-list-clear">
                     <div class="report-validity-options" x-data>
                         <label><input type="radio" name="report_current" value="0" form="report-filters" @checked(!$reportCurrent) @change="$el.form.requestSubmit()"> Todos</label>
@@ -62,6 +61,7 @@
                     </div>
                     <a class="text-link" href="{{ route('reports.index') }}">Limpar filtros</a>
                 </div>
+            <div class="table-scroll" tabindex="0" role="region" aria-label="Lista de contratos com rolagem">
                 <table class="data-table report-contract-list">
                     <thead><tr><th>Contrato</th><th x-data>
                         Processo
@@ -84,8 +84,13 @@
                                     <input id="{{ $name }}" class="report-process-filter" type="search" name="{{ $name }}" form="report-filters" value="{{ $supplierFilters[$name] }}" maxlength="255" @if($loop->first) autofocus @endif>
                                 </label>
                             @endforeach
+                            <fieldset class="report-person-options">
+                                <legend>Pessoa do fornecedor</legend>
+                                <label><input type="radio" name="report_person" value="PF" form="report-filters" @checked($supplierFilters['report_person'] === 'PF')> PF <span>— Pessoa física</span></label>
+                                <label><input type="radio" name="report_person" value="PJ" form="report-filters" @checked($supplierFilters['report_person'] === 'PJ')> PJ <span>— Pessoa jurídica</span></label>
+                            </fieldset>
                             <div class="report-process-popover-actions">
-                                <button type="button" class="secondary-button compact" @click="$el.closest('[popover]').querySelectorAll('input').forEach(input => input.value = ''); document.getElementById('report-filters').requestSubmit()">Limpar</button>
+                                <button type="button" class="secondary-button compact" @click="$el.closest('[popover]').querySelectorAll('input').forEach(input => { if (input.type === 'radio') { input.checked = false; } else { input.value = ''; } }); document.getElementById('report-filters').requestSubmit()">Limpar</button>
                                 <button type="submit" form="report-filters" class="primary-button compact">Aplicar</button>
                             </div>
                         </div>
