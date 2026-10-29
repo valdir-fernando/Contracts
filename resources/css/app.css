@@ -1174,6 +1174,68 @@ select:not([multiple]):not([size]) { appearance: none; background-image: url("da
 body.modal-open { overflow: hidden; }
 .catalog-modal { width: min(520px, calc(100% - 40px)); max-height: calc(100svh - 48px); margin: auto; padding: 28px; overflow-y: auto; border: 1px solid #e1e7f0; border-radius: 22px; background: white; color: #26364b; box-shadow: 0 24px 80px #102b5033; }
 .catalog-modal::backdrop { background: #10243b80; backdrop-filter: blur(3px); }
+.workspace-content:has(> .dfd-page-heading) > .workspace-top { margin-bottom: 8px; }
+.dfd-page-heading h1 { margin-top: 0; }
+.page-heading.dfd-page-heading { margin-bottom: 12px; }
+.workspace:has(.dfd-editor) { height: 100dvh; min-height: 0; overflow: hidden; }
+.workspace-content:has(> .dfd-editor) { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; padding-bottom: 8px; }
+.workspace-content:has(> .dfd-editor) > :not(.dfd-editor) { flex-shrink: 0; }
+.dfd-editor { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.dfd-editor > :not(.editor-panels) { flex-shrink: 0; }
+.dfd-editor > .editor-panels { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; align-content: start; }
+.dfd-editor .dfd-context { margin-bottom: 12px; }
+.dfd-editor .dfd-identification { grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(180px, 2fr); gap: 10px 16px; }
+.dfd-identification #Processo_DFD { width: 25%; }
+.dfd-process-control { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dfd-process-control #Processo_DFD { flex: 0 1 25%; min-width: 0; }
+.dfd-pdf-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 4px 10px; text-decoration: none; }
+.dfd-pdf-button svg { width: 18px; height: 18px; }
+.dfd-pdf-button:disabled { opacity: .5; cursor: not-allowed; }
+.dfd-category { grid-column: 1 / -1; }
+.dfd-category input { font-weight: 650; color: #163b65; }
+.dfd-number-control { display: flex; gap: 6px; }
+.dfd-number-control input { min-width: 0; }
+.dfd-number-control button { flex-shrink: 0; padding: 4px 10px; }
+.dfd-editor .dfd-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 440px; margin-bottom: 0; }
+.dfd-tabs .section-tab { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.dfd-tabs .section-tab:disabled { opacity: .5; cursor: not-allowed; }
+.dfd-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.dfd-section-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dfd-section-stack { display: grid; gap: 12px; }
+.dfd-full { grid-column: 1 / -1; }
+.dfd-editor .contract-section { margin-bottom: 0; }
+.dfd-editor .contract-section > h2 { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+.dfd-editor .form-grid { gap: 10px 14px; }
+.dfd-editor .dfd-general-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dfd-address { grid-column: span 2; }
+.dfd-budget-grid { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 10px; }
+.dfd-budget-grid :is(label, input) { text-align: center; }
+.dfd-editor textarea { resize: vertical; }
+.dfd-editor .field { min-width: 0; }
+.dfd-editor .field > input[readonly] { background: var(--canvas); }
+.dfd-fund-name { color: #163b65; font-size: 12px; font-weight: 650; margin-top: 12px; }
+.dfd-product-search { display: flex; align-items: end; gap: 12px; margin-bottom: 12px; }
+.dfd-product-search .field { flex: 1; margin-bottom: 0; }
+.dfd-line-actions { display: flex; gap: 12px; }
+.dfd-editor .editor-panels > .contract-section + .contract-section { margin-top: 12px; }
+@media (max-width: 1000px) { .dfd-budget-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .dfd-editor .dfd-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dfd-address { grid-column: 1 / -1; } }
+@media (max-width: 650px) { .dfd-section-grid, .dfd-editor .dfd-identification, .dfd-editor .dfd-general-grid { grid-template-columns: minmax(0, 1fr); } .dfd-product-search { flex-wrap: wrap; } }
+@media (max-width: 1024px) {
+    .workspace:has(.dfd-editor) { grid-template-rows: auto minmax(0, 1fr); }
+    .workspace:has(.dfd-editor) > .workspace-nav { max-height: 35dvh; overflow-y: auto; }
+}
+.catalog-modal.dfd-class-dialog { width: min(760px, calc(100vw - 24px)); padding: 20px; border-radius: 12px; }
+.dfd-class-dialog .modal-header { align-items: center; }
+.dfd-class-dialog .modal-header h2 { margin: 0; font-size: 21px; }
+.dfd-class-row:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.dfd-class-selected { display: block; margin: 12px 0 8px; padding: 9px 12px; min-height: 40px; border: 1px solid #cbd5e1; border-radius: 5px; color: #1476b9; background: #fff; overflow-wrap: anywhere; }
+.dfd-class-heading { padding: 7px 10px; border: 1px solid #cbd5e1; border-bottom: 0; background: #f1f5f9; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.dfd-class-list { height: min(260px, 35dvh); min-height: 100px; overflow-y: auto; border: 1px solid #cbd5e1; background: #fffef0; }
+.dfd-class-row { display: block; width: 100%; padding: 5px 10px; text-align: left; border: 0; border-bottom: 1px solid #eeeedd; background: transparent; color: #124e96; font-size: 13px; line-height: 1.35; cursor: pointer; overflow-wrap: anywhere; }
+.dfd-class-row:hover { background: #e4effa; }
+.dfd-class-row[aria-pressed=true] { background: #087ac1; color: white; }
+.dfd-class-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.dfd-class-actions [hidden] { display: none; }
 .catalog-modal.supplier-registration-modal { width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; padding: 12px 24px; border: 0; border-radius: 0; }
 .supplier-registration-modal :is(.field, .supplier-registration-group)[hidden] { display: none; }
 .supplier-registration-modal[open] { display: flex; flex-direction: column; overflow: hidden; }
@@ -1693,13 +1755,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;

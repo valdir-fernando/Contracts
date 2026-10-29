@@ -28,6 +28,8 @@ import './inspector-assistance';
 import './inspector-registration';
 import './contract-steward-registration';
 import './manager-registration';
+import './dfd-classes';
+import './dfd-panel';
 import './fund-registration';
 import { scrollContractSection } from './contract-panel-scroll';
 import { attachMask, maskDate, isoDate, dateInputAllowed, normalizeFormDates } from './input-masks';

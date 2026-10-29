@@ -19,6 +19,7 @@ use App\Http\Controllers\ContractReviewController;
 use App\Http\Controllers\ContractServiceOrderController;
 use App\Http\Controllers\ContractStewardController;
 use App\Http\Controllers\ContractTypeRuleController;
+use App\Http\Controllers\DfdController;
 use App\Http\Controllers\DocumentSettingsController;
 use App\Http\Controllers\FundController;
 use App\Http\Controllers\InspectorController;
@@ -53,6 +54,17 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/atas', 'atas.dashboard')->name('atas.dashboard');
+    Route::get('/dfd-compra', [DfdController::class, 'index'])->name('dfd-compra.index');
+    Route::get('/dfd-compra/classes', [DfdController::class, 'classes'])->name('dfd-compra.classes');
+    Route::get('/dfd-compra/search', [DfdController::class, 'search'])->middleware('throttle:60,1')->name('dfd-compra.search');
+    Route::post('/dfd-compra', [DfdController::class, 'store'])->name('dfd-compra.store');
+    Route::get('/dfd-compra/{dfd}', [DfdController::class, 'index'])->whereNumber('dfd')->name('dfd-compra.edit');
+    Route::get('/dfd-compra/{dfd}/pdf', [DfdController::class, 'pdf'])->whereNumber('dfd')->middleware('throttle:20,1')->name('dfd-compra.pdf');
+    Route::put('/dfd-compra/{dfd}', [DfdController::class, 'update'])->whereNumber('dfd')->name('dfd-compra.update');
+    Route::delete('/dfd-compra/{dfd}', [DfdController::class, 'destroy'])->whereNumber('dfd')->name('dfd-compra.destroy');
+    Route::post('/dfd-compra/{dfd}/products', [DfdController::class, 'saveProduct'])->whereNumber('dfd')->name('dfd-compra.products.store');
+    Route::put('/dfd-compra/{dfd}/products/{item}', [DfdController::class, 'saveProduct'])->whereNumber(['dfd', 'item'])->name('dfd-compra.products.update');
+    Route::delete('/dfd-compra/{dfd}/products/{item}', [DfdController::class, 'deleteProduct'])->whereNumber(['dfd', 'item'])->name('dfd-compra.products.destroy');
     Route::get('/publication', [SignedDocumentController::class, 'index'])->name('publication.index');
     Route::post('/publication/contracts/{contract}', [SignedDocumentController::class, 'store'])->middleware('throttle:20,1')->name('publication.store');
     Route::get('/publication/contracts/{contract}/documents/{document}', [SignedDocumentController::class, 'download'])->whereNumber('document')->name('publication.download');

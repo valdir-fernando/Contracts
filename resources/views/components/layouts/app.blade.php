@@ -23,6 +23,7 @@
                 @foreach([
                     ['dashboard', ['dashboard', 'atas.dashboard'], 'Início', 'dashboard'],
                     ['catalogs.index', 'catalogs.*', 'Cadastros', 'catalogs'],
+                    ['dfd-compra.index', 'dfd-compra.*', 'DFD Compra', 'documents'],
                     ['reports.index', 'reports.*', 'Relatórios', 'reports'],
                     ['calendar.index', 'calendar.*', 'Calendário e alertas', 'calendar'],
                 ] as [$route, $pattern, $label, $icon])
@@ -51,7 +52,7 @@
                             </div>
                         </details>
                     @else
-                    <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
+                    <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif @if($route === 'dfd-compra.index') data-dfd-class-open aria-haspopup="dialog" aria-controls="dfd-class-dialog" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
                     @endif
                 @endforeach
                 @if(auth()->user()->isAdmin())
@@ -95,6 +96,7 @@
                 })();
             </script>
         </aside>
+        <x-dfd-class-dialog/>
         <main class="workspace-content" id="main-content" tabindex="-1" @if($contractEditor) data-contract-editor @endif>
             <header @class(['workspace-top', 'workspace-top-compact' => request()->routeIs('contracts.create'), 'workspace-top-contract' => $summaryInHeader])>
                 @if(request()->routeIs('dashboard', 'atas.dashboard'))

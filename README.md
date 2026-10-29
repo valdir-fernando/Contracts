@@ -1,5 +1,13 @@
 # Contracts
 
+A numeração de DFD é automática por ano, com sequência única para todos os Fundos controlada em `tb_N_DFD`. Dados e produtos ficam em `tb_DFD` e `tb_Produtos_DFD`. [Regras, instalação e validação](docs/dfd-numbering-2026-10-29.md).
+
+O menu **DFD Compra** abre a janela **DFD - Documento de Formalização de Demanda**, com pesquisa, seleção por clique e botão **X** padrão da suíte. Ao fechar, o painel mostra a classe escolhida. [Escopo, instalação e validação](docs/dfd-compra-menu-2026-10-29.md).
+
+O painel de DFD reúne **Informações gerais** e **Produtos**, com os campos da tela legada no padrão da suíte, pesquisa por número, gravação, edição, exclusão lógica e seleção de ficha orçamentária. [Campos, controles e validação](docs/dfd-panel-2026-10-29.md).
+
+O ícone de impressora ao lado de **DFD vinculada ao Processo** gera o PDF da DFD salva, com produtos, dotação e assinatura, conforme o modelo fornecido. [Modelo, acesso e validação](docs/dfd-pdf-2026-10-29.md).
+
 Campos de uma linha em toda a suíte seguem a altura de **Novo contrato**, incluindo cadastros, filtros e janelas de edição. [Padrão e validação visual](docs/form-control-heights-2026-10-29.md).
 
 Painéis com abas de navegação seguem o acabamento de **Novo contrato**, com a aba ativa conectada à borda do conteúdo. [Escopo e validação](docs/panel-navigation-2026-10-29.md).
