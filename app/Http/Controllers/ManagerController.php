@@ -43,7 +43,14 @@ class ManagerController extends Controller
             'funds' => $funds,
             'signatureAvailable' => $signatureAvailable,
             'municipalFundIds' => $funds->filter(fn ($fund) => ManagerSignatory::isMunicipal($fund->name))->pluck('id')->map(fn ($id) => (string) $id)->values(),
-            'records' => CatalogAccess::byOrganization($request->user(), DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')->select(['id', 'name', 'fund_name_key'])->orderBy('name')->paginate(20),
+            'records' => CatalogAccess::byOrganization($request->user(), DB::table('tb_Gestor'), 'fund_name_key')->whereNull('deleted_at')
+                ->select(['id', 'name', 'fund_name_key', 'raw_payload->Decreto as decree', 'raw_payload->Data_Decreto as decree_date'])
+                ->orderBy('name')->paginate(20)->through(function ($manager) {
+                    $date = ManagerRegistration::dateForForm($manager->decree_date);
+                    $manager->decree_date = $date ? (new \DateTimeImmutable($date))->format('d/m/Y') : $manager->decree_date;
+
+                    return $manager;
+                }),
         ])->header('Cache-Control', 'private, no-store');
     }
 

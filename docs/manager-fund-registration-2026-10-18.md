@@ -56,3 +56,35 @@ Validação da regra de assinatura do Executivo:
 - `ExecutiveSignatoryTest` cobre seleção e retorno ao Prefeito, segunda ativação por outro administrador, omissão do campo, transferência a outro Fundo, exclusão, ambiguidades legadas, ausência de Prefeito, novo aditivo com nome enviado pelo cliente, ambos os templates, mascaramento de CPF e mudanças durante renderização.
 - `npm run build`, `php artisan view:cache` e `git diff --check`: concluídos; `/up`: HTTP 200.
 - Não houve migration adicional nem alteração dos dados instalados nesta etapa. Validação visual em navegador e concorrência real em MySQL permanecem fora deste ensaio.
+
+### Ajuste visual de 29/10/2026
+
+As abas de Gestor do Fundo compartilham o acabamento de Novo contrato: aba ativa branca, texto azul em negrito e união com a borda do painel. As duas seções ficam dentro de um contorno único com cantos inferiores arredondados, inclusive em Expandir Tudo. A pedido do usuário, Expandir Tudo usa o mesmo estilo das demais abas, sem ícone, inclusive com a borda integrada ao painel quando selecionado.
+
+Validação executada:
+
+- `docker compose exec -T app php vendor/bin/phpunit --filter 'ManagerRegistrationTest|CatalogNavigationTest' --do-not-cache-result`: 7 testes aprovados, 97 asserções, com SQLite em memória.
+- `docker compose run --rm --no-deps node npm run build`: concluído.
+- `git diff --check`: sem erros.
+
+Sem validação visual autenticada no navegador. A suíte completa não foi executada neste ajuste de apresentação.
+
+Correção da segunda aba: a margem superior entre seções também era aplicada quando a primeira estava oculta, afastando o painel da aba Vínculo e decreto. O contêiner agora usa grid com espaçamento entre seções visíveis e margens zeradas nas seções. `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram novamente; sem conferência visual autenticada no navegador.
+
+Após uniformizar Expandir Tudo, `docker compose exec -T app php vendor/bin/phpunit --filter CatalogNavigationTest --do-not-cache-result` passou (2 testes, 25 asserções), assim como `git diff --check`. Sem nova alteração nos assets; sem validação visual no navegador.
+
+A lista Gestores cadastrados inclui Decreto e Data_Decreto. A consulta seleciona somente esses dois campos adicionais do JSON, preservando o escopo autorizado e a projeção sem dados pessoais. Datas válidas nativas ou legadas são apresentadas como dia/mês/ano; textos históricos não interpretáveis são preservados e campos vazios mostram um travessão. Nenhuma alteração de persistência.
+
+Validação: `docker compose exec -T app php vendor/bin/phpunit --filter 'ManagerRegistrationTest|CatalogNavigationTest' --do-not-cache-result` passou com 8 testes e 126 asserções em SQLite em memória, cobrindo datas nativas, legadas, inválidas e ausentes e a projeção privada. Pint direcionado aos dois arquivos PHP alterados, `composer check:architecture` e `git diff --check` passaram. Sem alteração nos assets, ensaio visual autenticado ou execução da suíte completa nesta etapa.
+
+A coluna Nome do gestor oferece um checkbox independente por registro, permitindo marcar vários gestores na página atual. O nome também funciona como rótulo clicável; a seleção é local à página e não executa operações em lote. Validação repetida com o mesmo comando PHPUnit direcionado: 8 testes e 130 asserções aprovados em SQLite em memória; `git diff --check` sem erros. Sem alteração de assets ou validação visual no navegador.
+
+O controle de limpeza desmarca todos os gestores da página e fica desabilitado quando não há seleção. Os checkboxes compartilham estado Alpine local à lista. O mesmo PHPUnit direcionado passou novamente (8 testes, 130 asserções), assim como `git diff --check`; sem alteração de assets ou ensaio visual no navegador.
+
+A apresentação final usa o texto Limpar Selecionados com aparência de link, alinhado à esquerda imediatamente acima da coluna Nome do gestor, com 4px de distância da tabela. A ação permanece um botão acessível por teclado. `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram após esse ajuste; sem validação visual no navegador.
+
+As três abas de navegação do Gestor do Fundo tiveram a largura reduzida em 60% em telas acima de 600px, alinhadas à esquerda e mantendo o contorno do painel inteiro. Em telas menores, permanece o empilhamento responsivo existente. `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram. Ajuste exclusivo de CSS, sem execução adicional de PHPUnit ou conferência visual no navegador.
+
+Ao lado de Decreto, a barra de ações apresenta a orientação solicitada: “Para a emissão de Decreto de Gestor selecione o(s) gestor(es) que sera(ão) incluído(s) no Decreto”. O texto permite quebra de linha junto ao botão. A emissão continua aguardando o modelo existente. `docker compose run --rm --no-deps node npm run build`, `docker compose exec -T app php vendor/bin/phpunit --filter CatalogNavigationTest --do-not-cache-result` (2 testes, 25 asserções) e `git diff --check` passaram; sem ensaio visual autenticado.
+
+A orientação ao lado de Decreto foi alinhada à borda inferior do botão com `align-items: flex-end`. `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram; ajuste apenas de CSS, sem novo PHPUnit ou ensaio visual no navegador.

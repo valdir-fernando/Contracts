@@ -1,5 +1,9 @@
 # Contracts
 
+Campos de uma linha em toda a suíte seguem a altura de **Novo contrato**, incluindo cadastros, filtros e janelas de edição. [Padrão e validação visual](docs/form-control-heights-2026-10-29.md).
+
+Painéis com abas de navegação seguem o acabamento de **Novo contrato**, com a aba ativa conectada à borda do conteúdo. [Escopo e validação](docs/panel-navigation-2026-10-29.md).
+
 As consultas de contratos ficam em **Relatórios**. A listagem duplicada de Contratos vigentes foi retirada; contratos excluídos continuam disponíveis para restauração na área administrativa. [Escopo e compatibilidade](docs/contract-listing-retirement-2026-10-29.md).
 
 Minuta de **Locação de Veículo sem motorista**, com Word, PDF, anexos e orientações de revisão jurídica: [guia do modelo](docs/guia-modelo-locacao-veiculo.md). O modelo é documental e ainda não está integrado ao botão de emissão.

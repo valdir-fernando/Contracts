@@ -11,6 +11,7 @@
                 <button type="button" class="section-tab" :class="{ active: step === 1 }" :aria-pressed="step === 1" @click="step = 1">2. Vínculo e decreto</button>
                 <button type="button" class="section-tab" :class="{ active: step === 2 }" :aria-pressed="step === 2" @click="step = 2">Expandir Tudo</button>
             </nav>
+            <div class="editor-panels">
             @foreach(['Dados do gestor' => ['CPF_Gestor', 'RG_Gestor', 'Data_Nasc', 'Sexo', 'Nome_Gestor', 'Endereco', 'Fone_Celular', 'WhatsApp', 'Email'], 'Vínculo e decreto' => ['Cargo', 'Cargo_Abreviado', 'Decreto', 'Data_Decreto', 'Matricula', 'Assinatura']] as $group => $keys)
                 <section class="surface contract-section contract-editor-section" x-show="step === {{ $loop->index }} || step === 2">
                     <h2>{{ $group }}</h2><div class="form-grid">
@@ -43,8 +44,12 @@
                     </div>
                 </section>
             @endforeach
+            </div>
             <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
-                <x-registration-decree label="Decreto dos Gestores do Fundo" tooltip-id="manager-decree-tooltip"/>
+                <div class="manager-decree-guidance">
+                    <x-registration-decree label="Decreto dos Gestores do Fundo" tooltip-id="manager-decree-tooltip"/>
+                    <p class="hint">Para a emissão de Decreto de Gestor selecione o(s) gestor(es) que sera(ão) incluído(s) no Decreto</p>
+                </div>
                 <button type="button" class="section-tab" @disabled(!$record) @if($record) @click="$refs.managerDelete.showModal()" @endif><x-nav-icon name="trash"/>Excluir</button>
                 <a class="section-tab" href="{{ route('catalogs.list', 'manager-fund') }}"><x-nav-icon name="plus"/>Novo</a>
                 <button type="submit" class="section-tab"><x-nav-icon name="save"/>Salvar</button>
@@ -59,10 +64,11 @@
                 </form>
             </dialog>
         @endif
-        <section class="surface contract-section inspector-registers"><h2>Gestores cadastrados</h2>
-            <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome do gestor</th><th>Fundo</th><th>Ações</th></tr></thead><tbody>
-                @forelse($records as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->fund_name_key }}</td><td><a class="text-link" href="{{ route('catalogs.list', ['kind' => 'manager-fund', 'edit' => $item->id, 'page' => $records->currentPage()]) }}">Editar<span class="sr-only"> {{ $item->name }}</span></a></td></tr>
-                @empty<tr><td colspan="3" class="empty-state">Nenhum gestor cadastrado.</td></tr>@endforelse
+        <section class="surface contract-section inspector-registers" x-data="{ selectedManagerIds: [] }">
+            <h2>Gestores cadastrados</h2>
+            <div class="table-scroll"><button type="button" class="text-link manager-selection-clear" @click="selectedManagerIds = []" :disabled="selectedManagerIds.length === 0" disabled>Limpar Selecionados</button><table class="data-table"><thead><tr><th>Nome do gestor</th><th>Fundo</th><th>Decreto</th><th>Data_Decreto</th><th>Ações</th></tr></thead><tbody>
+                @forelse($records as $item)<tr><td><label><input type="checkbox" name="manager_ids[]" value="{{ $item->id }}" aria-label="Selecionar gestor {{ $item->name }}" x-model="selectedManagerIds"><span>{{ $item->name }}</span></label></td><td>{{ $item->fund_name_key }}</td><td>{{ $item->decree ?: '—' }}</td><td>{{ $item->decree_date ?: '—' }}</td><td><a class="text-link" href="{{ route('catalogs.list', ['kind' => 'manager-fund', 'edit' => $item->id, 'page' => $records->currentPage()]) }}">Editar<span class="sr-only"> {{ $item->name }}</span></a></td></tr>
+                @empty<tr><td colspan="5" class="empty-state">Nenhum gestor cadastrado.</td></tr>@endforelse
             </tbody></table></div>{{ $records->links() }}
         </section>
     </div>

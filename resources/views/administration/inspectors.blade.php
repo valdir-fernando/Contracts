@@ -9,6 +9,7 @@
             <button type="button" class="section-tab" :class="{ active: step === 1 }" :aria-pressed="step === 1" @click="step = 1">2. Vínculo e decreto</button>
             <button type="button" class="section-tab" :class="{ active: step === 2 }" :aria-pressed="step === 2" @click="step = 2">Expandir Tudo</button>
         </nav>
+        <div class="editor-panels">
         @foreach(['Dados do fiscal' => ['CPF_Fiscal', 'RG_Fiscal', 'Data_Nasc', 'Nome_Fiscal', 'Sexo', 'Celular', 'WhatsApp', 'Situacao', 'Endereco'], 'Vínculo e decreto' => ['Decreto', 'Data_Decreto']] as $group => $keys)
             <section class="surface contract-section contract-editor-section" x-show="step === {{ $loop->index }} || step === 2">
                 <h2>{{ $group }}</h2>
@@ -46,6 +47,7 @@
                 </div>
             </section>
         @endforeach
+        </div>
         <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
             @if(auth()->user()->isAdmin())
             @if($record)

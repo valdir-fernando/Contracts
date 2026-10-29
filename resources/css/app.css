@@ -38,6 +38,8 @@
     --warning: #966312;
     --danger: #b34545;
     --control-height: 44px;
+    --form-single-line-height: calc(13px * 1.6 + 14px);
+    --contract-single-line-height: var(--form-single-line-height);
     --panel-padding: 24px;
     --section-gap: 24px;
     --shadow: 0 1px 2px #203b6504, 0 6px 20px #203b6504;
@@ -343,11 +345,7 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 [data-contract-editor] .contract-section .field > label, [data-contract-editor] .contract-section .field-label-row { margin-bottom: 3px; }
 [data-contract-editor] .contract-section .panel-header { margin-bottom: 8px; }
 [data-contract-editor] .contract-section .section-tabs { margin-top: 8px; }
-:is([data-contract-form], [data-supplier-form], [data-inspector-form], [data-fund-form]) { --contract-single-line-height: calc(13px * 1.6 + 14px); }
-:is([data-contract-form], [data-supplier-form], [data-inspector-form], [data-fund-form]) .field :is(input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not(.date-native-picker), select:not([multiple]), textarea[rows="1"]), [data-contract-form] [data-contract-products] input:not([type=checkbox]):not([type=hidden]) { height: var(--contract-single-line-height); min-height: var(--contract-single-line-height); padding-block: 6px; }
 [data-contract-form] .field > .readonly-field { min-height: var(--contract-single-line-height); padding-block: 6px; }
-:is([data-contract-form], [data-supplier-form], [data-inspector-form], [data-fund-form]) .date-picker-button { width: 30px; height: 30px; padding: 5px; }
-@media (max-width: 600px) { :is([data-contract-form], [data-supplier-form], [data-inspector-form], [data-fund-form]) { --contract-single-line-height: calc(16px * 1.6 + 14px); } }
 .contract-administration-fields select[name="department_id"]:disabled { background-color: var(--canvas); opacity: 1; }
 .contract-section [data-supplier-catalog-field], .contract-section .supplier-catalog-field { background-color: var(--canvas); }
 .required-field-label { color: var(--muted); font-size: 11px; font-weight: 400; }
@@ -982,7 +980,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
     .auth-form-area { padding: 24px 16px; }
     .auth-mobile-brand { margin-bottom: 28px; }
     .password-toggle { width: 44px; height: 44px; top: 2px; right: 2px; }
-    .password-field input { padding-right: 50px !important; min-height: 48px !important; }
+    .password-field input { padding-right: 50px !important; }
 }
 @media (max-width: 360px) {
     .overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1384,7 +1382,7 @@ body.modal-open { overflow: hidden; }
 .date-picker-button { position: absolute; top: 50%; right: 5px; transform: translateY(-50%); display: grid; place-items: center; width: 38px; height: 38px; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: #3478f6; cursor: pointer; }
 .date-picker-button:hover { background: #eff5ff; }
 .date-picker-button svg { width: 20px; height: 20px; }
-.date-input-control > .date-native-picker { position: absolute; bottom: 0; right: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+.date-input-control > .date-native-picker { position: absolute; bottom: 0; right: 0; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
 
 /* Center the brand and login card together at every screen size. */
 .auth-shell { grid-template-columns: minmax(0, 1fr); background: radial-gradient(ellipse at 50% 0%, #e7efff 0%, #f4f7fb 65%); }
@@ -1452,7 +1450,11 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-editor input[name="Nome_Fiscal"] { text-transform: uppercase; }
 .inspector-editor input[name="Nome_Gestor"] { text-transform: uppercase; }
 .manager-email { grid-column: span 2; }
+.manager-selection-clear { display: block; margin: 0 0 4px; padding: 0; text-align: left; }
 .action-toolbar .registration-decree { margin-inline-end: auto; }
+.manager-decree-guidance { display: flex; align-items: flex-end; gap: 10px; flex: 1 1 400px; min-width: 0; }
+.manager-decree-guidance .registration-decree { margin-inline-end: 0; flex-shrink: 0; }
+.manager-decree-guidance .hint { margin: 0; }
 
 /* Shared column headers, including sticky headers in product lists. */
 .workspace :is(.data-table, .table-scroll table) thead th { background: #4b5563; color: #ffffff; border-color: #6b7280; }
@@ -1588,7 +1590,7 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .user-form-section .form-grid { gap: 10px 12px; }
 .user-form-section .field { margin-bottom: 0; }
 .user-form-section .field > label { margin-bottom: 3px; }
-.user-form-section .field :is(input:not([type=hidden]), select) { height: calc(13px * 1.6 + 14px); min-height: calc(13px * 1.6 + 14px); padding-block: 6px; border-radius: 7px; }
+.user-form-section .field :is(input:not([type=hidden]), select:not([multiple])) { height: calc(13px * 1.6 + 14px); min-height: calc(13px * 1.6 + 14px); padding-block: 6px; border-radius: 7px; }
 .user-form-section .field > .hint { display: block; margin-top: 3px; line-height: 1.5; }
 .user-form-section .scope-picker { margin-block: 10px; padding: 8px 12px; gap: 6px 12px; }
 .user-form-section .scope-picker > .hint { margin-block: 3px 6px; }
@@ -1603,7 +1605,7 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 }
 .user-form-section .user-scope-field select[multiple] { height: auto; min-height: 110px; padding: 6px 12px; }
 @media (max-width: 600px) {
-    .user-form-section .field :is(input:not([type=hidden]), select) { height: calc(16px * 1.6 + 14px); min-height: calc(16px * 1.6 + 14px); }
+    .user-form-section .field :is(input:not([type=hidden]), select:not([multiple])) { height: calc(16px * 1.6 + 14px); min-height: calc(16px * 1.6 + 14px); }
 }
 .users-filters.filter-bar { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; padding: 12px 18px; }
 .users-filters > div { grid-column: span 2; }
@@ -1714,8 +1716,8 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     box-shadow: none;
 }
 
-/* Join the selected contract tab to the panel outline. */
-[data-contract-form] > .contract-section-navigation {
+/* All panel navigation shares the contract editor outline and selected tab. */
+:root .contract-section-navigation {
     --contract-panel-outline: #dce4ef;
     position: relative;
     z-index: 2;
@@ -1724,18 +1726,33 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     border-bottom: 1px solid var(--contract-panel-outline);
     align-items: end;
 }
-[data-contract-form] > .contract-panels-scroll {
+.inspector-editor > .contract-section-navigation {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (min-width: 601px) {
+    :is([data-manager-form], [data-inspector-form], [data-contract-steward-form]) > .contract-section-navigation {
+        grid-template-columns: repeat(3, minmax(0, calc((100% - 2 * clamp(3px, .5vw, 8px)) * .4 / 3)));
+    }
+}
+:is(.contract-panels-scroll, .editor-panels) {
     border: 1px solid #dce4ef;
     border-top: 0;
     border-radius: 0 0 9px 9px;
     background: #fff;
 }
-[data-contract-form] > .contract-panels-scroll > .contract-editor-section {
+.editor-panels {
+    display: grid;
+    gap: var(--section-gap);
+}
+.inspector-editor > .editor-panels > .contract-editor-section {
+    margin: 0;
+}
+:is(.contract-panels-scroll, .editor-panels) > .contract-editor-section {
     border: 0;
     border-radius: 0;
     box-shadow: none;
 }
-:root [data-contract-form] > .contract-section-navigation .section-tab.active:not(.expand-all-button) {
+:root .contract-section-navigation .section-tab.active:not(.expand-all-button) {
     position: relative;
     bottom: -1px;
     z-index: 1;
@@ -1751,7 +1768,7 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     box-shadow: none;
     overflow: visible;
 }
-:root [data-contract-form] > .contract-section-navigation .section-tab.active:not(.expand-all-button)::after {
+:root .contract-section-navigation .section-tab.active:not(.expand-all-button)::after {
     content: '';
     position: absolute;
     left: 0;
@@ -1764,3 +1781,30 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 
 .report-panel-navigation .report-pdf-button { background-color: #15803d; border-color: #15803d; color: #fff; }
 .report-panel-navigation .report-pdf-button:is(:hover, :focus-visible) { background-color: #166534; border-color: #166534; color: #fff; }
+
+/* One-line form controls share the contract editor dimensions across the suite. */
+:root :is(.workspace, .auth-shell, .catalog-modal, .budget-panel-content) :is(
+    input:not(:where([type=hidden], [type=checkbox], [type=radio], [type=file], [type=range], [type=color], [type=button], [type=submit], [type=reset], [type=image], .date-native-picker, .contract-number-highlight)),
+    select:not([multiple]):not([size]),
+    textarea[rows="1"]
+) {
+    height: var(--form-single-line-height);
+    min-height: var(--form-single-line-height);
+    padding-block: 6px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+:root :is(.workspace, .auth-shell, .catalog-modal, .budget-panel-content) .readonly-field {
+    min-height: var(--form-single-line-height);
+    padding-block: 6px;
+}
+:root .date-picker-button { width: 30px; height: 30px; padding: 5px; }
+:root .password-field .password-toggle { top: 50%; transform: translateY(-50%); width: 30px; height: 30px; }
+@media (max-width: 600px) {
+    :root { --form-single-line-height: calc(16px * 1.6 + 14px); }
+    :root :is(.workspace, .auth-shell, .catalog-modal, .budget-panel-content) :is(
+        input:not(:where([type=hidden], [type=checkbox], [type=radio], [type=file], [type=range], [type=color], [type=button], [type=submit], [type=reset], [type=image], .date-native-picker, .contract-number-highlight)),
+        select:not([multiple]):not([size]),
+        textarea[rows="1"]
+    ) { font-size: 16px; }
+}

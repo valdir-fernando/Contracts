@@ -77,6 +77,24 @@ class ManagerRegistrationTest extends TestCase
         }
     }
 
+    public function test_listing_projects_decree_and_formats_native_and_legacy_dates_without_personal_data(): void
+    {
+        $this->post('/managers', $this->input())->assertRedirect();
+        $record = DB::table('tb_Gestor')->sole();
+        foreach (['2026-04-01' => '01/04/2026', '15/03/2020' => '15/03/2020', 'data desconhecida' => 'data desconhecida', '' => '—'] as $stored => $display) {
+            $raw = json_decode($record->raw_payload, true);
+            $raw['Data_Decreto'] = $stored;
+            DB::table('tb_Gestor')->where('id', $record->id)->update(['raw_payload' => json_encode($raw)]);
+            $response = $this->get('/catalogs/list/manager-fund')->assertOk()
+                ->assertSee('<th>Decreto</th><th>Data_Decreto</th>', false)
+                ->assertSee('type="checkbox" name="manager_ids[]" value="'.$record->id.'" aria-label="Selecionar gestor GESTORA EXEMPLO"', false)
+                ->assertSee('<td>103/2026</td><td>'.$display.'</td>', false)
+                ->assertDontSee('gestora@example.com')->assertDontSee('52998224725')->assertDontSee('RG privado');
+            $item = $response->viewData('records')->items()[0];
+            $this->assertSame(['id', 'name', 'fund_name_key', 'decree', 'decree_date'], array_keys(get_object_vars($item)));
+        }
+    }
+
     public function test_validation_and_duplicate_cpf(): void
     {
         foreach (['abc52998224725', '52998224724', '11222333000181'] as $invalidCpf) {

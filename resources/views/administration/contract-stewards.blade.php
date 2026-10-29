@@ -11,6 +11,7 @@
             <button type="button" class="section-tab" :class="{ active: step === 1 }" :aria-pressed="step === 1" @click="step = 1">2. Vínculo e decreto</button>
             <button type="button" class="section-tab" :class="{ active: step === 2 }" :aria-pressed="step === 2" @click="step = 2">Expandir Tudo</button>
         </nav>
+        <div class="editor-panels">
         @foreach(['Dados do gestor' => ['CPF_Gestor', 'RG_Gestor', 'Data_Nasc', 'Nome_Gestor', 'Sexo', 'Celular', 'WhatsApp', 'Situacao', 'Endereco'], 'Vínculo e decreto' => ['Decreto', 'Data_Decreto']] as $group => $keys)
             <section class="surface contract-section contract-editor-section" x-show="step === {{ $loop->index }} || step === 2">
                 <h2>{{ $group }}</h2>
@@ -48,6 +49,7 @@
                 </div>
             </section>
         @endforeach
+        </div>
         <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
             <x-registration-decree label="Decreto dos Gestores de Contratos" tooltip-id="steward-decree-tooltip"/>
             <button type="button" class="section-tab" @disabled(!$record) @if($record) @click="$refs.stewardDelete.showModal()" @endif><x-nav-icon name="trash"/>Excluir</button>

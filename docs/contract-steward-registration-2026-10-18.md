@@ -49,3 +49,9 @@ Comandos executados no Docker, salvo os testes JavaScript locais:
 - `php artisan route:list --path=contract-stewards`: quatro rotas de gravação/busca registradas; `/up`: HTTP 200; `git diff --check`: sem erros.
 
 Os testes PHP usam SQLite em memória e armazenamento/cache temporários. Não houve teste no banco instalado, publicação externa ou validação visual em navegador. Concorrência real em MySQL depende de schema descartável explícito.
+
+### Altura dos campos — 29/10/2026
+
+O formulário Gestor de Contratos compartilha as regras de altura de Novo contrato para inputs, seletores, endereço de uma linha e botão de calendário. A altura padrão é 34,8px, com o mesmo ajuste responsivo de 39,6px em telas de até 600px. O endereço mantém a expansão automática existente para conteúdos maiores.
+
+Validação: `docker compose run --rm --no-deps node npm run build` concluído e `git diff --check` sem erros. Alteração somente em CSS; sem nova execução de PHPUnit ou conferência visual autenticada no navegador.
