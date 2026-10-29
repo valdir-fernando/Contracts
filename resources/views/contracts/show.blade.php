@@ -1,6 +1,6 @@
 <x-layouts.app title="Detalhes do contrato">
     <x-slot:contractSummary><x-contract-summary :contract="$contract" :readonly-number="true" :show-edit="true" :heading="session('contract_created') ? 'Novo contrato' : 'Contrato'"/></x-slot:contractSummary>
-    <x-slot:headerClose><a class="secondary-button contract-summary-close" href="{{ route('contracts.index') }}" aria-label="Fechar resumo do contrato" title="Fechar">&times;</a></x-slot:headerClose>
+    <x-slot:headerClose><a class="secondary-button contract-summary-close" href="{{ route('reports.index') }}" aria-label="Fechar resumo do contrato" title="Fechar">&times;</a></x-slot:headerClose>
     <section class="surface detail-summary contract-organizations-summary" aria-label="Resumo do contrato">
         <div><span>Fundo Contratante</span><strong>{{ $contract->fundo_nome_snapshot ?: 'Não informado' }}</strong></div>
         <div><span>Secretaria</span><strong>{{ $contract->secretaria_nome_snapshot ?: 'Não informada' }}</strong></div>

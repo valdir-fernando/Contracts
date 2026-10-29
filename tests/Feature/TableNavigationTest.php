@@ -76,7 +76,7 @@ class TableNavigationTest extends TestCase
     {
         $contract = $this->contract(['exercicio' => today()->year]);
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
-        foreach (['/contracts?year=', '/reports', '/calendar?month=2026-12'] as $url) {
+        foreach (['/reports?report_year=all', '/reports', '/calendar?month=2026-12'] as $url) {
             $this->get($url)->assertOk()->assertSee('data-row-href="'.route('contracts.show', $contract).'"', false);
         }
         $contract->update(['vigencia_fim_atual' => today()->addDays(5)]);
@@ -84,7 +84,7 @@ class TableNavigationTest extends TestCase
             ->assertDontSee('data-row-href=', false)
             ->assertSee('href="'.route('contracts.show', $contract).'"', false)->assertSee($contract->numero);
         $contract->delete();
-        $this->get('/contracts?deleted=1&year=')->assertOk()->assertSee('Restaurar')->assertDontSee('data-row-href="'.route('contracts.show', $contract).'"', false);
+        $this->get('/contracts/deleted')->assertOk()->assertSee('Restaurar')->assertDontSee('data-row-href="'.route('contracts.show', $contract).'"', false);
     }
 
     public function test_administrative_record_details_require_admin_and_project_event_metadata(): void

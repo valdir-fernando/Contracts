@@ -147,6 +147,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::delete('/contracts/{contract}/attachments/{attachment}', [ContractAttachmentController::class, 'destroy'])->name('contracts.attachments.destroy');
     Route::post('/contracts/{contract}/attachments/{attachment}/restore', [ContractAttachmentController::class, 'restore'])->name('contracts.attachments.restore');
     Route::get('/contracts/lookup', [ContractController::class, 'lookup'])->middleware('throttle:60,1')->name('contracts.lookup');
+    Route::get('/contracts/deleted', [ContractController::class, 'deleted'])->name('contracts.deleted');
     Route::get('/contracts/inspector-defaults', [ContractController::class, 'inspectorDefaults'])->middleware('throttle:60,1')->name('contracts.inspector-defaults');
     Route::resource('contracts', ContractController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::post('/contracts/{contract}/restore', [ContractController::class, 'restore'])->withTrashed()->name('contracts.restore');

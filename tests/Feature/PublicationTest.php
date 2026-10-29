@@ -47,19 +47,23 @@ class PublicationTest extends TestCase
 
     private function upload(array $extra = [])
     {
-        return $this->from('/publication?contract='.$this->contract->id)->post('/publication/contracts/'.$this->contract->id,
+        return $this->from('/contracts/'.$this->contract->id)->post('/publication/contracts/'.$this->contract->id,
             array_replace(['category' => 'Contrato_PDF', 'version' => $this->contract->fresh()->version, 'file' => $this->pdf()], $extra));
     }
 
-    public function test_menu_search_and_six_categories_render_without_exposing_private_fields(): void
+    public function test_retired_panel_redirects_without_data_and_navigation_has_no_links_to_it(): void
     {
-        $this->get('/publication')->assertOk()->assertSee('Publicação')->assertSee('PROC-PUBLICACAO');
-        $this->get('/publication?q=inexistente')->assertOk()->assertDontSee('PROC-PUBLICACAO');
-        $page = $this->get('/publication?contract='.$this->contract->id)->assertOk()->assertSee('Enviar PDF')->assertSee('multipart/form-data', false);
-        foreach (array_keys(SignedDocuments::CATEGORIES) as $category) {
-            $page->assertSee('value="'.$category.'"', false);
+        foreach (['/publication', '/publication?q=inexistente', '/publication?contract='.$this->contract->id] as $url) {
+            $this->get($url)->assertRedirect(route('reports.index'))
+                ->assertHeader('Cache-Control', 'no-store, private')->assertDontSee('PROC-PUBLICACAO');
         }
-        $page->assertHeader('Cache-Control', 'no-store, private');
+        foreach (['/dashboard', '/reports', '/contracts/'.$this->contract->id] as $url) {
+            $page = $this->get($url)->assertOk()->assertDontSee('data-nav-label="Publicação"', false);
+            $html = new \DOMDocument;
+            @$html->loadHTML($page->getContent());
+            $xpath = new \DOMXPath($html);
+            $this->assertSame(0, $xpath->query('//a[@href="'.route('publication.index').'" or starts-with(@href, "'.route('publication.index').'?" )]')->length);
+        }
     }
 
     public function test_all_six_uploads_link_private_unchanged_pdfs_and_audit_version_changes(): void
@@ -68,7 +72,7 @@ class PublicationTest extends TestCase
             $file = $this->pdf();
             $hash = hash_file('sha256', $file->getRealPath());
             $version = $this->contract->fresh()->version;
-            $this->upload(['category' => $category, 'file' => $file])->assertRedirect('/publication?contract='.$this->contract->id)->assertSessionHasNoErrors();
+            $this->upload(['category' => $category, 'file' => $file])->assertRedirect('/contracts/'.$this->contract->id)->assertSessionHasNoErrors();
             $contract = $this->contract->fresh();
             $document = ContractAttachment::findOrFail($contract->getAttribute($category));
             $this->assertSame($category, $document->signed_category);
@@ -94,7 +98,7 @@ class PublicationTest extends TestCase
         $this->assertDatabaseCount('contract_attachments', 2);
         $this->assertCount(2, Storage::disk('contract_documents')->allFiles());
         $this->assertNotSame($original->id, $this->contract->fresh()->Contrato_PDF);
-        $this->get('/publication?contract='.$this->contract->id)->assertSee('Histórico')->assertSee('Atual');
+        $this->get('/publication/contracts/'.$this->contract->id.'/documents/'.$this->contract->fresh()->Contrato_PDF)->assertOk();
         $this->get('/publication/contracts/'.$this->contract->id.'/documents/'.$original->id)->assertOk()
             ->assertHeader('Content-Type', 'application/pdf')->assertHeader('Cache-Control', 'no-store, private');
     }
@@ -108,7 +112,7 @@ class PublicationTest extends TestCase
         $this->upload(['file' => [$this->pdf()]])->assertSessionHasErrors('file');
         $this->upload(['category' => 'updated_by'])->assertSessionHasErrors('category');
         $this->contract->update(['version' => 2]);
-        $this->upload(['version' => 1])->assertRedirect('/publication?contract='.$this->contract->id)->assertSessionHasErrors('file');
+        $this->upload(['version' => 1])->assertRedirect('/contracts/'.$this->contract->id)->assertSessionHasErrors('file');
         $this->assertDatabaseCount('contract_attachments', 0);
         $this->assertDatabaseCount('contract_audits', 0);
         $this->assertSame([], Storage::disk('contract_documents')->allFiles());
@@ -119,13 +123,13 @@ class PublicationTest extends TestCase
     {
         $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Fundo restrito', 'name_key' => 'FUNDO RESTRITO', 'raw_payload' => '{}']);
         $other = Contract::create(['numero' => 'SIGILOSO', 'fund_id' => $otherFund, 'ownership_resolved' => true, 'quality_issues' => []]);
-        $this->get('/publication')->assertDontSee('SIGILOSO');
-        $this->get('/publication?contract='.$other->id)->assertNotFound();
+        $this->get('/publication')->assertRedirect(route('reports.index'))->assertDontSee('SIGILOSO');
+        $this->get('/publication?contract='.$other->id)->assertRedirect(route('reports.index'))->assertDontSee('SIGILOSO');
         $this->post('/publication/contracts/'.$other->id, ['category' => 'Contrato_PDF', 'version' => 1, 'file' => $this->pdf()])->assertForbidden();
         $scope = $this->actor->scopes()->firstOrFail();
         $department = DB::table('contract_departments')->insertGetId(['name' => 'Secretaria autorizada', 'name_key' => 'SECRETARIA AUTORIZADA', 'raw_payload' => '{}']);
         $scope->update(['department' => 'Secretaria autorizada', 'department_id' => $department]);
-        $this->get('/publication?contract='.$this->contract->id)->assertNotFound();
+        $this->get('/publication?contract='.$this->contract->id)->assertRedirect(route('reports.index'))->assertDontSee('PROC-PUBLICACAO');
         $this->upload()->assertForbidden();
         $this->assertSame([], Storage::disk('contract_documents')->allFiles());
     }
@@ -136,7 +140,7 @@ class PublicationTest extends TestCase
         $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro Fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
         $other = Contract::create(['numero' => 'OUTRO-FUNDO', 'fund_id' => $otherFund, 'quality_issues' => []]);
         $this->actingAs($this->actor->fresh());
-        $this->get('/publication')->assertDontSee('OUTRO-FUNDO');
+        $this->get('/publication')->assertRedirect(route('reports.index'))->assertDontSee('OUTRO-FUNDO');
         $this->post('/publication/contracts/'.$other->id, ['category' => 'Contrato_PDF', 'version' => 1, 'file' => $this->pdf()])->assertForbidden();
     }
 

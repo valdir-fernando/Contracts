@@ -70,10 +70,10 @@ class OverviewYearTest extends TestCase
             ->assertViewHas('metrics', fn ($metrics) => $metrics['summary']['total'] === '100.0000'
                 && $metrics['summary']['count'] === 1 && array_sum(array_column($metrics['months'], 'count')) === 1)
             ->assertViewHas('recent', fn ($rows) => $rows->total() === 1 && $rows->first()->numero === 'PREVIOUS-A')
-            ->assertSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'validity' => 'vigente']))
-            ->assertSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'validity' => 'vencido']))
-            ->assertDontSee(route('contracts.index', ['year' => 2025, 'fund' => $this->fund, 'validity' => 'indeterminado']));
-        $this->get('/contracts?year=2025')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 1);
+            ->assertDontSee('href="'.route('contracts.index').'"', false)
+            ->assertSee('data-kpi="expired"', false)
+            ->assertSee('data-kpi="current"', false);
+        $this->get('/reports?year=2025')->assertOk()->assertViewHas('contracts', fn ($rows) => $rows->total() === 1);
         $component->set('search', 'CURRENT')->assertViewHas('recent', fn ($rows) => $rows->total() === 0)
             ->assertViewHas('count', 1);
     }

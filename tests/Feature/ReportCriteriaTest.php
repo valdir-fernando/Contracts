@@ -38,9 +38,9 @@ class ReportCriteriaTest extends TestCase
 
         $this->get('/reports?report_year=&report_current=1')->assertOk()
             ->assertViewHas('reportContracts', fn ($rows) => $rows->pluck('id')->sort()->values()->all() === collect([$review->id, $futureStart->id])->sort()->values()->all());
-        $this->get('/contracts?year=&validity=vigente')->assertOk()
+        $this->get('/reports?year=&validity=vigente')->assertOk()
             ->assertViewHas('contracts', fn ($rows) => $rows->total() === 2);
-        $this->get('/contracts?year=&date_field=end&from=2026-10-31&to=2026-10-31&min_value=0&max_value=11')->assertOk()
+        $this->get('/reports?year=&date_field=end&from=2026-10-31&to=2026-10-31&min_value=0&max_value=11')->assertOk()
             ->assertViewHas('contracts', fn ($rows) => $rows->total() === 2);
         $this->get('/reports?report_end_from=2026-10-31&report_end_to=2026-10-31')->assertOk()
             ->assertViewHas('reportContracts', fn ($rows) => $rows->total() === 2);

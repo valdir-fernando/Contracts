@@ -1,5 +1,7 @@
 # Filtro Tipo na consulta de contratos
 
+Registro histórico: a listagem descrita abaixo foi retirada. A consulta atual fica em [Relatórios](contract-listing-retirement-2026-10-29.md).
+
 O campo Tipo aparece nos filtros principais da lista, inclusive em Contratos vigentes, ao lado dos demais critérios. A opção Todos remove apenas a restrição de tipo; os filtros de fundo, exercício e vigência continuam combinados. O seletor foi movido da pesquisa avançada, mantendo um único parâmetro `type` no formulário.
 
 A consulta existente continua validando o parâmetro e limitando resultados e opções aos contratos autorizados. Não há alteração de banco nem de contratos HTTP.

@@ -1,5 +1,7 @@
 # Contracts
 
+As consultas de contratos ficam em **Relatórios**. A listagem duplicada de Contratos vigentes foi retirada; contratos excluídos continuam disponíveis para restauração na área administrativa. [Escopo e compatibilidade](docs/contract-listing-retirement-2026-10-29.md).
+
 [Entrega de 28/10/2026: conciliação, relatórios, índice de reajuste e validação](docs/delivery-2026-10-28.md).
 
 Na aba **Dados do Objeto**, **Indice Reajuste** fica ao lado de **Escopo**, com seleção obrigatória e inicialmente vazia. [Opções, persistência e validação](docs/contract-adjustment-index.md).
@@ -36,7 +38,7 @@ O **Painel de Ficha** exibe apenas fichas do contrato original, filtradas por Fu
 
 O botão **Contrato** também emite o PDF de **Locação de Imóvel**, usando o modelo Word fornecido, os itens salvos e os valores mensal/global. [Preenchimento, segurança e validação](docs/property-lease-contract.md).
 
-O menu **Publicação** permite enviar e consultar PDFs assinados por contrato, com seis categorias e histórico privado. [Como usar, instalação e segurança](docs/publication-module-2026-10-20.md).
+O painel **Publicação** foi retirado da interface. Os PDFs assinados e seu histórico privado foram preservados. [Escopo e compatibilidade](docs/publication-panel-retirement-2026-10-29.md).
 
 A tabela atual `contracts` possui seis campos para referências privadas aos documentos assinados. [Estrutura, instalação e escopo](docs/signed-document-fields-2026-10-20.md).
 
@@ -86,7 +88,7 @@ A administração dos documentos inicia em **2025/2028** e pode ser alterada por
 
 Em **Minha conta**, o usuário pode escolher, visualizar, salvar ou remover sua **foto de perfil**, exibida nos círculos do cabeçalho e do menu lateral. [Instalação, privacidade e validação](docs/profile-photo-2026-10-17.md).
 
-O **Acervo Contratual** abre com o exercício do ano atual selecionado e a lista filtrada. É possível escolher exercícios anteriores ou **Todos**. [Comportamento e validação](docs/contract-archive-2026-10-17.md).
+A consulta em **Relatórios** permite escolher o exercício atual, anos anteriores ou **Todos os anos**. O antigo Acervo Contratual foi substituído por esse painel. [Comportamento atual](docs/contract-listing-retirement-2026-10-29.md).
 
 No Início, **Valor dos contratos do Fundo** usa o valor acumulado e, quando ausente, o valor inicial de cada contrato, respeitando Fundo e exercício selecionados. [Regra e validação](docs/overview-contract-value-2026-10-17.md).
 

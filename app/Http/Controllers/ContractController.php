@@ -14,7 +14,6 @@ use App\Models\ContractHistoryRecord;
 use App\Models\ContractServiceOrder;
 use App\Models\ContractTypeRule;
 use App\Services\ContractLifecycle;
-use App\Services\ContractSearch;
 use App\Services\ContractWriter;
 use App\Services\Legacy\Normalizer;
 use App\Services\SupplierCatalog;
@@ -22,7 +21,6 @@ use App\Support\ContractFields;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ContractController extends Controller
@@ -30,24 +28,23 @@ class ContractController extends Controller
     public function index(Request $request, ContractListingQuery $listing)
     {
         Gate::authorize('viewAny', Contract::class);
-        $currentYear = now()->year;
-        if (! $request->query->has('year')) {
-            $request->query->set('year', (string) $currentYear);
+        if (! $request->boolean('deleted')) {
+            return redirect()->route('reports.index');
         }
+
+        return $this->deleted($request, $listing);
+    }
+
+    public function deleted(Request $request, ContractListingQuery $listing)
+    {
+        Gate::authorize('viewAny', Contract::class);
+        abort_unless($request->user()->isAdmin(), 403);
         $filters = $request->validate([
-            'q' => 'nullable|string|max:255', 'fund' => 'nullable|integer|min:1',
-            'department' => 'nullable|integer|min:1', 'year' => 'nullable|integer|min:1|max:9999',
-            'validity' => ['nullable', Rule::in(array_keys(Contract::VALIDITY))],
+            'q' => 'nullable|string|max:255',
             'page' => 'nullable|integer|min:1',
-            'deleted' => 'nullable|boolean',
-            'sort' => ['nullable', Rule::in(['exercicio', 'numero', 'valor_total', 'data_contrato'])],
-            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
-        ] + ContractSearch::rules($request->all()));
+        ]);
 
-        $data = $listing->for($request->user(), $filters);
-        $data['years'] = $data['years']->push($currentYear)->unique()->sortDesc()->values();
-
-        return view('contracts.index', $data);
+        return view('contracts.deleted', $listing->for($request->user(), $filters));
     }
 
     public function show(Contract $contract)
@@ -239,7 +236,7 @@ class ContractController extends Controller
     {
         $lifecycle->change($request->user(), $contract, $request->all());
 
-        return redirect()->route('contracts.index')->with('status', 'Contrato excluído. Histórico preservado.');
+        return redirect()->route('reports.index')->with('status', 'Contrato excluído. Histórico preservado.');
     }
 
     public function restore(Request $request, Contract $contract, ContractLifecycle $lifecycle)

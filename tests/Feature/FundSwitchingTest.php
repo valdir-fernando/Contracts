@@ -72,9 +72,9 @@ class FundSwitchingTest extends TestCase
             ->assertViewHas('metrics', fn ($metrics) => $metrics['summary']['total'] === '12.4457' && $metrics['summary']['count'] === 2
                 && array_sum(array_column($metrics['validities'], 'count')) === 2 && array_sum(array_column($metrics['months'], 'count')) === 2)
             ->assertViewHas('recent', fn ($rows) => $rows->total() === 2 && $rows->every(fn ($row) => $row->fund_id === $this->fundA))
-            ->assertDontSee(route('contracts.index', ['year' => 2026, 'fund' => $this->fundA, 'validity' => 'indeterminado']))
+            ->assertSee('data-kpi="current"', false)
             ->assertDontSee('B-CURRENT')->assertDontSee('B-EXPIRED');
-        $this->get('/contracts?year=2026&fund='.$this->fundA.'&review=1')->assertOk()
+        $this->get('/reports?year=2026&fund='.$this->fundA.'&review=1')->assertOk()
             ->assertViewHas('contracts', fn ($rows) => $rows->total() === 2 && $rows->contains('numero', 'A-REVIEW'));
     }
 

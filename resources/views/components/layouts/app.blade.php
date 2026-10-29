@@ -22,13 +22,11 @@
                 <div class="nav-section-label nav-administration-title">Menu de navegação</div>
                 @foreach([
                     ['dashboard', ['dashboard', 'atas.dashboard'], 'Início', 'dashboard'],
-                    ['contracts.index', 'contracts.*', 'Contratos', 'contracts'],
-                    ['publication.index', 'publication.*', 'Publicação', 'document-extract'],
+                    ['catalogs.index', 'catalogs.*', 'Cadastros', 'catalogs'],
                     ['reports.index', 'reports.*', 'Relatórios', 'reports'],
                     ['calendar.index', 'calendar.*', 'Calendário e alertas', 'calendar'],
                 ] as [$route, $pattern, $label, $icon])
-                    @if($route === 'contracts.index')
-                        <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
+                    @if($label === 'Cadastros')
                         <details class="nav-catalogs" @if(request()->routeIs('catalogs.list', 'catalogs.inspectors', 'catalogs.contract-stewards', 'catalogs.managers', 'catalogs.budgets.*', 'suppliers.*', 'funds.*', 'users.*')) open @endif>
                             <summary class="nav-link" aria-label="Cadastros" data-nav-label="Cadastros"><x-nav-icon name="catalogs"/><span>Cadastros</span></summary>
                             <div class="nav-submenu">
@@ -62,6 +60,7 @@
                         ['catalogs.index', ['catalogs.index', 'catalogs.show'], 'Órgãos e permissões', 'catalogs'],
                         ['contract-types.index', 'contract-types.*', 'Requisitos por tipo', 'settings'],
                         ['administration.index', 'administration.*', 'Auditoria e conciliação', 'audit'],
+                        ['contracts.deleted', 'contracts.deleted', 'Contratos excluídos', 'contracts'],
                     ] as [$route, $pattern, $label, $icon])
                         <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
                     @endforeach

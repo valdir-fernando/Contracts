@@ -68,7 +68,7 @@ class SelectedFundTest extends TestCase
     public function test_authenticated_pages_do_not_display_the_fund_switcher(): void
     {
         $this->actingAs($this->admin)->withSession(['fund_id' => $this->fund]);
-        foreach (['/dashboard', '/suppliers', '/contracts', '/contracts/create', '/account'] as $url) {
+        foreach (['/dashboard', '/suppliers', '/reports', '/contracts/create', '/account'] as $url) {
             $this->get($url)->assertOk()
                 ->assertDontSee('id="session-fund"', false)
                 ->assertDontSee('data-fund-switch', false)

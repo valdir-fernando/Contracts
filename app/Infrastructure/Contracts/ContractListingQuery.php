@@ -5,40 +5,20 @@ namespace App\Infrastructure\Contracts;
 use App\Models\Contract;
 use App\Models\User;
 use App\Services\ContractSearch;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
-/** Eloquent read adapter; keeps catalog choices limited to the authorized scope. */
+/** Administrative read adapter for restoring soft-deleted contracts. */
 class ContractListingQuery
 {
     public function for(User $actor, array $filters): array
     {
         Gate::forUser($actor)->authorize('viewAny', Contract::class);
-        $visible = Contract::visibleTo($actor);
-        if (! empty($filters['deleted'])) {
-            abort_unless($actor->isAdmin(), 403);
-            $visible->onlyTrashed();
-        }
-        // Filter choices come only from accessible contracts, never from all catalogs.
-        $funds = DB::table('contract_funds')->whereNull('deleted_at')->whereIn('id', (clone $visible)->select('fund_id'))->orderBy('name')->get(['id', 'name']);
-        $departments = DB::table('contract_departments')->whereIn('id', (clone $visible)->select('department_id'))->orderBy('name')->get(['id', 'name']);
-        $years = (clone $visible)->whereNotNull('exercicio')->distinct()->orderByDesc('exercicio')->pluck('exercicio');
-        $types = (clone $visible)->whereNotNull('tipo')->distinct()->orderBy('tipo')->pluck('tipo');
-        $modalities = (clone $visible)->whereNotNull('modalidade')->distinct()->orderBy('modalidade')->pluck('modalidade');
-        $contracts = clone $visible;
-        ContractSearch::apply($contracts, $filters);
-        ContractSearch::applyIdentityFilters($contracts, $filters);
-        if ($filters['validity'] ?? null) {
-            $contracts->withReportValidity($filters['validity']);
-        }
+        abort_unless($actor->isAdmin(), 403);
+        $contracts = Contract::visibleTo($actor)->onlyTrashed();
+        ContractSearch::applyIdentityFilters($contracts, ['q' => $filters['q'] ?? '']);
 
-        return [
-            'contracts' => $contracts->select(['deleted_at', 'version', 'administrative_status', 'tipo', 'id', 'Contrato', 'processo', 'fornecedor_nome_snapshot', 'fornecedor_documento_snapshot',
-                'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'valor_total', 'valor_acumulado', 'vigencia_inicio', 'vigencia_fim_original',
-                'vigencia_fim_atual', 'vigencia_em_revisao', 'ownership_resolved'])->orderBy(match ($filters['sort'] ?? 'exercicio') {
-                    'numero' => 'Contrato', 'valor_total' => 'valor_acumulado', default => $filters['sort'] ?? 'exercicio'
-                }, $filters['direction'] ?? 'desc')->orderByDesc('id')->paginate(20)->withQueryString(),
-            'funds' => $funds, 'departments' => $departments, 'years' => $years, 'types' => $types, 'modalities' => $modalities,
-        ];
+        return ['contracts' => $contracts->select(['id', 'Contrato', 'processo', 'fornecedor_nome_snapshot',
+            'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'version', 'deleted_at'])
+            ->orderByDesc('deleted_at')->orderByDesc('id')->paginate(20)->withQueryString()];
     }
 }

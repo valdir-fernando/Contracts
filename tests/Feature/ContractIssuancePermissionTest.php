@@ -58,7 +58,8 @@ class ContractIssuancePermissionTest extends TestCase
         $contract = Contract::create(['numero' => '001/26', 'tipo' => 'Fornecimento', 'fund_id' => $fund, 'ownership_resolved' => true, 'quality_issues' => []]);
         $contract->refresh();
         $this->actingAs($user)->withSession(['auth_version' => 0, 'fund_id' => $fund]);
-        $this->get('/contracts')->assertOk();
+        $this->get('/contracts')->assertRedirect(route('reports.index'));
+        $this->get('/reports')->assertOk();
         $this->get('/contracts/'.$contract->id)->assertOk()->assertDontSee('Exportar resumo PDF');
         $this->get('/contracts/create')->assertForbidden();
         $this->post('/contracts', [])->assertForbidden();

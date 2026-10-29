@@ -51,10 +51,10 @@ class ContractCompletionTest extends TestCase
         $url = '/contracts/'.$this->contract->id;
         $this->actingAs($this->regular)->delete($url, $this->confirmation())->assertForbidden();
         $this->actingAs($this->admin)->delete($url, ['confirmation' => 'wrong'])->assertSessionHasErrors(['confirmation', 'reason', 'version']);
-        $this->delete($url, $this->confirmation() + [])->assertRedirect('/contracts');
+        $this->delete($url, $this->confirmation() + [])->assertRedirect('/reports');
         $this->assertSoftDeleted($this->contract);
         $this->get($url)->assertNotFound();
-        $this->get('/contracts?deleted=1&year=')->assertOk()->assertSee('Restaurar');
+        $this->get('/contracts/deleted')->assertOk()->assertSee('Restaurar');
         $this->post($url.'/restore', ['version' => 1, 'confirmation' => '001/26', 'reason' => 'Restaurar registro'])->assertStatus(409);
         $this->post($url.'/restore', $this->confirmation())->assertRedirect($url);
         $this->assertNotSoftDeleted($this->contract);
@@ -116,7 +116,7 @@ class ContractCompletionTest extends TestCase
         $this->assertDatabaseCount('activity_events', 3);
         $this->get('/contracts/'.$this->contract->id.'/pdf')->assertOk();
         $this->get('/administration')->assertForbidden();
-        $this->get('/contracts?deleted=1')->assertForbidden();
+        $this->get('/contracts/deleted')->assertForbidden();
     }
 
     public function test_account_requires_current_password_rejects_privilege_fields_and_invalidates_other_sessions(): void

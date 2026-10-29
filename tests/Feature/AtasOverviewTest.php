@@ -53,7 +53,7 @@ class AtasOverviewTest extends TestCase
     public function test_module_buttons_and_separator_are_absent_outside_dashboards(): void
     {
         $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund]);
-        foreach (['/contracts?year=', '/calendar', '/reports', '/account'] as $url) {
+        foreach (['/reports?report_year=all', '/calendar', '/reports', '/account'] as $url) {
             $this->get($url)->assertOk()->assertDontSee('class="header-modules"', false)
                 ->assertDontSee('class="header-module-button"', false)
                 ->assertSee('class="selected-fund-name">Fundo autorizado', false);

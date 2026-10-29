@@ -1,5 +1,7 @@
 # Exercício padrão no Acervo Contratual
 
+Registro histórico: o Acervo foi retirado em 29/10/2026. A consulta atual fica em [Relatórios](contract-listing-retirement-2026-10-29.md).
+
 Ao abrir `/contracts` sem o parâmetro `year`, a listagem usa o ano atual do relógio da aplicação. O campo Exercício mostra esse mesmo ano, e o filtro é aplicado no servidor antes da paginação. O ano atual permanece entre as opções mesmo quando ainda não há contratos nele; os demais exercícios continuam limitados aos contratos visíveis ao usuário.
 
 Um ano explícito, como `?year=2025`, é respeitado. A opção **Todos** envia `year=` e remove o filtro de exercício, incluindo contratos sem exercício. Limpar filtros volta ao padrão do ano atual. Paginação e abertura dos mesmos filtros nos relatórios preservam o ano efetivo. A tela independente de relatórios mantém seus padrões anteriores. Escopos, permissões e regras de contratos excluídos continuam aplicados.

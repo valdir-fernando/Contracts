@@ -1,5 +1,7 @@
 # Menu Publicação
 
+Registro histórico: o painel e seu item de menu foram retirados em 29/10/2026. PDFs e histórico permanecem preservados. Consulte o [comportamento atual e a compatibilidade](publication-panel-retirement-2026-10-29.md).
+
 O menu **Publicação** abre `/publication` para enviar e consultar PDFs assinados. A lista mostra contratos ativos do Fundo selecionado no login, de todos os exercícios, limitada aos escopos atuais de Fundo/Secretaria. A busca aceita número do contrato ou processo, com paginação. Selecione um contrato para abrir o formulário e seus documentos.
 
 Categorias: Contrato, Aditivo, Ordem de Serviço, Concordância, Distrato e Ata. Cada envio aceita somente PDF de até 10 MB, com extensão e MIME verificados no servidor. Os bytes recebidos são preservados, sem reprocessar o PDF ou validar criptograficamente sua assinatura. O envio armazena o arquivo no disco privado `contract_documents` e grava metadados/referência no banco, nos seis campos já existentes de `contracts`. O nome Publicação não torna arquivos públicos nem envia documentos a serviços externos.
