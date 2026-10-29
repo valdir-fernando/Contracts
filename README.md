@@ -2,6 +2,8 @@
 
 As consultas de contratos ficam em **Relatórios**. A listagem duplicada de Contratos vigentes foi retirada; contratos excluídos continuam disponíveis para restauração na área administrativa. [Escopo e compatibilidade](docs/contract-listing-retirement-2026-10-29.md).
 
+Minuta de **Locação de Veículo sem motorista**, com Word, PDF, anexos e orientações de revisão jurídica: [guia do modelo](docs/guia-modelo-locacao-veiculo.md). O modelo é documental e ainda não está integrado ao botão de emissão.
+
 [Entrega de 28/10/2026: conciliação, relatórios, índice de reajuste e validação](docs/delivery-2026-10-28.md).
 
 Na aba **Dados do Objeto**, **Indice Reajuste** fica ao lado de **Escopo**, com seleção obrigatória e inicialmente vazia. [Opções, persistência e validação](docs/contract-adjustment-index.md).
