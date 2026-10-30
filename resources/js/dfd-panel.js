@@ -1,10 +1,16 @@
+import { initializeDfdProductFilter } from './dfd-product-filter.js';
+
 export function initializeDfdPanel(editor, fetcher = fetch, navigate = (url) => location.assign(url)) {
+    initializeDfdProductFilter(editor);
     const dialog = editor.querySelector('[data-dfd-search-dialog]');
     const form = dialog.querySelector('[data-dfd-search-form]');
     const status = dialog.querySelector('[data-dfd-search-status]');
     const results = dialog.querySelector('[data-dfd-search-results]');
     const opener = editor.querySelector('[data-dfd-search-open]');
     const number = editor.querySelector('[data-dfd-number-query]');
+    const newButton = editor.querySelector('[data-dfd-new-open]');
+    const newDialog = editor.querySelector('[data-dfd-new-dialog]');
+    const productSearch = editor.querySelector('.dfd-product-search');
     let request;
     let restoringFocus = false;
     const search = async () => {
@@ -78,6 +84,35 @@ export function initializeDfdPanel(editor, fetcher = fetch, navigate = (url) => 
         };
         budget.addEventListener('change', update);
         update();
+    }
+
+    if (newButton && newDialog) {
+        const cancelButtons = newDialog.querySelectorAll('[data-dfd-new-cancel]');
+        newButton.addEventListener('click', () => newDialog.showModal());
+        cancelButtons.forEach((button) => button.addEventListener('click', () => newDialog.close()));
+        newDialog.querySelector('[data-dfd-new-same]').addEventListener('click', () => navigate(newDialog.dataset.sameClassUrl));
+        newDialog.querySelector('[data-dfd-new-change]').addEventListener('click', () => {
+            newDialog.close();
+            editor.ownerDocument.querySelector('[data-dfd-class-open]')?.click();
+        });
+        newDialog.addEventListener('close', () => newButton.focus());
+    }
+
+    if (productSearch) {
+        const query = productSearch.querySelector('input[name="q"]');
+        let searchTimer;
+        query.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => productSearch.requestSubmit(), 350);
+        });
+        query.addEventListener('blur', () => {
+            clearTimeout(searchTimer);
+            productSearch.requestSubmit();
+        });
+        query.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') clearTimeout(searchTimer);
+        });
+        productSearch.addEventListener('submit', () => clearTimeout(searchTimer));
     }
 }
 

@@ -121,16 +121,56 @@ class DfdPanelTest extends TestCase
     public function test_products_tab_selects_catalog_items_and_persists_quantity_and_characteristics(): void
     {
         $record = $this->createDfd();
-        $this->get('/dfd-compra/'.$record->ID.'?tab=products')->assertOk()->assertSee('Papel A4')->assertSee('Nenhum produto incluído');
-        $response = $this->get('/dfd-compra/'.$record->ID.'?tab=products&catalog_product='.$this->product)->assertOk()->assertSee('name="quantity"', false);
+        $this->get('/dfd-compra/'.$record->ID.'?tab=products')->assertOk()->assertSee('dfd-products-dialog', false)->assertDontSee('dfd-catalog-query', false);
+        $response = $this->get('/dfd-compra/'.$record->ID.'?tab=products&catalog_product='.$this->product)->assertOk()->assertSee('Produtos da DFD')->assertSee('name="quantity"', false);
         $this->preview('products', $response->getContent());
         $this->post('/dfd-compra/'.$record->ID.'/products', ['version' => 1, 'product_id' => $this->product, 'quantity' => '2.5000', 'characteristics' => 'Pacote com 500 folhas'])->assertRedirect();
         $line = DB::table('tb_Produtos_DFD')->sole();
-        $this->get('/dfd-compra/'.$record->ID.'?tab=products&item='.$line->ID)->assertOk()->assertSee('Pacote com 500 folhas')->assertSee('value="2.5000"', false);
+        $this->get('/dfd-compra/'.$record->ID.'?tab=products&item='.$line->ID)->assertOk()->assertSee('Pacote com 500 folhas')->assertSee('name="quantity"', false);
         $this->put('/dfd-compra/'.$record->ID.'/products/'.$line->ID, ['version' => 2, 'product_id' => $this->product, 'quantity' => '3.0000'])->assertRedirect();
         $this->assertDatabaseHas('tb_Produtos_DFD', ['ID' => $line->ID, 'QTD' => '3.0000']);
         $this->delete('/dfd-compra/'.$record->ID.'/products/'.$line->ID, ['version' => 3, 'confirmation' => 1])->assertRedirect();
         $this->assertNotNull(DB::table('tb_Produtos_DFD')->value('deleted_at'));
+    }
+
+    public function test_launch_saves_localized_quantity_and_complement_and_rejects_stale_version(): void
+    {
+        $record = $this->createDfd();
+        $payload = ['version' => 1, 'product_id' => $this->product, 'quantity' => '1.654,000', 'characteristics' => 'Pacote especial'];
+        $this->postJson('/dfd-compra/'.$record->ID.'/products', $payload)->assertRedirect();
+        $this->assertDatabaseHas('tb_Produtos_DFD', ['ID_DFD' => $record->ID, 'ID_PROD' => $this->product,
+            'QTD' => '1654.0000', 'CARACT' => 'Pacote especial', 'PRODUTO' => "Papel A4\nPacote especial"]);
+        $this->assertDatabaseHas('activity_events', ['actor_id' => $this->actor->id, 'action' => 'dfd_product_created']);
+        $this->postJson('/dfd-compra/'.$record->ID.'/products', $payload)->assertConflict();
+        $this->assertDatabaseCount('tb_Produtos_DFD', 1);
+        $this->get('/dfd-compra/'.$record->ID.'?tab=products')->assertOk()->assertSee('Pacote especial');
+        $this->postJson('/dfd-compra/'.$record->ID.'/products', array_replace($payload, ['version' => 2, 'quantity' => '0,000']))->assertUnprocessable();
+        $this->assertDatabaseCount('tb_Produtos_DFD', 1);
+    }
+
+    public function test_legacy_underscore_url_renders_linked_products(): void
+    {
+        $record = $this->createDfd();
+        DB::table('tb_Produtos_DFD')->insert(['ID_DFD' => $record->ID, 'N_DFD' => $record->N_DFD, 'ITEM' => 1,
+            'ID_PROD' => $this->product, 'COD_PROD' => '10', 'PROD_SIMPLES' => 'Papel A4', 'UND' => 'UN', 'QTD' => '2.0000']);
+
+        $this->get('/dfd_compra/'.$record->ID.'?tab=products')->assertOk()
+            ->assertSee('Produtos da DFD')->assertDontSee('Produtos do catálogo')->assertDontSee('Itens incluídos')
+            ->assertSee('Itens vinculados à DFD')->assertSee('2,0000')->assertSee('Papel A4');
+    }
+
+    public function test_catalog_contains_the_whole_class_for_filtering_and_excludes_other_classes_and_inactive_products(): void
+    {
+        $record = $this->createDfd();
+        DB::table('tb_Produtos_Prodata')->insert([
+            ['ID_Prodata' => 11, 'Classe' => 'Material', 'Descricao' => 'Papel A4 reciclado', 'UND' => 'UN', 'Inativo' => 0],
+            ['ID_Prodata' => 12, 'Classe' => 'Material', 'Descricao' => 'Caneta azul', 'UND' => 'UN', 'Inativo' => 0],
+            ['ID_Prodata' => 14, 'Classe' => 'Material', 'Descricao' => 'Papel A4 inativo', 'UND' => 'UN', 'Inativo' => 1],
+            ['ID_Prodata' => 13, 'Classe' => 'Outra classe', 'Descricao' => 'Papel A4 de outra classe', 'UND' => 'UN', 'Inativo' => 0],
+        ]);
+
+        $this->get('/dfd-compra/'.$record->ID.'?'.http_build_query(['tab' => 'products', 'q' => 'Papel A4']))
+            ->assertOk()->assertSee('dfd-products-dialog', false)->assertSee('Papel A4 reciclado')->assertSee('Caneta azul')->assertDontSee('Papel A4 de outra classe')->assertDontSee('Papel A4 inativo');
     }
 
     public function test_other_funds_records_products_and_budgets_are_inaccessible(): void

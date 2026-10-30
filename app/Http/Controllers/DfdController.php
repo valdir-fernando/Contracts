@@ -60,9 +60,7 @@ class DfdController extends Controller
         $item = isset($data['item']) ? $items->firstWhere('ID', (int) $data['item']) : null;
         abort_if(isset($data['item']) && ! $item, 404);
         $catalog = $record ? DB::table('tb_Produtos_Prodata')->where('Classe', $category)->where('Inativo', 0)
-            ->when(filled($data['q'] ?? null), fn ($query) => $query->where(function ($query) use ($data) {
-                $query->where('Descricao', 'like', '%'.$data['q'].'%')->orWhere('ID_Prodata', $data['q']);
-            }))->orderBy('Descricao')->paginate(15, ['ID', 'ID_Prodata', 'Descricao', 'UND'])->withQueryString() : null;
+            ->orderBy('Descricao')->get(['ID', 'ID_Prodata', 'Descricao', 'UND']) : collect();
         $selectedId = $item?->ID_PROD ?? ($data['catalog_product'] ?? null);
         $selected = $record && $selectedId ? DB::table('tb_Produtos_Prodata')->where('ID', $selectedId)->where('Classe', $category)->where('Inativo', 0)->first(['ID', 'ID_Prodata', 'Descricao', 'UND']) : null;
         abort_if(isset($data['catalog_product']) && ! $selected, 404);

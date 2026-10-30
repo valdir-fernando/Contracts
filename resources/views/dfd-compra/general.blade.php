@@ -42,8 +42,19 @@
     </fieldset>
     <div class="form-actions sticky-actions action-toolbar">
         <button type="button" class="section-tab" @disabled(!$record) @if($record) @click="$refs.dfdDelete.showModal()" @endif><x-nav-icon name="trash"/>Excluir</button>
-        <a class="section-tab" href="{{ route('dfd-compra.index') }}" data-dfd-class-open><x-nav-icon name="plus"/>Novo</a>
+        @if($record)
+            <button type="button" class="section-tab" data-dfd-new-open aria-haspopup="dialog" aria-controls="dfd-new-dialog"><x-nav-icon name="plus"/>Nova DFD</button>
+        @else
+            <a class="section-tab" href="{{ route('dfd-compra.index') }}" data-dfd-class-open><x-nav-icon name="plus"/>Nova DFD</a>
+        @endif
         <button type="button" class="section-tab" :disabled="{{ $record ? 'editing' : 'true' }}" @click="editing = true; $nextTick(() => document.getElementById('Necessidade').focus())"><x-nav-icon name="edit"/>Editar</button>
         <button type="submit" class="section-tab" :disabled="!editing || {{ $category === '' ? 'true' : 'false' }}" @disabled($category === '')><x-nav-icon name="save"/>Salvar</button>
     </div>
 </form>
+@if($record)
+    <dialog id="dfd-new-dialog" class="catalog-modal" aria-labelledby="dfd-new-title" data-dfd-new-dialog data-same-class-url="{{ route('dfd-compra.index', ['classe' => $category]) }}">
+        <div class="modal-header"><h2 id="dfd-new-title">Nova DFD</h2><button type="button" class="modal-close" data-dfd-new-cancel aria-label="Cancelar">×</button></div>
+        <p>Deseja manter a mesma classe nesta nova DFD?</p>
+        <div class="form-actions action-toolbar"><button type="button" class="secondary-button" data-dfd-new-change>Trocar de classe</button><button type="button" class="primary-button" data-dfd-new-same>Manter a mesma classe</button><button type="button" class="secondary-button" data-dfd-new-cancel>Cancelar</button></div>
+    </dialog>
+@endif

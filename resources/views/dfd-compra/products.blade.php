@@ -1,33 +1,87 @@
-<section class="surface contract-section"><h2>Produtos da DFD</h2>
-    <form method="GET" action="{{ route('dfd-compra.edit', $record->ID) }}" class="dfd-product-search">
-        <input type="hidden" name="tab" value="products"><div class="field"><label for="dfd-catalog-query">Pesquisar no catálogo desta classe</label><input id="dfd-catalog-query" name="q" value="{{ request('q') }}" maxlength="100" placeholder="Descrição ou código do produto"></div><button type="submit" class="secondary-button"><x-nav-icon name="search"/>Pesquisar</button>
-    </form>
-    <div class="table-scroll"><table class="data-table"><thead><tr><th>Código</th><th>Descrição</th><th>Unidade</th><th>Ação</th></tr></thead><tbody>
-        @forelse($catalog as $product)<tr><td>{{ $product->ID_Prodata }}</td><td>{{ $product->Descricao }}</td><td>{{ $product->UND }}</td><td><a class="text-link" href="{{ route('dfd-compra.edit', [$record->ID, 'tab' => 'products', 'catalog_product' => $product->ID, 'q' => request('q')]) }}">Selecionar<span class="sr-only"> {{ $product->Descricao }}</span></a></td></tr>
-        @empty<tr><td colspan="4" class="empty-state">Nenhum produto encontrado nesta classe.</td></tr>@endforelse
-    </tbody></table></div>{{ $catalog->links() }}
-</section>
-@if($selected)
-    <section class="surface contract-section"><h2>{{ $item ? 'Editar produto' : 'Incluir produto' }}</h2>
-        <form method="POST" action="{{ $item ? route('dfd-compra.products.update', [$record->ID, $item->ID]) : route('dfd-compra.products.store', $record->ID) }}">
-            @csrf @if($item) @method('PUT') @endif
-            <input type="hidden" name="version" value="{{ $record->version }}"><input type="hidden" name="product_id" value="{{ $selected->ID }}">
-            <div class="form-grid">
-                <div class="field field-wide"><label for="dfd-product-description">Produto</label><input id="dfd-product-description" value="{{ $selected->Descricao }}" readonly></div>
-                <div class="field"><label for="dfd-product-unit">Unidade</label><input id="dfd-product-unit" value="{{ $selected->UND }}" readonly></div>
-                <div class="field"><label for="dfd-product-quantity">Quantidade<x-required-mark/></label><input id="dfd-product-quantity" name="quantity" inputmode="decimal" value="{{ old('product_id') == $selected->ID ? old('quantity', $item?->QTD ?? '') : ($item?->QTD ?? '') }}" maxlength="40" required>@error('quantity')<p class="field-error">{{ $message }}</p>@enderror</div>
-                <div class="field field-wide"><label for="dfd-product-characteristics">Características / Especificações complementares</label><textarea id="dfd-product-characteristics" name="characteristics" rows="3" maxlength="15000">{{ old('product_id') == $selected->ID ? old('characteristics', $item?->CARACT ?? '') : ($item?->CARACT ?? '') }}</textarea></div>
+<dialog id="dfd-products-dialog" class="catalog-modal contract-products-dialog" x-ref="dfdProducts" aria-labelledby="dfd-products-title" @if(request('tab') === 'products') x-init="$el.showModal()" @endif>
+    <div class="modal-header">
+        <h2 id="dfd-products-title" class="dfd-products-heading">
+            <span>Produtos da DFD</span>
+            <span class="dfd-products-identification-divider" aria-hidden="true"></span>
+            <span>{{ $fund->name }}</span>
+        </h2>
+        <button type="button" class="modal-close" @click="$refs.dfdProducts.close()" aria-label="Fechar produtos da DFD">×</button>
+    </div>
+    <div class="dfd-products-workspace">
+        <div class="dfd-products-left">
+            <div class="dfd-products-identification">
+                <strong>{{ $category }}</strong>
+                <span class="dfd-products-identification-divider" aria-hidden="true"></span>
+                <strong>Nº DFD: {{ $record->N_DFD }}</strong>
             </div>
-            <div class="form-actions action-toolbar"><a class="section-tab" href="{{ route('dfd-compra.edit', [$record->ID, 'tab' => 'products']) }}">Cancelar</a><button class="section-tab" type="submit"><x-nav-icon name="save"/>{{ $item ? 'Salvar produto' : 'Incluir produto' }}</button></div>
-        </form>
-    </section>
-@elseif($item)
-    <p class="notice">O produto deste item não está mais ativo no catálogo. Seu histórico foi preservado.</p>
-@endif
-<section class="surface contract-section"><h2>Itens incluídos</h2><div class="table-scroll"><table class="data-table"><thead><tr><th>Item</th><th>Código</th><th>Produto / Características</th><th>Unidade</th><th>Quantidade</th><th>Ações</th></tr></thead><tbody>
-    @forelse($items as $line)<tr><td>{{ $line->ITEM }}</td><td>{{ $line->COD_PROD }}</td><td>{{ $line->PROD_SIMPLES }}@if($line->CARACT)<p>{{ $line->CARACT }}</p>@endif</td><td>{{ $line->UND }}</td><td>{{ $line->QTD }}</td><td><div class="dfd-line-actions"><a class="text-link" href="{{ route('dfd-compra.edit', [$record->ID, 'tab' => 'products', 'item' => $line->ID]) }}">Editar</a><button type="button" class="text-link" @click="$refs.dfdItemDelete{{ $line->ID }}.showModal()">Excluir</button></div></td></tr>
-    @empty<tr><td colspan="6" class="empty-state">Nenhum produto incluído nesta DFD.</td></tr>@endforelse
-</tbody></table></div></section>
-@foreach($items as $line)
-    <dialog class="catalog-modal" x-ref="dfdItemDelete{{ $line->ID }}" aria-labelledby="dfd-item-delete-{{ $line->ID }}"><div class="modal-header"><h2 id="dfd-item-delete-{{ $line->ID }}">Excluir item {{ $line->ITEM }}</h2><button type="button" class="modal-close" @click="$refs.dfdItemDelete{{ $line->ID }}.close()" aria-label="Fechar">×</button></div><p>{{ $line->PROD_SIMPLES }}</p><form method="POST" action="{{ route('dfd-compra.products.destroy', [$record->ID, $line->ID]) }}">@csrf @method('DELETE')<input type="hidden" name="version" value="{{ $record->version }}"><label class="checkbox-label"><input type="checkbox" name="confirmation" value="1" required> Confirmo a exclusão deste produto.</label><div class="form-actions"><button type="button" class="secondary-button" @click="$refs.dfdItemDelete{{ $line->ID }}.close()">Cancelar</button><button type="submit" class="danger-button">Excluir produto</button></div></form></dialog>
-@endforeach
+            <div class="field dfd-products-name">
+                <label for="dfd-product-name">Pesquise pelo Nome do Produto</label>
+                <input id="dfd-product-name" type="text" autocomplete="off" placeholder="Digite o nome do produto" value="{{ request('q') }}" data-dfd-product-query>
+            </div>
+            <div class="dfd-products-catalog table-scroll" tabindex="0" aria-label="Produtos da classe {{ $category }}">
+                <table class="data-table">
+                    <colgroup>
+                        <col class="dfd-product-select-column">
+                        <col class="dfd-product-code-column">
+                        <col>
+                        <col class="dfd-product-unit-column">
+                        <col class="dfd-product-quantity-column">
+                    </colgroup>
+                    <thead><tr><th><span class="sr-only">Selecionar</span></th><th>Código</th><th>Produto</th><th>Unidade</th><th>QTD</th></tr></thead>
+                    <tbody>
+                        @forelse($catalog as $product)
+                            <tr data-dfd-product-row data-product-name="{{ $product->Descricao }}"><td><input type="checkbox" name="selected_products[]" value="{{ $product->ID }}" aria-label="Selecionar {{ $product->Descricao }}"></td><td>{{ $product->ID_Prodata }}</td><td x-data="{ complement: '', draft: '' }">
+    <div class="dfd-product-description">
+        <button type="button" class="text-link dfd-product-description-edit" @click="draft = complement; $refs.descriptionDialog.showModal()" aria-label="Complementar descrição de {{ $product->Descricao }}" aria-haspopup="dialog"><x-nav-icon name="edit"/></button>
+        <div>{{ $product->Descricao }}<span class="dfd-product-complement" x-text="complement" x-show="complement" x-cloak></span></div>
+    </div>
+    <input type="hidden" name="characteristics" form="dfd-launch-{{ $product->ID }}" :value="complement" data-dfd-product-characteristics>
+    <dialog class="catalog-modal dfd-product-description-dialog" x-ref="descriptionDialog" aria-labelledby="dfd-description-title-{{ $product->ID }}">
+        <div class="modal-header">
+            <h2 id="dfd-description-title-{{ $product->ID }}">Complementar descrição</h2>
+            <button type="button" class="modal-close" @click="$refs.descriptionDialog.close()" aria-label="Fechar complemento">×</button>
+        </div>
+        <p class="dfd-product-original-name">{{ $product->Descricao }}</p>
+        <div class="field">
+            <label for="dfd-description-{{ $product->ID }}">Complemento da descrição</label>
+            <textarea id="dfd-description-{{ $product->ID }}" x-model="draft" rows="4" maxlength="15000" placeholder="Digite as especificações complementares"></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="secondary-button" @click="$refs.descriptionDialog.close()">Cancelar</button>
+            <button type="button" class="primary-button" @click="complement = draft.trim(); $refs.descriptionDialog.close()">Aplicar complemento</button>
+        </div>
+    </dialog>
+</td><td>{{ $product->UND }}</td><td><form id="dfd-launch-{{ $product->ID }}" class="dfd-product-launch" method="POST" action="{{ route('dfd-compra.products.store', $record->ID) }}" data-dfd-product-launch>@csrf<input type="hidden" name="version" value="{{ $record->version }}"><input type="hidden" name="product_id" value="{{ $product->ID }}"><input name="quantity" type="text" class="dfd-product-quantity" inputmode="decimal" maxlength="24" placeholder="0,000" disabled data-dfd-product-quantity aria-label="Quantidade de {{ $product->Descricao }}"><button type="submit" class="text-link dfd-product-launch-button" disabled data-dfd-product-launch-button aria-label="Lançar {{ $product->Descricao }}" title="Lançar produto"><x-nav-icon name="save"/></button></form></td></tr>
+                        @empty
+                            <tr><td colspan="5" class="empty-state">Nenhum produto encontrado nesta classe.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <p data-dfd-launch-status role="status" hidden></p><p class="dfd-products-selection-total" data-dfd-product-total hidden role="status"></p>
+            <p data-dfd-product-empty hidden role="status">Nenhum produto corresponde à pesquisa.</p>
+        </div>
+        <div class="dfd-products-divider" role="separator" aria-orientation="vertical"></div>
+        <section class="dfd-products-right" aria-labelledby="dfd-linked-products-title">
+            <h3 id="dfd-linked-products-title">Itens vinculados à DFD</h3>
+            <div class="dfd-products-linked table-scroll" tabindex="0" aria-label="Itens vinculados à DFD">
+                <table class="data-table">
+                    <thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>Unidade</th><th>QTD</th></tr></thead>
+                    <tbody>
+                        @forelse($items as $line)
+                            <tr>
+                                <td>{{ $line->ITEM }}</td>
+                                <td>{{ $line->COD_PROD }}</td>
+                                <td>{{ $line->PROD_SIMPLES }}@if($line->CARACT)<p>{{ $line->CARACT }}</p>@endif</td>
+                                <td>{{ $line->UND }}</td>
+                                <td>{{ str_replace('.', ',', (string) $line->QTD) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="empty-state">Nenhum item vinculado a esta DFD.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</dialog>

@@ -1,7 +1,6 @@
 <x-layouts.app title="DFD Compra">
     @php
         $value = fn ($key, $default = '') => $canRestore ? old($key, $values[$key] ?? $default) : ($values[$key] ?? $default);
-        $productsTab = request('tab') === 'products';
         $editing = !$record || ($canRestore && $errors->any());
         $budgetId = $canRestore && old('budget_id') !== null ? old('budget_id') : $budgets->firstWhere('Ficha', $values['Ficha'] ?? '')?->ID_Dotacao;
     @endphp
@@ -19,16 +18,19 @@
             </div>
         </section>
         <nav class="section-tabs contract-section-navigation dfd-tabs" aria-label="Seções da DFD">
-            <a @class(['section-tab', 'active' => !$productsTab]) href="{{ $record ? route('dfd-compra.edit', $record->ID) : route('dfd-compra.index', ['classe' => $category]) }}" @if(!$productsTab) aria-current="page" @endif>Informações gerais</a>
+            <a class="section-tab active" href="{{ $record ? route('dfd-compra.edit', $record->ID) : route('dfd-compra.index', ['classe' => $category]) }}" aria-current="page">Informações gerais</a>
             @if($record)
-                <a @class(['section-tab', 'active' => $productsTab]) href="{{ route('dfd-compra.edit', [$record->ID, 'tab' => 'products']) }}" @if($productsTab) aria-current="page" @endif>Produtos</a>
+                <button type="button" class="section-tab" @click="$refs.dfdProducts.showModal()" aria-haspopup="dialog" aria-controls="dfd-products-dialog">Produtos</button>
             @else
                 <button type="button" class="section-tab" disabled title="Salve a DFD para acessar os produtos">Produtos</button>
             @endif
         </nav>
         <div class="editor-panels">
-            @include($productsTab ? 'dfd-compra.products' : 'dfd-compra.general')
+            @include('dfd-compra.general')
         </div>
+        @if($record)
+            @include('dfd-compra.products')
+        @endif
         <p class="dfd-fund-name">{{ $fund->name }}</p>
         @if($record)
             <dialog class="catalog-modal" x-ref="dfdDelete" aria-labelledby="dfd-delete-title"><div class="modal-header"><h2 id="dfd-delete-title">Excluir DFD {{ $record->N_DFD }}</h2><button type="button" class="modal-close" @click="$refs.dfdDelete.close()" aria-label="Fechar">×</button></div><p>Confirme a exclusão desta DFD. O histórico será preservado.</p>

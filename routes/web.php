@@ -54,6 +54,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/atas', 'atas.dashboard')->name('atas.dashboard');
+    Route::get('/dfd_compra', [DfdController::class, 'index'])->name('dfd-compra.legacy-index');
+    Route::get('/dfd_compra/{dfd}', [DfdController::class, 'index'])->whereNumber('dfd')->name('dfd-compra.legacy-edit');
     Route::get('/dfd-compra', [DfdController::class, 'index'])->name('dfd-compra.index');
     Route::get('/dfd-compra/classes', [DfdController::class, 'classes'])->name('dfd-compra.classes');
     Route::get('/dfd-compra/search', [DfdController::class, 'search'])->middleware('throttle:60,1')->name('dfd-compra.search');
