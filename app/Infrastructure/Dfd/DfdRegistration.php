@@ -105,6 +105,7 @@ final class DfdRegistration
                 Validator::make($input, ['confirmation' => 'accepted'])->validate();
                 $patch = ['deleted_at' => now(), 'updated_at' => now()];
                 DB::table('tb_Produtos_DFD')->where('ID', $itemId)->update($patch);
+                $patch['renumbered'] = $this->renumberDfdItems($id);
             } else {
                 $data = Validator::make($input, ['product_id' => 'required|integer|min:1', 'quantity' => 'required|string|max:40', 'characteristics' => 'nullable|string|max:15000'])->validate();
                 $catalog = DB::table('tb_Produtos_Prodata')->where('ID', $data['product_id'])->where('Classe', $record->Categoria)->where('Inativo', 0)->lockForUpdate()->first();
@@ -124,6 +125,7 @@ final class DfdRegistration
                 } else {
                     $patch += ['ID_DFD' => $id, 'N_DFD' => $record->N_DFD, 'ITEM' => (int) DB::table('tb_Produtos_DFD')->where('ID_DFD', $id)->max('ITEM') + 1, 'created_at' => now()];
                     $itemId = DB::table('tb_Produtos_DFD')->insertGetId($patch, 'ID');
+                    $this->renumberDfdItems($id);
                 }
             }
             DB::table('tb_DFD')->where('ID', $id)->update(['version' => $record->version + 1, 'updated_at' => now(), 'updated_by' => $actor->id]);
@@ -131,8 +133,49 @@ final class DfdRegistration
         }, 3);
     }
 
+    public function manualProduct(User $expected, ?int $fundId, int $id, array $input): int
+    {
+        return DB::transaction(function () use ($expected, $fundId, $id, $input) {
+            [$actor, $fund] = $this->access->context($expected, $fundId, true);
+            $record = $this->access->record($actor, $fund->id, $id, true);
+            $this->access->version($record, $input);
+            $data = Validator::make($input, ['description' => 'required|string|max:5000', 'unit' => 'required|string|max:100', 'quantity' => 'required|string|max:40'])->validate();
+            $quantity = DecimalAmount::normalize($data['quantity']);
+            if ($quantity === null || str_starts_with($quantity, '-') || $quantity === '0.0000') {
+                throw ValidationException::withMessages(['quantity' => 'Informe uma quantidade positiva com até quatro casas decimais.']);
+            }
+            $description = mb_strtoupper(trim($data['description']), 'UTF-8');
+            $unit = mb_strtoupper(trim($data['unit']), 'UTF-8');
+            $patch = ['ID_DFD' => $id, 'N_DFD' => $record->N_DFD, 'ID_PROD' => null, 'ITEM' => (int) DB::table('tb_Produtos_DFD')->where('ID_DFD', $id)->max('ITEM') + 1,
+                'COD_PROD' => '', 'PROD_SIMPLES' => $description, 'PRODUTO' => $description, 'CARACT' => '',
+                'UND' => $unit, 'QTD' => $quantity, 'manual_entry' => true, 'created_at' => now(), 'updated_at' => now()];
+            $itemId = DB::table('tb_Produtos_DFD')->insertGetId($patch, 'ID');
+            $this->renumberDfdItems($id);
+            DB::table('tb_DFD')->where('ID', $id)->update(['version' => $record->version + 1, 'updated_at' => now(), 'updated_by' => $actor->id]);
+            $this->audit($actor, 'dfd_manual_product_created', $id, null, $patch + ['item_id' => $itemId]);
+
+            return $itemId;
+        }, 3);
+    }
+
     private function audit(User $actor, string $action, int $id, ?array $before, array $after): void
     {
         ActivityEvent::create(['actor_id' => $actor->id, 'action' => $action, 'metadata' => ['dfd_id' => $id, 'before' => $before, 'after' => $after], 'created_at' => now()]);
+    }
+
+    private function renumberDfdItems(int $dfdId): array
+    {
+        $renumbered = [];
+        $items = DB::table('tb_Produtos_DFD')->where('ID_DFD', $dfdId)->whereNull('deleted_at')
+            ->orderBy('ITEM')->orderBy('ID')->lockForUpdate()->get(['ID', 'ITEM']);
+        foreach ($items as $index => $item) {
+            $number = $index + 1;
+            if ((int) $item->ITEM !== $number) {
+                DB::table('tb_Produtos_DFD')->where('ID', $item->ID)->update(['ITEM' => $number, 'updated_at' => now()]);
+                $renumbered[] = ['id' => $item->ID, 'before' => $item->ITEM, 'after' => $number];
+            }
+        }
+
+        return $renumbered;
     }
 }

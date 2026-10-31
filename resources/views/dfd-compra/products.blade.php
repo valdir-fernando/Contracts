@@ -16,7 +16,10 @@
             </div>
             <div class="field dfd-products-name">
                 <label for="dfd-product-name">Pesquise pelo Nome do Produto</label>
-                <input id="dfd-product-name" type="text" autocomplete="off" placeholder="Digite o nome do produto" value="{{ request('q') }}" data-dfd-product-query>
+                <div class="dfd-products-query-row">
+                    <input id="dfd-product-name" type="text" autocomplete="off" placeholder="Digite o Nome ou o Código do Produto" value="{{ request('q') }}" data-dfd-product-query>
+                    <button type="button" class="secondary-button dfd-product-manual-button" data-dfd-manual-open>Inserir Produto Manualmente</button>
+                </div>
             </div>
             <div class="dfd-products-catalog table-scroll" tabindex="0" aria-label="Produtos da classe {{ $category }}">
                 <table class="data-table">
@@ -27,10 +30,10 @@
                         <col class="dfd-product-unit-column">
                         <col class="dfd-product-quantity-column">
                     </colgroup>
-                    <thead><tr><th><span class="sr-only">Selecionar</span></th><th>Código</th><th>Produto</th><th>Unidade</th><th>QTD</th></tr></thead>
+                    <thead><tr><th><span class="sr-only">Selecionar</span></th><th>Código</th><th>PRODUTO</th><th>Unidade</th><th>QTD</th></tr></thead>
                     <tbody>
                         @forelse($catalog as $product)
-                            <tr data-dfd-product-row data-product-name="{{ $product->Descricao }}"><td><input type="checkbox" name="selected_products[]" value="{{ $product->ID }}" aria-label="Selecionar {{ $product->Descricao }}"></td><td>{{ $product->ID_Prodata }}</td><td x-data="{ complement: '', draft: '' }">
+                            <tr data-dfd-product-row data-product-name="{{ $product->Descricao }}" data-product-code="{{ $product->ID_Prodata }}"><td><input type="checkbox" name="selected_products[]" value="{{ $product->ID }}" aria-label="Selecionar {{ $product->Descricao }}"></td><td>{{ $product->ID_Prodata }}</td><td x-data="{ complement: '', draft: '' }">
     <div class="dfd-product-description">
         <button type="button" class="text-link dfd-product-description-edit" @click="draft = complement; $refs.descriptionDialog.showModal()" aria-label="Complementar descrição de {{ $product->Descricao }}" aria-haspopup="dialog"><x-nav-icon name="edit"/></button>
         <div>{{ $product->Descricao }}<span class="dfd-product-complement" x-text="complement" x-show="complement" x-cloak></span></div>
@@ -63,13 +66,14 @@
         </div>
         <div class="dfd-products-divider" role="separator" aria-orientation="vertical"></div>
         <section class="dfd-products-right" aria-labelledby="dfd-linked-products-title">
-            <h3 id="dfd-linked-products-title">Itens vinculados à DFD</h3>
+            <div class="dfd-products-linked-heading"><h3 id="dfd-linked-products-title">Itens vinculados à DFD</h3><a href="#" class="text-link" data-dfd-delete-selected>Excluir itens Selecionados</a></div>
             <div class="dfd-products-linked table-scroll" tabindex="0" aria-label="Itens vinculados à DFD">
                 <table class="data-table">
-                    <thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>Unidade</th><th>QTD</th></tr></thead>
+                    <thead><tr><th><span class="sr-only">Selecionar</span></th><th>Item</th><th>Código</th><th>PRODUTO</th><th>Unidade</th><th>QTD</th></tr></thead>
                     <tbody>
                         @forelse($items as $line)
-                            <tr>
+                            <tr @class(['dfd-manual-linked-item' => (bool) ($line->manual_entry ?? false)])>
+                                <td><input type="checkbox" data-dfd-linked-select data-delete-url="{{ route('dfd-compra.products.destroy', [$record->ID, $line->ID]) }}" aria-label="Selecionar item {{ $line->ITEM }}"></td>
                                 <td>{{ $line->ITEM }}</td>
                                 <td>{{ $line->COD_PROD }}</td>
                                 <td>{{ $line->PROD_SIMPLES }}@if($line->CARACT)<p>{{ $line->CARACT }}</p>@endif</td>
@@ -77,11 +81,27 @@
                                 <td>{{ str_replace('.', ',', (string) $line->QTD) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="empty-state">Nenhum item vinculado a esta DFD.</td></tr>
+                            <tr><td colspan="6" class="empty-state">Nenhum item vinculado a esta DFD.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </section>
     </div>
+</dialog>
+
+<dialog class="catalog-modal dfd-manual-success-dialog" data-dfd-manual-success role="alertdialog" aria-labelledby="dfd-manual-success-title"><div class="modal-header"><h2 id="dfd-manual-success-title">Produto salvo</h2></div><p data-dfd-manual-success-message></p><div class="form-actions action-toolbar"><button type="button" class="section-tab" data-dfd-manual-success-ok autofocus>OK</button></div></dialog>
+
+<dialog class="catalog-modal dfd-manual-product-dialog" data-dfd-manual-dialog aria-labelledby="dfd-manual-product-title">
+    <div class="modal-header"><h2 id="dfd-manual-product-title">{{ $category }}</h2><button type="button" class="modal-close" data-dfd-manual-close aria-label="Fechar">×</button></div>
+    <form data-dfd-manual-form data-save-url="{{ route('dfd-compra.manual-products.store', $record->ID) }}" data-version="{{ $record->version }}" data-dfd-number="{{ $record->N_DFD }}">
+        @csrf
+        <div class="field"><label for="dfd-manual-description">PRODUTO</label><textarea id="dfd-manual-description" name="description" required maxlength="5000" rows="4"></textarea></div>
+        <div class="dfd-manual-unit-quantity">
+            <div class="field"><label for="dfd-manual-unit">UND</label><input id="dfd-manual-unit" name="unit" required maxlength="100"></div>
+            <div class="field dfd-manual-quantity-field"><label for="dfd-manual-quantity">QTD</label><input id="dfd-manual-quantity" name="quantity" required inputmode="decimal" placeholder="0,0000"></div>
+        </div>
+        <p data-dfd-manual-status role="status" hidden></p>
+        <div class="form-actions"><button type="submit" class="primary-button">Salvar</button></div>
+    </form>
 </dialog>

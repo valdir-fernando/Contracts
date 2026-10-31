@@ -1,7 +1,6 @@
 <x-layouts.app title="DFD Compra">
     @php
         $value = fn ($key, $default = '') => $canRestore ? old($key, $values[$key] ?? $default) : ($values[$key] ?? $default);
-        $editing = !$record || ($canRestore && $errors->any());
         $budgetId = $canRestore && old('budget_id') !== null ? old('budget_id') : $budgets->firstWhere('Ficha', $values['Ficha'] ?? '')?->ID_Dotacao;
         $initialTab = 'description';
         if ($canRestore && $errors->any()) {
@@ -15,13 +14,13 @@
         }
     @endphp
     <div class="page-heading dfd-page-heading"><div><h1>DFD - Documento de Formalização de Demanda</h1></div>
-        @if($record)<a class="section-tab dfd-pdf-button" href="{{ route('dfd-compra.pdf', $record->ID) }}" target="_blank" rel="noopener" aria-label="Gerar PDF da DFD" title="Gerar PDF da DFD" data-dfd-pdf><x-nav-icon name="printer"/></a>
-        @else<button type="button" class="section-tab dfd-pdf-button" disabled aria-label="Gerar PDF da DFD" title="Salve a DFD antes de gerar o PDF" data-dfd-pdf><x-nav-icon name="printer"/></button>@endif
+        @if($record)<a class="document-action dfd-pdf-button" href="{{ route('dfd-compra.pdf', $record->ID) }}" target="_blank" rel="noopener" aria-label="Gerar PDF da DFD" title="Gerar PDF da DFD" data-dfd-pdf><x-nav-icon name="printer"/><span>PDF</span></a>
+        @else<button type="button" class="document-action dfd-pdf-button" disabled aria-label="Gerar PDF da DFD" title="Salve a DFD antes de gerar o PDF" data-dfd-pdf><x-nav-icon name="printer"/><span>PDF</span></button>@endif
     </div>
-    <div class="dfd-editor" data-contract-editor data-dfd-editor x-data="{ editing: @js($editing), activeTab: @js($initialTab), budgetChanged: @js($canRestore && old('budget_id') !== null) }">
+    <div class="dfd-editor" data-contract-editor data-dfd-editor x-data="{ editing: true, activeTab: @js($initialTab), budgetChanged: @js($canRestore && old('budget_id') !== null) }">
         <section class="surface contract-section dfd-context" aria-label="Identificação da DFD">
             <div class="form-grid dfd-identification">
-                <div class="field"><label for="dfd-number">Nº DFD</label><div class="dfd-number-control"><input id="dfd-number" value="{{ $value('N_DFD') }}" maxlength="100" autocomplete="off" data-dfd-number-query><button type="button" class="section-tab" data-dfd-search-open aria-label="Pesquisar DFD" aria-haspopup="dialog" aria-controls="dfd-search-dialog"><x-nav-icon name="search"/></button></div></div>
+                <div class="field"><label for="dfd-number">Nº DFD</label><div class="dfd-number-control"><input id="dfd-number" value="{{ $value('N_DFD') }}" maxlength="100" autocomplete="off" data-dfd-number-query><button type="button" class="section-tab" data-dfd-search-open aria-label="Pesquisar DFD" aria-haspopup="dialog" aria-controls="dfd-not-found-dialog"><x-nav-icon name="search"/></button></div></div>
                 <div class="field"><label for="Data_DFD">Data da DFD<x-required-mark/></label><input id="Data_DFD" name="Data_DFD" type="date" form="dfd-general-form" value="{{ $value('Data_DFD') }}" required :disabled="!editing"></div>
                 <div class="field"><label for="Processo_DFD">DFD vinculada ao Processo</label><div class="dfd-process-control"><input id="Processo_DFD" name="Processo_DFD" form="dfd-general-form" value="{{ $value('Processo_DFD') }}" readonly>
                 </div></div>
@@ -34,9 +33,9 @@
                 <button type="button" class="section-tab" :class="{ active: activeTab === '{{ $tab }}' }" :aria-current="activeTab === '{{ $tab }}' ? 'page' : null" @click="activeTab = '{{ $tab }}'" aria-controls="dfd-panel-{{ $tab }}">{{ $label }}</button>
             @endforeach
             @if($record)
-                <button type="button" class="section-tab" @click="$refs.dfdProducts.showModal()" aria-haspopup="dialog" aria-controls="dfd-products-dialog">Produtos</button>
+                <button type="button" class="section-tab products-button" @click="$refs.dfdProducts.showModal()" aria-haspopup="dialog" aria-controls="dfd-products-dialog">Produtos</button>
             @else
-                <button type="button" class="section-tab" disabled title="Salve a DFD para acessar os produtos">Produtos</button>
+                <button type="button" class="section-tab products-button" disabled title="Salve a DFD para acessar os produtos">Produtos</button>
             @endif
         </nav>
         <div class="editor-panels">
@@ -50,6 +49,7 @@
                 <form method="POST" action="{{ route('dfd-compra.destroy', $record->ID) }}">@csrf @method('DELETE')<input type="hidden" name="version" value="{{ $record->version }}"><label class="checkbox-label"><input type="checkbox" name="confirmation" value="1" required> Confirmo a exclusão desta DFD.</label><div class="form-actions"><button type="button" class="secondary-button" @click="$refs.dfdDelete.close()">Cancelar</button><button type="submit" class="danger-button">Excluir DFD</button></div></form>
             </dialog>
         @endif
-        <dialog id="dfd-search-dialog" class="catalog-modal" aria-labelledby="dfd-search-title" data-dfd-search-dialog data-search-url="{{ route('dfd-compra.search') }}"><div class="modal-header"><h2 id="dfd-search-title">Pesquisar DFD</h2><button type="button" class="modal-close" data-dfd-search-close aria-label="Fechar pesquisa">×</button></div><form data-dfd-search-form><div class="field"><label for="dfd-search-number">Nº DFD</label><input id="dfd-search-number" name="q" maxlength="100" placeholder="Informe o número da DFD"></div><div class="form-actions action-toolbar"><button type="submit" class="section-tab"><x-nav-icon name="search"/>Pesquisar</button></div></form><p role="status" data-dfd-search-status></p><div class="table-scroll"><table class="data-table"><thead><tr><th>Nº DFD</th><th>Data</th><th>Processo</th><th>Classe / Categoria</th></tr></thead><tbody data-dfd-search-results></tbody></table></div></dialog>
+        <dialog id="dfd-search-dialog" class="catalog-modal dfd-search-dialog" aria-labelledby="dfd-search-title" data-dfd-search-dialog data-search-url="{{ route('dfd-compra.search') }}"><div class="modal-header"><h2 id="dfd-search-title">Pesquisar DFD</h2><button type="button" class="modal-close" data-dfd-search-close aria-label="Fechar pesquisa">×</button></div><form data-dfd-search-form><div class="field"><label for="dfd-search-number">Nº DFD</label><input id="dfd-search-number" name="q" maxlength="100" placeholder="Informe o número da DFD"></div><div class="form-actions action-toolbar"><button type="submit" class="section-tab"><x-nav-icon name="search"/>Pesquisar</button></div></form><p role="status" data-dfd-search-status></p><div class="table-scroll"><table class="data-table"><thead><tr><th>Nº DFD</th><th>Data</th><th>Processo</th><th>Classe / Categoria</th></tr></thead><tbody data-dfd-search-results></tbody></table></div></dialog>
+        <dialog id="dfd-not-found-dialog" class="catalog-modal" data-dfd-not-found-dialog role="alertdialog" aria-labelledby="dfd-not-found-title"><div class="modal-header"><h2 id="dfd-not-found-title">Pesquisar DFD</h2></div><p data-dfd-not-found-message></p><div class="form-actions action-toolbar"><button type="button" class="section-tab" data-dfd-not-found-ok autofocus>OK</button></div></dialog>
     </div>
 </x-layouts.app>

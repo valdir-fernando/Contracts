@@ -56,7 +56,7 @@ class DfdController extends Controller
         $budgets = CatalogAccess::byOrganization($actor, DB::table('tb_Dotacao')->whereNull('deleted_at'), 'Fundo', 'Secretaria', false)
             ->whereIn('Fundo', [$fund->name, Normalizer::name($fund->name)])->orderBy('Ficha')->get(['ID_Dotacao', 'Ficha', 'Descricao', 'Secretaria', 'Orgao', 'Gestao', 'Unidade', 'Funcao', 'SubFunc', 'Programa', 'Projeto', 'Fonte', 'Codigo', 'Dotacao']);
         $items = $record ? DB::table('tb_Produtos_DFD')->where('ID_DFD', $record->ID)->whereNull('deleted_at')->orderBy('ITEM')
-            ->get(['ID', 'ID_PROD', 'ITEM', 'COD_PROD', 'PROD_SIMPLES', 'CARACT', 'UND', 'QTD']) : collect();
+            ->get(['ID', 'ID_PROD', 'ITEM', 'COD_PROD', 'PROD_SIMPLES', 'CARACT', 'UND', 'QTD', 'manual_entry']) : collect();
         $item = isset($data['item']) ? $items->firstWhere('ID', (int) $data['item']) : null;
         abort_if(isset($data['item']) && ! $item, 404);
         $catalog = $record ? DB::table('tb_Produtos_Prodata')->where('Classe', $category)->where('Inativo', 0)
@@ -99,9 +99,24 @@ class DfdController extends Controller
         return redirect()->route('dfd-compra.edit', [$dfd, 'tab' => 'products'])->with('status', 'Produto salvo na DFD.');
     }
 
+    public function storeManualProduct(Request $request, int $dfd, DfdRegistration $registration)
+    {
+        $itemId = $registration->manualProduct($request->user(), $request->session()->get('fund_id'), $dfd, $request->all());
+        $item = DB::table('tb_Produtos_DFD')->where('ID', $itemId)->first(['ID', 'ITEM', 'COD_PROD', 'PROD_SIMPLES', 'CARACT', 'UND', 'QTD']);
+        $version = DB::table('tb_DFD')->where('ID', $dfd)->value('version');
+
+        return response()->json(['item' => $item, 'version' => $version,
+            'delete_url' => route('dfd-compra.products.destroy', [$dfd, $itemId])])->header('Cache-Control', 'private, no-store');
+    }
+
     public function deleteProduct(Request $request, int $dfd, int $item, DfdRegistration $registration)
     {
         $registration->product($request->user(), $request->session()->get('fund_id'), $dfd, $item, $request->all(), true);
+
+        if ($request->expectsJson()) {
+            return response()->json(['version' => DB::table('tb_DFD')->where('ID', $dfd)->value('version')])
+                ->header('Cache-Control', 'private, no-store');
+        }
 
         return redirect()->route('dfd-compra.edit', [$dfd, 'tab' => 'products'])->with('status', 'Produto excluído. O histórico foi preservado.');
     }

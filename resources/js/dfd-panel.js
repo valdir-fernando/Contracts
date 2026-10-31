@@ -11,8 +11,39 @@ export function initializeDfdPanel(editor, fetcher = fetch, navigate = (url) => 
     const newButton = editor.querySelector('[data-dfd-new-open]');
     const newDialog = editor.querySelector('[data-dfd-new-dialog]');
     const productSearch = editor.querySelector('.dfd-product-search');
+    const notFoundDialog = editor.querySelector('[data-dfd-not-found-dialog]');
     let request;
     let restoringFocus = false;
+    let lookupRequest;
+    const lookupDfd = async () => {
+        const query = number.value.trim();
+        if (!query) return;
+        lookupRequest?.abort();
+        const current = new AbortController();
+        lookupRequest = current;
+        const url = new URL(dialog.dataset.searchUrl, editor.ownerDocument.baseURI);
+        url.searchParams.set('q', query);
+        try {
+            const response = await fetcher(url.href, { headers: { Accept: 'application/json' }, cache: 'no-store', signal: current.signal });
+            if (!response.ok || response.redirected) throw new Error('lookup');
+            const data = await response.json();
+            if (lookupRequest !== current || current.signal.aborted) return;
+            const record = data.records?.find((entry) => entry.number.trim() === query);
+            if (record) {
+                const target = new URL(record.url, url);
+                if (target.origin !== url.origin || !/\/dfd-compra\/\d+$/.test(target.pathname)) throw new Error('url');
+                navigate(target.href);
+            } else {
+                notFoundDialog.querySelector('[data-dfd-not-found-message]').textContent = `DFD ${query} não encontrada no Banco de Dados`;
+                notFoundDialog.showModal();
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError' && lookupRequest === current) {
+                notFoundDialog.querySelector('[data-dfd-not-found-message]').textContent = `DFD ${query} não encontrada no Banco de Dados`;
+                notFoundDialog.showModal();
+            }
+        }
+    };
     const search = async () => {
         request?.abort();
         const current = new AbortController();
@@ -43,9 +74,15 @@ export function initializeDfdPanel(editor, fetcher = fetch, navigate = (url) => 
                 link.textContent = record.number;
                 row.insertCell().append(link);
                 const date = /^\d{4}-\d{2}-\d{2}$/.test(record.date ?? '') ? record.date.split('-').reverse().join('/') : '—';
-                for (const text of [date, record.process || '—', record.category]) row.insertCell().textContent = text;
+                for (const text of [date, record.process || '—']) row.insertCell().textContent = text;
+                const categoryCell = row.insertCell();
+                const open = editor.ownerDocument.createElement('a');
+                open.className = 'section-tab dfd-search-open-record';
+                open.href = target.href;
+                open.textContent = 'Abrir DFD';
+                categoryCell.append(open, document.createTextNode(` ${record.category}`));
             }
-            status.textContent = data.records.length ? `${data.records.length} DFDs encontradas. Clique no número para abrir.` : 'Nenhuma DFD encontrada.';
+            status.textContent = data.records.length ? `${data.records.length} DFDs encontradas` : 'Nenhuma DFD encontrada.';
         } catch {
             if (request !== current || current.signal.aborted || !dialog.open) return;
             results.replaceChildren();
@@ -63,9 +100,17 @@ export function initializeDfdPanel(editor, fetcher = fetch, navigate = (url) => 
     };
     // Keep the number focused until the click, avoiding a duplicate blur lookup.
     opener.addEventListener('mousedown', (event) => event.preventDefault());
-    opener.addEventListener('click', openSearch);
+    opener.addEventListener('click', () => {
+        if (number.value.trim()) lookupDfd();
+        else openSearch();
+    });
     number.addEventListener('blur', () => {
-        if (!restoringFocus && number.value.trim()) openSearch();
+        if (!restoringFocus && number.value.trim()) lookupDfd();
+    });
+    notFoundDialog.querySelector('[data-dfd-not-found-ok]').addEventListener('click', () => {
+        notFoundDialog.close();
+        number.value = '';
+        number.focus();
     });
     form.addEventListener('submit', (event) => { event.preventDefault(); search(); });
     dialog.querySelector('[data-dfd-search-close]').addEventListener('click', () => dialog.close());

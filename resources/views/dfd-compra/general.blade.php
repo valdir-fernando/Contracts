@@ -41,8 +41,9 @@
         <div id="dfd-panel-budget" data-dfd-tab="budget" x-show="activeTab === 'budget'" x-cloak>
             <section class="surface contract-section dfd-full" data-dfd-budget><h2>7. Dotação orçamentária</h2>
                 <div class="dfd-budget-summary">
-                <div class="field"><label for="dfd-budget">Ficha</label><select id="dfd-budget" :name="budgetChanged ? 'budget_id' : null" @change="budgetChanged = true" data-dfd-budget-select><option value="">{{ $value('Ficha') && !$budgetId ? 'Ficha salva: '.$value('Ficha').' (preservada até selecionar outra)' : 'Selecione uma ficha' }}</option>@foreach($budgets as $budget)<option value="{{ $budget->ID_Dotacao }}" @selected((string) $budgetId === (string) $budget->ID_Dotacao) data-budget="{{ json_encode((array) $budget, JSON_UNESCAPED_UNICODE) }}">{{ $budget->Ficha }} — {{ $budget->Descricao }}{{ $budget->Secretaria ? ' / '.$budget->Secretaria : '' }}</option>@endforeach</select></div>
+                <div class="field"><label for="dfd-budget">Ficha</label><select id="dfd-budget" :name="budgetChanged ? 'budget_id' : null" @change="budgetChanged = true" data-dfd-budget-select><option value="">{{ $value('Ficha') && !$budgetId ? 'Ficha salva: '.$value('Ficha').' (preservada até selecionar outra)' : 'Selecione uma ficha' }}</option>@foreach($budgets as $budget)<option value="{{ $budget->ID_Dotacao }}" @selected((string) $budgetId === (string) $budget->ID_Dotacao) data-budget="{{ json_encode((array) $budget, JSON_UNESCAPED_UNICODE) }}">{{ $budget->Ficha }}</option>@endforeach</select></div>
                 <div class="field"><label for="dfd-budget-Dotacao">Dotação orçamentária</label><input id="dfd-budget-Dotacao" readonly data-dfd-budget-field="Dotacao"></div>
+                <div class="field"><label for="dfd-budget-Descricao">Descrição</label><input id="dfd-budget-Descricao" readonly data-dfd-budget-field="Descricao"></div>
                 </div>
                 <div class="dfd-budget-grid">@foreach(['Orgao' => 'Órgão', 'Gestao' => 'Gestão', 'Unidade' => 'Unidade', 'Funcao' => 'Função', 'SubFunc' => 'Subfunção', 'Programa' => 'Programa', 'Projeto' => 'Projeto', 'Fonte' => 'Fonte', 'Codigo' => 'Código'] as $key => $label)<div class="field"><label for="dfd-budget-{{ $key }}">{{ $label }}</label><input id="dfd-budget-{{ $key }}" readonly data-dfd-budget-field="{{ $key }}"></div>@endforeach</div>
             </section>
@@ -55,7 +56,6 @@
         @else
             <a class="section-tab" href="{{ route('dfd-compra.index') }}" data-dfd-class-open><x-nav-icon name="plus"/>Nova DFD</a>
         @endif
-        <button type="button" class="section-tab" :disabled="{{ $record ? 'editing' : 'true' }}" @click="editing = true; activeTab = 'description'; $nextTick(() => document.getElementById('Necessidade').focus())"><x-nav-icon name="edit"/>Editar</button>
         <button type="submit" class="section-tab" :disabled="!editing || {{ $category === '' ? 'true' : 'false' }}" @disabled($category === '')><x-nav-icon name="save"/>Salvar</button>
     </div>
 </form>

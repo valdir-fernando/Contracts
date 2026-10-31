@@ -65,6 +65,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::put('/dfd-compra/{dfd}', [DfdController::class, 'update'])->whereNumber('dfd')->name('dfd-compra.update');
     Route::delete('/dfd-compra/{dfd}', [DfdController::class, 'destroy'])->whereNumber('dfd')->name('dfd-compra.destroy');
     Route::post('/dfd-compra/{dfd}/products', [DfdController::class, 'saveProduct'])->whereNumber('dfd')->name('dfd-compra.products.store');
+    Route::post('/dfd-compra/{dfd}/manual-products', [DfdController::class, 'storeManualProduct'])->whereNumber('dfd')->name('dfd-compra.manual-products.store');
     Route::put('/dfd-compra/{dfd}/products/{item}', [DfdController::class, 'saveProduct'])->whereNumber(['dfd', 'item'])->name('dfd-compra.products.update');
     Route::delete('/dfd-compra/{dfd}/products/{item}', [DfdController::class, 'deleteProduct'])->whereNumber(['dfd', 'item'])->name('dfd-compra.products.destroy');
     Route::get('/publication', [SignedDocumentController::class, 'index'])->name('publication.index');
