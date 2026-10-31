@@ -1,5 +1,7 @@
 # Arquitetura do Contracts
 
+Administração no PDF de DFD (30/10/2026): `DfdPdf` registra os anos vigentes no evento transacional da primeira emissão bem-sucedida e reutiliza essa captura nas reimpressões da mesma DFD. Emissões legadas sem anos registrados usam a administração inicial 2025/2028. O cabeçalho é um bloco único, com apenas a logomarca da esquerda. Não há nova tabela ou entrada HTTP; autorização, captura, revalidação e auditoria permanecem no adaptador. [Semântica e validação](dfd-pdf-2026-10-29.md).
+
 Seletor de classe DFD (29/10/2026): o menu abre um dialog nativo; `DfdController::classes` revalida ator/Fundo e projeta somente classes distintas de produtos ativos de `tb_Produtos_Prodata`, com cache privado desativado. O módulo JavaScript pesquisa/seleciona sem persistir documentos. A importação ganhou `--catalog-only` para preparar exclusivamente o catálogo, com origem/auditoria transacionais. [Interface, instalação local e validação](dfd-compra-menu-2026-10-29.md).
 
 Numeração de DFD (29/10/2026): `Infrastructure/Dfd/DfdNumbering` bloqueia o contador anual global de `tb_N_DFD` dentro da transação de cadastro/auditoria de `DfdRegistration`. A sequência é compartilhada entre Fundos, usa o ano atual do servidor e considera números históricos/excluídos. `tb_DFD` recebe os dados e `tb_Produtos_DFD` recebe os produtos com o número do documento pai. Não altera a numeração de contratos. [Contrato, migration e validação](dfd-numbering-2026-10-29.md).

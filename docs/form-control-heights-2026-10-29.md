@@ -13,3 +13,8 @@ Textos com várias linhas, listas de seleção múltipla, checkboxes, radios, up
 - Chrome headless com `--dump-dom`, `--virtual-time-budget=3000` e janelas de 1280×900 e 500×900: fixture HTML temporária carregando o CSS compilado servido pela aplicação local. Doze controles representativos por tamanho apresentaram 34,796875px e 39,59375px, respectivamente, dentro da tolerância de 0,1px. Conferidos também seleção múltipla, texto de duas linhas, checkbox, input oculto e seletor nativo de data. Verificação final sem falhas nos dois tamanhos.
 
 A fixture foi criada em `%TEMP%/contracts-control-height-check`, sem autenticação, gravações ou consultas ao banco. Não houve ensaio dos fluxos autenticados nem nova execução de PHPUnit; a alteração desta etapa é exclusivamente de apresentação CSS.
+# Cor dos valores editáveis — 30/10/2026
+
+Todos os inputs de preenchimento, selects e textareas editáveis usam o azul já estabelecido `#0000ff`, centralizado em `--field-value-color`. A regra global tem prioridade sobre estilos locais de busca, cadastros e modais. Campos somente leitura/desabilitados mantêm a distinção visual existente; placeholders mantêm sua cor de orientação.
+
+Validação: build Docker, `git diff --check` e roteiro auxiliar `node build/check-dfd-tabs.cjs` aprovados em 1440px/500px. O navegador verificou cor computada azul em inputs de texto, data, número, select e textarea sob estilos de modal/busca/cadastro. Sem execução de PHPUnit nesta alteração exclusiva de CSS.

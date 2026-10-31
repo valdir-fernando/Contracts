@@ -61,10 +61,31 @@ class DfdPanelTest extends TestCase
             $response->assertSee('name="'.$field.'"', false);
         }
         $response->assertSee('Dotação orçamentária')->assertSee('data-dfd-budget-select', false)
-            ->assertSee('data-dfd-search-open', false)->assertSee('Salve a DFD para acessar os produtos');
+            ->assertSee('data-dfd-search-open', false)->assertSee('Salve a DFD para acessar os produtos')
+            ->assertSee('id="dfd-quotation"', false)->assertSee('maxlength="5"', false);
         $this->get('/dfd-compra?classe=Material&tab=products')->assertForbidden();
         $this->assertDatabaseCount('tb_DFD', 0);
         $this->preview('new', $response->getContent());
+    }
+
+    public function test_tabs_group_fields_in_one_form_without_losing_inputs(): void
+    {
+        $html = $this->get('/dfd-compra?classe=Material')->assertOk()->getContent();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($dom);
+        foreach ([
+            'description' => ['Necessidade', 'Desricao', 'Observacoes'],
+            'information' => ['Data_Conclusao', 'Prioridade', 'Vigencia', 'Local', 'End_Local', 'Vinculacao'],
+            'requester' => ['Responsavel', 'Decreto', 'Cargo', 'email'],
+            'budget' => ['dfd-budget', 'dfd-budget-Dotacao'],
+        ] as $tab => $fields) {
+            foreach ($fields as $field) {
+                $this->assertSame(1, $xpath->query('//form[@id="dfd-general-form"]//*[@id="dfd-panel-'.$tab.'"]//*[@id="'.$field.'"]')->length);
+            }
+            $this->assertSame(1, $xpath->query('//nav//button[@aria-controls="dfd-panel-'.$tab.'"]')->length);
+        }
+        $this->assertSame(1, $xpath->query('//*[@id="Observacoes"]')->length);
     }
 
     public function test_general_fields_save_reopen_edit_and_delete_with_audit(): void

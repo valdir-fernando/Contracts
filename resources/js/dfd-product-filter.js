@@ -34,11 +34,15 @@ export function initializeDfdProductFilter(editor) {
     const empty = editor.querySelector('[data-dfd-product-empty]');
     const total = editor.querySelector('[data-dfd-product-total]');
     let appliedQuery = normalize(query.value);
+    let selectedRow = rows.find((row) => row.querySelector('input[type="checkbox"]').checked) ?? null;
     const render = () => {
         let visible = 0;
         let selected = 0;
         for (const row of rows) {
-            const checked = row.querySelector('input[type="checkbox"]').checked;
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            const checked = row === selectedRow;
+            checkbox.checked = checked;
+            checkbox.disabled = selectedRow !== null && !checked;
             row.classList.toggle('dfd-product-selected', checked);
             const quantity = row.querySelector('[data-dfd-product-quantity]');
             const launch = row.querySelector('[data-dfd-product-launch-button]');
@@ -71,7 +75,12 @@ export function initializeDfdProductFilter(editor) {
             render();
         }
     });
-    rows.forEach((row) => row.querySelector('input[type="checkbox"]').addEventListener('change', render));
+    rows.forEach((row) => row.querySelector('input[type="checkbox"]').addEventListener('change', () => {
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        if (row === selectedRow && !checkbox.checked) selectedRow = null;
+        else if (selectedRow === null && checkbox.checked) selectedRow = row;
+        render();
+    }));
     render();
 }
 

@@ -18,7 +18,7 @@ test('blur filters names while selected products remain visible and clearing res
         const classes = new Set();
         return { dataset: { productName: name }, hidden: false, quantity, classes,
             classList: { toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name) },
-            querySelector: (selector) => selector === '[data-dfd-product-quantity]' ? quantity : checkbox };
+            querySelector: (selector) => selector === '[data-dfd-product-quantity]' ? quantity : selector === '[data-dfd-product-launch-button]' ? null : checkbox };
     });
     const empty = { hidden: true };
     const total = { hidden: true, textContent: '' };
@@ -35,6 +35,9 @@ test('blur filters names while selected products remain visible and clearing res
     assert.equal(rows[1].quantity.disabled, false);
     assert.equal(rows[1].classes.has('dfd-product-selected'), true);
     assert.equal(rows[0].classes.has('dfd-product-selected'), false);
+    assert.equal(rows[1].querySelector().disabled, false);
+    assert.equal(rows[0].querySelector().disabled, true);
+    assert.equal(rows[2].querySelector().disabled, true);
     rows[1].quantity.value = '1.654,000';
     assert.equal(rows[0].quantity.disabled, true);
     query.value = 'PAP';
@@ -53,7 +56,10 @@ test('blur filters names while selected products remain visible and clearing res
     assert.equal(total.textContent, 'Total de Itens Selecionados: 1');
     rows[0].querySelector().checked = true;
     rows[0].querySelector().change();
-    assert.equal(total.textContent, 'Total de Itens Selecionados: 2');
+    assert.equal(total.textContent, 'Total de Itens Selecionados: 1');
+    assert.equal(rows[0].querySelector().checked, false);
+    assert.equal(rows[1].querySelector().checked, true);
+    assert.equal(rows[1].quantity.value, '1.654,000');
     rows[0].querySelector().checked = false;
     rows[0].querySelector().change();
     query.value = 'inexistente';
@@ -66,4 +72,11 @@ test('blur filters names while selected products remain visible and clearing res
     assert.ok(rows.every((row) => row.quantity.disabled));
     assert.ok(rows.every((row) => row.quantity.value === '0,000'));
     assert.ok(rows.every((row) => !row.classes.has('dfd-product-selected')));
+    assert.ok(rows.every((row) => !row.querySelector().disabled));
+    rows[0].querySelector().checked = true;
+    rows[0].querySelector().change();
+    assert.equal(rows[0].quantity.disabled, false);
+    assert.equal(rows[1].querySelector().disabled, true);
+    assert.equal(rows[2].querySelector().disabled, true);
+    assert.equal(total.textContent, 'Total de Itens Selecionados: 1');
 });

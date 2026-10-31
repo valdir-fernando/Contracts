@@ -9,25 +9,26 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>DFD {{ $fields['N_DFD'] }}</title>
 <style>
-    @page { margin: 14mm 15mm 16mm; }
+    @page { margin: 14mm 10mm 16mm 20mm; }
     body { margin: 0; font: 8pt DejaVu Sans, sans-serif; color: #111; line-height: 1.3; }
     table { border-collapse: collapse; width: 100%; table-layout: fixed; }
     td, th { border: .6pt solid #777; padding: 3pt 4pt; vertical-align: top; word-wrap: break-word; }
     th { background: #efefec; font-weight: bold; }
     thead { display: table-header-group; }
     tr { page-break-inside: avoid; }
-    .institution td { vertical-align: middle; border-bottom: 0; }
-    .institution .municipality { width: 34%; text-align: center; }
-    .institution .state { width: 35%; text-align: center; font-size: 12pt; font-weight: bold; }
-    .institution .crest { width: 15%; text-align: center; }
+    .institution { border: .6pt solid #777; }
+    .institution td { vertical-align: middle; border: .6pt solid #777; }
+    .institution .municipality { width: 30%; text-align: center; }
+    .institution .title { width: 54%; }
     .institution .number { text-align: center; font-weight: bold; }
     .logo { width: 40mm; height: auto; }
-    .state-logo { width: 20mm; height: auto; }
-    .fund-name { font-size: 7pt; font-weight: bold; margin-top: 4pt; }
-    .administration { font-size: 6pt; margin-top: 2pt; font-weight: normal; }
-    .number-value { font-size: 12pt; color: #a00000; }
-    .title { width: 70%; text-align: center; font-size: 10pt; color: #0073b9; font-weight: bold; vertical-align: middle; }
+    .administration { font-size: 8pt; margin-top: 4pt; }
+    .number-value { font-size: 16pt; color: #a00000; }
+    .title { text-align: center; font-size: 10pt; color: #0073b9; font-weight: bold; vertical-align: middle; }
+    .title .dfd-heading { font-size: 14pt; }
     .metadata { text-align: center; font-size: 7pt; }
+    .institution .header-date { width: 16%; height: 16pt; padding: 2pt; text-align: center; font-size: 7pt; }
+    .institution .header-number { width: 16%; height: 44pt; text-align: center; font-size: 7pt; }
     h2 { font-size: 8pt; line-height: 1.3; padding: 3pt 4pt; margin: 0; background: #efefec; border: .6pt solid #777; border-top: 0; page-break-after: avoid; }
     .content { margin: 0; padding: 4pt; border: .6pt solid #777; border-top: 0; white-space: pre-wrap; word-wrap: break-word; }
     .category { margin: 0; padding: 4pt; border: .6pt solid #777; border-top: 0; font-size: 7pt; word-wrap: break-word; }
@@ -48,12 +49,15 @@
     .page:after { content: counter(page); }
 </style></head><body>
     <div class="footer">Sistema Gestão · DFD {{ $fields['N_DFD'] }} · Impressão: {{ $document['actor']['username'] }}<span class="page">Página </span></div>
-    <table class="institution"><tr>
-        <td class="municipality"><img class="logo" src="{{ $logo }}" alt="Prefeitura de Niquelândia"><div class="fund-name">{{ $document['fund']['name'] }}</div><div class="administration">Administração {{ $document['settings']['administration'] }}</div></td>
-        <td class="state">ESTADO DE GOIÁS</td><td class="crest"><img class="state-logo" src="{{ $crestLogo }}" alt="Brasão de Niquelândia"></td>
-        <td class="number">Nº<br><span class="number-value">{{ $fields['N_DFD'] }}</span></td>
-    </tr></table>
-    <table><tr><td class="title" rowspan="2">DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA - DFD</td><th class="metadata">PROCESSO</th><th class="metadata">DATA</th></tr><tr><td class="metadata">{{ $text($fields['Processo_DFD']) }}</td><td class="metadata">{{ $date($fields['Data_DFD']) }}</td></tr></table>
+    <table class="institution">
+        <colgroup><col style="width: 30%"><col style="width: 54%"><col style="width: 16%"></colgroup>
+        <tr>
+            <td class="municipality" rowspan="2"><img class="logo" src="{{ $logo }}" alt="Prefeitura de Niquelândia"><div class="administration">Administração: {{ $document['settings']['administration'] }}</div></td>
+            <td class="title" rowspan="2"><span class="dfd-heading">DFD</span><br>DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA</td>
+            <td class="number header-number"><strong>Nº DFD</strong><br><span class="number-value">{{ $fields['N_DFD'] }}</span></td>
+        </tr>
+        <tr><td class="header-date"><strong>DATA</strong><br>{{ $date($fields['Data_DFD']) }}</td></tr>
+    </table>
     <p class="category"><strong>Classe / Categoria:</strong> {{ $text($fields['Categoria']) }}</p>
     <h2>1 - JUSTIFICATIVA DA NECESSIDADE DA CONTRATAÇÃO</h2>
     <div class="content">{{ $text($fields['Necessidade']) }}</div>

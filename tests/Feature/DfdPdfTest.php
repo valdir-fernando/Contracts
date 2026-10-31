@@ -89,10 +89,10 @@ class DfdPdfTest extends TestCase
         }
     }
 
-    public function test_icon_is_next_to_process_with_a_private_saved_record_url_and_disabled_for_new(): void
+    public function test_icon_is_in_heading_with_a_private_saved_record_url_and_disabled_for_new(): void
     {
         $this->get('/dfd-compra?classe=Material')->assertOk()->assertSee('Salve a DFD antes de gerar o PDF');
-        $this->get('/dfd-compra/'.$this->dfd)->assertOk()->assertSee('dfd-process-control', false)
+        $this->get('/dfd-compra/'.$this->dfd)->assertOk()->assertSee('dfd-page-heading', false)
             ->assertSee('href="'.route('dfd-compra.pdf', $this->dfd).'"', false)->assertSee('aria-label="Gerar PDF da DFD"', false);
     }
 
@@ -116,12 +116,12 @@ class DfdPdfTest extends TestCase
         DB::table('tb_Produtos_DFD')->insert(['ID_DFD' => $this->dfd, 'N_DFD' => '001/26', 'ITEM' => 2, 'PRODUTO' => 'PRODUTO EXCLUIDO', 'deleted_at' => now()]);
         $renderer = $this->renderer();
         $this->get($this->url())->assertOk();
-        foreach (['DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA - DFD', '001/26', '29/10/2026', '10/12/2026', 'Material', '100/2026',
+        foreach (['<span class="dfd-heading">DFD</span><br>DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA', '001/26', '29/10/2026', '10/12/2026', 'Material',
             'JUSTIFICATIVA', 'DESCRIÇÃO SUCINTA', 'EXPECTATIVA DE CONSUMO', 'INFORMAÇÕES GERAIS', 'DOTAÇÃO ORÇAMENTÁRIA',
             'OBSERVAÇÕES', 'ÁREA REQUISITANTE', 'Assinatura', 'Papel A4', 'Pacote com 500 folhas', '2.5000', '319011', '00012', 'Pessoa responsável', '123/2026', 'exemplo@example.test', '&lt;script&gt;texto sem HTML&lt;/script&gt;'] as $expected) {
             $this->assertStringContainsString($expected, $renderer->capturedHtml);
         }
-        foreach (['<script>', 'SEGREDO_FORA_DA_PROJECAO', 'PRODUTO EXCLUIDO'] as $excluded) {
+        foreach (['<script>', 'SEGREDO_FORA_DA_PROJECAO', 'PRODUTO EXCLUIDO', '100/2026', '<strong>PROCESSO</strong>'] as $excluded) {
             $this->assertStringNotContainsString($excluded, $renderer->capturedHtml);
         }
     }
@@ -136,6 +136,40 @@ class DfdPdfTest extends TestCase
         auth()->logout();
         $this->get($this->url())->assertRedirect(route('login'));
         $this->assertDatabaseMissing('activity_events', ['action' => 'dfd_pdf_generated']);
+    }
+
+    public function test_header_is_unified_and_administration_is_preserved_after_settings_change(): void
+    {
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('Administração: 2025/2028', $renderer->capturedHtml);
+        $header = explode('<p class="category">', explode('<table class="institution">', $renderer->capturedHtml)[1])[0];
+        $this->assertSame(1, substr_count($header, '</table>'));
+        $this->assertSame(1, substr_count($header, '<img '));
+        $this->assertStringNotContainsString('ESTADO DE GOIÁS', $header);
+        $this->assertStringNotContainsString('Município de Niquelândia', $header);
+        $this->assertStringNotContainsString('Brasão de Niquelândia', $header);
+        $this->assertSame('2025/2028', ActivityEvent::where('action', 'dfd_pdf_generated')->sole()->metadata['administration']);
+
+        DB::table('document_settings')->where('id', 1)->update(['administration_start_year' => 2029, 'administration_end_year' => 2032, 'version' => 2]);
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('Administração: 2025/2028', $renderer->capturedHtml);
+        $this->assertStringNotContainsString('Administração: 2029/2032', $renderer->capturedHtml);
+
+        $newId = DB::table('tb_DFD')->insertGetId(['N_DFD' => '002/29', 'fund_id' => $this->fund, 'Fundo' => 'Município de Niquelândia', 'Categoria' => 'Material', 'version' => 1], 'ID');
+        $this->get('/dfd-compra/'.$newId.'/pdf')->assertOk();
+        $this->assertStringContainsString('Administração: 2029/2032', $renderer->capturedHtml);
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('Administração: 2025/2028', $renderer->capturedHtml);
+    }
+
+    public function test_legacy_emission_preserves_initial_administration(): void
+    {
+        ActivityEvent::create(['actor_id' => $this->actor->id, 'action' => 'dfd_pdf_generated', 'metadata' => ['dfd_id' => $this->dfd, 'version' => 1], 'created_at' => now()]);
+        DB::table('document_settings')->where('id', 1)->update(['administration_start_year' => 2029, 'administration_end_year' => 2032, 'version' => 2]);
+        $renderer = $this->renderer();
+        $this->get($this->url())->assertOk();
+        $this->assertStringContainsString('Administração: 2025/2028', $renderer->capturedHtml);
     }
 
     public function test_scoped_user_can_emit_only_their_department_and_reauthorization_detects_revocation(): void

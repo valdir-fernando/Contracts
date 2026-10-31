@@ -24,6 +24,7 @@ class DfdPdf
             abort_unless(now()->timestamp <= $expires && $current === $snapshot, 409, 'Os dados da DFD mudaram ou a emissão expirou. Gere o PDF novamente.');
             ActivityEvent::create(['actor_id' => $expected->id, 'action' => 'dfd_pdf_generated',
                 'metadata' => ['dfd_id' => $id, 'version' => $snapshot['fields']['version'],
+                    'administration' => $snapshot['settings']['administration'],
                     'source_sha256' => hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR)),
                     'template_sha256' => $snapshot['template_hash'], 'sha256' => hash('sha256', $bytes)], 'created_at' => now()]);
         }, 3);
@@ -49,14 +50,18 @@ class DfdPdf
         abort_if($budgets->count() > 1, 422, 'A ficha da DFD possui mais de uma dotação disponível. Confira o cadastro antes de emitir.');
         $budget = $budgets->first();
         $settings = DB::table('document_settings')->where('id', 1)->lockForUpdate()->firstOrFail();
+        $firstEmission = ActivityEvent::where('action', 'dfd_pdf_generated')->where('metadata->dfd_id', $id)->orderBy('id')->first();
+        // Emissions predating administration snapshots used the initial 2025/2028 administration.
+        $administration = $firstEmission
+            ? ($firstEmission->metadata['administration'] ?? '2025/2028')
+            : $settings->administration_start_year.'/'.$settings->administration_end_year;
 
         return ['fields' => $fields, 'items' => $items, 'budget' => $budget ? (array) $budget : null,
             'fund' => ['id' => $fund->id, 'name' => $fund->name],
             'actor' => ['id' => $actor->id, 'username' => $actor->username, 'role' => $actor->user_type],
-            'settings' => ['version' => $settings->version, 'administration' => $settings->administration_start_year.'/'.$settings->administration_end_year],
+            'settings' => ['version' => $settings->version, 'administration' => $administration],
             'template_hash' => hash('sha256', file_get_contents(resource_path('views/documents/dfd.blade.php'))
-                .file_get_contents(resource_path('documents/branding/prefeitura.png'))
-                .file_get_contents(resource_path('documents/branding/niquelandia-brasao.png')))];
+                .file_get_contents(resource_path('documents/branding/prefeitura.png')))];
     }
 
     protected function html(array $snapshot): string
@@ -69,8 +74,7 @@ class DfdPdf
         unset($item);
 
         return view('documents.dfd', ['document' => $snapshot,
-            'logo' => 'data:image/png;base64,'.base64_encode(file_get_contents(resource_path('documents/branding/prefeitura.png'))),
-            'crestLogo' => 'data:image/png;base64,'.base64_encode(file_get_contents(resource_path('documents/branding/niquelandia-brasao.png')))])->render();
+            'logo' => 'data:image/png;base64,'.base64_encode(file_get_contents(resource_path('documents/branding/prefeitura.png')))])->render();
     }
 
     private function segments(string $text): array
