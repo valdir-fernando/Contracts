@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Inspectors\InspectorContracts;
 use App\Infrastructure\Inspectors\InspectorRegistration;
 use App\Infrastructure\Security\CatalogAccess;
 use App\Infrastructure\Security\LockActor;
@@ -11,6 +12,16 @@ use Illuminate\Support\Facades\DB;
 
 class InspectorController extends Controller
 {
+    public function contracts(Request $request, int $inspector, InspectorContracts $contracts)
+    {
+        $status = $request->validate(['status' => ['sometimes', 'required', 'string', 'in:vigente,vencido']])['status'] ?? 'vigente';
+
+        return response()->view('administration.inspector-contracts', [
+            'contracts' => $contracts->listing($request->user(), $inspector, $status),
+            'status' => $status,
+        ])->header('Cache-Control', 'private, no-store');
+    }
+
     public function lookup(Request $request, LockActor $actors)
     {
         $actor = $actors->current($request->user());

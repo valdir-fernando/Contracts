@@ -1,13 +1,17 @@
 <x-layouts.app title="Fiscal de Contratos">
-    <div data-contract-editor class="inspector-page" x-data="{}">
-    <div class="page-heading"><div><span class="section-label">Cadastros</span><h1>Fiscal de Contratos</h1></div></div>
-    <form data-inspector-form data-inspector-lookup-url="{{ route('inspectors.lookup') }}" data-inspector-original-cpf="{{ $record ? \App\Services\Legacy\Normalizer::document($values['CPF_Fiscal'] ?? '') : '' }}" @inspector-cpf-invalid="step = 0; $nextTick(() => $el.querySelector('[data-inspector-cpf]').focus())" method="POST" novalidate action="{{ $record ? route('inspectors.update', $record->id) : route('inspectors.store') }}" class="inspector-editor" x-data="{ fund: @js((string) old('fund_id', $values['fund_id'] ?? '')), municipal: @js($municipalFundIds), step: {{ $errors->any() ? 2 : 0 }} }">
+    <div data-contract-editor class="inspector-page" x-data="{ step: {{ $errors->any() ? 2 : 0 }} }" :class="{ 'inspector-diary-open': step === 3 }">
+    <div class="page-heading inspector-page-heading">
+        <div><span class="section-label">Cadastros</span><h1>Fiscal de Contratos</h1></div>
+        @include('administration.partials.inspector-article-117')
+    </div>
+    <form data-inspector-form data-inspector-lookup-url="{{ route('inspectors.lookup') }}" data-inspector-original-cpf="{{ $record ? \App\Services\Legacy\Normalizer::document($values['CPF_Fiscal'] ?? '') : '' }}" @inspector-cpf-invalid="step = 0; $nextTick(() => $el.querySelector('[data-inspector-cpf]').focus())" method="POST" novalidate action="{{ $record ? route('inspectors.update', $record->id) : route('inspectors.store') }}" class="inspector-editor" x-data="{ fund: @js((string) old('fund_id', $values['fund_id'] ?? '')), municipal: @js($municipalFundIds) }">
         @csrf
         @if($record) @method('PUT')<input type="hidden" name="revision" value="{{ old('revision', $revision) }}"> @endif
         <nav class="section-tabs contract-section-navigation" aria-label="Seções do fiscal">
             <button type="button" class="section-tab" :class="{ active: step === 0 }" :aria-pressed="step === 0" @click="step = 0">1. Dados do fiscal</button>
             <button type="button" class="section-tab" :class="{ active: step === 1 }" :aria-pressed="step === 1" @click="step = 1">2. Vínculo e decreto</button>
             <button type="button" class="section-tab" :class="{ active: step === 2 }" :aria-pressed="step === 2" @click="step = 2">Expandir Tudo</button>
+            <button type="button" class="section-tab inspector-diary-tab" :class="{ active: step === 3 }" :aria-pressed="step === 3" @click="step = 3" aria-controls="inspector-diary-panel">Diario do Fiscal</button>
         </nav>
         <div class="editor-panels">
         @foreach(['Dados do fiscal' => ['CPF_Fiscal', 'RG_Fiscal', 'Data_Nasc', 'Nome_Fiscal', 'Sexo', 'Celular', 'WhatsApp', 'Situacao', 'Endereco'], 'Vínculo e decreto' => ['Decreto', 'Data_Decreto']] as $group => $keys)
@@ -47,8 +51,36 @@
                 </div>
             </section>
         @endforeach
+        <section id="inspector-diary-panel" class="surface contract-section contract-editor-section inspector-diary-panel" x-show="step === 3" x-cloak aria-label="Diario do Fiscal">
+            @if($record)
+                <div class="inspector-diary-heading">
+                <div class="inspector-diary-identification">
+                <p class="inspector-diary-summary">
+                    <strong>Fiscal:</strong> {{ $record->name }} |
+                    <strong>Decreto:</strong> {{ filled($values['Decreto'] ?? null) ? $values['Decreto'] : 'Não informado' }}
+                </p>
+                <p class="inspector-diary-summary">
+                    <strong>Fundo:</strong> {{ $funds->firstWhere('id', $values['fund_id'])?->name ?? $record->fund_name_key }} |
+                    <strong>Secretaria:</strong> {{ \App\Infrastructure\Managers\ManagerSignatory::isMunicipal($record->fund_name_key) ? ($departments->firstWhere('id', $values['department_id'])?->name ?? ($record->department_name_key ?: 'Sem secretaria')) : 'Não se aplica' }}
+                </p>
+                </div>
+                <button type="button" class="section-tab inspector-contracts-button" @click="$refs.inspectorContractsFrame.src = @js(route('inspectors.contracts', $record->id)); $refs.inspectorContracts.showModal()" aria-haspopup="dialog" aria-controls="inspector-contracts-dialog">Contratos do Fiscal</button>
+                </div>
+            @else
+                <p class="inspector-diary-summary">Selecione um fiscal cadastrado para visualizar suas informações no diário.</p>
+            @endif
+            <div class="table-scroll inspector-diary-history">
+                <table class="data-table" aria-label="Histórico do diário do fiscal">
+                    <colgroup><col class="inspector-diary-contract"><col class="inspector-diary-date"><col></colgroup>
+                    <thead><tr><th scope="col">Contrato</th><th scope="col">Data</th><th scope="col">Histórico</th></tr></thead>
+                    <tbody>
+                        <tr><td colspan="3" class="empty-state">Nenhum registro no diário do fiscal.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
         </div>
-        <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
+        <div class="form-actions sticky-actions contract-action-toolbar action-toolbar" x-show="step !== 3">
             @if(auth()->user()->isAdmin())
             @if($record)
                 <button type="submit" form="inspector-decree-direct" class="document-action registration-decree" aria-label="Gerar Decreto dos Fiscais de Contratos"><x-nav-icon name="document-extract"/><span>Decreto</span><span class="document-action-tooltip">Emitir o decreto com todos os fiscais vinculados ao mesmo número e data.</span></button>
@@ -62,6 +94,10 @@
         </div>
     </form>
     @if($record)
+        <dialog id="inspector-contracts-dialog" class="catalog-modal inspector-contracts-dialog" x-ref="inspectorContracts" aria-labelledby="inspector-contracts-title" @close="$refs.inspectorContractsFrame.src = 'about:blank'">
+            <div class="modal-header"><h2 id="inspector-contracts-title">Contratos do Fiscal — {{ $record->name }}</h2><button type="button" class="modal-close" @click="$refs.inspectorContracts.close()" aria-label="Fechar contratos do fiscal">×</button></div>
+            <iframe x-ref="inspectorContractsFrame" title="Lista de contratos do fiscal" src="about:blank"></iframe>
+        </dialog>
         <form id="inspector-decree-direct" data-inspector-decree method="POST" action="{{ route('inspectors.decree.store') }}" novalidate>
             @csrf
             <input type="hidden" name="inspector" value="{{ $record->id }}">
@@ -78,7 +114,7 @@
             </form>
         </dialog>
     @endif
-    <section class="surface contract-section inspector-registers"><h2>Fiscais cadastrados</h2>
+    <section class="surface contract-section inspector-registers" x-show="step !== 3"><h2>Fiscais cadastrados</h2>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome do fiscal</th><th>Fundo</th><th>Secretaria / Setor</th><th>Ações</th></tr></thead><tbody>
             @forelse($records as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->fund_name_key }}</td><td>{{ \App\Infrastructure\Managers\ManagerSignatory::isMunicipal($item->fund_name_key) ? ($item->department_name_key ?: 'Sem secretaria') : 'Não se aplica' }}</td><td><a class="text-link" href="{{ route('catalogs.list', ['kind' => 'inspector', 'edit' => $item->id, 'page' => $records->currentPage()]) }}">Editar<span class="sr-only"> {{ $item->name }}</span></a></td></tr>
             @empty<tr><td colspan="4" class="empty-state">Nenhum fiscal cadastrado.</td></tr>@endforelse

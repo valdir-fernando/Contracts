@@ -1583,6 +1583,12 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .workspace-content:has(> .inspector-page) > .workspace-top { margin-bottom: 8px; }
 .inspector-page .page-heading { gap: 12px; margin-bottom: 8px; }
 .inspector-page .page-heading h1 { margin-block: 2px 4px; }
+.inspector-page .inspector-page-heading { align-items: flex-start; }
+.inspector-legal-reference { width: min(620px, 60%); max-height: 170px; margin-left: auto; padding: 8px 12px; overflow-y: auto; border-left: 2px solid #dce4ef; color: var(--muted); }
+.inspector-legal-reference h2 { margin: 0 0 6px; color: #002395; font-size: 12px; font-weight: 700; }
+.inspector-page-heading .inspector-legal-reference p { margin: 0 0 6px; font-size: 11px; line-height: 1.45; }
+.inspector-legal-reference a { font-size: 11px; color: var(--primary); text-decoration: underline; }
+@media (max-width: 650px) { .inspector-legal-reference { width: 100%; } }
 .inspector-page .contract-section > h2 { margin-bottom: 10px; }
 .inspector-page .contract-section .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; }
 .inspector-editor .form-actions { margin-top: 8px; padding: 8px 12px; }
@@ -1836,13 +1842,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):not(.inspector-diary-tab) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):not(.inspector-diary-tab):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;
@@ -1924,6 +1930,53 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 
 .report-panel-navigation .report-pdf-button { background-color: #15803d; border-color: #15803d; color: #fff; }
 .report-panel-navigation .report-pdf-button:is(:hover, :focus-visible) { background-color: #166534; border-color: #166534; color: #fff; }
+
+[data-inspector-form] > .contract-section-navigation { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (min-width: 601px) {
+    [data-inspector-form] > .contract-section-navigation { grid-template-columns: repeat(4, minmax(0, calc((100% - 2 * clamp(3px, .5vw, 8px)) * .4 / 3))); }
+}
+:root .contract-section-navigation .section-tab.inspector-diary-tab,
+:root .contract-section-navigation .section-tab.inspector-diary-tab:is(:hover, :focus-visible, .active) {
+    background-color: #002395;
+    border-color: #002395;
+    color: #fff;
+}
+:root .contract-section-navigation .section-tab.inspector-diary-tab.active::after { background: #002395; }
+.inspector-diary-panel { min-height: 240px; }
+.inspector-diary-summary { margin: 0; line-height: 1.75; overflow-wrap: anywhere; }
+.inspector-diary-history { margin-top: 16px; }
+.inspector-diary-history .data-table { table-layout: fixed; width: 100%; }
+.inspector-diary-history :is(.inspector-diary-contract, .inspector-diary-date) { width: 110px; }
+.inspector-diary-history .data-table :is(th, td):nth-child(-n+2):not([colspan]) { white-space: nowrap; }
+.inspector-diary-history .data-table td:nth-child(3) { white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; }
+.inspector-diary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.inspector-diary-identification { flex: 1; min-width: 0; }
+.inspector-diary-identification .inspector-diary-summary { font-size: 12px; line-height: 1.4; }
+.inspector-contracts-button { flex-shrink: 0; margin-left: auto; white-space: nowrap; }
+.inspector-contracts-dialog { width: min(1500px, calc(100vw - 32px)); height: calc(100dvh - 48px); padding: 16px; }
+.inspector-contracts-dialog[open] { display: flex; flex-direction: column; }
+.inspector-contracts-dialog > .modal-header { flex-shrink: 0; }
+.inspector-contracts-dialog > iframe { width: 100%; flex: 1; min-height: 0; border: 0; }
+.inspector-contracts-list .data-table { min-width: 900px; }
+.inspector-contracts-filters { margin-bottom: 8px; }
+.inspector-contracts-filters fieldset { display: flex; align-items: center; gap: 20px; margin: 0; padding: 0; border: 0; }
+.inspector-contracts-filters .checkbox-label { margin: 0; }
+.inspector-contracts-list .data-table :is(th, td) { padding: 4px 8px; font-size: 11px; line-height: 1.3; }
+.inspector-contracts-list .data-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.inspector-contracts-list .data-table :is(th, td):nth-child(5) { width: 22%; max-width: 240px; }
+.inspector-contracts-list .data-table :is(th:first-child, th:nth-child(6), th:last-child, td:first-child, td:nth-child(6), td:last-child) { white-space: nowrap; }
+.inspector-contracts-list .data-table thead th { background: #4b5563; color: #fff; }
+.inspector-contracts-detail { display: block; margin-top: 1px; font-size: 10px; color: var(--muted); }
+.inspector-contract-load { min-height: 28px; padding: 3px 8px; white-space: nowrap; }
+.workspace:has(.inspector-diary-open) { height: 100dvh; }
+.workspace-content:has(> .inspector-diary-open) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 12px; }
+.workspace-content:has(> .inspector-diary-open) > :not(.inspector-diary-open) { flex-shrink: 0; }
+.inspector-diary-open { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.inspector-diary-open > .page-heading { flex-shrink: 0; }
+.inspector-diary-open > .inspector-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.inspector-diary-open .contract-section-navigation { flex-shrink: 0; }
+.inspector-diary-open .editor-panels { display: flex; flex-direction: column; flex: 1; min-height: 240px; }
+.inspector-diary-open .inspector-diary-panel { flex: 1; }
 
 /* One-line form controls share the contract editor dimensions across the suite. */
 :root :is(.workspace, .auth-shell, .catalog-modal, .budget-panel-content) :is(

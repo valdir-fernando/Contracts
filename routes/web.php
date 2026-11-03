@@ -106,6 +106,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/inspectors/decree', [InspectorDecreeController::class, 'create'])->name('inspectors.decree.create');
     Route::post('/inspectors/decree', [InspectorDecreeController::class, 'store'])->middleware('throttle:10,1')->name('inspectors.decree.store');
     Route::post('/inspectors/lookup', [InspectorController::class, 'lookup'])->middleware('throttle:60,1')->name('inspectors.lookup');
+    Route::get('/inspectors/{inspector}/contracts', [InspectorController::class, 'contracts'])->whereNumber('inspector')->name('inspectors.contracts');
     Route::put('/inspectors/{inspector}', [InspectorController::class, 'update'])->whereNumber('inspector')->name('inspectors.update');
     Route::delete('/inspectors/{inspector}', [InspectorController::class, 'destroy'])->whereNumber('inspector')->name('inspectors.destroy');
     Route::put('/document-settings', [DocumentSettingsController::class, 'update'])->name('document-settings.update');

@@ -36,11 +36,29 @@ class InspectorRegistrationTest extends TestCase
     public function test_form_registers_native_inspector_and_audits_without_changing_contracts(): void
     {
         $this->get('/catalogs/list/inspector')->assertOk()->assertSee('Fiscal de Contratos')->assertSee('Secretaria / Setor')
+            ->assertSee('Diario do Fiscal')
+            ->assertSee('aria-controls="inspector-diary-panel"', false)
+            ->assertSee('x-show="step === 3" x-cloak aria-label="Diario do Fiscal">', false)
+            ->assertSee('Selecione um fiscal cadastrado para visualizar suas informações no diário.')
+            ->assertSee('class="form-actions sticky-actions contract-action-toolbar action-toolbar" x-show="step !== 3"', false)
+            ->assertSee('class="surface contract-section inspector-registers" x-show="step !== 3"', false)
+            ->assertSee('aria-label="Histórico do diário do fiscal"', false)
+            ->assertSee('<th scope="col">Contrato</th><th scope="col">Data</th><th scope="col">Histórico</th>', false)
+            ->assertSee('Nenhum registro no diário do fiscal.')
+            ->assertSee('class="inspector-legal-reference" x-show="step === 3" x-cloak', false)
+            ->assertSee('Art. 117 — Lei nº 14.133/2021')
+            ->assertSee('O fiscal do contrato anotará em registro próprio todas as ocorrências relacionadas à execução do contrato')
+            ->assertSee('a contratação de terceiros não eximirá de responsabilidade o fiscal do contrato')
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->post('/inspectors', $this->data())->assertRedirect();
         $record = DB::table('contract_inspectors')->first();
         $this->assertNull($record->legacy_id);
         $this->assertSame('FISCAL EXEMPLO', $record->name);
+        $this->get('/catalogs/list/inspector?edit='.$record->id)->assertOk()
+            ->assertSee('<strong>Fiscal:</strong> FISCAL EXEMPLO', false)
+            ->assertSee('<strong>Decreto:</strong> 144/26', false)
+            ->assertSee('<strong>Fundo:</strong> Fundo Saúde', false)
+            ->assertSee('<strong>Secretaria:</strong> Não se aplica', false);
         $raw = json_decode($record->raw_payload, true);
         $this->assertSame('FISCAL EXEMPLO', $raw['Nome_Fiscal']);
         $this->assertSame('Ativo', $raw['Situacao']);
