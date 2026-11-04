@@ -4,6 +4,7 @@
         <div><span class="section-label">Cadastros</span><h1>Fiscal de Contratos</h1></div>
         @include('administration.partials.inspector-article-117')
     </div>
+    @include('administration.partials.inspector-article-117-dialog')
     <form data-inspector-form data-inspector-lookup-url="{{ route('inspectors.lookup') }}" data-inspector-original-cpf="{{ $record ? \App\Services\Legacy\Normalizer::document($values['CPF_Fiscal'] ?? '') : '' }}" @inspector-cpf-invalid="step = 0; $nextTick(() => $el.querySelector('[data-inspector-cpf]').focus())" method="POST" novalidate action="{{ $record ? route('inspectors.update', $record->id) : route('inspectors.store') }}" class="inspector-editor" x-data="{ fund: @js((string) old('fund_id', $values['fund_id'] ?? '')), municipal: @js($municipalFundIds) }">
         @csrf
         @if($record) @method('PUT')<input type="hidden" name="revision" value="{{ old('revision', $revision) }}"> @endif
@@ -64,12 +65,15 @@
                     <strong>Secretaria:</strong> {{ \App\Infrastructure\Managers\ManagerSignatory::isMunicipal($record->fund_name_key) ? ($departments->firstWhere('id', $values['department_id'])?->name ?? ($record->department_name_key ?: 'Sem secretaria')) : 'Não se aplica' }}
                 </p>
                 </div>
-                <button type="button" class="section-tab inspector-contracts-button" @click="$refs.inspectorContractsFrame.src = @js(route('inspectors.contracts', $record->id)); $refs.inspectorContracts.showModal()" aria-haspopup="dialog" aria-controls="inspector-contracts-dialog">Contratos do Fiscal</button>
+                <div class="inspector-diary-actions">
+                    <button type="button" class="section-tab inspector-contracts-button" @click="$refs.inspectorContractsFrame.src = @js(route('inspectors.contracts', $record->id)); $refs.inspectorContracts.showModal()" aria-haspopup="dialog" aria-controls="inspector-contracts-dialog">Contratos do Fiscal</button>
+                    <button type="button" class="section-tab inspector-history-print" @click="window.print()" aria-label="Imprimir Histórico" @disabled(empty($diary))><x-nav-icon name="printer"/><span>Imprimir Histórico</span></button>
+                </div>
                 </div>
             @else
                 <p class="inspector-diary-summary">Selecione um fiscal cadastrado para visualizar suas informações no diário.</p>
             @endif
-            <div class="table-scroll inspector-diary-history">
+            <div class="table-scroll inspector-diary-history" tabindex="0" role="region" aria-label="Lista do histórico do diário do fiscal">
                 <table class="data-table" aria-label="Histórico do diário do fiscal">
                     <colgroup><col class="inspector-diary-contract"><col class="inspector-diary-date"><col></colgroup>
                     <thead><tr><th scope="col">Contrato</th><th scope="col">Data</th><th scope="col">Histórico</th></tr></thead>
@@ -123,7 +127,7 @@
         </dialog>
     @endif
     <section class="surface contract-section inspector-registers" x-show="step !== 3"><h2>Fiscais cadastrados</h2>
-        <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome do fiscal</th><th>Fundo</th><th>Secretaria / Setor</th><th>Ações</th></tr></thead><tbody>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Lista de fiscais cadastrados"><table class="data-table"><thead><tr><th>Nome do fiscal</th><th>Fundo</th><th>Secretaria / Setor</th><th>Ações</th></tr></thead><tbody>
             @forelse($records as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->fund_name_key }}</td><td>{{ \App\Infrastructure\Managers\ManagerSignatory::isMunicipal($item->fund_name_key) ? ($item->department_name_key ?: 'Sem secretaria') : 'Não se aplica' }}</td><td><a class="text-link" href="{{ route('catalogs.list', ['kind' => 'inspector', 'edit' => $item->id, 'page' => $records->currentPage()]) }}">Editar<span class="sr-only"> {{ $item->name }}</span></a></td></tr>
             @empty<tr><td colspan="4" class="empty-state">Nenhum fiscal cadastrado.</td></tr>@endforelse
         </tbody></table></div>{{ $records->links() }}

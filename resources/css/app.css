@@ -1593,6 +1593,8 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-page .contract-section .form-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; }
 .inspector-editor .form-actions { margin-top: 8px; padding: 8px 12px; }
 .inspector-registers { margin-top: 12px; }
+.inspector-registers > .table-scroll { max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+:is(.inspector-registers, .inspector-diary-history) .data-table thead th { position: sticky; top: 0; z-index: 1; }
 .inspector-org-row { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 .inspector-org-row > .field { min-width: 0; margin-bottom: 0; }
 .inspector-editor textarea:is([data-inspector-address], [data-contract-steward-address]) { overflow-y: hidden; resize: none; }
@@ -1957,9 +1959,10 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
     color: #fff;
 }
 :root .contract-section-navigation .section-tab.inspector-diary-tab.active::after { background: #002395; }
-.inspector-diary-panel { min-height: 240px; }
+.inspector-diary-panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.inspector-diary-panel > :not(.inspector-diary-history) { flex-shrink: 0; }
 .inspector-diary-summary { margin: 0; line-height: 1.75; overflow-wrap: anywhere; }
-.inspector-diary-history { margin-top: 16px; }
+.inspector-diary-history { flex: 1; min-height: 0; margin-top: 16px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .inspector-diary-entry-text { margin-top: 8px; }
 .inspector-diary-history .data-table { table-layout: fixed; width: 100%; }
 .inspector-diary-history :is(.inspector-diary-contract, .inspector-diary-date) { width: 110px; }
@@ -1969,6 +1972,10 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-diary-identification { flex: 1; min-width: 0; }
 .inspector-diary-identification .inspector-diary-summary { font-size: 12px; line-height: 1.4; }
 .inspector-contracts-button { flex-shrink: 0; margin-left: auto; white-space: nowrap; }
+.inspector-diary-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.inspector-diary-actions > .section-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; white-space: nowrap; }
+.inspector-history-print svg { width: 18px; height: 18px; }
+.inspector-history-print:disabled { opacity: .5; cursor: not-allowed; }
 .inspector-contracts-dialog { width: min(1500px, calc(100vw - 32px)); height: calc(100dvh - 48px); padding: 16px; }
 .inspector-contracts-dialog[open] { display: flex; flex-direction: column; }
 .inspector-contracts-dialog > .modal-header { flex-shrink: 0; }
@@ -1984,15 +1991,38 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-contracts-list .data-table thead th { background: #4b5563; color: #fff; }
 .inspector-contracts-detail { display: block; margin-top: 1px; font-size: 10px; color: var(--muted); }
 .inspector-contract-load { min-height: 28px; padding: 3px 8px; white-space: nowrap; }
-.workspace:has(.inspector-diary-open) { height: 100dvh; }
+.workspace:has(.inspector-diary-open) { height: 100dvh; min-height: 0; overflow: hidden; }
 .workspace-content:has(> .inspector-diary-open) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 12px; }
 .workspace-content:has(> .inspector-diary-open) > :not(.inspector-diary-open) { flex-shrink: 0; }
 .inspector-diary-open { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .inspector-diary-open > .page-heading { flex-shrink: 0; }
 .inspector-diary-open > .inspector-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .inspector-diary-open .contract-section-navigation { flex-shrink: 0; }
-.inspector-diary-open .editor-panels { display: flex; flex-direction: column; flex: 1; min-height: 240px; }
+.inspector-diary-open .editor-panels { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .inspector-diary-open .inspector-diary-panel { flex: 1; }
+@media print {
+    body:has(.inspector-diary-open) { background: white; }
+    body:has(.inspector-diary-open) :is(.skip-link, .workspace-nav, .workspace-top, .notice, dialog, .inspector-page-heading, .contract-section-navigation, .form-actions, .inspector-registers, .inspector-diary-actions) { display: none !important; }
+    .workspace:has(.inspector-diary-open),
+    .workspace-content:has(> .inspector-diary-open),
+    .inspector-diary-open,
+    .inspector-diary-open > .inspector-editor,
+    .inspector-diary-open .editor-panels,
+    .inspector-diary-open .inspector-diary-panel,
+    .inspector-diary-open .inspector-diary-history { display: block; width: 100%; max-width: none; height: auto; min-height: 0; max-height: none; margin: 0; padding: 0; overflow: visible; }
+    .inspector-diary-open .editor-panels > :not(.inspector-diary-panel) { display: none !important; }
+    .inspector-diary-open .inspector-diary-panel { border: 0; box-shadow: none; }
+    .inspector-diary-open .inspector-diary-history { margin-top: 16px; }
+    .inspector-diary-open .inspector-diary-heading { break-inside: avoid; }
+    .inspector-diary-open .data-table thead { display: table-header-group; }
+    .inspector-diary-open .data-table thead th { position: static; }
+    .inspector-diary-open .data-table tr { break-inside: avoid; }
+    .inspector-diary-open .data-table :is(th, td) { color: black; }
+}
+@media (max-width: 1024px) {
+    .workspace:has(.inspector-diary-open) { grid-template-rows: auto minmax(0, 1fr); }
+    .workspace:has(.inspector-diary-open) > .workspace-nav { max-height: 35dvh; overflow-y: auto; }
+}
 
 /* One-line form controls share the contract editor dimensions across the suite. */
 :root :is(.workspace, .auth-shell, .catalog-modal, .budget-panel-content) :is(

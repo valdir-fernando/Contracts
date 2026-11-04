@@ -48,7 +48,16 @@ class InspectorRegistrationTest extends TestCase
             ->assertSee('class="inspector-legal-reference" x-show="step === 3" x-cloak', false)
             ->assertSee('Art. 117 — Lei nº 14.133/2021')
             ->assertSee('O fiscal do contrato anotará em registro próprio todas as ocorrências relacionadas à execução do contrato')
+            ->assertSee('data-modal-open="inspector-article-117-dialog"', false)
+            ->assertSee('aria-haspopup="dialog" aria-controls="inspector-article-117-dialog"', false)
+            ->assertSee('<dialog id="inspector-article-117-dialog" class="catalog-modal"', false)
+            ->assertSee('data-modal-close aria-label="Fechar artigo 117"', false)
+            ->assertSee('A execução do contrato deverá ser acompanhada e fiscalizada')
+            ->assertSee('<strong>§ 2º</strong>', false)
+            ->assertSee('<strong>§ 3º</strong>', false)
+            ->assertSee('<strong>§ 4º</strong>', false)
             ->assertSee('a contratação de terceiros não eximirá de responsabilidade o fiscal do contrato')
+            ->assertSee('Consultar publicação oficial')
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->post('/inspectors', $this->data())->assertRedirect();
         $record = DB::table('contract_inspectors')->first();

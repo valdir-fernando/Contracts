@@ -153,6 +153,9 @@ class InspectorContractsTest extends TestCase
         $this->get('/inspectors/'.$this->inspector.'/contracts')->assertOk()->assertSee(e($url), false)
             ->assertSee('target="_top"', false);
         $response = $this->get($url)->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertSeeInOrder(['Contratos do Fiscal</button>', 'class="section-tab inspector-history-print"', 'Imprimir Histórico</span>'], false)
+            ->assertSee('@click="window.print()"', false)
+            ->assertSeeInOrder(['<strong>Fiscal:</strong> FISCAL TESTE', '<strong>Decreto:</strong> 144/26', '<strong>Fundo:</strong> MUNICIPIO DE NIQUELÂNDIA', '<strong>Secretaria:</strong> Educação', 'aria-label="Histórico do diário do fiscal"'], false)
             ->assertSee('step: 3', false)->assertSee('15/01/2026')->assertSee('16/01/2026')
             ->assertSee('Tipo do contrato: Serviços Diversos')->assertSee('Licitação: Pregão 010/26')
             ->assertSee('Processo: 100/26')->assertSee('OBJETO: Objeto salvo - complemento')
@@ -188,7 +191,8 @@ class InspectorContractsTest extends TestCase
     {
         $contract = $this->contract();
         $url = '/catalogs/list/inspector?edit='.$this->inspector.'&diary_contract='.$contract->id;
-        $this->get($url)->assertOk()->assertSee('Nenhum histórico registrado para este contrato.');
+        $this->get($url)->assertOk()->assertSee('Nenhum histórico registrado para este contrato.')
+            ->assertSee('aria-label="Imprimir Histórico" disabled', false);
         $user = User::create(['name' => 'User', 'username' => 'DIARY', 'password' => 'PasswordTest123']);
         $user->catalog_permissions = ['inspector'];
         $user->save();
