@@ -43,6 +43,44 @@ class ManagerRegistrationTest extends TestCase
         return app(ManagerRegistration::class)->revision(DB::table('tb_Gestor')->find($id));
     }
 
+    public function test_fund_is_in_heading_and_tabs_require_fund_or_existing_record(): void
+    {
+        $url = '/catalogs/list/manager-fund';
+        $new = $this->get($url)->assertOk()
+            ->assertSeeInOrder(['manager-page-heading', '<h1>Gestor do Fundo</h1>', 'manager-heading-divider', 'id="manager-fund"', 'aria-label="Seções do gestor"'], false)
+            ->assertSee('x-show="tabsAvailable" x-cloak :inert="!tabsAvailable"', false);
+        $this->assertSame(1, substr_count($new->getContent(), 'id="manager-fund"'));
+        $this->post('/managers', $this->input())->assertRedirect();
+        $id = DB::table('tb_Gestor')->sole()->id;
+        $edit = $this->get($url.'?edit='.$id)->assertOk()
+            ->assertSee('value="'.$this->fund.'" selected', false);
+        $old = $this->withSession(['_old_input' => ['fund_id' => (string) $this->fund]])->get($url)->assertOk()
+            ->assertSee('value="'.$this->fund.'" selected', false);
+        foreach ([[$new, 3], [$edit, 0], [$old, 0]] as [$response, $disabled]) {
+            $document = new \DOMDocument;
+            @$document->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($document);
+            $this->assertSame($disabled, $xpath->query('//nav[@aria-label="Seções do gestor"]/button[@disabled]')->length);
+            $this->assertSame(3, $xpath->query('//nav[@aria-label="Seções do gestor"]/button[@*[name()=":disabled"]="!tabsAvailable"]')->length);
+        }
+    }
+
+    public function test_decree_selection_guidance_is_inside_standard_tooltip_with_shared_list_state(): void
+    {
+        $response = $this->get('/catalogs/list/manager-fund')->assertOk();
+        $document = new \DOMDocument;
+        @$document->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $xpath = new \DOMXPath($document);
+        $scope = '//div[@data-contract-editor and @x-data="{ selectedManagerIds: [] }"]';
+        $tooltip = $scope.'//button[@data-registration-decree]//span[@role="tooltip" and @id="manager-decree-tooltip"]';
+        $guidance = $xpath->query($tooltip.'/span[@x-show="selectedManagerIds.length === 0"]');
+        $this->assertSame(1, $guidance->length);
+        $this->assertSame('Para a emissão de Decreto de Gestor selecione o(s) gestor(es) que sera(ão) incluído(s) no Decreto', $guidance->item(0)->textContent);
+        $this->assertStringStartsWith('O modelo deste decreto ainda não foi definido.', trim($xpath->query($tooltip)->item(0)->textContent));
+        $this->assertSame(1, $xpath->query($scope.'//button[contains(@class, "manager-selection-clear")]')->length);
+        $this->assertSame(0, $xpath->query($scope.'//section[@x-data]')->length);
+    }
+
     public function test_create_edit_and_delete_preserve_history_and_private_projection(): void
     {
         $this->post('/managers', $this->input())->assertRedirect();

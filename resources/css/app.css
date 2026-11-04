@@ -1599,7 +1599,18 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-editor input[name="Nome_Fiscal"] { text-transform: uppercase; }
 .inspector-editor input[name="Nome_Gestor"] { text-transform: uppercase; }
 .manager-email { grid-column: span 2; }
-.manager-selection-clear { display: block; margin: 0 0 4px; padding: 0; text-align: left; }
+.manager-name { grid-column: 1 / span 2; }
+.inspector-page .manager-page-heading { justify-content: flex-start; align-items: center; gap: 16px; flex-wrap: wrap; }
+.manager-heading-divider { color: #aab2c2; font-size: 28px; }
+.manager-heading-fund { flex: 1 1 280px; max-width: 560px; margin: 0; }
+[data-manager-form] > .contract-section-navigation .section-tab:disabled { opacity: .5; cursor: not-allowed; }
+.manager-registers .data-table :is(td, label, .text-link) { font-size: 11px; }
+.manager-registers .data-table th { font-size: 10px; }
+.manager-registers .data-table :is(th, td) { padding-block: 4px; }
+.manager-registers-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.manager-registers-heading h2 { margin: 0; }
+.manager-registers-heading > span { color: var(--muted); }
+.manager-selection-clear { margin: 0; padding: 0; text-align: left; }
 .action-toolbar .registration-decree { margin-inline-end: auto; }
 .manager-decree-guidance { display: flex; align-items: flex-end; gap: 10px; flex: 1 1 400px; min-width: 0; }
 .manager-decree-guidance .registration-decree { margin-inline-end: 0; flex-shrink: 0; }
@@ -1609,7 +1620,11 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .workspace :is(.data-table, .table-scroll table) thead th { background: #4b5563; color: #ffffff; border-color: #6b7280; }
 .workspace :is(.data-table, .table-scroll table) thead th :is(a, button, svg) { color: inherit; }
 .registration-decree .document-action-tooltip { inset-inline-start: 0; inset-inline-end: auto; }
-@media (max-width: 600px) { .manager-email { grid-column: auto; } }
+.manager-page-heading > .manager-heading-actions { display: flex; flex-wrap: wrap; margin: 0 0 0 auto; justify-content: flex-end; }
+.manager-heading-actions > :is(a, button) { flex: 0 0 auto; width: auto; }
+.manager-heading-actions .registration-decree { margin-inline-end: 0; }
+.manager-page-heading .registration-decree .document-action-tooltip { inset-inline-start: auto; inset-inline-end: 0; }
+@media (max-width: 600px) { .manager-email, .manager-name { grid-column: auto; } }
 .workspace-content:has(> .fund-page) > .workspace-top { margin-bottom: 8px; }
 .fund-page .page-heading { margin-bottom: 8px; gap: 12px; }
 .fund-page .page-heading h1 { margin-block: 2px 4px; }
