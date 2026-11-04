@@ -1945,6 +1945,7 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .inspector-diary-panel { min-height: 240px; }
 .inspector-diary-summary { margin: 0; line-height: 1.75; overflow-wrap: anywhere; }
 .inspector-diary-history { margin-top: 16px; }
+.inspector-diary-entry-text { margin-top: 8px; }
 .inspector-diary-history .data-table { table-layout: fixed; width: 100%; }
 .inspector-diary-history :is(.inspector-diary-contract, .inspector-diary-date) { width: 110px; }
 .inspector-diary-history .data-table :is(th, td):nth-child(-n+2):not([colspan]) { white-space: nowrap; }

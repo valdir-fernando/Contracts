@@ -1,5 +1,5 @@
 <x-layouts.app title="Fiscal de Contratos">
-    <div data-contract-editor class="inspector-page" x-data="{ step: {{ $errors->any() ? 2 : 0 }} }" :class="{ 'inspector-diary-open': step === 3 }">
+    <div data-contract-editor class="inspector-page" x-data="{ step: {{ $diarySelected ? 3 : ($errors->any() ? 2 : 0) }} }" :class="{ 'inspector-diary-open': step === 3 }">
     <div class="page-heading inspector-page-heading">
         <div><span class="section-label">Cadastros</span><h1>Fiscal de Contratos</h1></div>
         @include('administration.partials.inspector-article-117')
@@ -74,7 +74,15 @@
                     <colgroup><col class="inspector-diary-contract"><col class="inspector-diary-date"><col></colgroup>
                     <thead><tr><th scope="col">Contrato</th><th scope="col">Data</th><th scope="col">Histórico</th></tr></thead>
                     <tbody>
-                        <tr><td colspan="3" class="empty-state">Nenhum registro no diário do fiscal.</td></tr>
+                        @forelse($diary as $entry)
+                            <tr>
+                                <td>{{ $entry['number'] }}</td>
+                                <td>{{ $entry['date'] }}</td>
+                                <td><div><strong>Fundo:</strong> {{ $entry['fund'] }}</div><div><strong>Fiscal:</strong> {{ $entry['inspector'] }}</div><div><strong>Decreto:</strong> {{ $entry['decree'] }}</div><div class="inspector-diary-entry-text">{{ $entry['text'] }}</div></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="3" class="empty-state">{{ $diarySelected ? 'Nenhum histórico registrado para este contrato.' : 'Nenhum registro no diário do fiscal.' }}</td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>

@@ -19,7 +19,7 @@
                             <td><span>{{ $contract['fund'] }}</span>@if(filled($contract['department']))<span class="inspector-contracts-detail">{{ $contract['department'] }}</span>@endif</td>
                             <td><span>{{ $contract['object'] }}</span>@if($contract['amendment'] !== '')<span class="inspector-contracts-detail">Aditivo: {{ $contract['amendment'] }}</span>@endif</td>
                             <td>{{ $contract['ends'] }}</td>
-                            <td><button type="button" class="section-tab inspector-contract-load" aria-label="Carregar contrato {{ $contract['number'] }}">Carregar</button></td>
+                            <td><a class="section-tab inspector-contract-load" target="_top" href="{{ route('catalogs.list', ['kind' => 'inspector', 'edit' => $inspector, 'diary_contract' => $contract['id']]) }}" aria-label="Carregar contrato {{ $contract['number'] }}">Carregar</a></td>
                         </tr>
                     @empty
                         <tr><td colspan="7" class="empty-state">Nenhum contrato disponível para este fiscal.</td></tr>

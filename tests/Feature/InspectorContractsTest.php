@@ -135,4 +135,71 @@ class InspectorContractsTest extends TestCase
         $this->getJson($url.'?status=todos')->assertUnprocessable()->assertJsonValidationErrors('status');
         $this->getJson($url.'?status[]=vigente')->assertUnprocessable()->assertJsonValidationErrors('status');
     }
+
+    private function history(Contract $contract, string $text = '15/01/2026 - Serviços Diversos - Pregão 010/26 - 100/26 - OBJETO: Objeto salvo - complemento'): void
+    {
+        DB::table('tb_Historico')->insert(['Contrato' => $contract->numero, 'Fundo' => $contract->fundo_nome_snapshot,
+            'Fiscal' => "FISCAL TESTE\n144/26", 'Historico' => $text]);
+    }
+
+    public function test_load_link_opens_diary_with_history_date_separated_and_escaped_text(): void
+    {
+        $contract = $this->contract(['data_contrato' => '2026-02-01', 'objeto' => 'Objeto atual diferente']);
+        $this->history($contract);
+        $this->history($contract, '16/01/2026 - Registro <script>segredo</script>');
+        $other = $this->contract(['numero' => '002/26']);
+        $this->history($other, 'HISTORICO-OUTRO-CONTRATO');
+        $url = route('catalogs.list', ['kind' => 'inspector', 'edit' => $this->inspector, 'diary_contract' => $contract->id]);
+        $this->get('/inspectors/'.$this->inspector.'/contracts')->assertOk()->assertSee(e($url), false)
+            ->assertSee('target="_top"', false);
+        $response = $this->get($url)->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertSee('step: 3', false)->assertSee('15/01/2026')->assertSee('16/01/2026')
+            ->assertSee('Tipo do contrato: Serviços Diversos')->assertSee('Licitação: Pregão 010/26')
+            ->assertSee('Processo: 100/26')->assertSee('OBJETO: Objeto salvo - complemento')
+            ->assertSee('Registro &lt;script&gt;segredo&lt;/script&gt;', false)
+            ->assertDontSee('<script>segredo</script>', false)->assertDontSee('HISTORICO-OUTRO-CONTRATO');
+        $diary = $response->viewData('diary');
+        $this->assertCount(2, $diary);
+        $this->assertSame('15/01/2026', $diary[0]['date']);
+        $this->assertStringNotContainsString('15/01/2026', $diary[0]['text']);
+        $this->assertStringNotContainsString('001/26', $diary[0]['text']);
+        $this->assertSame('144/26', $diary[0]['decree']);
+    }
+
+    public function test_history_rejects_other_inspectors_departments_deleted_and_ambiguous_contracts(): void
+    {
+        $base = '/catalogs/list/inspector?edit='.$this->inspector.'&diary_contract=';
+        foreach ([['nome_fiscal' => 'OUTRO'], ['department_id' => null], ['fund_id' => null]] as $attributes) {
+            $contract = $this->contract($attributes);
+            $this->history($contract, 'HISTORICO-PRIVADO');
+            $this->get($base.$contract->id)->assertNotFound()->assertDontSee('HISTORICO-PRIVADO');
+        }
+        $deleted = $this->contract(['numero' => 'EXCLUIDO']);
+        $deleted->delete();
+        $this->get($base.$deleted->id)->assertNotFound();
+        $valid = $this->contract(['numero' => 'DUPLICADO']);
+        $this->contract(['numero' => 'DUPLICADO', 'department_id' => null]);
+        $this->get($base.$valid->id)->assertConflict();
+        $this->get($base.'999999')->assertNotFound();
+        $this->getJson($base.'invalid')->assertUnprocessable();
+    }
+
+    public function test_diary_empty_state_and_revoked_scopes_are_enforced_on_every_load(): void
+    {
+        $contract = $this->contract();
+        $url = '/catalogs/list/inspector?edit='.$this->inspector.'&diary_contract='.$contract->id;
+        $this->get($url)->assertOk()->assertSee('Nenhum histórico registrado para este contrato.');
+        $user = User::create(['name' => 'User', 'username' => 'DIARY', 'password' => 'PasswordTest123']);
+        $user->catalog_permissions = ['inspector'];
+        $user->save();
+        $scope = AccessScope::create(['scope_key' => 'diary', 'fund' => 'MUNICIPIO DE NIQUELÂNDIA',
+            'department' => 'Educação', 'fund_id' => $this->fund, 'department_id' => $this->department]);
+        $user->scopes()->attach($scope);
+        $this->actingAs($user)->get($url)->assertOk();
+        $user->scopes()->detach();
+        $this->get($url)->assertNotFound();
+        $user->catalog_permissions = [];
+        $user->save();
+        $this->actingAs($user->fresh())->get($url)->assertForbidden();
+    }
 }

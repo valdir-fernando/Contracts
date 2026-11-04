@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 
 class InspectorController extends Controller
 {
+    public function __construct(private InspectorContracts $diaryContracts) {}
+
     public function contracts(Request $request, int $inspector, InspectorContracts $contracts)
     {
         $status = $request->validate(['status' => ['sometimes', 'required', 'string', 'in:vigente,vencido']])['status'] ?? 'vigente';
@@ -19,6 +21,7 @@ class InspectorController extends Controller
         return response()->view('administration.inspector-contracts', [
             'contracts' => $contracts->listing($request->user(), $inspector, $status),
             'status' => $status,
+            'inspector' => $inspector,
         ])->header('Cache-Control', 'private, no-store');
     }
 
@@ -46,7 +49,10 @@ class InspectorController extends Controller
     public function index(Request $request, InspectorRegistration $registration)
     {
         CatalogAccess::authorize($request->user(), 'inspector');
-        $id = $request->validate(['edit' => 'nullable|integer|min:1'])['edit'] ?? null;
+        $data = $request->validate(['edit' => 'nullable|integer|min:1', 'diary_contract' => 'sometimes|required|integer|min:1']);
+        $id = $data['edit'] ?? null;
+        abort_if(isset($data['diary_contract']) && ! $id, 422);
+        $diary = isset($data['diary_contract']) ? $this->diaryContracts->history($request->user(), (int) $id, (int) $data['diary_contract']) : [];
         $record = $id ? CatalogAccess::byOrganization($request->user(), DB::table('contract_inspectors'), 'fund_name_key', 'department_name_key')->whereNull('deleted_at')->find($id) : null;
         abort_if($id && ! $record, 404);
         $values = [];
@@ -69,6 +75,7 @@ class InspectorController extends Controller
 
         return response()->view('administration.inspectors', [
             'record' => $record, 'values' => $values, 'legacyDates' => $legacyDates, 'fields' => InspectorRegistration::FIELDS,
+            'diary' => $diary, 'diarySelected' => isset($data['diary_contract']),
             'revision' => $record ? $registration->revision($record) : null,
             'funds' => $funds, 'departments' => $departments,
             'municipalFundIds' => $funds->filter(fn ($fund) => Normalizer::name($fund->name) === 'MUNICIPIO DE NIQUELANDIA')->pluck('id')->map(fn ($id) => (string) $id)->values(),

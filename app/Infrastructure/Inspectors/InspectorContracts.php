@@ -17,12 +17,11 @@ final class InspectorContracts
 {
     public function __construct(private LockActor $actors) {}
 
-    public function listing(User $expected, int $inspector, string $status = 'vigente'): LengthAwarePaginator
+    private function authorizedQuery(User $expected, int $inspector): array
     {
         $actor = $this->actors->current($expected);
         CatalogAccess::authorize($actor, 'inspector');
         Gate::forUser($actor)->authorize('viewAny', Contract::class);
-        abort_unless(in_array($status, ['vigente', 'vencido'], true), 422);
         $record = CatalogAccess::byOrganization($actor, DB::table('contract_inspectors'), 'fund_name_key', 'department_name_key')
             ->whereNull('deleted_at')->find($inspector);
         abort_unless($record, 404);
@@ -36,8 +35,7 @@ final class InspectorContracts
         $cpfColumn = DB::connection()->getQueryGrammar()->wrap('cpf_fiscal');
         $normalizedCpf = "replace(replace(replace({$cpfColumn}, '.', ''), '-', ''), ' ', '')";
 
-        return Contract::visibleTo($actor)
-            ->withReportValidity($status)
+        $query = Contract::visibleTo($actor)
             ->whereIn('fund_id', CatalogAccess::funds($actor)->where('name_key', $record->fund_name_key)->select('id'))
             ->when($municipal, function ($query) use ($actor, $record) {
                 if ($record->department_name_key) {
@@ -57,12 +55,23 @@ final class InspectorContracts
                             ->where(fn ($query) => $query->whereNull('cpf_fiscal')->orWhereRaw("{$normalizedCpf} = ''"));
                     });
                 }
-            })
+            });
+
+        return [$query, $municipal];
+    }
+
+    public function listing(User $expected, int $inspector, string $status = 'vigente'): LengthAwarePaginator
+    {
+        [$query, $municipal] = $this->authorizedQuery($expected, $inspector);
+        abort_unless(in_array($status, ['vigente', 'vencido'], true), 422);
+
+        return $query->withReportValidity($status)
             ->select(['id', 'Contrato', 'tipo', 'fornecedor_nome_snapshot', 'fundo_nome_snapshot', 'secretaria_nome_snapshot', 'objeto', 'n_aditivo', 'vigencia_fim_atual'])
             ->addSelect(['latest_amendment_number' => ContractAmendment::select('number')
                 ->whereColumn('contract_id', 'contracts.id')->orderByDesc('event_date')->orderByDesc('id')->limit(1)])
             ->orderBy('Contrato')->orderBy('id')->paginate(25)->appends(['status' => $status])
             ->through(fn (Contract $contract) => [
+                'id' => $contract->id,
                 'number' => $contract->numero ?: 'Não informado',
                 'type' => $contract->tipo ?: 'Não informado',
                 'supplier' => $contract->fornecedor_nome_snapshot ?: 'Não informado',
@@ -72,5 +81,42 @@ final class InspectorContracts
                 'amendment' => trim((string) ($contract->latest_amendment_number ?? $contract->n_aditivo)),
                 'ends' => $contract->vigencia_fim_atual?->format('d/m/Y') ?? 'Não informado',
             ]);
+    }
+
+    public function history(User $expected, int $inspector, int $contractId): array
+    {
+        [$query] = $this->authorizedQuery($expected, $inspector);
+        $contract = $query->select(['id', 'Contrato', 'fundo_nome_snapshot', 'data_contrato'])->findOrFail($contractId);
+        // The legacy history key has no contract ID or department. Refuse ambiguous matches.
+        abort_if(Contract::withTrashed()->where('Contrato', $contract->numero)
+            ->where('fundo_nome_snapshot', $contract->fundo_nome_snapshot)->count() !== 1,
+            409, 'Não foi possível identificar o histórico deste contrato de forma única.');
+
+        $rows = DB::table('tb_Historico')->where('Contrato', $contract->numero)
+            ->where('Fundo', $contract->fundo_nome_snapshot)->orderBy('ID')->get(['Fundo', 'Fiscal', 'Historico']);
+
+        return $rows->map(function ($row) use ($contract) {
+            $text = (string) $row->Historico;
+            $date = $contract->data_contrato?->format('d/m/Y') ?? 'Não informada';
+            if (preg_match('/^(\d{2}\/\d{2}\/\d{4}) - /', $text, $match)) {
+                $date = $match[1];
+                $text = substr($text, strlen($match[0]));
+            }
+            [$fiscal, $decree] = array_pad(explode("\n", str_replace("\r\n", "\n", (string) $row->Fiscal), 2), 2, '');
+            $parts = explode(' - ', $text, 4);
+            if (count($parts) === 4 && str_starts_with($parts[3], 'OBJETO: ')) {
+                $text = implode("\n", ['Tipo do contrato: '.$parts[0], 'Licitação: '.$parts[1],
+                    'Processo: '.$parts[2], $parts[3]]);
+            }
+
+            return [
+                'number' => $contract->numero,
+                'date' => $date,
+                'fund' => $row->Fundo,
+                'inspector' => $fiscal,
+                'decree' => $decree,
+                'text' => $text,
+            ];
+        })->all();
     }
 }
