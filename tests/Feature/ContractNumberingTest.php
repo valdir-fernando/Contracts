@@ -71,6 +71,45 @@ class ContractNumberingTest extends TestCase
         $this->assertSame('1', $audit->changes['cont_inteiro']['after']);
     }
 
+    public function test_new_contract_records_authorized_history_and_edits_preserve_it(): void
+    {
+        $this->post('/contracts', $this->input([
+            'nome_fiscal' => 'Fiscal enviado pelo cliente', 'decreto_fiscal' => 'Decreto falso',
+        ]))->assertRedirect();
+        $contract = Contract::firstOrFail();
+        $expected = [
+            'Contrato' => $contract->numero,
+            'Fundo' => 'Fundo A',
+            'Fiscal' => "Fiscal fictício\n001/26",
+            'Historico' => '13/10/2026 - Serviço - Pregão 001/2026 - PROC - OBJETO: Objeto sintético',
+        ];
+        $this->assertDatabaseHas('tb_Historico', $expected);
+        $this->put('/contracts/'.$contract->id, [
+            'version' => 1, 'reason' => 'Correção do objeto', 'objeto' => 'Objeto corrigido',
+        ])->assertRedirect();
+        $this->assertDatabaseCount('tb_Historico', 1);
+        $this->assertDatabaseHas('tb_Historico', $expected);
+    }
+
+    public function test_history_failure_rolls_back_contract_audit_and_number(): void
+    {
+        DB::listen(function ($query) {
+            if (str_contains($query->sql, 'insert into') && str_contains($query->sql, 'tb_Historico')) {
+                throw new RuntimeException('history failure');
+            }
+        });
+        try {
+            $this->save();
+            $this->fail('History failure must roll back the contract.');
+        } catch (RuntimeException $error) {
+            $this->assertStringContainsString('history failure', $error->getMessage());
+        }
+        $this->assertDatabaseCount('contracts', 0);
+        $this->assertDatabaseCount('contract_audits', 0);
+        $this->assertDatabaseCount('tb_Historico', 0);
+        $this->assertDatabaseCount('tb_N_Contrato', 0);
+    }
+
     public function test_funds_and_years_are_independent_and_four_digits_continue_after_999(): void
     {
         DB::table('tb_N_Contrato')->insert(['fund_id' => $this->fund, 'ANO' => 2026, 'FUNDO' => 'Fundo A', 'NUMERO' => 999]);
@@ -143,6 +182,7 @@ class ContractNumberingTest extends TestCase
             }
             $this->assertDatabaseCount('contracts', 0);
             $this->assertDatabaseCount('contract_audits', 0);
+            $this->assertDatabaseCount('tb_Historico', 0);
             $this->assertDatabaseCount('tb_N_Contrato', $existing ? 1 : 0);
             if ($existing) {
                 $this->assertDatabaseHas('tb_N_Contrato', ['fund_id' => $this->fund, 'NUMERO' => 10]);

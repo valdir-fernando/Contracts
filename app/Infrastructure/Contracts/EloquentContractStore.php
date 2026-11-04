@@ -49,6 +49,9 @@ final class EloquentContractStore implements ContractStore
             }
         }
         $model->save();
+        if ($contract->id === null) {
+            DB::table('tb_Historico')->insert(ContractHistoryEntry::fromContract($model));
+        }
         if ($duplicateConfirmed) {
             $changes['duplicate_confirmation'] = ['before' => null, 'after' => true];
         }
