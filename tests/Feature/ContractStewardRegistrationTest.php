@@ -35,6 +35,31 @@ class ContractStewardRegistrationTest extends TestCase
             'Celular' => '(62) 99999-0000', 'Decreto' => '144/26', 'Data_Decreto' => '2026-01-05'], $extra);
     }
 
+    public function test_heading_and_tabs_require_fund_or_existing_steward(): void
+    {
+        $url = '/catalogs/list/contract-steward';
+        $new = $this->get($url)->assertOk()
+            ->assertSeeInOrder(['manager-page-heading', '<h1>Gestor de Contratos</h1>', 'manager-heading-divider', 'id="steward-fund"', 'manager-heading-actions', 'steward-decree-tooltip', 'Excluir</button>', 'Novo</a>', 'Salvar</button>', 'aria-label="Seções do gestor"'], false)
+            ->assertSee('x-show="tabsAvailable" x-cloak :inert="!tabsAvailable"', false);
+        $this->assertSame(1, substr_count($new->getContent(), 'id="steward-fund"'));
+        $this->post('/contract-stewards', $this->data())->assertRedirect();
+        $id = DB::table('contract_stewards')->sole()->id;
+        $edit = $this->get($url.'?edit='.$id)->assertOk();
+        $old = $this->withSession(['_old_input' => ['fund_id' => (string) $this->fund]])->get($url)->assertOk();
+        foreach ([[$new, 3], [$edit, 0], [$old, 0]] as [$response, $disabled]) {
+            $document = new \DOMDocument;
+            @$document->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($document);
+            $this->assertSame($disabled, $xpath->query('//nav[@aria-label="Seções do gestor"]/button[@disabled]')->length);
+            $this->assertSame(3, $xpath->query('//nav[@aria-label="Seções do gestor"]/button[@*[name()=":disabled"]="!tabsAvailable"]')->length);
+            $this->assertSame($disabled > 0 ? 1 : 0, $xpath->query('//form[@data-contract-steward-form]//button[@type="submit" and @disabled]')->length);
+        }
+        $edit->assertSee('value="'.$this->fund.'" selected', false)
+            ->assertSeeInOrder(['inspector-registers manager-registers', 'manager-registers-heading', 'Gestores cadastrados', '<span aria-hidden="true">|</span>', 'Limpar Selecionados', 'class="table-scroll"'], false)
+            ->assertSee('name="manager_ids[]" value="'.$id.'" aria-label="Selecionar gestor GESTOR EXEMPLO" x-model="selectedManagerIds"', false);
+        $old->assertSee('value="'.$this->fund.'" selected', false);
+    }
+
     public function test_form_registers_native_steward_and_audits_without_changing_contracts(): void
     {
         $this->get('/catalogs/list/contract-steward')->assertOk()->assertSee('Gestor de Contratos')->assertSee('Secretaria / Setor')

@@ -1,17 +1,28 @@
 <x-layouts.app title="Gestor de Contratos">
-    <div data-contract-editor class="inspector-page" x-data="{}">
-    <div class="page-heading"><div><span class="section-label">Cadastros</span><h1>Gestor de Contratos</h1></div></div>
-    <form data-contract-steward-form data-contract-steward-lookup-url="{{ route('contract-stewards.lookup') }}" data-contract-steward-original-cpf="{{ $record ? \App\Services\Legacy\Normalizer::document($values['CPF_Gestor'] ?? '') : '' }}" @contract-steward-cpf-invalid="step = 0; $nextTick(() => $el.querySelector('[data-contract-steward-cpf]').focus())" method="POST" novalidate action="{{ $record ? route('contract-stewards.update', $record->id) : route('contract-stewards.store') }}" class="inspector-editor" x-data="{ fund: @js((string) old('fund_id', $values['fund_id'] ?? '')), municipal: @js($municipalFundIds), step: {{ $errors->any() ? 2 : 0 }} }">
+    <div data-contract-editor class="inspector-page" x-data="{ selectedManagerIds: [] }">
+    @php($stewardReady = $record || filled(old('fund_id', $values['fund_id'] ?? '')))
+    <form data-contract-steward-form data-contract-steward-lookup-url="{{ route('contract-stewards.lookup') }}" data-contract-steward-original-cpf="{{ $record ? \App\Services\Legacy\Normalizer::document($values['CPF_Gestor'] ?? '') : '' }}" @contract-steward-cpf-invalid="step = 0; $nextTick(() => $el.querySelector('[data-contract-steward-cpf]').focus())" method="POST" novalidate action="{{ $record ? route('contract-stewards.update', $record->id) : route('contract-stewards.store') }}" class="inspector-editor" x-data="{ fund: @js((string) old('fund_id', $values['fund_id'] ?? '')), editing: @js((bool) $record), get tabsAvailable() { return this.editing || this.fund !== ''; }, municipal: @js($municipalFundIds), step: {{ $errors->any() ? 2 : 0 }} }">
+        <div class="page-heading manager-page-heading">
+            <div><span class="section-label">Cadastros</span><h1>Gestor de Contratos</h1></div>
+            <span class="manager-heading-divider" aria-hidden="true">/</span>
+            <div class="field manager-heading-fund"><label for="steward-fund">Fundo<x-required-mark :explain="true"/></label><select id="steward-fund" name="fund_id" required x-model="fund"><option value="">Selecione o Fundo</option>@foreach($funds as $fund)<option value="{{ $fund->id }}" @selected((string) old('fund_id', $values['fund_id'] ?? '') === (string) $fund->id)>{{ $fund->name }}</option>@endforeach</select>@error('fund_id')<p class="field-error">{{ $message }}</p>@enderror</div>
+            <div class="action-toolbar manager-heading-actions">
+                <x-registration-decree label="Decreto dos Gestores de Contratos" tooltip-id="steward-decree-tooltip"/>
+                <button type="button" class="section-tab" @disabled(!$record) @if($record) @click="$refs.stewardDelete.showModal()" @endif><x-nav-icon name="trash"/>Excluir</button>
+                <a class="section-tab" href="{{ route('catalogs.list', 'contract-steward') }}"><x-nav-icon name="plus"/>Novo</a>
+                <button type="submit" class="section-tab" :disabled="!tabsAvailable" @disabled(!$stewardReady)><x-nav-icon name="save"/>Salvar</button>
+            </div>
+        </div>
         @php($stewardFeedback = array_merge($errors->all(), session('status') ? [session('status')] : []))
         <script type="application/json" data-contract-steward-feedback>@json($stewardFeedback)</script>
         @csrf
         @if($record) @method('PUT')<input type="hidden" name="revision" value="{{ old('revision', $revision) }}"> @endif
         <nav class="section-tabs contract-section-navigation" aria-label="Seções do gestor">
-            <button type="button" class="section-tab" :class="{ active: step === 0 }" :aria-pressed="step === 0" @click="step = 0">1. Dados do gestor</button>
-            <button type="button" class="section-tab" :class="{ active: step === 1 }" :aria-pressed="step === 1" @click="step = 1">2. Vínculo e decreto</button>
-            <button type="button" class="section-tab" :class="{ active: step === 2 }" :aria-pressed="step === 2" @click="step = 2">Expandir Tudo</button>
+            <button type="button" class="section-tab" :class="{ active: tabsAvailable && step === 0 }" :aria-pressed="tabsAvailable && step === 0" :disabled="!tabsAvailable" @disabled(!$stewardReady) @click="step = 0">1. Dados do gestor</button>
+            <button type="button" class="section-tab" :class="{ active: tabsAvailable && step === 1 }" :aria-pressed="tabsAvailable && step === 1" :disabled="!tabsAvailable" @disabled(!$stewardReady) @click="step = 1">2. Vínculo e decreto</button>
+            <button type="button" class="section-tab" :class="{ active: tabsAvailable && step === 2 }" :aria-pressed="tabsAvailable && step === 2" :disabled="!tabsAvailable" @disabled(!$stewardReady) @click="step = 2">Expandir Tudo</button>
         </nav>
-        <div class="editor-panels">
+        <div class="editor-panels" x-show="tabsAvailable" x-cloak :inert="!tabsAvailable">
         @foreach(['Dados do gestor' => ['CPF_Gestor', 'RG_Gestor', 'Data_Nasc', 'Nome_Gestor', 'Sexo', 'Celular', 'WhatsApp', 'Situacao', 'Endereco'], 'Vínculo e decreto' => ['Decreto', 'Data_Decreto']] as $group => $keys)
             <section class="surface contract-section contract-editor-section" x-show="step === {{ $loop->index }} || step === 2">
                 <h2>{{ $group }}</h2>
@@ -42,19 +53,12 @@
                     @endforeach
                     @if($loop->last)
                         <div class="inspector-org-row">
-                        <div class="field"><label for="steward-fund">Fundo<x-required-mark :explain="true"/></label><select id="steward-fund" name="fund_id" required x-model="fund"><option value="">Selecione o Fundo</option>@foreach($funds as $fund)<option value="{{ $fund->id }}" @selected((string) old('fund_id', $values['fund_id'] ?? '') === (string) $fund->id)>{{ $fund->name }}</option>@endforeach</select>@error('fund_id')<p class="field-error">{{ $message }}</p>@enderror</div>
                         <div class="field"><label for="steward-department">Secretaria / Setor</label><select id="steward-department" name="department_id" :disabled="!municipal.includes(fund)"><option value="" x-text="municipal.includes(fund) ? 'Todas as Secretarias' : 'Não se aplica'">Todas as Secretarias</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected((string) old('department_id', $values['department_id'] ?? '') === (string) $department->id)>{{ $department->name }}</option>@endforeach</select><p class="hint">Somente o Município utiliza Secretarias: um gestor para todas ou um por Secretaria. Os demais Fundos admitem um único gestor por fundo.</p>@error('department_id')<p class="field-error">{{ $message }}</p>@enderror</div>
                         </div>
                     @endif
                 </div>
             </section>
         @endforeach
-        </div>
-        <div class="form-actions sticky-actions contract-action-toolbar action-toolbar">
-            <x-registration-decree label="Decreto dos Gestores de Contratos" tooltip-id="steward-decree-tooltip"/>
-            <button type="button" class="section-tab" @disabled(!$record) @if($record) @click="$refs.stewardDelete.showModal()" @endif><x-nav-icon name="trash"/>Excluir</button>
-            <a class="section-tab" href="{{ route('catalogs.list', 'contract-steward') }}"><x-nav-icon name="plus"/>Novo</a>
-            <button type="submit" class="section-tab"><x-nav-icon name="save"/>Salvar</button>
         </div>
     </form>
     @if($record)
@@ -69,9 +73,14 @@
             </form>
         </dialog>
     @endif
-    <section class="surface contract-section inspector-registers"><h2>Gestores cadastrados</h2>
+    <section class="surface contract-section inspector-registers manager-registers">
+        <div class="manager-registers-heading">
+            <h2>Gestores cadastrados</h2>
+            <span aria-hidden="true">|</span>
+            <button type="button" class="text-link manager-selection-clear" @click="selectedManagerIds = []" :disabled="selectedManagerIds.length === 0" disabled>Limpar Selecionados</button>
+        </div>
         <div class="table-scroll"><table class="data-table"><thead><tr><th>Nome do gestor</th><th>Fundo</th><th>Secretaria / Setor</th><th>Ações</th></tr></thead><tbody>
-            @forelse($records as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->fund_name_key }}</td><td>{{ $item->department_name_key ?: ($item->fund_name_key === \App\Infrastructure\ContractStewards\StewardAssignments::MUNICIPALITY ? 'Todas as Secretarias' : 'Não se aplica') }}</td><td><a class="text-link" href="{{ route('catalogs.list', ['kind' => 'contract-steward', 'edit' => $item->id, 'page' => $records->currentPage()]) }}">Editar<span class="sr-only"> {{ $item->name }}</span></a></td></tr>
+            @forelse($records as $item)<tr><td><label><input type="checkbox" name="manager_ids[]" value="{{ $item->id }}" aria-label="Selecionar gestor {{ $item->name }}" x-model="selectedManagerIds"><span>{{ $item->name }}</span></label></td><td>{{ $item->fund_name_key }}</td><td>{{ $item->department_name_key ?: ($item->fund_name_key === \App\Infrastructure\ContractStewards\StewardAssignments::MUNICIPALITY ? 'Todas as Secretarias' : 'Não se aplica') }}</td><td><a class="text-link" href="{{ route('catalogs.list', ['kind' => 'contract-steward', 'edit' => $item->id, 'page' => $records->currentPage()]) }}">Editar<span class="sr-only"> {{ $item->name }}</span></a></td></tr>
             @empty<tr><td colspan="4" class="empty-state">Nenhum gestor cadastrado.</td></tr>@endforelse
         </tbody></table></div>{{ $records->links() }}
     </section>
