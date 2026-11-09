@@ -1,0 +1,10 @@
+cffi==2.1.1
+charset-normalizer==3.5.2
+cryptography==50.0.2
+numpy==2.2.6
+opencv-python-headless==4.11.0.86
+pdfminer.six==20251230
+pdfplumber==0.11.9
+Pillow==9.4.0
+pycparser==3.12
+pypdfium2==5.15.2

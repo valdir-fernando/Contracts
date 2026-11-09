@@ -106,7 +106,9 @@
                 </nav>
                 @endif
                 @isset($headerBack)<div class="fund-header-group">{{ $headerBack }}@endisset
-                @if($selectedFund = request()->attributes->get('selected_fund'))
+                @if(request()->routeIs('atas.dashboard'))
+                    <span class="fund-breadcrumb"><strong class="selected-fund-name">Atas de Registro de Preços</strong></span>
+                @elseif($selectedFund = request()->attributes->get('selected_fund'))
                     <span class="fund-breadcrumb"><strong class="selected-fund-name"{{ $summaryInHeader ? ' data-fit-fund-name' : '' }}>@isset($fundName){{ $fundName }}@else{{ $selectedFund['name'] }}@endisset</strong>@unless(request()->routeIs('dashboard', 'atas.dashboard') || $summaryInHeader) <span class="breadcrumb-divider" aria-hidden="true">/</span>{{ $title }}@endunless</span>
                 @else
                     <span>Gestão de contratos @unless($summaryInHeader)<span class="breadcrumb-divider" aria-hidden="true">/</span><strong>{{ $title }}</strong>@endunless</span>

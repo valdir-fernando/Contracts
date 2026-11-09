@@ -38,4 +38,6 @@ contracts-*.tar.gz
 
 /build/coverage/
 /build/supply-preview/
+/build/atas-overview-preview/
+/build/ata-amendment-preview/
 __pycache__/

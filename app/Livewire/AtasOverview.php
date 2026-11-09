@@ -2,16 +2,21 @@
 
 namespace App\Livewire;
 
-use App\Infrastructure\Security\LockActor;
-use App\Infrastructure\Security\SelectedFund;
+use App\Infrastructure\Atas\AtasOverviewQuery;
 use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class AtasOverview extends Component
 {
+    use WithPagination;
+
     #[Url]
     public string $year = '';
+
+    #[Url]
+    public string $search = '';
 
     public function mount(): void
     {
@@ -24,6 +29,13 @@ class AtasOverview extends Component
     public function updatingYear(string $year): void
     {
         Validator::make(['year' => $year], $this->yearRules($year))->validate();
+        $this->resetPage();
+    }
+
+    public function updatingSearch(string $search): void
+    {
+        Validator::make(['search' => $search], ['search' => 'string|max:255'])->validate();
+        $this->resetPage();
     }
 
     private function yearRules(string $year): array
@@ -33,18 +45,18 @@ class AtasOverview extends Component
 
     public function render()
     {
-        $actor = app(LockActor::class)->current(auth()->user());
-        $fund = app(SelectedFund::class)->current($actor, session('fund_id') === null ? null : (int) session('fund_id'));
-        $months = [];
-        for ($index = 0; $index < 6; $index++) {
-            $months[] = today()->startOfMonth()->addMonths($index)->format('m/Y');
+        // Livewire must still receive a view after a failed property update.
+        $validator = Validator::make(['year' => $this->year, 'search' => $this->search],
+            $this->yearRules($this->year) + ['search' => 'string|max:255']);
+        $errors = $validator->errors();
+        if ($validator->fails()) {
+            $this->setErrorBag($errors);
         }
+        $year = $errors->has('year') ? today()->year : ($this->year === 'all' ? null : (int) $this->year);
+        $search = $errors->has('search') ? '' : $this->search;
 
-        return view('livewire.atas-overview', [
-            'hasSelectedFund' => $fund !== null,
-            'currentYear' => (string) today()->year,
-            'years' => collect([(string) today()->year, $this->year])->reject(fn ($year) => $year === 'all')->unique()->values(),
-            'months' => $months,
-        ]);
+        return view('livewire.atas-overview', app(AtasOverviewQuery::class)->for(
+            auth()->user(), $year, $search, $this->getPage()
+        ));
     }
 }

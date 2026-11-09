@@ -1,5 +1,21 @@
 # Contracts
 
+Os campos **`tb_ATA.Doc_ATA`** e **`tb_ADT_ATA.Doc_ADT`** armazenam os próprios PDFs da ata e do aditivo como conteúdo binário no banco (`LONGBLOB`). [PDF da ata](docs/atas-reference-import.md) e [cadastro de aditivos](docs/ata-amendment-register.md).
+
+Os 27 processos de **ADITIVOS_ATAS/Nova pasta** foram conferidos: minutas não assinadas desconsideradas, vigências originais de 21 atas confirmadas e seis atas ausentes cadastradas pelas cópias dos processos. A base passou a **88 atas**. [Datas finais e validação](docs/ata-process-validity-review.md).
+
+`tb_PRODUTOS_ATA` agora identifica número, data e processo do aditivo: **675 produtos de 47 aditivos** foram acrescentados, preservando os 1.111 itens originais e os valores do painel. [Estrutura, carga e conferência dos 48 documentos](docs/ata-amendment-products.md).
+
+A pasta de atas de 2025 foi importada: base consolidada com **82 atas e 1.111 itens**, 26 aditivos vinculados e 22 aguardando originais ausentes. [Resultado, vigências e pendências](docs/atas-2025-import.md).
+
+A vigência das atas pode ser atualizada por `atas:update-validity --apply`: início na data da ata, término no aditivo correspondente ou após o período original. [Regra e auditoria](docs/ata-validity-update.md).
+
+Em **Início → ATAS**, o **Painel de Acompanhamento de Atas** apresenta a base global, com indicadores, valores, vigência, alertas e filtro de ano, independentemente do Fundo selecionado. A lista do relatório de atas foi retirada do painel. [Regras, dados e validação](docs/atas-overview.md).
+
+As tabelas de **Atas de Registro de Preços** seguem `BD_ATAS.xlsx`, com importação auditada dos documentos Word/PDF por `atas:import-reference --apply`. [Estrutura, carga local e pendências documentais](docs/atas-reference-import.md).
+
+A numeração das **ATAS** tem sequência anual única para todos os Fundos, controlada em `tb_N_ATA`. [Regras, inicialização do contador e validação](docs/ata-numbering.md).
+
 A numeração de DFD é automática por ano, com sequência única para todos os Fundos controlada em `tb_N_DFD`. Dados e produtos ficam em `tb_DFD` e `tb_Produtos_DFD`. [Regras, instalação e validação](docs/dfd-numbering-2026-10-29.md).
 
 O menu **DFD Compra** abre a janela **DFD - Documento de Formalização de Demanda**, com pesquisa, seleção por clique e botão **X** padrão da suíte. Ao fechar, o painel mostra a classe escolhida. [Escopo, instalação e validação](docs/dfd-compra-menu-2026-10-29.md).

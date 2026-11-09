@@ -40,13 +40,15 @@ class AtasOverviewTest extends TestCase
         $this->actingAs($this->actor->fresh())->get('/atas')->assertRedirect('/login');
     }
 
-    public function test_header_links_open_the_two_dashboards_before_selected_fund(): void
+    public function test_header_links_show_global_atas_title_and_preserve_contract_fund(): void
     {
         $response = $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund])->get('/atas')->assertOk();
         $response->assertSeeInOrder(['class="header-modules"', 'href="'.route('dashboard').'"', 'CONTRATOS',
-            'href="'.route('atas.dashboard').'"', 'ATAS', 'class="selected-fund-name">Fundo autorizado'], false);
+            'href="'.route('atas.dashboard').'"', 'ATAS', 'class="selected-fund-name">Atas de Registro de Preços'], false);
+        $response->assertDontSee('class="selected-fund-name">Fundo autorizado', false);
         $this->assertMatchesRegularExpression('/class="header-module-button" href="'.preg_quote(route('atas.dashboard'), '/').'"\s+aria-current="page"/', $response->getContent());
         $dashboard = $this->get('/dashboard')->assertOk();
+        $dashboard->assertSee('class="selected-fund-name">Fundo autorizado', false);
         $this->assertMatchesRegularExpression('/class="header-module-button" href="'.preg_quote(route('dashboard'), '/').'"\s+aria-current="page"/', $dashboard->getContent());
     }
 
@@ -60,7 +62,7 @@ class AtasOverviewTest extends TestCase
         }
     }
 
-    public function test_future_atas_dashboard_shows_empty_charts_without_using_contract_records(): void
+    public function test_empty_atas_dashboard_does_not_use_contract_records(): void
     {
         Contract::create(['numero' => 'CONTRATO-PRIVADO', 'fund_id' => $this->fund, 'exercicio' => 2026, 'ownership_resolved' => true,
             'vigencia_inicio' => '2026-01-01', 'vigencia_fim_atual' => '2026-11-01', 'valor_acumulado' => '9876.5400', 'quality_issues' => []]);
@@ -68,7 +70,9 @@ class AtasOverviewTest extends TestCase
             ->assertSee('PAINEL DE ACOMPANHAMENTO DE ATAS')->assertSee('Atas cadastradas')->assertSee('Vencidas')
             ->assertSee('Distribuição das atas por vigência')->assertSee('Nenhuma ata cadastrada')->assertSee('R$ 0,00')
             ->assertSee('class="donut-chart"', false)->assertSee('class="month-chart"', false)
-            ->assertDontSee('CONTRATO-PRIVADO')->assertDontSee('9.876,54')->assertSee('em breve');
+            ->assertDontSee('CONTRATO-PRIVADO')->assertDontSee('9.876,54')->assertDontSee('em breve')
+            ->assertSee('Visão global das atas')->assertSee('Indicadores globais de atas')
+            ->assertDontSee('Pesquisar atas')->assertDontSee('Consultar atas')->assertDontSee('id="atas-list"', false);
         $this->assertDatabaseCount('contracts', 1);
         $this->assertDatabaseCount('activity_events', 0);
     }
