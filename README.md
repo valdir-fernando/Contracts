@@ -1,5 +1,7 @@
 # Contracts
 
+O cadastro `tb_ADT_ATA` recebeu **48 aditivos**, com **47 PDFs assinados pelas duas partes** gravados em `Doc_ADT`; a ATA **104/2025** ficou cadastrada sem anexo. **Nova pasta** foi integralmente excluída, conforme orientação do usuário. [Conferência, carga e repetição segura](docs/ata-amendment-register.md).
+
 Os campos **`tb_ATA.Doc_ATA`** e **`tb_ADT_ATA.Doc_ADT`** armazenam os próprios PDFs da ata e do aditivo como conteúdo binário no banco (`LONGBLOB`). [PDF da ata](docs/atas-reference-import.md) e [cadastro de aditivos](docs/ata-amendment-register.md).
 
 Os 27 processos de **ADITIVOS_ATAS/Nova pasta** foram conferidos: minutas não assinadas desconsideradas, vigências originais de 21 atas confirmadas e seis atas ausentes cadastradas pelas cópias dos processos. A base passou a **88 atas**. [Datas finais e validação](docs/ata-process-validity-review.md).
