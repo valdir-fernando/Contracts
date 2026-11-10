@@ -1,5 +1,7 @@
 # Contracts
 
+**Relatórios** agora reúne os submenus **Relatório Contrato** e **Relatórios Ata**. O painel de atas consulta a base global, com filtros de Ano, Fundo, Licitação e Nº Licit na mesma linha, paginação, totais e PDF. [Rotas e validação](docs/ata-reports.md).
+
 O cadastro `tb_ADT_ATA` recebeu **48 aditivos**, com **47 PDFs assinados pelas duas partes** gravados em `Doc_ADT`; a ATA **104/2025** ficou cadastrada sem anexo. **Nova pasta** foi integralmente excluída, conforme orientação do usuário. [Conferência, carga e repetição segura](docs/ata-amendment-register.md).
 
 Os campos **`tb_ATA.Doc_ATA`** e **`tb_ADT_ATA.Doc_ADT`** armazenam os próprios PDFs da ata e do aditivo como conteúdo binário no banco (`LONGBLOB`). [PDF da ata](docs/atas-reference-import.md) e [cadastro de aditivos](docs/ata-amendment-register.md).
