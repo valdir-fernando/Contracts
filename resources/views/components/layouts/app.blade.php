@@ -51,6 +51,14 @@
                                 <a class="nav-link" href="{{ route('suppliers.index') }}" @if(request()->routeIs('suppliers.*')) aria-current="page" @endif><x-nav-icon name="suppliers"/><span>Fornecedor</span></a>
                             </div>
                         </details>
+                    @elseif($label === 'Relatórios')
+                        <details class="nav-catalogs nav-reports" @if(request()->routeIs('reports.*')) open @endif>
+                            <summary class="nav-link" aria-label="Relatórios" data-nav-label="Relatórios"><x-nav-icon name="reports"/><span>Relatórios</span></summary>
+                            <div class="nav-submenu">
+                                <a href="{{ route('reports.index') }}" @class(['nav-link', 'selected' => request()->routeIs('reports.*') && !request()->routeIs('reports.atas.*')]) @if(request()->routeIs('reports.*') && !request()->routeIs('reports.atas.*')) aria-current="page" @endif><x-nav-icon name="contracts"/><span>Relatório Contrato</span></a>
+                                <a href="{{ route('reports.atas.index') }}" @class(['nav-link', 'selected' => request()->routeIs('reports.atas.*')]) @if(request()->routeIs('reports.atas.*')) aria-current="page" @endif><x-nav-icon name="documents"/><span>Relatórios Ata</span></a>
+                            </div>
+                        </details>
                     @else
                     <a href="{{ route($route) }}" aria-label="{{ $label }}" data-nav-label="{{ $label }}" @class(['nav-link', 'selected' => request()->routeIs($pattern)]) @if(request()->routeIs($pattern)) aria-current="page" @endif @if($route === 'dfd-compra.index') data-dfd-class-open aria-haspopup="dialog" aria-controls="dfd-class-dialog" @endif><x-nav-icon :name="$icon"/><span>{{ $label }}</span></a>
                     @endif
@@ -79,20 +87,23 @@
                 (() => {
                     const menu = document.getElementById('workspace-menu');
                     const catalogs = menu.querySelector('.nav-catalogs');
+                    const reports = menu.querySelector('.nav-reports');
                     const key = 'contracts.menu-position';
                     try {
                         const saved = JSON.parse(sessionStorage.getItem(key));
                         if (saved && Number.isFinite(saved.top) && typeof saved.catalogsOpen === 'boolean') {
                             catalogs.open = saved.catalogsOpen;
                             menu.scrollTop = saved.top;
+                            if (typeof saved.reportsOpen === 'boolean' && !reports.querySelector('[aria-current="page"]')) reports.open = saved.reportsOpen;
                         }
                     } catch {}
                     const save = () => {
-                        try { sessionStorage.setItem(key, JSON.stringify({ top: menu.scrollTop, catalogsOpen: catalogs.open })); } catch {}
+                        try { sessionStorage.setItem(key, JSON.stringify({ top: menu.scrollTop, catalogsOpen: catalogs.open, reportsOpen: reports.open })); } catch {}
                     };
                     menu.addEventListener('scroll', save, { passive: true });
                     menu.addEventListener('click', save);
                     catalogs.addEventListener('toggle', save);
+                    reports.addEventListener('toggle', save);
                 })();
             </script>
         </aside>
@@ -106,7 +117,7 @@
                 </nav>
                 @endif
                 @isset($headerBack)<div class="fund-header-group">{{ $headerBack }}@endisset
-                @if(request()->routeIs('atas.dashboard'))
+                @if(request()->routeIs('atas.dashboard', 'reports.atas.*'))
                     <span class="fund-breadcrumb"><strong class="selected-fund-name">Atas de Registro de Preços</strong></span>
                 @elseif($selectedFund = request()->attributes->get('selected_fund'))
                     <span class="fund-breadcrumb"><strong class="selected-fund-name"{{ $summaryInHeader ? ' data-fit-fund-name' : '' }}>@isset($fundName){{ $fundName }}@else{{ $selectedFund['name'] }}@endisset</strong>@unless(request()->routeIs('dashboard', 'atas.dashboard') || $summaryInHeader) <span class="breadcrumb-divider" aria-hidden="true">/</span>{{ $title }}@endunless</span>

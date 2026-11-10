@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountAvatarController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdministrationController;
+use App\Http\Controllers\AtaReportController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CalendarController;
@@ -132,6 +133,9 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/administration/export/{format}', [AdministrationController::class, 'export'])->middleware('throttle:10,1')->name('administration.export');
     Route::post('/administration/history/{history}/reconcile', [AdministrationController::class, 'reconcile'])->name('administration.reconcile');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/atas', [AtaReportController::class, 'index'])->name('reports.atas.index');
+    Route::get('/reports/atas/pdf', [AtaReportController::class, 'pdf'])->middleware('throttle:10,1')->name('reports.atas.pdf');
+    Route::get('/reports/atas/{ata}', [AtaReportController::class, 'show'])->whereNumber('ata')->name('reports.atas.show');
     Route::get('/reports/panel-pdf', [ReportController::class, 'index'])->middleware('throttle:10,1')->name('reports.panel-pdf');
     Route::get('/reports/exports', [ReportController::class, 'exports'])->name('reports.exports');
     Route::get('/reports/download/{export}', [ReportController::class, 'download'])->name('reports.download');

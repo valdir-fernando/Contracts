@@ -17,5 +17,5 @@ export function initializeFundHeading(heading) {
 }
 
 if (typeof document !== 'undefined') {
-    document.querySelectorAll('[data-fit-fund-name]').forEach(initializeFundHeading);
+    document.querySelectorAll('[data-fit-fund-name], [data-fit-supplier-name]').forEach(initializeFundHeading);
 }

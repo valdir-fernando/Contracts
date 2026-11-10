@@ -43,9 +43,6 @@
         </form>
     </div>
     <nav class="report-panel-navigation" aria-label="Relatórios">
-        <button type="button" class="secondary-button compact"><x-nav-icon name="reports"/>Relatório Contrato</button>
-        <button type="button" class="secondary-button compact"><x-nav-icon name="reports"/>Relatório Aditivo</button>
-        <button type="button" class="secondary-button compact"><x-nav-icon name="reports"/>Relatório de Ata</button>
         <a class="secondary-button compact report-pdf-button" href="{{ route('reports.panel-pdf', request()->except('page')) }}"><x-nav-icon name="printer"/>Gerar PDF</a>
         <p class="report-contract-count" role="status">Total de Contratos: {{ number_format($reportContracts->total(), 0, ',', '.') }}</p>
     </nav>
