@@ -1,5 +1,41 @@
 # Painel global de acompanhamento de atas — 09/11/2026
 
+O botão **Nova ATA** abre `GET /atas/create` (`atas.create`), com cabeçalho no padrão de Novo contrato: **FUNDO GERENCIADOR**, **Nome / Razão Social** e campo **Nº ATA** com lupa. No card, **Fundo Gerenciador** lista todos os Fundos ativos, em ordem alfabética, do catálogo `contract_funds` importado de `tb_Fundo`, inclusive de outros escopos, conforme a consulta global de atas. Somente ID e nome são projetados nas opções. **Voltar** retorna ao painel de atas. Fundo e fornecedor do cabeçalho são textos iniciais; a lupa permanece sem ação. A página mantém autenticação, usuário ativo e validação do Fundo da sessão pelos middlewares existentes, além de revalidar o ator no controller.
+
+Após o card de Fundo Gerenciador, as abas **1. Dados Processuais** e **2. Dados do Fornecedor** alternam painéis, com Dados Processuais aberta por padrão. O seletor de Fundo permanece visível nas duas abas. Dados Processuais contém **Processo ATA**, **Licitação**, **Nº Licit** e o seletor **Fundos Participantes**. Este exclui o gerenciador selecionado e os participantes já adicionados; trocar o gerenciador limpa uma seleção participante que coincida com o novo gerenciador. Dados do Fornecedor permanece vazia.
+
+## Cadastro de participantes antes de salvar a ata — 11/11/2026
+
+**Adicionar** envia `POST /atas/participants` (`atas.participants.store`), com CSRF, autenticação e limitação de frequência. Exige Processo ATA, gerenciador e participante ativos distintos. O servidor obtém nome/CNPJ do catálogo atual e exige CNPJ válido; ignora autoria, snapshots, número da ata e tipo enviados pelo cliente. `Infrastructure/Atas/AtaParticipants` bloqueia/revalida o ator antes do rascunho e bloqueia Fundos por ID crescente, verifica o Fundo da sessão, a versão e o proprietário do rascunho. O módulo de atas permanece global para usuários ativos, mas um usuário não acessa rascunhos de outros usuários.
+
+A migration `2026_11_11_000001_create_ata_participants.php` cria somente `ata_participant_drafts` e `tb_Participantes`. A primeira mantém UUID, autor, gerenciador, processo e versão. A segunda contém **ATA** (nullable), **Processo_ATA**, **CNPJ_Fundo**, **FUNDO**, **Tipo_Fundo**, além de ID, vínculos de rascunho/Fundo, timestamps e soft delete. Os índices únicos de rascunho/Fundo e rascunho/CNPJ impedem duplicação. A operação registra `ActivityEvent.action=ata_participant_added` na mesma transação; falha de auditoria reverte participantes, contexto e versão. Nenhuma tabela ou registro anterior foi substituído.
+
+`Tipo_Fundo` recebe sempre **Participante** e `ATA` permanece `NULL`, mesmo que o campo de número esteja preenchido. A futura gravação da ata deverá preencher esse número usando o vínculo de rascunho, nunca somente Processo ATA. Até lá, o botão não cria `tb_ATA` nem consome numeração. Processo e gerenciador são salvos com cada inclusão; mudar o processo e adicionar outro participante atualiza os participantes anteriores do mesmo rascunho, com contexto anterior/atual na auditoria. Um Fundo já participante não pode passar a gerenciador por essa operação. Licitação e Nº Licit continuam locais até a implementação da gravação da ata.
+
+Cada abertura de Nova ATA gera um token criptografado associado ao ator e à versão de sua sessão, sem escrever no banco. O navegador mantém esse token em `?draft=...` para recarregar o mesmo rascunho inclusive após falha de rede; um novo clique em Nova ATA inicia outro rascunho. Tokens de outros usuários, adulterados ou de sessões antigas recebem 403. O token não substitui identidade autenticada, revalidação do ator ou verificação de propriedade. A resposta JSON contém somente versão, contexto processual e projeção explícita dos participantes; conflitos de versão recebem 409 sem retornar dados atuais.
+
+Instalação local executada: `docker compose exec -T app php artisan migrate --path=database/migrations/2026_11_11_000001_create_ata_participants.php --force` passou; somente a migration aditiva nova foi aplicada. Nenhum participante real foi inserido para validação.
+
+Validação executada nesta entrega:
+
+- `docker compose exec -T app php vendor/bin/phpunit --filter='AtaParticipantsTest|AtasOverviewTest|AtaReportsTest' --do-not-cache-result`: **37 testes, 368 asserções**, SQLite em memória e storage temporário; snapshots do catálogo, ATA nula, isolamento de usuários/abas, validações, duplicatas, versão, troca de processo e rollback de auditoria.
+- `docker compose exec -T app composer check:architecture`: **3 testes, 4 asserções**; `composer test:unit`: **86 testes, 210 asserções**.
+- `node --test tests/JavaScript/ata-process-fields.test.mjs`: **5 testes aprovados**; cobre POST com CSRF, respostas confirmadas, tratamento de erros, recuperação, cliques repetidos e filtros.
+- Pint dos seis PHP envolvidos, build Docker e `git diff --check`: aprovados.
+- `docker compose exec -T app composer check`: Pint geral aprovado (**439 arquivos**); PHPUnit interrompido pelo limite padrão de **300 segundos** do Composer antes de concluir os 1.031 testes, já com falhas sinalizadas. Sem resultado final da suíte PHP completa nesta entrega; a execução específica de atas acima concluiu sem falhas.
+- `npm.cmd test`: **150 de 151 testes aprovados**. A falha isolada em `dfd-product-filter.test.mjs:66` (`window is not defined`, `resources/js/dfd-product-filter.js:180`) também ocorre ao executar somente esse arquivo; ambos os arquivos permanecem iguais ao HEAD. Nenhuma asserção foi enfraquecida.
+- Conferência com Chrome/Playwright em 1440 e 500 pixels, usando HTML produzido por um teste SQLite e POST simulado: filtro do gerenciador, requisição com CSRF, inclusão na lista, escape dos nomes, retirada da opção adicionada e alternância de abas passaram. Artefatos locais em `build/ata-participants-browser/`; sem inclusão de dados reais ou ensaio autenticado contra a gravação real.
+
+## Validações anteriores da apresentação
+
+Validação dos campos processuais: `docker compose exec -T app php vendor/bin/phpunit --filter=AtasOverviewTest --do-not-cache-result` passou (7 testes, 89 asserções); `node --test tests/JavaScript/ata-process-fields.test.mjs` passou (2 testes, incluindo troca de gerenciador e limpeza do participante conflitante). Pint dos testes PHP, build Docker e `git diff --check` passaram. Sem ensaio em navegador; Playwright não está instalado no ambiente local.
+
+Validação do seletor e abas: `docker compose exec -T app php vendor/bin/phpunit --filter=AtasOverviewTest --do-not-cache-result` passou (7 testes, 87 asserções, SQLite em memória e storage temporário). Pint dos testes e `git diff --check` passaram. A cobertura inclui fundos fora do escopo, ordem, exclusão lógica, escape e ausência de dados privados e gravações. A alternância das abas não foi conferida em navegador autenticado.
+
+Validação do cabeçalho: `docker compose exec -T app php vendor/bin/phpunit --filter='AtasOverviewTest|AtaReportsTest' --do-not-cache-result` passou (28 testes, 286 asserções, SQLite em memória e storage temporário); Pint de `tests/Feature/AtasOverviewTest.php`, build Docker e `git diff --check` passaram. Sem conferência visual autenticada.
+
+Validação dessa navegação: `docker compose exec -T app php vendor/bin/phpunit --filter=AtasOverviewTest --do-not-cache-result` passou (6 testes, 70 asserções, SQLite em memória e storage temporário); Pint de `routes/web.php` e `tests/Feature/AtasOverviewTest.php`, `docker compose run --rm --no-deps node npm run build` e `git diff --check` passaram. Sem execução da suíte completa ou conferência visual autenticada nesta alteração.
+
 Produtos de aditivos são mantidos como histórico em `tb_PRODUTOS_ATA`, identificados por `ADITIVO`/`ID_ADITIVO`. O painel filtra itens originais (`ADITIVO=0` e `ID_ADITIVO IS NULL`), evitando duplicar valores nas prorrogações. [Importação dos produtos de aditivos](ata-amendment-products.md).
 
 **Base consolidada após importar 2025:** 82 atas, 1.111 itens e R$ 33.568.681,74; na referência de 09/11/2026, 30 vigentes, 52 vencidas e nenhuma sem vigência definida. Selecionar **2025** ou **Todos os anos** para consultar o histórico. [Carga adicional, aditivos e pendências](atas-2025-import.md). Os números da primeira carga aparecem abaixo como histórico.
