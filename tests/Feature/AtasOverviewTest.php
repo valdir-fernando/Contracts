@@ -40,6 +40,45 @@ class AtasOverviewTest extends TestCase
         $this->actingAs($this->actor->fresh())->get('/atas')->assertRedirect('/login');
     }
 
+    public function test_new_ata_link_opens_panel_without_creating_records(): void
+    {
+        $this->get('/atas/create')->assertRedirect('/login');
+        $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund])->get('/atas')
+            ->assertOk()->assertSee('href="'.route('atas.create').'"', false);
+        $this->get(route('atas.create'))->assertOk()->assertSee('Nova ATA')
+            ->assertSee('FUNDO GERENCIADOR')->assertSee('Nome / Razão Social')->assertSee('Nº ATA')
+            ->assertSee('class="contract-number-search" aria-label="Buscar atas"', false)
+            ->assertSee('workspace-top-contract', false)->assertSee('href="'.route('atas.dashboard').'"', false)
+            ->assertSee('Fundo Gerenciador')->assertSee('id="ata-managing-fund"', false)
+            ->assertSeeInOrder(['1. Dados Processuais', '2. Dados do Fornecedor'])
+            ->assertSee('aria-controls="ata-process-panel"', false)->assertSee('aria-controls="ata-supplier-panel"', false)
+            ->assertSeeInOrder(['Processo ATA', 'Licitação', 'Nº Licit', 'Fundos Participantes'])
+            ->assertSee('id="ata-participant-fund"', false)
+            ->assertDontSee('data-contract-form', false);
+        $this->assertDatabaseCount('tb_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+
+        $this->actor->scopes()->detach();
+        $this->get(route('atas.create'))->assertRedirect('/login');
+    }
+
+    public function test_new_ata_lists_all_active_funds_alphabetically_without_private_details(): void
+    {
+        $other = DB::table('contract_funds')->insertGetId(['name' => 'A Fundo <Global>', 'name_key' => 'GLOBAL',
+            'document' => 'DOCUMENTO-PRIVADO', 'raw_payload' => '{"Nome":"CONTATO-PRIVADO"}']);
+        DB::table('contract_funds')->insert(['name' => 'Fundo removido', 'name_key' => 'REMOVIDO',
+            'raw_payload' => '{}', 'deleted_at' => now()]);
+
+        $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund])->get(route('atas.create'))
+            ->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertSeeInOrder(['Selecione o Fundo Gerenciador',
+                '<option value="'.$other.'">A Fundo &lt;Global&gt;</option>',
+                '<option value="'.$this->fund.'">Fundo autorizado</option>'], false)
+            ->assertDontSee('Fundo removido')->assertDontSee('DOCUMENTO-PRIVADO')->assertDontSee('CONTATO-PRIVADO');
+        $this->assertDatabaseCount('tb_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_header_links_show_global_atas_title_and_preserve_contract_fund(): void
     {
         $response = $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund])->get('/atas')->assertOk();

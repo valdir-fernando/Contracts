@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Infrastructure\Atas\AtaParticipants;
+use App\Infrastructure\Security\LockActor;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class AtaController extends Controller
+{
+    public function create(Request $request, LockActor $actors, AtaParticipants $participants)
+    {
+        $actors->current($request->user());
+        $funds = DB::table('contract_funds')->whereNull('deleted_at')->whereRaw("TRIM(name) <> ''")
+            ->orderBy('name')->orderBy('id')->get(['id', 'name']);
+
+        $data = $request->validate(['draft' => 'sometimes|required|string|max:2048']);
+        $draftToken = $data['draft'] ?? $participants->token($request->user());
+
+        return response()->view('atas.create', ['funds' => $funds, 'draftToken' => $draftToken,
+            'draftState' => $participants->state($request->user(), $draftToken)])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function addParticipant(Request $request, AtaParticipants $participants)
+    {
+        $data = $request->validate(['draft_token' => 'required|string|max:2048']);
+        $state = $participants->add($request->user(), $data['draft_token'], $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null);
+
+        return response()->json($state, 201, ['Cache-Control' => 'private, no-store']);
+    }
+}

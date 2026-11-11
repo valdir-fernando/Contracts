@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountAvatarController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdministrationController;
+use App\Http\Controllers\AtaController;
 use App\Http\Controllers\AtaReportController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BudgetController;
@@ -55,6 +56,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/atas', 'atas.dashboard')->name('atas.dashboard');
+    Route::get('/atas/create', [AtaController::class, 'create'])->name('atas.create');
+    Route::post('/atas/participants', [AtaController::class, 'addParticipant'])->middleware('throttle:60,1')->name('atas.participants.store');
     Route::get('/dfd_compra', [DfdController::class, 'index'])->name('dfd-compra.legacy-index');
     Route::get('/dfd_compra/{dfd}', [DfdController::class, 'index'])->whereNumber('dfd')->name('dfd-compra.legacy-edit');
     Route::get('/dfd-compra', [DfdController::class, 'index'])->name('dfd-compra.index');

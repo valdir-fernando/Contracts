@@ -8,6 +8,7 @@
                 <div class="contract-number-control"><input id="ata-summary-number" class="contract-number-highlight" type="text" value="{{ $ata['number'] }}" aria-label="Número da ata" readonly></div>
             </div>
             <p class="contract-heading-supplier"><span class="sr-only">Fornecedor: </span><span class="ata-summary-supplier"><strong data-fit-supplier-name>{{ $ata['supplier'] ?: 'Fornecedor não informado' }}</strong></span></p>
+            <div class="contract-summary-edit"><button type="button" class="primary-button compact"><x-nav-icon name="edit"/>Editar Ata</button></div>
         </div>
     </x-slot:contractSummary>
     <section class="surface detail-summary contract-information-summary ata-information-summary" aria-label="Dados da ata">

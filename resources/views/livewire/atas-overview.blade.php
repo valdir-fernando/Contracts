@@ -21,6 +21,7 @@
                 <span class="hint" wire:loading wire:target="year" role="status">Atualizando o ano…</span>
                 @error('year')<p class="field-error" role="alert">{{ $message }}</p>@enderror
         </div></div>
+        <div class="quick-actions"><a class="primary-button compact" href="{{ route('atas.create') }}"><x-nav-icon name="plus"/>Nova ATA</a></div>
     </div>
     <p class="hint">Visão global das atas {{ $year === 'all' ? 'em todos os exercícios' : 'no exercício '.$year }} · {{ number_format($itemCount, 0, ',', '.') }} {{ $itemCount === 1 ? 'item' : 'itens' }} · {{ $procurementCount }} {{ $procurementCount === 1 ? 'processo licitatório' : 'processos licitatórios' }}.</p>
     @if($statuses['indeterminado'] > 0)<p class="notice" role="status">{{ $statuses['indeterminado'] }} {{ $statuses['indeterminado'] === 1 ? 'ata sem vigência definida' : 'atas sem vigência definida' }}. O acompanhamento dos prazos depende das datas de início e término informadas.</p>@endif
