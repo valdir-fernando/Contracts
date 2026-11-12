@@ -1,7 +1,8 @@
-@props(['contract', 'showAccumulatedValue' => false])
-@php($codeLabel = mb_strtolower(trim((string) $contract->tipo)) === 'credenciamento' && filled($contract->cargo_credenc) ? 'CATSER' : 'Código')
-@if($contract->exists)
-<div data-contract-products data-enter-scope data-catser-editable="{{ $codeLabel === 'CATSER' ? 'true' : 'false' }}" data-base="{{ route('contracts.products.index', $contract) }}">
+@props(['contract' => null, 'showAccumulatedValue' => false, 'preview' => false, 'documentLabel' => 'Contrato'])
+@php($codeLabel = !$preview && mb_strtolower(trim((string) $contract->tipo)) === 'credenciamento' && filled($contract->cargo_credenc) ? 'CATSER' : 'Código')
+@if($preview || $contract->exists)
+@if($preview)<fieldset disabled class="contract-products-preview" aria-label="Produtos da ata — visualização">@endif
+<div class="contract-products-panel" @unless($preview) data-contract-products data-catser-editable="{{ $codeLabel === 'CATSER' ? 'true' : 'false' }}" data-base="{{ route('contracts.products.index', $contract) }}" @endunless data-enter-scope>
     <p data-product-feedback role="status" aria-live="polite"></p>
     <dialog class="catalog-modal product-picker-dialog" data-product-picker aria-labelledby="product-picker-title">
         <div class="modal-header"><h2 id="product-picker-title">Selecionar produto</h2></div>
@@ -24,7 +25,7 @@
         <dialog class="catalog-modal product-item-warning" data-product-budget-warning aria-labelledby="product-budget-warning-title" aria-describedby="product-budget-warning-message">
             <div class="modal-header"><h2 id="product-budget-warning-title">Consulta de ficha</h2></div>
             <p id="product-budget-warning-message" data-product-budget-warning-message></p>
-            @if(auth()->user()->canAccessCatalog('budget'))
+            @if(!$preview && auth()->user()->canAccessCatalog('budget'))
                 <a class="section-tab" data-product-budget-create href="{{ route('catalogs.budgets.create', ['fund_id' => $contract->fund_id, 'department_id' => $contract->department_id]) }}" hidden>Cadastrar nova dotação</a>
             @endif
             <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-product-budget-warning-ok autofocus>OK</button></div>
@@ -35,9 +36,9 @@
                 <label class="product-confirm product-manual-option"><input type="checkbox" data-products-manual> Lançamento manual</label>
                 <div class="product-contract-summary">
                     <span>
-                    <span>Contrato: <strong>{{ $contract->numero ?: 'Não informado' }}</strong></span>
+                    <span>{{ $documentLabel }}: <strong>{{ $contract?->numero ?: 'Não informado' }}</strong></span>
                     <span aria-hidden="true"> · </span>
-                    <span>Processo: <strong>{{ $contract->processo ?: 'Não informado' }}</strong></span>
+                    <span>Processo: <strong @if($preview) x-text="process || 'Não informado'" @endif>{{ $contract?->processo ?: 'Não informado' }}</strong></span>
                     </span>
                 </div>
     </div>
@@ -83,7 +84,7 @@
     </div>
     <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>{{ $codeLabel }}</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
     <div class="product-contract-values">
-        <label>Valor Total do Contrato<input data-product-heading-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_total) }}"></label>
+        <label>Valor Total {{ $documentLabel === 'ATA' ? 'da ATA' : 'do Contrato' }}<input data-product-heading-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract?->valor_total) }}"></label>
         @if($showAccumulatedValue)
             <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
             <label class="contract-accumulated-label">Valor Acumulado do Contrato<input data-product-accumulated-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}"></label>
@@ -95,6 +96,7 @@
         @endif
     </div>
 </div>
+@if($preview)</fieldset>@endif
 @else
     <p>Salve o contrato com o processo e o fornecedor para selecionar e lançar os produtos já cadastrados na tb_Produtos.</p>
 @endif

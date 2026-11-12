@@ -63,6 +63,31 @@ class AtasOverviewTest extends TestCase
         $this->get(route('atas.create'))->assertRedirect('/login');
     }
 
+    public function test_new_ata_products_is_disabled_until_an_ata_is_saved_or_loaded(): void
+    {
+        $response = $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund])
+            ->get(route('atas.create'))->assertOk();
+
+        $response->assertSee('4. Produtos')
+            ->assertSee('class="section-tab products-button" disabled title="Salve ou carregue uma ata para acessar os Produtos."', false)
+            ->assertSee('aria-haspopup="dialog" aria-controls="ata-products-dialog"', false)
+            ->assertSee('$refs.ataProducts.showModal()', false)
+            ->assertSee('class="catalog-modal contract-products-dialog"', false)
+            ->assertSee('aria-labelledby="ata-products-title"', false)
+            ->assertSee('Cadastro de produtos')->assertSee('Fechar cadastro de produtos')
+            ->assertSee('$refs.ataProducts.close()', false)
+            ->assertSee('<fieldset disabled', false)
+            ->assertSee('O lançamento de produtos ficará disponível após a implementação da gravação da ata.')
+            ->assertSeeInOrder(['Exibir produtos do processo', 'Lançamento manual', 'Ficha', 'Descrição', 'Dotação',
+                'Disponível', 'Salvar produto', 'Novo Produto', 'Excluir / estornar', 'Nova Ficha', 'Valor Total da ATA'])
+            ->assertDontSee('data-contract-products ', false)
+            ->assertDontSee('data-base=', false)
+            ->assertDontSee('Valor Total do Contrato');
+        $this->assertDatabaseCount('tb_ATA', 0);
+        $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_new_ata_lists_all_active_funds_alphabetically_without_private_details(): void
     {
         $other = DB::table('contract_funds')->insertGetId(['name' => 'A Fundo <Global>', 'name_key' => 'GLOBAL',

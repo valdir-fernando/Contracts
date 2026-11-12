@@ -110,6 +110,26 @@ Contatos são consultados por `POST /suppliers/lookup?ata_contacts=1`, usando au
 Em toda a suíte, campos sem informação não mostram mais Preenchido automaticamente nem Preenchido pelo órgão selecionado. Avisos de erro, carregamento e restrição de acesso são preservados. Em Nova ATA, a confirmação textual de preenchimento do fornecedor foi suprimida; erros de consulta continuam visíveis.
 
 Validação direcionada: PHPUnit `SupplierAutofillTest|AtaParticipantsTest|AtasOverviewTest` passou (33 testes/403 asserções, SQLite em memória). `ExecutiveSignatoryTest|ManagerRegistrationTest` passou (28 testes/221 asserções). Architecture (3 testes), Unit (86 testes), testes JavaScript direcionados, Pint e build Docker passaram. Prévia de grade em Chrome com dados sintéticos, sem gravação no banco; sem ensaio visual autenticado. Artefatos de build e imagem local de referência não integram os commits.
+## Produtos em Nova ATA — 12/11/2026
+
+A aba **4. Produtos**, após Dados do Fornecedor, permanece bloqueada até que uma ata seja salva ou carregada, seguindo o padrão de Novo contrato. O botão usa `disabled` nativo e informa **Salve ou carregue uma ata para acessar os Produtos.** Reabrir um rascunho com participantes não equivale a carregar uma ata salva e mantém o bloqueio. Como a gravação e o carregamento de atas ainda não estão implementados neste painel, a aba permanece desabilitada nesta etapa.
+
+O dialog **Cadastro de produtos** permanece preparado com as mesmas dimensões, campos, lista, resumo por ficha e ações do painel de contratos. O componente Blade `contract-products` compartilha a apresentação por `.contract-products-panel`; o atributo `data-contract-products` permanece exclusivo do fluxo operacional de contratos. O nome do fornecedor é atualizado pelo handler de abertura por `textContent`, e Processo acompanha o campo da ata. O botão X e Escape fecham a janela sem limpar o cadastro.
+
+Como Nova ATA ainda não possui gravação do documento, o painel apresenta os controles desabilitados e informa essa limitação. O modo `preview` não recebe model de contrato, não monta URLs de contratos nem inicializa consultas ou gravações de produtos. Não há nova rota, migration, numeração ou persistência de produtos nesta alteração.
+
+Validação do bloqueio da aba (12/11/2026), em Docker: `php artisan test --filter='AtasOverviewTest|AtaParticipantsTest|ContractProductsTest' --compact` aprovado (65 testes/779 asserções, SQLite em memória e storage temporário), incluindo bloqueio inicial e após reabrir rascunho com participantes. `composer check:architecture` aprovado (3 testes/4 asserções); `composer test:unit` aprovado (86 testes/210 asserções); `vendor/bin/pint --test tests/Feature/AtasOverviewTest.php tests/Feature/AtaParticipantsTest.php` aprovado. `node --test tests/JavaScript/ata-process-fields.test.mjs` aprovado (7 testes) e `git diff --check` aprovado. Sem execução de `composer check`, build ou ensaio visual autenticado nesta correção restrita ao Blade e aos testes; sem alterações no banco operacional.
+
+Validação em Docker, com SQLite em memória e storage temporário nos testes PHP:
+
+- `php artisan test --filter='AtasOverviewTest|ContractProductsTest' --compact`: 52 testes/640 asserções aprovados, incluindo a apresentação da ata sem mutações e a regressão do painel operacional de contratos.
+- `node --test --test-reporter=spec tests/JavaScript/ata-process-fields.test.mjs`: 7 testes aprovados, incluindo abertura, fechamento e atualização do fornecedor a cada abertura.
+- `composer check:architecture`: 3 testes/4 asserções aprovados; `composer test:unit`: 86 testes/210 asserções aprovados.
+- `npm test`: 157 de 158 testes aprovados antes da inclusão do novo teste; falha em `dfd-product-filter.test.mjs:66`, `window is not defined`, já registrada na verificação de 11/11 abaixo e fora dos arquivos alterados.
+- `npm run build`: aprovado após o ajuste final de CSS. Sem ensaio visual autenticado.
+- `composer check`: Pint aprovado (440 arquivos); PHPUnit sinalizou falhas e foi interrompido pelo timeout de 300 segundos após a marca de 854/1.038 testes. Sem resultado final nem aprovação geral. As falhas PHP desta execução não foram individualmente comparadas com a base.
+- `git diff --check`: aprovado. Nenhum teste no banco operacional; arquivos locais de referência preservados.
+
 ## Verificação antes dos commits e push — 11/11/2026
 
 - `docker compose exec -T app composer check`: Pint aprovado (440 arquivos). PHPUnit interrompido pelo timeout padrão de 300 segundos do Composer, após a marca de 854/1.037 testes, com falhas/erros já sinalizados; sem resultado final da suíte PHP completa. Log local: `build/pre-push-check-20261111.log`.

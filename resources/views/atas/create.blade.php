@@ -120,6 +120,7 @@
         <button type="button" class="section-tab active" :class="{ active: step === 0 }" aria-pressed="true" :aria-pressed="step === 0" aria-controls="ata-process-panel" @click="step = 0">1. Dados Processuais</button>
         <button type="button" class="section-tab" :class="{ active: step === 1 }" aria-pressed="false" :aria-pressed="step === 1" aria-controls="ata-manager-panel" @click="step = 1">2. Dados Gerenciador</button>
         <button type="button" class="section-tab" :class="{ active: step === 2 }" aria-pressed="false" :aria-pressed="step === 2" aria-controls="ata-supplier-panel" @click="step = 2">3. Dados do Fornecedor</button>
+        <button type="button" class="section-tab products-button" disabled title="Salve ou carregue uma ata para acessar os Produtos." aria-haspopup="dialog" aria-controls="ata-products-dialog" @click="$refs.ataProductsSupplier.textContent = $root.querySelector('[name=fornecedor_nome_snapshot]').value || 'Nome / Razão Social'; $refs.ataProducts.showModal()">4. Produtos</button>
     </nav>
     <section id="ata-process-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados Processuais" x-show="step === 0">
         <div class="field-grid">
@@ -217,5 +218,16 @@
             </div>
         </form>
     </section>
+    <dialog id="ata-products-dialog" class="catalog-modal contract-products-dialog" x-ref="ataProducts" aria-labelledby="ata-products-title">
+        <div class="modal-header">
+            <h2 id="ata-products-title" tabindex="-1">Cadastro de produtos</h2>
+            <div class="product-title-supplier"><p class="contract-heading-supplier" x-ref="ataProductsSupplier">Nome / Razão Social</p></div>
+            <button type="button" class="modal-close" @click="$refs.ataProducts.close()" aria-label="Fechar cadastro de produtos">×</button>
+        </div>
+        <div class="contract-section">
+            <p class="hint">O lançamento de produtos ficará disponível após a implementação da gravação da ata.</p>
+            <x-contract-products :preview="true" document-label="ATA"/>
+        </div>
+    </dialog>
     </div>
 </x-layouts.app>

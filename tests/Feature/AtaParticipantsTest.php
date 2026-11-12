@@ -66,7 +66,9 @@ class AtaParticipantsTest extends TestCase
         $this->assertDatabaseHas('tb_Participantes', ['ATA' => null, 'fund_id' => $this->participant, 'Tipo_Fundo' => 'Participante']);
         $this->assertDatabaseHas('activity_events', ['actor_id' => $this->actor->id, 'action' => 'ata_participant_added']);
         $this->assertDatabaseCount('tb_ATA', 0);
-        $this->get(route('atas.create', ['draft' => $token]))->assertOk()->assertViewHas('draftState', fn ($state) => $state['version'] === 1 && count($state['participants']) === 1 && $state['process'] === '001/2026');
+        $this->get(route('atas.create', ['draft' => $token]))->assertOk()
+            ->assertSee('class="section-tab products-button" disabled title="Salve ou carregue uma ata para acessar os Produtos."', false)
+            ->assertViewHas('draftState', fn ($state) => $state['version'] === 1 && count($state['participants']) === 1 && $state['process'] === '001/2026');
     }
 
     public function test_same_fund_is_saved_as_manager_and_allows_adding_another_participant(): void

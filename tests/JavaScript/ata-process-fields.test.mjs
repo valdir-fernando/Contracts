@@ -6,6 +6,31 @@ import { runInNewContext } from 'node:vm';
 const view = readFileSync(new URL('../../resources/views/atas/create.blade.php', import.meta.url), 'utf8');
 const funds = [{ id: 1, name: 'Educação' }, { id: 2, name: 'Saúde' }, { id: 3, name: 'Município' }];
 
+test('products opens a modal with the current supplier and closes without changing the ata', () => {
+    const open = view.match(/aria-controls="ata-products-dialog" @click="([^"]+)"/)[1];
+    const close = view.match(/@click="([^"]+)" aria-label="Fechar cadastro de produtos"/)[1];
+    const supplier = { value: 'Fornecedor <Teste>' };
+    const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
+    const heading = { textContent: '' };
+    const context = { $refs: { ataProducts: dialog, ataProductsSupplier: heading },
+        $root: { querySelector: () => supplier } };
+
+    runInNewContext(open, context);
+    assert.equal(dialog.open, true);
+    assert.equal(heading.textContent, supplier.value);
+    runInNewContext(close, context);
+    assert.equal(dialog.open, false);
+    assert.equal(supplier.value, 'Fornecedor <Teste>');
+
+    supplier.value = 'Outro fornecedor';
+    runInNewContext(open, context);
+    assert.equal(heading.textContent, 'Outro fornecedor');
+    runInNewContext(close, context);
+    supplier.value = '';
+    runInNewContext(open, context);
+    assert.equal(heading.textContent, 'Nome / Razão Social');
+});
+
 function editor({ fetch, initial } = {}) {
     const expression = view.match(/<div x-data="([\s\S]*?)" data-draft-state=/)[1].replace('@js($funds)', JSON.stringify(funds));
     let draftUrl;
