@@ -1,7 +1,7 @@
 <x-layouts.app title="Nova ATA" :contract-editor="true">
     <x-slot:fundName>FUNDO GERENCIADOR</x-slot:fundName>
     <x-slot:headerBack><a class="text-link fund-header-back" href="{{ route('atas.dashboard') }}">← Voltar</a></x-slot:headerBack>
-    <x-slot:fundSupplier><p class="contract-heading-supplier"><span class="sr-only">Fornecedor: </span>Nome / Razão Social</p></x-slot:fundSupplier>
+    <x-slot:fundSupplier><p class="contract-heading-supplier"><span class="sr-only">Fornecedor: </span><span data-contract-summary-field="fornecedor_nome_snapshot">Nome / Razão Social</span></p></x-slot:fundSupplier>
     <x-slot:contractSummary>
         <div class="contract-heading-title" aria-label="Resumo da nova ata">
             <h1 class="sr-only">Nova ATA</h1>
@@ -28,8 +28,7 @@
         csrfToken: '',
         funds: @js($funds),
         get participantFunds() {
-            return this.funds.filter(fund => String(fund.id) !== this.managingFund
-                && !this.participants.some(participant => String(participant.fund_id) === String(fund.id)));
+            return this.funds.filter(fund => !this.participants.some(participant => String(participant.fund_id) === String(fund.id)));
         },
         init() {
             if (this.$el) {
@@ -45,12 +44,35 @@
                 url.searchParams.set('draft', this.$el.dataset.draftToken);
                 window.history.replaceState(null, '', url);
             }
-            this.$watch('managingFund', value => {
-                if (this.participantFund === value) this.participantFund = '';
-            });
+        },
+        async removeParticipant(participant) {
+            if (this.busy) return;
+            this.busy = true;
+            this.message = '';
+            try {
+                const response = await fetch(this.endpoint + '/' + participant.id, {
+                    method: 'DELETE', credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': this.csrfToken },
+                    body: JSON.stringify({ draft_token: this.draftToken, version: this.version })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    this.message = data.message || 'Não foi possível excluir o Fundo.';
+                    return;
+                }
+                this.participants = data.participants;
+                this.version = data.version;
+                this.message = 'Fundo excluído da lista.';
+            } catch {
+                this.message = 'Não foi possível confirmar a exclusão. Recarregue o painel.';
+            } finally {
+                this.busy = false;
+            }
         },
         async addParticipant() {
             if (this.busy) return;
+            const dateField = this.$root?.querySelector('[data-ata-date]');
+            if (dateField && !dateField.reportValidity()) return;
             this.busy = true;
             this.message = '';
             try {
@@ -78,9 +100,9 @@
                 this.busy = false;
             }
         }
-    }" data-draft-state="{{ json_encode($draftState, JSON_THROW_ON_ERROR) }}" data-draft-token="{{ $draftToken }}" data-participants-url="{{ route('atas.participants.store') }}" data-csrf-token="{{ csrf_token() }}">
+    }" data-draft-state="{{ json_encode($draftState, JSON_THROW_ON_ERROR) }}" data-draft-token="{{ $draftToken }}" data-participants-url="{{ route('atas.participants.store') }}" data-csrf-token="{{ csrf_token() }}" class="ata-editor">
     <section class="surface contract-section" aria-label="Nova ATA">
-        <div class="field-grid">
+        <div class="field-grid ata-managing-fund-grid">
             <div class="field">
                 <label for="ata-managing-fund">Fundo Gerenciador</label>
                 <select id="ata-managing-fund" name="managing_fund_id" x-model="managingFund" :disabled="busy">
@@ -88,14 +110,20 @@
                     @foreach($funds as $fund)<option value="{{ $fund->id }}">{{ $fund->name }}</option>@endforeach
                 </select>
             </div>
+            <div class="field ata-date-field">
+                <label for="ata-date">Data_ATA</label>
+                <input id="ata-date" name="Data_ATA" type="date" min="0001-01-01" max="9999-12-31" data-ata-date :disabled="busy">
+            </div>
         </div>
     </section>
     <nav class="section-tabs contract-section-navigation" aria-label="Seções da ata">
         <button type="button" class="section-tab active" :class="{ active: step === 0 }" aria-pressed="true" :aria-pressed="step === 0" aria-controls="ata-process-panel" @click="step = 0">1. Dados Processuais</button>
-        <button type="button" class="section-tab" :class="{ active: step === 1 }" aria-pressed="false" :aria-pressed="step === 1" aria-controls="ata-supplier-panel" @click="step = 1">2. Dados do Fornecedor</button>
+        <button type="button" class="section-tab" :class="{ active: step === 1 }" aria-pressed="false" :aria-pressed="step === 1" aria-controls="ata-manager-panel" @click="step = 1">2. Dados Gerenciador</button>
+        <button type="button" class="section-tab" :class="{ active: step === 2 }" aria-pressed="false" :aria-pressed="step === 2" aria-controls="ata-supplier-panel" @click="step = 2">3. Dados do Fornecedor</button>
     </nav>
     <section id="ata-process-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados Processuais" x-show="step === 0">
         <div class="field-grid">
+            <div class="ata-process-fields">
             <div class="field"><label for="ata-process">Processo ATA</label><input id="ata-process" name="ata_process" type="text" maxlength="64" x-model="process" :disabled="busy"></div>
             <div class="field"><label for="ata-bidding">Licitação</label><input id="ata-bidding" name="bidding" type="text"></div>
             <div class="field"><label for="ata-bidding-number">Nº Licit</label><input id="ata-bidding-number" name="bidding_number" type="text"></div>
@@ -111,20 +139,83 @@
                     <button type="button" class="primary-button compact shrink-0" @click="addParticipant()" :disabled="busy || !process.trim() || !managingFund || !participantFund"><x-nav-icon name="plus"/>Adicionar</button>
                 </div>
             </div>
+            </div>
         </div>
         <p role="status" aria-live="polite" x-text="message"></p>
         <div class="table-scroll" tabindex="0" role="region" aria-label="Fundos participantes adicionados">
-            <table class="data-table">
+            <table class="data-table ata-participants-table">
+                <colgroup><col class="ata-participant-number"><col class="ata-participant-process"><col class="ata-participant-cnpj"><col><col class="ata-participant-type"></colgroup>
                 <thead><tr><th>ATA</th><th>Processo ATA</th><th>CNPJ do Fundo</th><th>Fundo</th><th>Tipo de Fundo</th></tr></thead>
                 <tbody>
                     <template x-for="participant in participants" :key="participant.id">
-                        <tr><td x-text="participant.ATA || 'Aguardando salvar a ata'"></td><td x-text="participant.Processo_ATA"></td><td x-text="participant.CNPJ_Fundo"></td><td x-text="participant.FUNDO"></td><td x-text="participant.Tipo_Fundo"></td></tr>
+                        <tr><td x-text="participant.ATA || 'Aguardando salvar a ata'"></td><td x-text="participant.Processo_ATA"></td><td x-text="participant.CNPJ_Fundo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')"></td><td x-text="participant.FUNDO"></td><td><div class="ata-participant-actions"><span x-text="participant.Tipo_Fundo"></span><button type="button" class="text-link" :aria-label="'Excluir ' + participant.FUNDO" @click="removeParticipant(participant)" :disabled="busy">Excluir</button></div></td></tr>
                     </template>
                     <tr x-show="participants.length === 0"><td colspan="5">Nenhum Fundo participante adicionado.</td></tr>
                 </tbody>
             </table>
         </div>
     </section>
-    <section id="ata-supplier-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados do Fornecedor" x-cloak x-show="step === 1"></section>
+    <section id="ata-manager-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados Gerenciador" data-ata-contractor-url="{{ route('atas.contractor-defaults', ['fund' => 0]) }}" x-cloak x-show="step === 1">
+        <h2>Dados Gerenciador</h2>
+        <div class="form-grid ata-contractor-grid">
+            @foreach(['CNPJ_Fundo', 'End_Fundo', 'CPF_Gestor', 'RG_Gestor', 'Cargo_Gestor'] as $source)
+                @php($definition = \App\Support\ContractFields::MAP[$source])
+                @php($column = $definition['column'])
+                @if($column === 'fundo_documento_snapshot')<div class="ata-contractor-fund-row">@endif
+                @if($column === 'cpf_gestor')<div class="ata-contractor-manager-row">@endif
+                <div @class(['field', 'field-wide' => $column === 'nome_gestor', 'ata-contractor-document' => $column === 'fundo_documento_snapshot', 'ata-contractor-address' => $column === 'end_fundo'])>
+                    <label for="ata-{{ $column }}">{{ match ($column) { 'cpf_gestor' => 'CPF do Gestor', 'rg_gestor' => 'RG do Gestor', default => \App\Support\ContractFields::label($source) } }}</label>
+                    <p class="readonly-field" id="ata-{{ $column }}" role="textbox" aria-readonly="true" data-ata-contractor-field="{{ $column }}"></p>
+                </div>
+                @if($column === 'end_fundo')</div>@endif
+                @if($column === 'cargo_gestor')</div>@endif
+            @endforeach
+            <div class="ata-manager-registration-row">
+                <div class="field"><label for="ata-decreto_gestor">Nº Decreto</label><p class="readonly-field" id="ata-decreto_gestor" role="textbox" aria-readonly="true" data-ata-contractor-field="decreto_gestor"></p></div>
+                <div class="field"><label for="ata-matricula_gestor">Matrícula Funcional</label><p class="readonly-field" id="ata-matricula_gestor" role="textbox" aria-readonly="true" data-ata-contractor-field="matricula_gestor"></p></div>
+            </div>
+        </div>
+        <p class="hint" data-ata-contractor-status role="status" aria-live="polite"></p>
+    </section>
+    <section id="ata-supplier-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados do Fornecedor" x-cloak x-show="step === 2">
+        <form data-ata-supplier-form data-supplier-contacts-url="{{ route('suppliers.lookup', ['ata_contacts' => 1]) }}" data-supplier-success-message="" data-supplier-lookup-url="{{ route('suppliers.lookup') }}" @submit.prevent>
+            <h2 class="ata-supplier-heading">Dados do Fornecedor<span class="field-label-divider" aria-hidden="true">|</span><button type="button" class="text-link" data-supplier-picker-open data-supplier-list-url="{{ route('suppliers.index') }}">Selecionar fornecedor cadastrado</button></h2>
+            @csrf
+            <input type="hidden" name="supplier_id" value="">
+            <input type="hidden" name="fornecedor_nome_snapshot" id="fornecedor_nome_snapshot" data-supplier-catalog-field readonly value="">
+            <div class="form-grid">
+                @foreach(\App\Support\ContractFields::MAP as $source => $definition)
+                    @continue($definition['group'] !== 'Dados Fornecedor' || $source === 'Fornecedor')
+                    @php($column = $definition['column'])
+                    @if($column === 'fornecedor_documento_snapshot')<div class="ata-supplier-identification-row">@endif
+                    @if($column === 'socio')<div class="ata-supplier-partner-documents">@endif
+                    @if($column === 'end_fornec')<div class="ata-supplier-address-row">@endif
+                    <div class="field">
+                        @if($column === 'fornecedor_documento_snapshot')
+                            <div class="field-label-row"><label for="{{ $column }}"><span data-ata-supplier-document-label>{{ \App\Support\ContractFields::label($source) }}</span><x-required-mark :explain="true"/></label></div>
+                            <input id="{{ $column }}" name="{{ $column }}" data-document-format maxlength="15000" required>
+                        @else
+                            <label for="{{ $column }}">{{ \App\Support\ContractFields::label($source) }}</label>
+                            @if($column === 'end_fornec')
+                                <textarea id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly rows="1"></textarea>
+                            @else
+                                <input id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly value="">
+                            @endif
+                        @endif
+                    </div>
+                    @if($column === 'end_fornec')
+                        <div class="field"><label for="ata-supplier-email">e-mail</label><input id="ata-supplier-email" name="supplier_email" data-supplier-catalog-field readonly type="email" autocomplete="email" maxlength="254"></div>
+                        </div>
+                    @endif
+                    @if($column === 'pis_pasep')</div>@endif
+                    @if($column === 'rg_socio')</div>@endif
+                @endforeach
+                <div class="ata-supplier-contact-row">
+                    <div class="field"><label for="ata-supplier-mobile">Celular</label><input id="ata-supplier-mobile" name="supplier_mobile" data-supplier-catalog-field readonly type="tel" autocomplete="tel" maxlength="25"></div>
+                    <div class="field"><label for="ata-supplier-whatsapp">WhatsApp</label><input id="ata-supplier-whatsapp" name="supplier_whatsapp" data-supplier-catalog-field readonly type="tel" maxlength="25"></div>
+                </div>
+            </div>
+        </form>
+    </section>
     </div>
 </x-layouts.app>

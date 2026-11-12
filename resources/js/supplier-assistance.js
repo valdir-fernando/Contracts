@@ -56,7 +56,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
         });
         if (supplierId) supplierId.value = String(id);
         resolvedDocument = documentField.value.replace(/\D/g, '');
-        status.textContent = 'Dados do fornecedor preenchidos. Confira antes de salvar.';
+        status.textContent = form.dataset.supplierSuccessMessage ?? 'Dados do fornecedor preenchidos. Confira antes de salvar.';
         refreshContractSummary(form);
     });
     documentField.addEventListener('input', () => {
@@ -115,7 +115,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
                 automatic.set(field.name, field.value);
             });
             resolvedDocument = digits;
-            status.textContent = 'Dados do fornecedor preenchidos. Confira antes de salvar.';
+            status.textContent = form.dataset.supplierSuccessMessage ?? 'Dados do fornecedor preenchidos. Confira antes de salvar.';
         } catch (error) {
             if (controller === attempt && error.name !== 'AbortError') status.textContent = failureMessage;
         } finally {

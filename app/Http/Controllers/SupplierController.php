@@ -51,7 +51,7 @@ class SupplierController extends Controller
         abort_unless($suppliers->count(), 404, 'Nenhum fornecedor disponível para este documento.');
         abort_if($suppliers->count() > 1, 409, 'Há mais de um cadastro para este documento. Use Selecionar fornecedor cadastrado.');
 
-        return response()->json(['values' => SupplierCatalog::defaults($actor, $suppliers->first())],
+        return response()->json(['values' => SupplierCatalog::defaults($actor, $suppliers->first(), $request->boolean('ata_contacts'))],
             headers: ['Cache-Control' => 'private, no-store']);
     }
 

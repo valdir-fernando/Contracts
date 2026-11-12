@@ -50,7 +50,8 @@ final class ManagerSignatory
         $raw = json_decode($record->raw_payload, true, 512, JSON_THROW_ON_ERROR);
 
         return ['Nome_Gestor' => $record->name, 'CPF_Gestor' => $raw['CPF_Gestor'] ?? null,
-            'RG_Gestor' => $raw['RG_Gestor'] ?? null, 'Cargo' => $raw['Cargo'] ?? null];
+            'RG_Gestor' => $raw['RG_Gestor'] ?? null, 'Cargo' => $raw['Cargo'] ?? null,
+            'Decreto' => $raw['Decreto'] ?? null, 'Matricula' => $raw['Matricula'] ?? null];
     }
 
     public function forContract(Contract $contract): array

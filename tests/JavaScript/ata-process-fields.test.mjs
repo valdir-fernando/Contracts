@@ -25,20 +25,20 @@ function editor({ fetch, initial } = {}) {
         state,
         selectManager(value) {
             state.managingFund = value;
-            onManagerChange(value);
+            onManagerChange?.(value);
         },
         participantIds: () => Array.from(state.participantFunds, fund => fund.id),
         draftUrl: () => draftUrl,
     };
 }
 
-test('participants list all funds initially and exclude the current manager after each change', () => {
+test('participants list all funds initially and include the current manager after each change', () => {
     const form = editor();
     assert.deepEqual(form.participantIds(), [1, 2, 3]);
     form.selectManager('2');
-    assert.deepEqual(form.participantIds(), [1, 3]);
+    assert.deepEqual(form.participantIds(), [1, 2, 3]);
     form.selectManager('1');
-    assert.deepEqual(form.participantIds(), [2, 3]);
+    assert.deepEqual(form.participantIds(), [1, 2, 3]);
     form.selectManager('');
     assert.deepEqual(form.participantIds(), [1, 2, 3]);
 });
@@ -64,7 +64,7 @@ test('add sends only identifiers and process with CSRF and renders confirmed ser
     assert.equal(sent.url, '/atas/participants');
     assert.equal(form.state.version, 1);
     assert.equal(form.state.participants[0].ATA, null);
-    assert.deepEqual(form.participantIds(), [3]);
+    assert.deepEqual(form.participantIds(), [1, 3]);
     assert.equal(form.state.participantFund, '');
     assert.equal(form.state.busy, false);
 });
@@ -96,7 +96,7 @@ test('pending add blocks repeated clicks and loaded drafts retain their particip
         return new Promise(resolve => { finish = resolve; });
     } });
     assert.equal(form.state.version, 1);
-    assert.deepEqual(form.participantIds(), [3]);
+    assert.deepEqual(form.participantIds(), [1, 3]);
     const request = form.state.addParticipant();
     await form.state.addParticipant();
     assert.equal(calls, 1);
@@ -106,12 +106,36 @@ test('pending add blocks repeated clicks and loaded drafts retain their particip
     assert.equal(form.state.busy, false);
 });
 
-test('changing manager clears a conflicting participant and preserves a different participant', () => {
+test('changing manager preserves the selection including the same fund', () => {
     const form = editor();
     form.state.participantFund = '2';
     form.selectManager('1');
     assert.equal(form.state.participantFund, '2');
     form.selectManager('2');
-    assert.equal(form.state.participantFund, '');
-    assert.deepEqual(form.participantIds(), [1, 3]);
+    assert.equal(form.state.participantFund, '2');
+    assert.deepEqual(form.participantIds(), [1, 2, 3]);
+});
+
+test('delete sends the saved version and only removes rows after server confirmation', async () => {
+    let sent;
+    let ok = false;
+    const participant = { id: 10, fund_id: 2 };
+    const form = editor({ initial: { version: 1, process: '01/2026', managing_fund_id: '1', participants: [participant] },
+        fetch: async (url, options) => {
+            sent = { url, ...options };
+            return { ok, json: async () => ok ? { version: 2, participants: [] } : { message: 'Conflito' } };
+        } });
+    await form.state.removeParticipant(participant);
+    assert.equal(form.state.participants.length, 1);
+    assert.equal(form.state.version, 1);
+    ok = true;
+    await form.state.removeParticipant(participant);
+    assert.equal(sent.method, 'DELETE');
+    assert.equal(sent.url, '/atas/participants/10');
+    assert.equal(sent.headers['X-CSRF-TOKEN'], 'csrf-token');
+    assert.deepEqual(JSON.parse(sent.body), { draft_token: 'signed-draft', version: 1 });
+    assert.equal(form.state.participants.length, 0);
+    assert.equal(form.state.version, 2);
+    assert.deepEqual(form.participantIds(), [1, 2, 3]);
+    assert.equal(form.state.busy, false);
 });

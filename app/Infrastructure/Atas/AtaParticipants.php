@@ -44,7 +44,7 @@ final class AtaParticipants
             $id = $this->draftId($actor, $token);
             $draft = DB::table('ata_participant_drafts')->where('id', $id)->where('actor_id', $actor->id)->lockForUpdate()->first();
             $data = Validator::make($input, ['version' => 'required|integer|min:0', 'ata_process' => 'required|string|max:64',
-                'managing_fund_id' => 'required|integer|min:1', 'participant_fund_id' => 'required|integer|min:1|different:managing_fund_id'])->validate();
+                'managing_fund_id' => 'required|integer|min:1', 'participant_fund_id' => 'required|integer|min:1'])->validate();
             abort_if((int) $data['version'] !== (int) ($draft->version ?? 0), 409, 'A lista foi alterada. Recarregue o painel antes de adicionar outro Fundo.');
             $process = trim($data['ata_process']);
             if ($process === '') {
@@ -63,7 +63,7 @@ final class AtaParticipants
                 throw ValidationException::withMessages(['participant_fund_id' => 'O Fundo selecionado precisa de um CNPJ válido no cadastro.']);
             }
             $existing = DB::table('tb_Participantes')->where('draft_id', $id)->whereNull('deleted_at');
-            if ((clone $existing)->where('fund_id', $data['managing_fund_id'])->exists()) {
+            if ($draft && (int) $draft->managing_fund_id !== (int) $data['managing_fund_id'] && (clone $existing)->where('fund_id', $data['managing_fund_id'])->exists()) {
                 throw ValidationException::withMessages(['managing_fund_id' => 'Este Fundo já foi adicionado como participante. Selecione outro gerenciador.']);
             }
             if ((clone $existing)->where(function ($query) use ($fund, $document) {
@@ -81,14 +81,45 @@ final class AtaParticipants
                 DB::table('ata_participant_drafts')->insert($values + ['id' => $id, 'actor_id' => $actor->id, 'created_at' => $now]);
             }
             $participant = ['draft_id' => $id, 'fund_id' => $fund->id, 'ATA' => null, 'Processo_ATA' => $process,
-                'CNPJ_Fundo' => $document, 'FUNDO' => $fund->name, 'Tipo_Fundo' => 'Participante'];
-            $participantId = DB::table('tb_Participantes')->insertGetId($participant + ['created_at' => $now, 'updated_at' => $now]);
+                'CNPJ_Fundo' => $document, 'FUNDO' => $fund->name,
+                'Tipo_Fundo' => (int) $fund->id === (int) $data['managing_fund_id'] ? 'Gerenciador' : 'Participante'];
+            $removed = DB::table('tb_Participantes')->where('draft_id', $id)->where('fund_id', $fund->id)->whereNotNull('deleted_at')->lockForUpdate()->first();
+            if ($removed) {
+                $participantId = $removed->id;
+                DB::table('tb_Participantes')->where('id', $participantId)->update($participant + ['deleted_at' => null, 'updated_at' => $now]);
+            } else {
+                $participantId = DB::table('tb_Participantes')->insertGetId($participant + ['created_at' => $now, 'updated_at' => $now]);
+            }
             ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'ata_participant_added', 'metadata' => [
                 'id' => $participantId, 'draft_id' => $id, 'before_context' => $draft ? ['process' => $draft->process,
                     'managing_fund_id' => $draft->managing_fund_id, 'version' => $draft->version] : null,
                 'after_context' => $values, 'participant' => $participant], 'created_at' => $now]);
 
             return $this->projection((object) ($values + ['id' => $id]));
+        }, 3);
+    }
+
+    public function remove(User $expected, string $token, int $participantId, array $input, ?int $sessionFundId): array
+    {
+        return DB::transaction(function () use ($expected, $token, $participantId, $input, $sessionFundId) {
+            $actor = $this->actors->lock($expected);
+            abort_if($sessionFundId !== null && ! $this->selectedFund->allows($actor, $sessionFundId), 403);
+            $id = $this->draftId($actor, $token);
+            $draft = DB::table('ata_participant_drafts')->where('id', $id)->where('actor_id', $actor->id)->lockForUpdate()->first();
+            abort_unless($draft, 404);
+            $data = Validator::make($input, ['version' => 'required|integer|min:0'])->validate();
+            abort_if((int) $data['version'] !== (int) $draft->version, 409, 'A lista foi alterada. Recarregue o painel.');
+            $participant = DB::table('tb_Participantes')->where('draft_id', $id)->where('id', $participantId)->whereNull('deleted_at')->lockForUpdate()->first();
+            abort_unless($participant, 404);
+            $now = now();
+            DB::table('tb_Participantes')->where('id', $participantId)->update(['deleted_at' => $now, 'updated_at' => $now]);
+            DB::table('ata_participant_drafts')->where('id', $id)->update(['version' => $draft->version + 1, 'updated_at' => $now]);
+            ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'ata_participant_removed',
+                'metadata' => ['id' => $participantId, 'draft_id' => $id, 'before_version' => $draft->version,
+                    'after_version' => $draft->version + 1, 'participant' => (array) $participant], 'created_at' => $now]);
+            $draft->version++;
+
+            return $this->projection($draft);
         }, 3);
     }
 

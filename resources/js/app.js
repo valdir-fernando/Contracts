@@ -31,6 +31,10 @@ import './manager-registration';
 import './dfd-classes';
 import './dfd-panel';
 import './fund-registration';
+import './ata-contractor';
+import './ata-supplier-contacts';
+import { ataDateError, confirmAtaDate } from './ata-date';
+import { showSupplierDocumentWarning } from './system-message';
 import { scrollContractSection } from './contract-panel-scroll';
 import { attachMask, maskDate, isoDate, dateInputAllowed, normalizeFormDates } from './input-masks';
 
@@ -285,13 +289,38 @@ document.querySelectorAll('input[type="date"]').forEach((input) => {
     input.value = displayBrazilianDate(input.value);
     input.maxLength = 10;
     attachMask(input, maskDate, /^[\d/-]*$/, dateInputAllowed);
+    let acceptedAtaDate = null;
+    let confirmingAtaDate = false;
     const validate = () => {
         input.setCustomValidity(input.value && (!brazilianDate(input.value) || (input.min && brazilianDate(input.value) < input.min) || (input.max && brazilianDate(input.value) > input.max)) ? 'Informe uma data válida no formato dd/mm/aaaa, dentro do período permitido.' : '');
+        if (input.hasAttribute('data-ata-date')) {
+            if (brazilianDate(input.value) !== acceptedAtaDate) acceptedAtaDate = null;
+            input.setCustomValidity(ataDateError(input.value, acceptedAtaDate));
+        }
     };
     input.addEventListener('input', validate);
-    input.addEventListener('blur', () => {
+    input.addEventListener('blur', async () => {
+        if (confirmingAtaDate) return;
         input.value = displayBrazilianDate(input.value);
         validate();
+        if (input.hasAttribute('data-ata-date') && !input.checkValidity()) {
+            const iso = brazilianDate(input.value);
+            if (iso) {
+                confirmingAtaDate = true;
+                const keep = await confirmAtaDate(input.value);
+                if (keep) acceptedAtaDate = iso;
+                else input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                confirmingAtaDate = false;
+                input.focus();
+                return;
+            }
+            const message = input.validationMessage;
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            showSupplierDocumentWarning(`Data_ATA: ${message} O campo foi limpo. Informe outra data.`);
+            document.querySelector('[data-supplier-document-warning]')?.addEventListener('close', () => input.focus(), { once: true });
+        }
     });
     const control = document.createElement('span');
     control.className = 'date-input-control';
@@ -365,7 +394,7 @@ document.querySelectorAll('[data-fund-defaults-form]').forEach((form) => {
             if (input && !edited.has(name)) input.value = '';
         });
         ['fundo_nome_snapshot', 'fundo_documento_snapshot'].forEach((name) => {
-            form.querySelector(`[data-derived-field="${name}"]`).textContent = 'Preenchido pelo órgão selecionado';
+            form.querySelector(`[data-derived-field="${name}"]`).textContent = '';
         });
         notice.textContent = '';
         const submit = form.querySelector('[type=submit]');

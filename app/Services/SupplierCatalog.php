@@ -10,12 +10,16 @@ use Illuminate\Support\Facades\DB;
 
 class SupplierCatalog
 {
-    public static function defaults(User $actor, object $supplier): array
+    public static function defaults(User $actor, object $supplier, bool $includeContacts = false): array
     {
         $raw = json_decode($supplier->raw_payload, true, 512, JSON_THROW_ON_ERROR);
         $values = ['fornecedor_nome_snapshot' => $supplier->name,
             'fornecedor_documento_snapshot' => $supplier->document_key ?: $supplier->document];
         $fields = ['doc_prof' => 'Doc_Prof', 'end_fornec' => 'Endereco', 'socio' => 'Nome_Socio'];
+        if ($includeContacts && $actor->canAccessCatalog('supplier')) {
+            $fields += ['supplier_email' => 'Email_Fornecedor', 'supplier_mobile' => 'Fone_Celular',
+                'supplier_whatsapp' => 'WhatsApp_Fornecedor'];
+        }
         if ($actor->isAdmin()) {
             $fields += ['rg_fornec' => 'RG', 'pis_pasep' => 'PIS_PASEP', 'cpf_socio' => 'CPF_Socio', 'rg_socio' => 'RG_Socio'];
         }

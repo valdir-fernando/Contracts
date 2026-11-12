@@ -58,6 +58,22 @@ class SupplierAutofillTest extends TestCase
             'data_contrato' => '2026-10-13', 'vigencia_inicio' => '2026-10-13', 'vigencia_fim_original' => '2027-10-13'], $extra);
     }
 
+    public function test_ata_contacts_are_explicit_and_require_supplier_catalog_access(): void
+    {
+        DB::table('suppliers')->where('id', $this->supplier)->update(['raw_payload' => json_encode([
+            'Email_Fornecedor' => 'empresa@example.test', 'Fone_Celular' => '62999990000',
+            'WhatsApp_Fornecedor' => '62988880000', 'Email_Socio' => 'PRIVATE-PARTNER'])]);
+        $payload = ['document' => '11222333000181'];
+        $this->postJson('/suppliers/lookup', $payload)->assertOk()->assertJsonMissingPath('values.supplier_email');
+        $this->postJson('/suppliers/lookup?ata_contacts=1', $payload)->assertOk()
+            ->assertJsonPath('values.supplier_email', 'empresa@example.test')
+            ->assertJsonPath('values.supplier_mobile', '62999990000')
+            ->assertJsonPath('values.supplier_whatsapp', '62988880000')->assertDontSee('PRIVATE-PARTNER');
+        $this->actingAs($this->user)->postJson('/suppliers/lookup?ata_contacts=1', $payload)->assertOk()
+            ->assertJsonMissingPath('values.supplier_email')->assertJsonMissingPath('values.supplier_mobile')
+            ->assertJsonMissingPath('values.supplier_whatsapp');
+    }
+
     public function test_original_catalog_selection_keeps_scope_and_personal_data_protection(): void
     {
         $hidden = $this->supplier('Fornecedor fora do escopo', '19131243000197');

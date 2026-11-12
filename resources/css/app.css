@@ -360,7 +360,8 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .contract-administration-fields .field > label, .contract-administration-fields .field-label-row { display: flex; align-items: center; min-height: 22px; margin-bottom: 3px; }
 .contract-administration-fields .field-label-row > label { color: #4b5f7c; font-size: 12px; font-weight: 600; }
 [data-contract-editor] .contract-section { padding-block: 8px; }
-[data-contract-editor] .contract-section > h2 { margin-bottom: 18px; color: #163b65; font-size: 18px; font-weight: 750; }
+[data-contract-editor] .contract-section > h2,
+[data-contract-editor] .contract-section .ata-supplier-heading { margin-bottom: 18px; color: #163b65; font-size: 18px; font-weight: 750; }
 [data-contract-editor] .contract-section > .field { margin-bottom: 0; }
 [data-contract-editor] .contract-section :is(.form-grid, .field-grid) { row-gap: 10px; }
 [data-contract-editor] .contract-section .field > label, [data-contract-editor] .contract-section .field-label-row { margin-bottom: 3px; }
@@ -587,6 +588,45 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .data-table th { padding: 12px 20px; background: #f6f8fc; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); color: #64748b; font-size: 11px; font-weight: 650; letter-spacing: .02em; white-space: nowrap; }
 .data-table td { padding: 17px 20px; border-bottom: 1px solid #edf1f7; vertical-align: middle; font-variant-numeric: tabular-nums; }
 .data-table tr:last-child td { border-bottom: 0; }
+.data-table.ata-participants-table { table-layout: fixed; min-width: 1000px; }
+.ata-editor { container-type: inline-size; --ata-process-width: calc((100cqw - 7 * clamp(3px, .5vw, 8px)) / 8 - var(--panel-padding) - 1px); }
+.ata-process-fields { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, var(--ata-process-width)) minmax(0, calc((100% - 48px) * .1458333333)) minmax(0, calc((100% - 48px) * .1)) minmax(0, calc((100% - 48px) * .4666666667)); width: 100%; gap: 10px 24px; }
+.ata-process-fields > .field { margin-bottom: 0; }
+.field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, calc(var(--ata-process-width) + (100% - 48px) * .2458333333 + 48px)) minmax(0, 180px); }
+@media (max-width: 900px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 180px); } }
+@media (max-width: 650px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .ata-process-fields { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); } .ata-process-fields > .field:last-child { grid-column: 1 / -1; } }
+@media (max-width: 650px) { .ata-process-fields { grid-template-columns: minmax(0, 1fr); } }
+.ata-participants-table .ata-participant-number { width: 90px; }
+.ata-participants-table .ata-participant-process { width: 120px; }
+.ata-participants-table .ata-participant-cnpj { width: 170px; }
+.ata-participants-table .ata-participant-type { width: 200px; }
+.ata-participant-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ata-contractor-fund-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); gap: 10px 24px; }
+.ata-contractor-manager-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, calc((100% - 24px) / 5))) minmax(0, 1fr); gap: 10px 24px; }
+.ata-manager-registration-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, calc((100% - 24px) / 5))); gap: 10px 24px; }
+.ata-manager-registration-row > .field { margin-bottom: 0; }
+@media (max-width: 650px) { .ata-manager-registration-row { grid-template-columns: minmax(0, 1fr); } }
+.surface .ata-supplier-heading { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 15px; }
+.ata-supplier-identification-row { grid-column: 1 / -1; display: grid; grid-template-columns: max-content minmax(0, 1fr) minmax(0, var(--ata-supplier-document-width, 160px)) minmax(0, var(--ata-supplier-document-width, 160px)); gap: 10px 24px; }
+.ata-supplier-identification-row > .field { margin-bottom: 0; }
+.ata-supplier-partner-documents { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--ata-supplier-document-width, 160px)) minmax(0, 1fr); gap: 10px 24px; }
+.ata-supplier-partner-documents > .field { margin-bottom: 0; }
+.ata-supplier-address-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, calc(2 * var(--ata-supplier-document-width, 160px) + 24px)); gap: 10px 24px; }
+.ata-supplier-contact-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, var(--ata-supplier-document-width, 160px))); gap: 10px 24px; }
+.ata-supplier-address-row > .field, .ata-supplier-contact-row > .field { margin-bottom: 0; }
+@media (max-width: 900px) { .ata-supplier-address-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .ata-supplier-address-row, .ata-supplier-contact-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 650px) { .ata-supplier-partner-documents { grid-template-columns: minmax(0, 1fr); } }
+.ata-supplier-identification-row > .field:first-child > .field-label-row label { white-space: nowrap; }
+@media (max-width: 900px) { .ata-supplier-identification-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .ata-supplier-identification-row { grid-template-columns: minmax(0, 1fr); } }
+.ata-contractor-fund-row > .field, .ata-contractor-manager-row > .field { margin-bottom: 0; }
+@media (max-width: 650px) { .ata-contractor-fund-row, .ata-contractor-manager-row { grid-template-columns: minmax(0, 1fr); } }
+.data-table.ata-participants-table :is(th, td) { padding: 8px 12px; border: 1px solid var(--border); }
+.data-table.ata-participants-table tr:last-child td { border-bottom: 1px solid var(--border); }
+.ata-participants-table td:nth-child(4) { overflow-wrap: anywhere; }
+.ata-participants-table td:is(:nth-child(2), :nth-child(3), :nth-child(5)) { white-space: nowrap; }
 .data-table tbody tr { transition: background .15s; }
 .data-table tbody tr:hover { background: #f5f8fd; }
 .data-table td strong { display: block; font-weight: 550; }

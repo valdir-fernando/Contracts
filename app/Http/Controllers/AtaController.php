@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Atas\AtaContractor;
 use App\Infrastructure\Atas\AtaParticipants;
 use App\Infrastructure\Security\LockActor;
 use Illuminate\Http\Request;
@@ -9,6 +10,12 @@ use Illuminate\Support\Facades\DB;
 
 class AtaController extends Controller
 {
+    public function contractorDefaults(Request $request, int $fund, AtaContractor $contractor)
+    {
+        return response()->json(['values' => $contractor->defaults($request->user(), $fund)], 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
     public function create(Request $request, LockActor $actors, AtaParticipants $participants)
     {
         $actors->current($request->user());
@@ -21,6 +28,15 @@ class AtaController extends Controller
         return response()->view('atas.create', ['funds' => $funds, 'draftToken' => $draftToken,
             'draftState' => $participants->state($request->user(), $draftToken)])
             ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function removeParticipant(Request $request, AtaParticipants $participants, int $participant)
+    {
+        $data = $request->validate(['draft_token' => 'required|string|max:2048']);
+        $state = $participants->remove($request->user(), $data['draft_token'], $participant, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null);
+
+        return response()->json($state, 200, ['Cache-Control' => 'private, no-store']);
     }
 
     public function addParticipant(Request $request, AtaParticipants $participants)

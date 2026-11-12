@@ -6,6 +6,7 @@ use App\Infrastructure\Atas\AtaParticipants;
 use App\Models\AccessScope;
 use App\Models\ActivityEvent;
 use App\Models\User;
+use App\Support\ContractFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -68,6 +69,111 @@ class AtaParticipantsTest extends TestCase
         $this->get(route('atas.create', ['draft' => $token]))->assertOk()->assertViewHas('draftState', fn ($state) => $state['version'] === 1 && count($state['participants']) === 1 && $state['process'] === '001/2026');
     }
 
+    public function test_same_fund_is_saved_as_manager_and_allows_adding_another_participant(): void
+    {
+        $token = $this->token();
+        $this->postJson(route('atas.participants.store'), $this->payload($token, [
+            'participant_fund_id' => (string) $this->manager, 'Tipo_Fundo' => 'Participante']))
+            ->assertCreated()->assertJsonPath('participants.0.Tipo_Fundo', 'Gerenciador');
+        $this->assertDatabaseHas('tb_Participantes', ['fund_id' => $this->manager, 'Tipo_Fundo' => 'Gerenciador']);
+        $audit = ActivityEvent::where('action', 'ata_participant_added')->first();
+        $this->assertSame('Gerenciador', $audit->metadata['participant']['Tipo_Fundo']);
+        $this->postJson(route('atas.participants.store'), $this->payload($token, ['version' => 1]))
+            ->assertCreated()->assertJsonPath('participants.0.Tipo_Fundo', 'Gerenciador')
+            ->assertJsonPath('participants.1.Tipo_Fundo', 'Participante');
+        $this->postJson(route('atas.participants.store'), $this->payload($token, [
+            'version' => 2, 'participant_fund_id' => $this->manager]))->assertUnprocessable();
+        $this->assertDatabaseCount('tb_Participantes', 2);
+    }
+
+    public function test_remove_is_versioned_soft_deleted_audited_and_can_be_added_again(): void
+    {
+        $token = $this->token();
+        $id = $this->postJson(route('atas.participants.store'), $this->payload($token))->json('participants.0.id');
+        $url = route('atas.participants.destroy', $id);
+        $this->deleteJson($url, ['draft_token' => $token, 'version' => 0])->assertConflict()->assertJsonMissingPath('participants');
+        $this->deleteJson($url, ['draft_token' => $this->token(), 'version' => 1])->assertNotFound();
+        $this->deleteJson($url, ['draft_token' => $token, 'version' => 1])->assertOk()
+            ->assertJsonPath('version', 2)->assertJsonCount(0, 'participants');
+        $this->assertSoftDeleted('tb_Participantes', ['id' => $id]);
+        $this->assertDatabaseHas('activity_events', ['actor_id' => $this->actor->id, 'action' => 'ata_participant_removed']);
+        $this->postJson(route('atas.participants.store'), $this->payload($token, ['version' => 2]))->assertCreated()
+            ->assertJsonPath('participants.0.id', $id)->assertJsonPath('version', 3);
+        $this->assertDatabaseCount('tb_Participantes', 1);
+    }
+
+    public function test_remove_rejects_other_actors_and_audit_failure_rolls_back(): void
+    {
+        $token = $this->token();
+        $id = $this->postJson(route('atas.participants.store'), $this->payload($token))->json('participants.0.id');
+        $url = route('atas.participants.destroy', $id);
+        $other = User::create(['name' => 'Outro', 'username' => 'REMOVE_OTHER', 'password' => 'SyntheticPassword123', 'user_type' => 'Administrador'])->fresh();
+        $this->actingAs($other)->deleteJson($url, ['draft_token' => $token, 'version' => 1])->assertForbidden();
+        $this->actingAs($this->actor);
+        ActivityEvent::creating(function ($event) {
+            if ($event->action === 'ata_participant_removed') {
+                throw new RuntimeException('Falha de auditoria');
+            }
+        });
+        try {
+            $this->deleteJson($url, ['draft_token' => $token, 'version' => 1])->assertStatus(500);
+        } finally {
+            ActivityEvent::flushEventListeners();
+        }
+        $this->assertDatabaseHas('tb_Participantes', ['id' => $id, 'deleted_at' => null]);
+        $this->assertDatabaseHas('ata_participant_drafts', ['version' => 1]);
+        $this->assertDatabaseMissing('activity_events', ['action' => 'ata_participant_removed']);
+    }
+
+    public function test_contractor_defaults_follow_the_selected_fund_and_protect_personal_fields(): void
+    {
+        DB::table('contract_funds')->where('id', $this->manager)->update(['name_key' => 'GERENCIADOR',
+            'raw_payload' => json_encode(['End_Fundo' => 'Endereço institucional', 'secret' => 'NAO-EXIBIR'])]);
+        DB::table('tb_Gestor')->insert(['legacy_id' => 100, 'name' => 'Gestora de teste', 'name_key' => 'GESTORA',
+            'fund_name_key' => 'GERENCIADOR', 'raw_payload' => json_encode(['Cargo' => 'Gestora', 'CPF_Gestor' => '52998224725', 'RG_Gestor' => 'RG-PRIVADO', 'Decreto' => '123/2026', 'Matricula' => '00123'])]);
+        DB::table('contract_inspectors')->insert(['legacy_id' => 100, 'name' => 'Fiscal de teste', 'name_key' => 'FISCAL',
+            'fund_name_key' => 'GERENCIADOR', 'department_name_key' => '',
+            'raw_payload' => json_encode(['CPF_Fiscal' => '52998224725', 'RG_Fiscal' => 'FISCAL-PRIVADO', 'Decreto' => '123/2026'])]);
+        $url = route('atas.contractor-defaults', $this->manager);
+        $this->getJson($url)->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonMissingPath('values.fundo_nome_snapshot')
+            ->assertJsonPath('values.end_fundo', 'Endereço institucional')
+            ->assertJsonPath('values.nome_gestor', 'Gestora de teste')->assertJsonMissingPath('values.nome_fiscal')
+            ->assertJsonPath('values.decreto_gestor', '123/2026')->assertJsonPath('values.matricula_gestor', '00123')
+            ->assertJsonMissingPath('values.decreto_fiscal')->assertJsonMissingPath('values.cpf_gestor')
+            ->assertJsonMissingPath('values.rg_gestor')->assertJsonMissingPath('values.cpf_fiscal')
+            ->assertJsonMissingPath('values.rg_fiscal')->assertDontSee('NAO-EXIBIR')->assertDontSee('RG-PRIVADO');
+        $this->getJson(route('atas.contractor-defaults', $this->participant))->assertForbidden();
+        $this->actor->update(['user_type' => 'Administrador']);
+        $this->getJson($url)->assertOk()->assertJsonPath('values.cpf_gestor', '52998224725')
+            ->assertJsonPath('values.rg_gestor', 'RG-PRIVADO')->assertJsonMissingPath('values.rg_fiscal');
+        DB::table('contract_funds')->where('id', $this->manager)->update(['deleted_at' => now()]);
+        $this->withSession(['fund_id' => $this->participant]);
+        $this->getJson($url)->assertForbidden();
+    }
+
+    public function test_new_ata_supplier_panel_uses_contract_fields_and_existing_catalog_assistance(): void
+    {
+        $response = $this->get(route('atas.create'))->assertOk()
+            ->assertDontSee('Preenchido automaticamente')
+            ->assertSee('data-ata-supplier-form', false)
+            ->assertSee('data-supplier-lookup-url="'.route('suppliers.lookup').'"', false)
+            ->assertSee('data-supplier-list-url="'.route('suppliers.index').'"', false)
+            ->assertSee('data-contract-summary-field="fornecedor_nome_snapshot"', false);
+        foreach (ContractFields::MAP as $source => $definition) {
+            if ($definition['group'] !== 'Dados Fornecedor') {
+                continue;
+            }
+            $column = $definition['column'];
+            $response->assertSee('name="'.$column.'"', false);
+            if ($source !== 'Fornecedor') {
+                $response->assertSee(ContractFields::label($source));
+            }
+        }
+        $this->assertDatabaseCount('tb_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_drafts_are_isolated_even_for_the_same_process_and_same_actor(): void
     {
         $first = $this->token();
@@ -79,11 +185,9 @@ class AtaParticipantsTest extends TestCase
         $this->get(route('atas.create'))->assertOk()->assertViewHas('draftState', fn ($state) => $state['participants'] === []);
     }
 
-    public function test_manager_duplicates_deleted_funds_and_invalid_cnpj_are_rejected_without_writes(): void
+    public function test_duplicates_deleted_funds_and_invalid_cnpj_are_rejected_without_writes(): void
     {
         $token = $this->token();
-        $this->postJson(route('atas.participants.store'), $this->payload($token, ['participant_fund_id' => $this->manager]))
-            ->assertUnprocessable()->assertJsonValidationErrors('participant_fund_id');
         DB::table('contract_funds')->where('id', $this->participant)->update(['deleted_at' => now()]);
         $this->postJson(route('atas.participants.store'), $this->payload($token))->assertUnprocessable();
         DB::table('contract_funds')->where('id', $this->participant)->update(['deleted_at' => null, 'document' => null]);
