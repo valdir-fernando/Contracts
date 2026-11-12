@@ -1,5 +1,7 @@
 # Contracts
 
+Para levar o desenvolvimento para outra máquina Windows, execute `powershell -ExecutionPolicy Bypass -File .\scripts\backup.ps1`. Copie a pasta **backup** inteira para a raiz do projeto na outra máquina e execute `powershell -ExecutionPolicy Bypass -File .\backup\restaurar.ps1`. Inclui banco, documentos privados, `.env`/chave e código atual, inclusive alterações locais e referências não ignoradas pelo Git. A pasta fica fora do Git e do contexto de build Docker. [Funcionamento e validação](docs/architecture.md#transferência-local-entre-máquinas-windows).
+
 **Relatórios** agora reúne os submenus **Relatório Contrato** e **Relatórios Ata**. O painel de atas consulta a base global, com filtros de Ano, Fundo, Licitação e Nº Licit na mesma linha, paginação, totais e PDF. [Rotas e validação](docs/ata-reports.md).
 
 O cadastro `tb_ADT_ATA` recebeu **48 aditivos**, com **47 PDFs assinados pelas duas partes** gravados em `Doc_ADT`; a ATA **104/2025** ficou cadastrada sem anexo. **Nova pasta** foi integralmente excluída, conforme orientação do usuário. [Conferência, carga e repetição segura](docs/ata-amendment-register.md).

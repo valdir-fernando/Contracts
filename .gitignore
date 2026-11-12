@@ -23,6 +23,8 @@
 /.agents/
 *.pem
 /backups/
+/backup/
+/compose.override.yaml
 /playwright-report/
 /test-results/
 

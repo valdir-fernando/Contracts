@@ -10,6 +10,7 @@ public/hot
 !.env.production.example
 database-example
 backups
+backup
 storage/app
 storage/framework
 
