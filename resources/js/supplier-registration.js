@@ -202,10 +202,14 @@ export function initializeSupplierRegistration(form, fetcher = fetch, notify = (
         form.dataset.cnpjWaiting = 'true';
         const document = digits();
         pendingLookup.finally(() => {
-            delete form.dataset.cnpjWaiting;
-            if (document !== digits()) return;
-            resuming = true;
-            try { form.requestSubmit(event.submitter ?? undefined); } finally { resuming = false; }
+            // A settled lookup can finish between native submit listeners. Resume in
+            // a new task, after the browser releases its form submission guard.
+            setTimeout(() => {
+                delete form.dataset.cnpjWaiting;
+                if (document !== digits()) return;
+                resuming = true;
+                try { form.requestSubmit(event.submitter ?? undefined); } finally { resuming = false; }
+            }, 0);
         });
     });
     form.addEventListener('reset', (event) => {
