@@ -1,5 +1,13 @@
 # Contracts
 
+Em **Cadastro de produtos da ATA**, informar **Item** consulta `tb_Produtos` pelo **Processo da ata salva** e preenche Código, Marca, UND, Disponível, VL. Unitário e Descrição. [Regras e validação](docs/architecture.md#consulta-de-item-para-produtos-da-ata--13112026).
+
+O botão **Salvar** de **Nova ATA** grava os dados validados, gera o número anual em `tb_N_ATA` e registra a auditoria na mesma transação. Reenvios do mesmo rascunho confirmam a mesma ata. [Persistência e validação](docs/architecture.md#gravação-de-nova-ata--13112026).
+
+**Fundos Participantes** é liberado após salvar uma ata ou consultá-la pelo **Nº ATA**. **Adicionar** grava o Fundo na ata com validação de duplicidade, versão e auditoria. [Fluxo e validação](docs/architecture.md#fundos-participantes-após-salvar-ou-consultar-uma-ata--13112026).
+
+**Excluir** pede confirmação com o nome do Fundo antes de remover o participante da linha. Para excluir o gerenciador, a janela exige escolher outro Fundo e confirma a troca junto com a exclusão, preservando histórico e auditoria. [Regras e validação](docs/architecture.md#exclusão-de-participantes-e-substituição-do-gerenciador--13112026).
+
 Para levar o desenvolvimento para outra máquina Windows, execute `powershell -ExecutionPolicy Bypass -File .\scripts\backup.ps1`. Copie a pasta **backup** inteira para a raiz do projeto na outra máquina e execute `powershell -ExecutionPolicy Bypass -File .\backup\restaurar.ps1`. Inclui banco, documentos privados, `.env`/chave e código atual, inclusive alterações locais e referências não ignoradas pelo Git. A pasta fica fora do Git e do contexto de build Docker. [Funcionamento e validação](docs/architecture.md#transferência-local-entre-máquinas-windows).
 
 **Relatórios** agora reúne os submenus **Relatório Contrato** e **Relatórios Ata**. O painel de atas consulta a base global, com filtros de Ano, Fundo, Licitação e Nº Licit na mesma linha, paginação, totais e PDF. [Rotas e validação](docs/ata-reports.md).
