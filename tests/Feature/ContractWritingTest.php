@@ -412,8 +412,8 @@ class ContractWritingTest extends TestCase
         $xpath = new \DOMXPath($html);
         $total = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " contract-action-toolbar ")]//input[@id="contract-items-total" and @readonly and not(@name)]');
         $this->assertSame(1, $total->length);
-        $this->assertSame('', $total->item(0)->getAttribute('value'));
-        $this->assertSame('A calcular', $total->item(0)->getAttribute('placeholder'));
+        $this->assertSame('0,0000', $total->item(0)->getAttribute('value'));
+        $this->assertFalse($total->item(0)->hasAttribute('placeholder'));
         foreach (['Excluir'] as $label) {
             $buttons = $xpath->query('//button[@type="button" and @disabled and normalize-space(.)="'.$label.'"]');
             $this->assertSame(1, $buttons->length);
@@ -942,7 +942,7 @@ class ContractWritingTest extends TestCase
             ->assertSee('aria-label="Resumo do contrato e fornecedor"', false)
             ->assertSee('data-contract-summary-field="fornecedor_nome_snapshot"', false)
             ->assertSeeInOrder(['selected-fund-name', 'contract-heading-supplier', 'Nome / Razão Social', 'contract-context-heading', 'Nº do Contrato', 'Selecionar fornecedor cadastrado'], false)
-            ->assertSee('value="" placeholder="N° do Contrato"', false)
+            ->assertSee('value="" aria-label="Número do contrato para busca"', false)
             ->assertSee('data-contract-search-open', false)
             ->assertDontSee('Preencha as seções abaixo.')
             ->assertDontSee('Campos com')
@@ -963,7 +963,7 @@ class ContractWritingTest extends TestCase
                 $response->assertDontSee('Alterar Fundo')->assertDontSee('id="session-fund"', false)
                     ->assertSeeInOrder(['selected-fund-name', 'contract-number-highlight', 'Fornecedor fictício'], false);
             }
-            $this->assertStringContainsString('value="'.$contract->numero.'" placeholder="N° do Contrato"', $response->getContent());
+            $this->assertStringContainsString('value="'.$contract->numero.'" aria-label=', $response->getContent());
             $heading = str_ends_with($url, '/edit') ? 'Editar contrato' : 'Novo contrato';
             $response->assertSee('<h1 class="sr-only">'.$heading.'</h1>', false)
                 ->assertSee('<label for="contract-summary-number">Nº do Contrato</label>', false);

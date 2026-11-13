@@ -22,6 +22,16 @@ function fixture(values = {}, prefill = {}) {
 const response = (values, status = 200) => ({ ok: status === 200, status, json: async () => ({ values }) });
 const defer = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
 
+test('a loaded ata keeps its supplier snapshot when its document loses focus', async () => {
+    const setup = fixture({ fornecedor_documento_snapshot: '11222333000181', fornecedor_nome_snapshot: 'Fornecedor histórico' });
+    let calls = 0;
+    initializeSupplierAssistance(setup.form, async () => { calls++; });
+    setup.form.dataset.ataSnapshot = 'true';
+    await setup.blur();
+    assert.equal(calls, 0);
+    assert.equal(setup.controls.fornecedor_nome_snapshot.value, 'Fornecedor histórico');
+});
+
 test('explicit supplier selection preserves contract input and ignores an older document lookup', async () => {
     const setup = fixture({ fornecedor_documento_snapshot: '11222333000181' });
     const contractFields = { processo: { value: '123/2026' }, objeto: { value: 'Objeto digitado' }, valor_total: { value: '1234,56' } };

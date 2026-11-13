@@ -55,6 +55,11 @@ class AtasOverviewTest extends TestCase
             ->assertSee('aria-controls="ata-process-panel"', false)->assertSee('aria-controls="ata-supplier-panel"', false)
             ->assertSeeInOrder(['Processo ATA', 'Licitação', 'Nº Licit', 'Fundos Participantes'])
             ->assertSee('id="ata-participant-fund"', false)
+            ->assertSee('aria-label="Ações da ata"', false)
+            ->assertSee('for="ata-total">Valor da ATA</label>', false)
+            ->assertSee('id="ata-total" data-money name="Valor_ATA" readonly aria-readonly="true" value="0,0000"', false)
+            ->assertSeeInOrder(['title="Salve ou carregue uma ata para excluir."', 'Excluir</button>',
+                'href="'.route('atas.create').'"', 'Novo</a>', 'title="A gravação da ata ainda não está disponível."', 'Salvar</button>'], false)
             ->assertDontSee('data-contract-form', false);
         $this->assertDatabaseCount('tb_ATA', 0);
         $this->assertDatabaseCount('activity_events', 0);

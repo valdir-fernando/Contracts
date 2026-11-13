@@ -11,7 +11,7 @@
         @foreach(\App\Support\FinancialFields::MAP[$record->kind] as $field=>$definition)<label @class(['field', 'field-wide' => $definition[1] === 'textarea'])><span class="field-caption">{{ $definition[0] }} <x-required-mark :when="in_array($field,\App\Support\FinancialFields::REQUIRED[$record->kind])"/></span>
             @if(str_starts_with($definition[1],'readonly'))<input value="{{ $record->display($field,auth()->user()) }}" readonly>
             @elseif($definition[1]==='textarea')<textarea name="fields[{{ $field }}]" maxlength="15000" @required(in_array($field,\App\Support\FinancialFields::REQUIRED[$record->kind]))>{{ $read('fields.'.$field,$record->payload[$field]??'') }}</textarea>
-            @else<input name="fields[{{ $field }}]" value="{{ $read('fields.'.$field,$record->payload[$field]??'') }}" maxlength="15000" @if($definition[1]==='money')inputmode="decimal"
+            @else<input name="fields[{{ $field }}]" value="{{ $read('fields.'.$field,$record->payload[$field]??'') }}" maxlength="15000" @if($definition[1]==='money')data-money inputmode="decimal"
 @endif @required(in_array($field,\App\Support\FinancialFields::REQUIRED[$record->kind]))>
 @endif
         </label>

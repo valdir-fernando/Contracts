@@ -33,6 +33,8 @@ import './dfd-panel';
 import './fund-registration';
 import './ata-contractor';
 import './ata-supplier-contacts';
+import './ata-lookup';
+import { initializeDecimalFields } from './decimal-fields';
 import { ataDateError, confirmAtaDate } from './ata-date';
 import { showSupplierDocumentWarning } from './system-message';
 import { scrollContractSection } from './contract-panel-scroll';
@@ -367,13 +369,7 @@ document.querySelectorAll('form').forEach((form) => {
     });
 });
 
-// Keep stored decimal values readable without changing their precision.
-document.querySelectorAll('input[inputmode="decimal"]').forEach((input) => {
-    if (/^-?\d+\.\d{4}$/.test(input.value)) {
-        const [integer, fraction] = input.value.split('.');
-        input.value = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + fraction;
-    }
-});
+initializeDecimalFields(document);
 
 document.querySelectorAll('[data-fund-defaults-form]').forEach((form) => {
     const select = form.querySelector('[name=fund_id]');

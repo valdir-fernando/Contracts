@@ -54,7 +54,7 @@
             <button type="button" class="primary-button" @click="complement = draft.trim(); $refs.descriptionDialog.close()">Aplicar complemento</button>
         </div>
     </dialog>
-</td><td>{{ $product->UND }}</td><td><form id="dfd-launch-{{ $product->ID }}" class="dfd-product-launch" method="POST" action="{{ route('dfd-compra.products.store', $record->ID) }}" data-dfd-product-launch>@csrf<input type="hidden" name="version" value="{{ $record->version }}"><input type="hidden" name="product_id" value="{{ $product->ID }}"><input name="quantity" type="text" class="dfd-product-quantity" inputmode="decimal" maxlength="24" placeholder="0,000" disabled data-dfd-product-quantity aria-label="Quantidade de {{ $product->Descricao }}"><button type="submit" class="text-link dfd-product-launch-button" disabled data-dfd-product-launch-button aria-label="Lançar {{ $product->Descricao }}" title="Lançar produto"><x-nav-icon name="save"/></button></form></td></tr>
+</td><td>{{ $product->UND }}</td><td><form id="dfd-launch-{{ $product->ID }}" class="dfd-product-launch" method="POST" action="{{ route('dfd-compra.products.store', $record->ID) }}" data-dfd-product-launch>@csrf<input type="hidden" name="version" value="{{ $record->version }}"><input type="hidden" name="product_id" value="{{ $product->ID }}"><input name="quantity" type="text" class="dfd-product-quantity" data-quantity inputmode="decimal" maxlength="24" value="0,0000" disabled data-dfd-product-quantity aria-label="Quantidade de {{ $product->Descricao }}"><button type="submit" class="text-link dfd-product-launch-button" disabled data-dfd-product-launch-button aria-label="Lançar {{ $product->Descricao }}" title="Lançar produto"><x-nav-icon name="save"/></button></form></td></tr>
                         @empty
                             <tr><td colspan="5" class="empty-state">Nenhum produto encontrado nesta classe.</td></tr>
                         @endforelse
@@ -99,7 +99,7 @@
         <div class="field"><label for="dfd-manual-description">PRODUTO</label><textarea id="dfd-manual-description" name="description" required maxlength="5000" rows="4"></textarea></div>
         <div class="dfd-manual-unit-quantity">
             <div class="field"><label for="dfd-manual-unit">UND</label><input id="dfd-manual-unit" name="unit" required maxlength="100"></div>
-            <div class="field dfd-manual-quantity-field"><label for="dfd-manual-quantity">QTD</label><input id="dfd-manual-quantity" name="quantity" required inputmode="decimal" placeholder="0,0000"></div>
+            <div class="field dfd-manual-quantity-field"><label for="dfd-manual-quantity">QTD</label><input id="dfd-manual-quantity" name="quantity" required data-quantity inputmode="decimal" value="0,0000"></div>
         </div>
         <p data-dfd-manual-status role="status" hidden></p>
         <div class="form-actions"><button type="submit" class="primary-button">Salvar</button></div>

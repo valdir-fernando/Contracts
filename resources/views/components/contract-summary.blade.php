@@ -4,7 +4,7 @@
         <div class="contract-number-field">
             <label for="contract-summary-number">Nº do Contrato</label>
             <div class="contract-number-control" data-enter-scope>
-                <input id="contract-summary-number" class="contract-number-highlight" type="text" maxlength="100" value="{{ $contract->exists ? $contract->numero : '' }}" placeholder="N° do Contrato" aria-label="{{ $readonlyNumber ? 'Número do contrato' : 'Número do contrato para busca' }}" @readonly($readonlyNumber) data-contract-number-search>
+                <input id="contract-summary-number" class="contract-number-highlight" type="text" maxlength="100" value="{{ $contract->exists ? $contract->numero : '' }}" aria-label="{{ $readonlyNumber ? 'Número do contrato' : 'Número do contrato para busca' }}" @readonly($readonlyNumber) data-contract-number-search>
                 @unless($readonlyNumber)<button type="button" class="contract-number-search" data-contract-search-open aria-label="Buscar contratos do Fundo selecionado" title="Buscar contratos"><x-nav-icon name="search"/></button>@endunless
             </div>
         </div>

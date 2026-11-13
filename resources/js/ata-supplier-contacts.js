@@ -19,6 +19,7 @@ export function initializeAtaSupplierContacts(form, fetcher = fetch) {
         names.forEach(name => { form.elements.namedItem(name).value = ''; });
     };
     const load = async () => {
+        if (form.dataset.ataSnapshot === 'true') return;
         clear();
         const digits = documentField.value.replace(/\D/g, '');
         if (![11, 14].includes(digits.length)) return;

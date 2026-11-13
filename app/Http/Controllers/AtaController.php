@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Infrastructure\Atas\AtaContractor;
+use App\Infrastructure\Atas\AtaEditorQuery;
 use App\Infrastructure\Atas\AtaParticipants;
 use App\Infrastructure\Security\LockActor;
 use Illuminate\Http\Request;
@@ -10,6 +11,13 @@ use Illuminate\Support\Facades\DB;
 
 class AtaController extends Controller
 {
+    public function lookup(Request $request, AtaEditorQuery $query)
+    {
+        $data = $request->validate(['number' => 'required|string|max:32']);
+
+        return response()->json($query->find($request->user(), $data['number']), 200, ['Cache-Control' => 'private, no-store']);
+    }
+
     public function contractorDefaults(Request $request, int $fund, AtaContractor $contractor)
     {
         return response()->json(['values' => $contractor->defaults($request->user(), $fund)], 200,

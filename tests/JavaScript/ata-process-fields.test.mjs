@@ -57,6 +57,35 @@ function editor({ fetch, initial } = {}) {
     };
 }
 
+test('a loaded ata cannot add or remove participants from the draft', async () => {
+    let calls = 0;
+    const form = editor({ fetch: async () => { calls++; } });
+    form.state.loaded = true;
+    form.state.participants = [{ id: 99, FUNDO: 'Participante salvo' }];
+    await form.state.addParticipant();
+    await form.state.removeParticipant(form.state.participants[0]);
+    assert.equal(calls, 0);
+    assert.equal(form.state.participants[0].FUNDO, 'Participante salvo');
+});
+
+test('clearing a saved ata restores the current draft including participants added after page load', () => {
+    const { state } = editor();
+    state.process = 'RASCUNHO NOVO';
+    state.managingFund = '2';
+    state.version = 3;
+    state.participants = [{ id: 5, FUNDO: 'Adicionado agora' }];
+    state.clearLoaded();
+    state.loaded = true;
+    state.process = 'ATA SALVA';
+    state.managingFund = '3';
+    state.participants = [{ id: 100, FUNDO: 'Participante da ata' }];
+    state.clearLoaded();
+    assert.equal(state.process, 'RASCUNHO NOVO');
+    assert.equal(state.managingFund, '2');
+    assert.equal(state.participants[0].FUNDO, 'Adicionado agora');
+    assert.equal(state.version, 3);
+});
+
 test('participants list all funds initially and include the current manager after each change', () => {
     const form = editor();
     assert.deepEqual(form.participantIds(), [1, 2, 3]);

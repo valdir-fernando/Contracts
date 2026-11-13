@@ -72,7 +72,7 @@ function panel(fichaSummary, budgetResults = {}, fichaValues = null, fichaPanel 
             return response({ contract_version: serverVersion, total_label: 'R$ 20,00' });
         }
         const ficha = parsed.searchParams.get('ficha');
-        const data = { contract_version: serverVersion, total_label: 'R$ 20,00', ficha_values: fichaValues ?? [...new Set(items.map((item) => item.Ficha))].map((label) => ({ label, total: '10.0000' })), ficha_summary: fichaSummary,
+        const data = { contract_version: serverVersion, total: '20.0001', total_label: 'R$ 20,00', ficha_values: fichaValues ?? [...new Set(items.map((item) => item.Ficha))].map((label) => ({ label, total: '10.0000' })), ficha_summary: fichaSummary,
             selected_ficha_total: ficha === '001' ? '0.3003' : '0.0000',
             product_ficha_values: productBudgetTotals(items),
             ficha_panel: fichaPanel, products, page: 1, last_page: 1,
@@ -94,6 +94,7 @@ test('product picker groups unit prices and preserves all four decimal places', 
     })));
     try {
         await settle();
+        assert.equal(ui.find('[data-product-heading-total]').value, '20,0001');
         await ui.find('[data-product-item-search]').emit('click');
         await settle();
         const rows = ui.find('[data-product-picker-rows]').children;
@@ -457,7 +458,7 @@ test('Novo clears product fields while preserving the consulted ficha without re
             assert.equal(ui.find('[data-product-budget-allocation]').value, '02.01');
             assert.equal(ui.find('[data-product-field="item"]').value, '');
             assert.equal(ui.find('[data-product-description]').value, '');
-            assert.equal(ui.find('[data-product-quantity]').value, '');
+            assert.equal(ui.find('[data-product-quantity]').value, '0,0000');
             assert.equal(manual.checked, false);
         }
     } finally { ui.restore(); }
@@ -491,7 +492,7 @@ test('Nova Ficha clears product and budget fields, empties products and focuses 
         assert.equal(ui.find('[data-product-budget-allocation]').value, '');
         assert.equal(ui.find('[data-product-field="item"]').value, '');
         assert.equal(ui.find('[data-product-description]').value, '');
-        assert.equal(ui.find('[data-product-quantity]').value, '');
+        assert.equal(ui.find('[data-product-quantity]').value, '0,0000');
         assert.equal(manual.checked, false);
         assert.equal(ui.find('[data-product-budget-totals]').children.length, 2);
         assert.equal(ui.find('[data-contract-product-list]').children.length, 0);

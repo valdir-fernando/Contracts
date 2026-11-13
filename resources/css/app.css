@@ -143,6 +143,8 @@ p { margin-block: 0 16px; }
 .contract-number-field input { width: min(100%, 18rem); min-height: 44px; font-size: 24px; font-weight: 750; color: var(--nav); background: #f6f8fc; }
 .contract-number-control { position: relative; width: min(100%, 18rem); }
 .contract-number-control input { width: 100%; padding-inline: 44px; text-align: center; }
+#ata-summary-number, #contract-summary-number { border: 1px solid #94a3b8; border-radius: 6px; }
+input[data-money], input[data-decimal-kind="money"], .readonly-field[data-money] { text-align: right; font-variant-numeric: tabular-nums; }
 .contract-summary-readonly { display: flex; align-items: flex-end; gap: 16px; }
 .contract-summary-edit { flex-shrink: 0; align-self: flex-end; padding-left: 16px; border-left: 1px solid #9ca3af; }
 .contract-summary-edit .primary-button { min-height: 30px; padding: 4px 10px; font-size: 12px; }

@@ -1,12 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initializeDfdProductFilter, formatDfdQuantity } from '../../resources/js/dfd-product-filter.js';
+import { initializeDfdProductFilter, initializeDfdProductLaunch, formatDfdQuantity } from '../../resources/js/dfd-product-filter.js';
 
-test('quantities use a decimal comma and exactly three decimal places without float conversion', () => {
-    for (const [input, expected] of [['2', '2,000'], ['2,5', '2,500'], ['0,125', '0,125'], ['0002,050', '2,050'], ['0', '0,000'], ['', ''], ['1654', '1.654,000'], ['1.654,000', '1.654,000'], ['1125984', '1.125.984,000'], ['1.125.984,000', '1.125.984,000'], ['12345678901234567,123', '12.345.678.901.234.567,123']]) {
+test('launch rejects zero and accepts a fourth fractional digit without rounding', async (t) => {
+    const originalFormData = globalThis.FormData;
+    t.after(() => { globalThis.FormData = originalFormData; });
+    globalThis.FormData = class { constructor(form) { this.quantity = form.quantity.value; } };
+    let submit;
+    let sent;
+    const quantity = { value: '0,0000', setCustomValidity(message) { this.message = message; }, reportValidity() {} };
+    const form = { action: '/dfd/products', quantity, querySelector: () => quantity,
+        addEventListener: (_, callback) => { submit = callback; } };
+    const status = {};
+    initializeDfdProductLaunch({ querySelectorAll: () => [form], querySelector: () => status }, async (_, options) => {
+        sent = options.body.quantity;
+        return { ok: false, json: async () => ({ message: 'Resposta de teste' }) };
+    });
+    await submit({ preventDefault() {} });
+    assert.equal(sent, undefined);
+    assert.match(quantity.message, /quantidade positiva/);
+    quantity.value = '0,0001';
+    await submit({ preventDefault() {} });
+    assert.equal(sent, '0,0001');
+});
+
+test('quantities use a decimal comma and exactly four decimal places without float conversion', () => {
+    for (const [input, expected] of [['2', '2,0000'], ['2,5', '2,5000'], ['0,125', '0,1250'], ['0002,050', '2,0500'], ['0', '0,0000'], ['', ''], ['1654', '1.654,0000'], ['1.654,0000', '1.654,0000'], ['1125984', '1.125.984,0000'], ['1.125.984,0000', '1.125.984,0000'], ['12345678901234567,123', '12.345.678.901.234.567,1230']]) {
         assert.equal(formatDfdQuantity(input), expected);
     }
-    for (const input of ['-1', 'abc', '1,2345', '1.2,3', '12.34']) assert.equal(formatDfdQuantity(input), null);
+    for (const input of ['-1', 'abc', '1,23456', '1.2,3', '12.34']) assert.equal(formatDfdQuantity(input), null);
 });
 
 test('blur filters names while selected products remain visible and clearing restores all', () => {
@@ -38,7 +60,7 @@ test('blur filters names while selected products remain visible and clearing res
     assert.equal(rows[1].querySelector().disabled, false);
     assert.equal(rows[0].querySelector().disabled, true);
     assert.equal(rows[2].querySelector().disabled, true);
-    rows[1].quantity.value = '1.654,000';
+    rows[1].quantity.value = '1.654,0000';
     assert.equal(rows[0].quantity.disabled, true);
     query.value = 'PAP';
     events.input();
@@ -52,14 +74,14 @@ test('blur filters names while selected products remain visible and clearing res
     events.input();
     assert.deepEqual(rows.map((row) => row.hidden), [false, false, false]);
     assert.equal(rows[1].querySelector().checked, true);
-    assert.equal(rows[1].quantity.value, '1.654,000');
+    assert.equal(rows[1].quantity.value, '1.654,0000');
     assert.equal(total.textContent, 'Total de Itens Selecionados: 1');
     rows[0].querySelector().checked = true;
     rows[0].querySelector().change();
     assert.equal(total.textContent, 'Total de Itens Selecionados: 1');
     assert.equal(rows[0].querySelector().checked, false);
     assert.equal(rows[1].querySelector().checked, true);
-    assert.equal(rows[1].quantity.value, '1.654,000');
+    assert.equal(rows[1].quantity.value, '1.654,0000');
     rows[0].querySelector().checked = false;
     rows[0].querySelector().change();
     query.value = 'inexistente';
@@ -70,7 +92,7 @@ test('blur filters names while selected products remain visible and clearing res
     assert.equal(empty.hidden, false);
     assert.equal(total.hidden, true);
     assert.ok(rows.every((row) => row.quantity.disabled));
-    assert.ok(rows.every((row) => row.quantity.value === '0,000'));
+    assert.ok(rows.every((row) => row.quantity.value === '0,0000'));
     assert.ok(rows.every((row) => !row.classes.has('dfd-product-selected')));
     assert.ok(rows.every((row) => !row.querySelector().disabled));
     rows[0].querySelector().checked = true;

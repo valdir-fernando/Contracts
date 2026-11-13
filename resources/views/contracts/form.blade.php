@@ -159,7 +159,7 @@
                             <label for="{{ $column }}">{{ match ($column) { 'vigencia_fim_original' => 'Final da Vigência', 'garantia' => '(%) Garantia', 'vl_parcial' => 'Valor_Mensal', 'valor_total' => 'Valor do Contrato', 'valor_acumulado' => 'Valor acumulado Aditivo', default => \App\Support\ContractFields::label($source) } }}<x-required-mark :explain="true" :when="$required && !in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado', 'nome_fiscal'])"/></label>
                         @endif
                         @if(in_array($column, ['vl_parcial', 'valor_total', 'valor_acumulado']))
-                            <p class="readonly-field" id="{{ $column }}" role="textbox" aria-readonly="true">{{ $contract->exists ? $displayField($source) : 'A calcular' }}</p>
+                            <p class="readonly-field" data-money id="{{ $column }}" role="textbox" aria-readonly="true">{{ $contract->$column ?? '0,0000' }}</p>
                             @php($wordsColumn = ['vl_parcial' => 'ext_parcial', 'valor_total' => 'ext_total', 'valor_acumulado' => 'ext_acumulado'][$column])
                             @if($contract->exists && $contract->$column !== null)
                                 <p class="contract-financial-message" data-financial-words="{{ $column }}">{{ filled($contract->$wordsColumn) ? $contract->$wordsColumn : 'Valor por extenso não informado.' }}</p>
@@ -168,7 +168,7 @@
                             <p class="readonly-field" id="{{ $column }}" @if($column === 'nome_fiscal') role="textbox" aria-readonly="true" aria-required="true" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif @endif @if(!$formActor->isAdmin() && in_array($column, \App\Support\ContractFields::PERSONAL)) data-contractor-private-field="{{ $column }}" @else data-contractor-field="{{ $column }}" @endif>{{ $contract->exists ? $displayField($source) : ($inputValue ?? '') }}</p>
                             @if($column === 'nome_fiscal')<p class="hint" data-inspector-status role="status" aria-live="polite"></p>@endif
                         @elseif($automatic)<p class="readonly-field" id="{{ $column }}">{{ $contract->exists ? $displayField($source) : 'Gerado ao salvar' }}</p>
-                        @elseif($derived || $protected)<p @class(['readonly-field', 'supplier-catalog-field' => $supplierReadonly]) data-derived-field="{{ $column }}">{{ $contract->exists ? $displayField($source) : ($column === 'legacy_id' ? 'Sem origem legada' : ($values[$column] ?? '')) }}</p>
+                        @elseif($derived || $protected)<p @class(['readonly-field', 'supplier-catalog-field' => $supplierReadonly]) @if($definition['type'] === 'money') data-money @endif data-derived-field="{{ $column }}">{{ $definition['type'] === 'money' ? ($contract->$column ?? '0,0000') : ($contract->exists ? $displayField($source) : ($column === 'legacy_id' ? 'Sem origem legada' : ($values[$column] ?? ''))) }}</p>
                         @elseif($supplierReadonly)
                             @if($multiline)<textarea id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly rows="{{ $rows }}">{{ $inputValue }}</textarea>
                             @else<input id="{{ $column }}" name="{{ $column }}" data-supplier-catalog-field readonly value="{{ $inputValue }}">@endif
@@ -196,7 +196,7 @@
                                 <button type="button" class="secondary-button compact" data-service-orders-open data-service-order-type-link hidden title="{{ $contract->exists ? 'Emitir Ordem de Serviço' : 'Salve o contrato antes de cadastrar ordens de serviço' }}" @disabled(!$contract->exists || $conflict)>Emitir Ordem de Serviço</button>
                             </div>
                         @elseif($definition['type'] === 'date')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif type="date" value="{{ $inputValue }}" @required($required)>
-                        @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif inputmode="decimal" @if($column !== 'vl_garantia') placeholder="Ex.: 1.908,6300" @endif value="{{ $inputValue }}" @required($required)>
+                        @elseif($definition['type'] === 'money')<input id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif data-money inputmode="decimal" @if($column !== 'vl_garantia') placeholder="0,0000" @endif value="{{ $inputValue }}" @required($required)>
                         @elseif($multiline)<textarea @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif rows="{{ $rows }}" maxlength="15000" @required($required)>{{ $inputValue }}</textarea>
                         @else<input @if(in_array($column, ['fornecedor_documento_snapshot','cpf_socio','cpf_gestor','cpf_fiscal'])) data-document-format @endif id="{{ $column }}" name="{{ $column }}" @if($errors->has($column)) aria-invalid="true" aria-describedby="{{ $column }}-error" @endif maxlength="15000" value="{{ $inputValue }}" @required($required)>@endif
                         @error($column)<p class="field-error" id="{{ $column }}-error">{{ $message }}</p>@enderror
@@ -270,12 +270,12 @@
             <div class="contract-action-values">
                 <div class="field contract-items-total">
                     <label for="contract-items-total">Valor do contrato</label>
-                    <input id="contract-items-total" readonly aria-readonly="true" placeholder="A calcular" value="{{ $contract->exists ? \App\Models\Contract::moneyLabel($contract->valor_total) : '' }}">
+                    <input id="contract-items-total" data-money readonly aria-readonly="true" value="{{ $contract->valor_total ?? '0,0000' }}">
                 </div>
                 @if($showAccumulatedValue)
                     <div class="field contract-items-total">
                         <label class="contract-accumulated-label" for="contract-accumulated-total">Valor Acumulado do contrato</label>
-                        <input id="contract-accumulated-total" readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}">
+                        <input id="contract-accumulated-total" data-money readonly aria-readonly="true" value="{{ $contract->valor_acumulado ?? '0,0000' }}">
                     </div>
                 @endif
             </div>

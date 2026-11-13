@@ -57,6 +57,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/atas', 'atas.dashboard')->name('atas.dashboard');
     Route::get('/atas/create', [AtaController::class, 'create'])->name('atas.create');
+    Route::get('/atas/lookup', [AtaController::class, 'lookup'])->middleware('throttle:60,1')->name('atas.lookup');
     Route::get('/atas/funds/{fund}/contractor-defaults', [AtaController::class, 'contractorDefaults'])->whereNumber('fund')->name('atas.contractor-defaults');
     Route::post('/atas/participants', [AtaController::class, 'addParticipant'])->middleware('throttle:60,1')->name('atas.participants.store');
     Route::delete('/atas/participants/{participant}', [AtaController::class, 'removeParticipant'])->whereNumber('participant')->middleware('throttle:60,1')->name('atas.participants.destroy');

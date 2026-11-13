@@ -17,7 +17,9 @@ test('fund changes clear old data and discard responses from previous selections
         querySelectorAll: () => [field], querySelector: () => status };
     let change;
     const select = { value: '', addEventListener: (_, fn) => { change = fn; } };
-    const root = { dataset: {}, querySelector: selector => selector === '#ata-managing-fund' ? select : panel };
+    const rootEvents = {};
+    const root = { dataset: {}, addEventListener: (name, callback) => { rootEvents[name] = callback; },
+        querySelector: selector => selector === '#ata-managing-fund' ? select : panel };
     const pending = [];
     await initializeAtaContractor(root, (url, options) => new Promise(resolve => pending.push({ url, options, resolve })));
     select.value = '1';
@@ -35,4 +37,12 @@ test('fund changes clear old data and discard responses from previous selections
     await change();
     assert.equal(field.textContent, '');
     assert.equal(status.textContent, '');
+    select.value = '3';
+    const third = change();
+    rootEvents['ata-loading']();
+    field.textContent = 'Snapshot salvo';
+    pending[2].resolve({ ok: true, json: async () => ({ values: { nome_gestor: 'Catálogo atual' } }) });
+    await third;
+    assert.equal(pending[2].options.signal.aborted, true);
+    assert.equal(field.textContent, 'Snapshot salvo');
 });

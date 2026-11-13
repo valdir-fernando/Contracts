@@ -1,4 +1,5 @@
 import { initializeProductBudgetPanel } from './product-budget-panel.js';
+import { formatDecimalField } from './decimal-fields.js';
 
 export function productBudgetScopeWarning(data) {
     if (data.fund_matches === false) {
@@ -156,8 +157,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
         selected = null;
         editing = false;
         find('[data-product-description]').value = '';
-        root.querySelectorAll('[data-product-field]').forEach((input) => { if (input !== itemInput) input.value = ''; });
-        quantity.value = '';
+        root.querySelectorAll('[data-product-field]').forEach((input) => { if (input !== itemInput) input.value = ['unit_price', 'disp'].includes(input.dataset.productField) ? '0,0000' : ''; });
+        quantity.value = '0,0000';
         preview();
         controls();
     }
@@ -325,9 +326,9 @@ export function initializeContractProducts(root, fetcher = fetch) {
         root.querySelectorAll('[data-product-field]').forEach((input) => {
             const field = input.dataset.productField;
             input.value = field === 'unit_price' ? formatFichaValue(product[field])
-                : field === 'disp' ? formatProductPrice(product[field]) ?? '' : product[field] ?? '';
+                : field === 'disp' ? formatProductPrice(product[field]) ?? '0,0000' : product[field] ?? '';
         });
-        quantity.value = isEditing ? display(product.quantity) : '';
+        quantity.value = isEditing ? formatProductPrice(product.quantity) ?? '0,0000' : '0,0000';
         const previousFicha = budget.value;
         if (isEditing) budget.value = (product.Ficha ?? '').trim();
         find('[data-product-balance]').textContent = isEditing ? 'Alterando um produto já lançado. A diferença da quantidade ajustará o saldo do processo.' : '';
@@ -346,8 +347,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
         manual.checked = false;
         manualFields();
         find('[data-product-description]').value = '';
-        root.querySelectorAll('[data-product-field]').forEach((input) => { input.value = ''; });
-        quantity.value = '';
+        root.querySelectorAll('[data-product-field]').forEach((input) => { input.value = ['unit_price', 'disp'].includes(input.dataset.productField) ? '0,0000' : ''; });
+        quantity.value = '0,0000';
         if (!budget.value.trim()) {
             clearBudgetLookup();
             find('[data-product-contract-total]').value = formatFichaValue('0');
@@ -445,7 +446,8 @@ export function initializeContractProducts(root, fetcher = fetch) {
         }
         return result;
     }
-    function updateTotal(label) {
+    function updateTotal(value, fallbackLabel) {
+        const label = formatDecimalField(value ?? String(fallbackLabel ?? '').replace(/^R\$\s*/, ''));
         document.getElementById('contract-items-total').value = label;
         const headingTotal = find('[data-product-heading-total]');
         if (headingTotal) headingTotal.value = label;
@@ -472,7 +474,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
             }
             fichas = data.fichas ?? [];
 
-            updateTotal(data.total_label);
+            updateTotal(data.total, data.total_label);
             find('[data-product-contract-total]').value = formatFichaValue(data.selected_ficha_total);
             renderFichaValues(data.ficha_values ?? [], data.ficha_summary, fichas, data.product_ficha_values ?? [], data.ficha_panel);
             const list = find('[data-contract-product-list]');
@@ -521,7 +523,7 @@ export function initializeContractProducts(root, fetcher = fetch) {
                 stale = true;
                 throw new Error('Os dados da página mudaram. Recarregue para conferir o resultado.');
             }
-            updateTotal(result.total_label);
+            updateTotal(result.total, result.total_label);
             busy = false;
             clear();
             busy = true;

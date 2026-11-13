@@ -39,4 +39,9 @@ test('contacts load after catalog selection and old responses cannot replace cur
     listeners.input();
     assert.equal(controls.supplier_email.value, '');
     assert.equal(controls.supplier_mobile.value, '');
+    form.dataset.ataSnapshot = 'true';
+    controls.supplier_email.value = 'historico@example.test';
+    await listeners.focusout();
+    assert.equal(pending.length, 2);
+    assert.equal(controls.supplier_email.value, 'historico@example.test');
 });

@@ -58,10 +58,10 @@
                 <label>{{ $codeLabel }}<input data-product-field="code" maxlength="100" @if($codeLabel !== 'CATSER') readonly @endif></label>
                 <label>Marca<input data-product-field="brand" readonly></label>
                 <label>UND<input data-product-field="unit" readonly></label>
-                <label>Disponível<input data-product-field="disp" readonly aria-label="Disponibilidade calculada" title="Soma lançada para o Item, fornecedor e processo menos QTD do produto; mínimo zero"></label>
-                <label>QTD<input data-product-quantity inputmode="decimal" maxlength="40" placeholder="0,0000" aria-label="Quantidade do produto"></label>
-                <label>VL. Unitário<input data-product-field="unit_price" readonly inputmode="decimal" maxlength="40" placeholder="0,0000"></label>
-                <label>VL. Total<input data-product-line-total readonly value="0,0000"></label>
+                <label>Disponível<input data-product-field="disp" data-quantity readonly aria-label="Disponibilidade calculada" title="Soma lançada para o Item, fornecedor e processo menos QTD do produto; mínimo zero"></label>
+                <label>QTD<input data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto"></label>
+                <label>VL. Unitário<input data-product-field="unit_price" readonly data-money inputmode="decimal" maxlength="40" value="0,0000"></label>
+                <label>VL. Total<input data-money data-product-line-total readonly value="0,0000"></label>
                 <div class="product-selected-description"><textarea data-product-description readonly aria-readonly="true" aria-label="Produto selecionado" rows="1" maxlength="5000"></textarea></div>
             </div>
 
@@ -80,14 +80,14 @@
         <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
         <button type="button" class="section-tab products-button" data-products-new-ficha><x-nav-icon name="plus"/>Nova Ficha</button>
     </div>
-    <div class="product-panel-total"><label>Total da Ficha<input data-product-contract-total readonly aria-readonly="true" value="0,0000"></label></div>
+    <div class="product-panel-total"><label>Total da Ficha<input data-money data-product-contract-total readonly aria-readonly="true" value="0,0000"></label></div>
     </div>
     <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>{{ $codeLabel }}</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th><th>Ficha</th><th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
     <div class="product-contract-values">
-        <label>Valor Total {{ $documentLabel === 'ATA' ? 'da ATA' : 'do Contrato' }}<input data-product-heading-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract?->valor_total) }}"></label>
+        <label>Valor Total {{ $documentLabel === 'ATA' ? 'da ATA' : 'do Contrato' }}<input data-money data-product-heading-total readonly aria-readonly="true" value="{{ $contract?->valor_total ?? '0,0000' }}"></label>
         @if($showAccumulatedValue)
             <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
-            <label class="contract-accumulated-label">Valor Acumulado do Contrato<input data-product-accumulated-total readonly aria-readonly="true" value="{{ \App\Models\Contract::moneyLabel($contract->valor_acumulado) }}"></label>
+            <label class="contract-accumulated-label">Valor Acumulado do Contrato<input data-money data-product-accumulated-total readonly aria-readonly="true" value="{{ $contract->valor_acumulado ?? '0,0000' }}"></label>
         @endif
         @if($sessionFund = request()->attributes->get('selected_fund'))
             <div class="product-session-fund" aria-label="Fundo logado">

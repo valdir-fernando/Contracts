@@ -74,6 +74,7 @@ export function initializeSupplierAssistance(form, fetcher = fetch) {
         status.textContent = 'Aguarde o preenchimento dos dados do fornecedor antes de salvar.';
     });
     documentField.addEventListener('focusout', async () => {
+        if (form.dataset.ataSnapshot === 'true') return;
         documentField.value = formatSupplierDocument(documentField.value);
         controller?.abort();
         const attempt = new AbortController();

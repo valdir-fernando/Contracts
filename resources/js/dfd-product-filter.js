@@ -3,10 +3,10 @@ const normalize = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, 
 export function formatDfdQuantity(value) {
     const text = value.trim();
     if (!text) return '';
-    const match = /^(\d+|\d{1,3}(?:\.\d{3})+)(?:,(\d{0,3}))?$/.exec(text);
+    const match = /^(\d+|\d{1,3}(?:\.\d{3})+)(?:,(\d{0,4}))?$/.exec(text);
     if (!match) return null;
     const integer = match[1].replace(/\./g, '').replace(/^0+(?=\d)/, '');
-    return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${(match[2] ?? '').padEnd(3, '0')}`;
+    return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${(match[2] ?? '').padEnd(4, '0')}`;
 }
 
 export function initializeDfdProductFilter(editor) {
@@ -106,7 +106,7 @@ export function initializeDfdProductFilter(editor) {
             manualSuccess.showModal();
             manualForm.querySelector('[name="description"]').value = '';
             manualForm.querySelector('[name="unit"]').value = '';
-            manualQuantity.value = '';
+            manualQuantity.value = '0,0000';
             manualForm.querySelector('[name="description"]').focus();
         } catch (error) { status.textContent = error.message; }
     });
@@ -120,15 +120,15 @@ export function initializeDfdProductFilter(editor) {
     }
     editor.querySelectorAll('[data-dfd-product-quantity]').forEach((input) => {
         input.addEventListener('focus', () => {
-            if (input.value.trim() === '0,000') input.value = '';
+            if (input.value.trim() === '0,0000') input.value = '';
         });
         input.addEventListener('input', () => input.setCustomValidity(''));
         input.addEventListener('blur', () => {
             const formatted = formatDfdQuantity(input.value);
-            input.setCustomValidity(formatted === null ? 'Informe uma quantidade com até três casas decimais.' : '');
+            input.setCustomValidity(formatted === null ? 'Informe uma quantidade com até quatro casas decimais.' : '');
             if (formatted !== null) input.value = formatted;
             else input.reportValidity();
-            if (!input.value.trim()) input.value = '0,000';
+            if (!input.value.trim()) input.value = '0,0000';
         });
     });
     const rows = [...editor.querySelectorAll('[data-dfd-product-row]')];
@@ -151,7 +151,7 @@ export function initializeDfdProductFilter(editor) {
             if (quantity) {
                 quantity.disabled = !checked;
                 if (!checked) {
-                    quantity.value = '0,000';
+                    quantity.value = '0,0000';
                     quantity.setCustomValidity('');
                 }
             }
@@ -207,8 +207,8 @@ export function initializeDfdProductLaunch(editor, fetcher = fetch) {
             const quantity = form.querySelector('[data-dfd-product-quantity]');
             const formatted = formatDfdQuantity(quantity.value);
             if (quantity.disabled) return;
-            if (!formatted || /^0,000$/.test(formatted)) {
-                quantity.setCustomValidity('Informe uma quantidade positiva com até três casas decimais.');
+            if (!formatted || /^0,0000$/.test(formatted)) {
+                quantity.setCustomValidity('Informe uma quantidade positiva com até quatro casas decimais.');
                 quantity.reportValidity();
                 return;
             }

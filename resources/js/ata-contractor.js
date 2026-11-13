@@ -13,6 +13,11 @@ export function initializeAtaContractor(root, fetcher = fetch) {
     const status = panel.querySelector('[data-ata-contractor-status]');
     let sequence = 0;
     let controller;
+    root.addEventListener('ata-loading', () => {
+        sequence++;
+        controller?.abort();
+        status.textContent = '';
+    });
     const load = async (fundId) => {
         const current = ++sequence;
         controller?.abort();

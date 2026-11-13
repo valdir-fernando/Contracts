@@ -635,7 +635,7 @@ class ContractProductsTest extends TestCase
         app(ContractWriter::class)->save($this->admin, ['version' => $contract->version, 'reason' => 'Conferência do total', 'valor_total' => '999999'], $contract);
         $this->assertSame('24.6912', $contract->fresh()->valor_total);
         $this->putJson($this->url(), ['version' => $contract->fresh()->version, 'reason' => 'Troca indevida do processo', 'processo' => 'OUTRO'])->assertUnprocessable();
-        $this->get($this->url().'/edit')->assertOk()->assertSee('value="R$ 24,69"', false)->assertSee('data-contract-product-list', false)
+        $this->get($this->url().'/edit')->assertOk()->assertSee('value="24.6912"', false)->assertSee('data-contract-product-list', false)
             ->assertSee('Exibir produtos do processo')->assertDontSee('Analisar documento com IA')->assertDontSee('data-product-document', false);
     }
 
