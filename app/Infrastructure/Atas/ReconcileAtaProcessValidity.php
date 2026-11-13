@@ -131,7 +131,7 @@ final class ReconcileAtaProcessValidity
             'fund_id' => $fundId, 'version' => 1, 'source_files' => $this->json([$entry['source']]), 'import_hash' => hash('sha256', $this->json($entry)),
             'quality_issues' => $this->json($issues),
             'validity_basis' => $this->json($this->basis($entry, $entry['PERIODO_ATA'], 1)), 'created_at' => now(), 'updated_at' => now()], 'ID');
-        DB::table('tb_FUNDOS_ATA')->insert(['ID_ATA' => $id, 'CNPJ_FUNDO' => $entry['CNPJ_FUNDO'], 'FUNDO' => $entry['FUNDO'], 'papel' => 'gerenciador',
+        DB::table('tb_FUNDOS_ATA')->insert(['ID_ATA' => $id, 'ATA' => $entry['ATA'], 'CNPJ_FUNDO' => $entry['CNPJ_FUNDO'], 'FUNDO' => $entry['FUNDO'], 'papel' => 'gerenciador',
             'fund_id' => $fundId, 'created_at' => now(), 'updated_at' => now()]);
 
         return $id;

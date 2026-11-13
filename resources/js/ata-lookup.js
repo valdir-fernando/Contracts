@@ -8,11 +8,17 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
     let controller;
     let sequence = 0;
     const supplierForm = root.querySelector('[data-ata-supplier-form]');
+    const fundHeading = root.ownerDocument.querySelector('[data-ata-managing-fund-heading]');
+    const productsTitle = root.querySelector('#ata-products-title');
+    const productsManagingFund = root.querySelector('[data-ata-products-managing-fund]');
     const field = name => root.querySelector(`[name="${name}"]`);
     const managerSelect = field('managing_fund_id');
     const fundLabels = new Map([...managerSelect.options].map(option => [option.value, option.textContent]));
     const notify = (name, detail = {}) => root.dispatchEvent(new CustomEvent(name, { detail }));
     const clear = () => {
+        if (fundHeading) fundHeading.textContent = 'FUNDO GERENCIADOR';
+        if (productsTitle) productsTitle.textContent = 'Cadastro de produtos da ATA';
+        if (productsManagingFund) productsManagingFund.textContent = 'Não informado';
         [...managerSelect.options].forEach(option => {
             if (option.dataset.ataLookupOption) option.remove();
             else if (fundLabels.has(option.value)) option.textContent = fundLabels.get(option.value);
@@ -50,6 +56,9 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
             if (current !== sequence || attempt.signal.aborted || number.value.trim() !== requested) return;
             if (!response.ok) throw new Error(Object.values(data.errors ?? {}).flat().join(' ') || data.message || 'Não foi possível consultar a ata.');
             number.value = data.number;
+            if (productsTitle) productsTitle.textContent = `Cadastro de produtos da ATA ${data.number}`;
+            if (fundHeading) fundHeading.textContent = data.managing_fund_name || 'FUNDO GERENCIADOR';
+            if (productsManagingFund) productsManagingFund.textContent = data.managing_fund_name || 'Não informado';
             const date = field('Data_ATA');
             date.value = date.type === 'date' ? (data.date ?? '') : (data.date ?? '').split('-').reverse().join('/');
             field('bidding').value = data.bidding ?? '';
@@ -112,6 +121,11 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
         status.textContent = '';
     });
     number.addEventListener('blur', load);
+    root.addEventListener('ata-saved', ({ detail }) => {
+        number.value = detail.number;
+        // Alpine must first apply the released save state to data-editor-busy.
+        setTimeout(load, 0);
+    });
     opener.addEventListener('mousedown', event => event.preventDefault());
     opener.addEventListener('click', load);
 }

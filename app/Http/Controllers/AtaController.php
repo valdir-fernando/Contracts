@@ -5,12 +5,46 @@ namespace App\Http\Controllers;
 use App\Infrastructure\Atas\AtaContractor;
 use App\Infrastructure\Atas\AtaEditorQuery;
 use App\Infrastructure\Atas\AtaParticipants;
+use App\Infrastructure\Atas\AtaProductLookup;
+use App\Infrastructure\Atas\AtaRegistration;
+use App\Infrastructure\Atas\RemoveSavedAtaParticipant;
+use App\Infrastructure\Atas\SavedAtaParticipants;
 use App\Infrastructure\Security\LockActor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AtaController extends Controller
 {
+    public function productLookup(Request $request, int $ata, AtaProductLookup $products)
+    {
+        return response()->json($products->find($request->user(), $ata, $request->query()), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function removeSavedParticipant(Request $request, int $ata, int $participant, RemoveSavedAtaParticipant $participants)
+    {
+        $state = $participants->remove($request->user(), $ata, $participant, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null);
+
+        return response()->json($state, 200, ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function addSavedParticipant(Request $request, int $ata, SavedAtaParticipants $participants)
+    {
+        $state = $participants->add($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null);
+
+        return response()->json($state, 201, ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function store(Request $request, AtaRegistration $registration)
+    {
+        $result = $registration->save($request->user(), $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null);
+
+        return response()->json($result, 201, ['Cache-Control' => 'private, no-store']);
+    }
+
     public function lookup(Request $request, AtaEditorQuery $query)
     {
         $data = $request->validate(['number' => 'required|string|max:32']);

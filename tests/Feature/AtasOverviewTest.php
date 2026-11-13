@@ -59,7 +59,7 @@ class AtasOverviewTest extends TestCase
             ->assertSee('for="ata-total">Valor da ATA</label>', false)
             ->assertSee('id="ata-total" data-money name="Valor_ATA" readonly aria-readonly="true" value="0,0000"', false)
             ->assertSeeInOrder(['title="Salve ou carregue uma ata para excluir."', 'Excluir</button>',
-                'href="'.route('atas.create').'"', 'Novo</a>', 'title="A gravação da ata ainda não está disponível."', 'Salvar</button>'], false)
+                'href="'.route('atas.create').'"', 'Novo</a>', 'data-ata-save', ':disabled="busy || loaded"', 'Salvar</button>'], false)
             ->assertDontSee('data-contract-form', false);
         $this->assertDatabaseCount('tb_ATA', 0);
         $this->assertDatabaseCount('activity_events', 0);
@@ -82,15 +82,30 @@ class AtasOverviewTest extends TestCase
             ->assertSee('Cadastro de produtos')->assertSee('Fechar cadastro de produtos')
             ->assertSee('$refs.ataProducts.close()', false)
             ->assertSee('<fieldset disabled', false)
-            ->assertSee('O lançamento de produtos ficará disponível após a implementação da gravação da ata.')
-            ->assertSeeInOrder(['Exibir produtos do processo', 'Lançamento manual', 'Ficha', 'Descrição', 'Dotação',
-                'Disponível', 'Salvar produto', 'Novo Produto', 'Excluir / estornar', 'Nova Ficha', 'Valor Total da ATA'])
+            ->assertSee('Salve ou carregue uma ata para consultar seus produtos.')
+            ->assertDontSee('Exibir produtos do processo')->assertDontSee('Lançamento manual')
+            ->assertDontSee('data-product-budget-description', false)->assertDontSee('data-product-budget-allocation', false)
+            ->assertSeeInOrder(['Ficha', 'Processo:',
+                'Disponível', 'Salvar produto', 'Novo Produto', 'Excluir', 'Nova Ficha', 'Valor Total da ATA'])
+            ->assertDontSee('Excluir / estornar')
             ->assertDontSee('data-contract-products ', false)
             ->assertDontSee('data-base=', false)
             ->assertDontSee('Valor Total do Contrato');
         $this->assertDatabaseCount('tb_ATA', 0);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
         $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_new_ata_requires_managing_fund_date_and_process_fields(): void
+    {
+        $response = $this->actingAs($this->actor)->withSession(['fund_id' => $this->fund])
+            ->get(route('atas.create'))->assertOk();
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+
+        foreach (['ata-managing-fund', 'ata-date', 'ata-process', 'ata-bidding', 'ata-bidding-number'] as $id) {
+            $this->assertTrue($document->getElementById($id)->hasAttribute('required'), $id.' must be required');
+        }
     }
 
     public function test_new_ata_lists_all_active_funds_alphabetically_without_private_details(): void

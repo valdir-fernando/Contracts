@@ -1,9 +1,9 @@
-@props(['contract' => null, 'showAccumulatedValue' => false, 'preview' => false, 'documentLabel' => 'Contrato'])
+@props(['contract' => null, 'showAccumulatedValue' => false, 'preview' => false, 'documentLabel' => 'Contrato', 'itemLookupUrl' => null])
 @php($codeLabel = !$preview && mb_strtolower(trim((string) $contract->tipo)) === 'credenciamento' && filled($contract->cargo_credenc) ? 'CATSER' : 'Código')
 @if($preview || $contract->exists)
-@if($preview)<fieldset disabled class="contract-products-preview" aria-label="Produtos da ata — visualização">@endif
+@if($preview)<fieldset disabled :disabled="!loaded || busy" class="contract-products-preview" aria-label="Produtos da ata">@endif
 <div class="contract-products-panel" @unless($preview) data-contract-products data-catser-editable="{{ $codeLabel === 'CATSER' ? 'true' : 'false' }}" data-base="{{ route('contracts.products.index', $contract) }}" @endunless data-enter-scope>
-    <p data-product-feedback role="status" aria-live="polite"></p>
+    @unless($preview)<p data-product-feedback role="status" aria-live="polite"></p>@endunless
     <dialog class="catalog-modal product-picker-dialog" data-product-picker aria-labelledby="product-picker-title">
         <div class="modal-header"><h2 id="product-picker-title">Selecionar produto</h2></div>
         <p data-product-picker-context></p>
@@ -21,6 +21,10 @@
         <p id="product-item-warning-message" data-product-item-warning-message></p>
         <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-product-item-warning-ok autofocus>OK</button></div>
     </dialog>
+    @if($preview)
+    <div class="product-entry-layout">
+        <div class="product-entry-main">
+    @endif
     <div class="product-entry-heading">
         <dialog class="catalog-modal product-item-warning" data-product-budget-warning aria-labelledby="product-budget-warning-title" aria-describedby="product-budget-warning-message">
             <div class="modal-header"><h2 id="product-budget-warning-title">Consulta de ficha</h2></div>
@@ -31,25 +35,38 @@
             <div class="form-actions action-toolbar"><button type="button" class="section-tab" data-product-budget-warning-ok autofocus>OK</button></div>
         </dialog>
 
+                @unless($preview)
                 <label class="product-confirm"><input type="checkbox" data-products-show> Exibir produtos do processo</label>
                 <span class="product-options-separator" role="separator" aria-orientation="vertical"></span>
                 <label class="product-confirm product-manual-option"><input type="checkbox" data-products-manual> Lançamento manual</label>
+                @endunless
                 <div class="product-contract-summary">
-                    <span>
+                    <span @if($preview) class="ata-product-process-budget" @endif>
+                    @if($preview)
+                        <label>Ficha<input type="text" data-product-budget maxlength="64" autocomplete="off" aria-label="Ficha dos produtos" disabled></label>
+                        <span class="product-options-separator" role="separator" aria-orientation="vertical"></span>
+                    @endif
+                    @unless($preview)
                     <span>{{ $documentLabel }}: <strong>{{ $contract?->numero ?: 'Não informado' }}</strong></span>
                     <span aria-hidden="true"> · </span>
-                    <span>Processo: <strong @if($preview) x-text="process || 'Não informado'" @endif>{{ $contract?->processo ?: 'Não informado' }}</strong></span>
+                    @endunless
+                    <span @if($preview) class="ata-product-process" @endif>Processo: <strong @if($preview) x-text="process || 'Não informado'" @endif>{{ $contract?->processo ?: 'Não informado' }}</strong></span>
                     </span>
                 </div>
     </div>
+    @unless($preview)
     <div class="product-entry-layout">
         <div class="product-entry-main">
+    @endunless
+            @unless($preview)
             <div class="product-budget-row">
                 <label>Ficha<input type="text" data-product-budget maxlength="64" autocomplete="off" aria-label="Ficha dos produtos"></label>
                 <label>Descrição<input type="text" data-product-budget-description readonly aria-readonly="true"></label>
                 <label>Dotação<input type="text" data-product-budget-allocation readonly aria-readonly="true"></label>
             </div>
+            @endunless
             <p class="hint" data-product-budget-status role="status" aria-live="polite"></p>
+            @if($preview)<p data-product-feedback role="status" aria-live="polite" data-ata-item-lookup-url="{{ $itemLookupUrl }}"></p>@endif
             <div class="product-entry-fields">
                 <div class="product-item-search">
                     <label>Item<input type="text" data-product-field="item" maxlength="100"></label>
@@ -58,8 +75,8 @@
                 <label>{{ $codeLabel }}<input data-product-field="code" maxlength="100" @if($codeLabel !== 'CATSER') readonly @endif></label>
                 <label>Marca<input data-product-field="brand" readonly></label>
                 <label>UND<input data-product-field="unit" readonly></label>
-                <label>Disponível<input data-product-field="disp" data-quantity readonly aria-label="Disponibilidade calculada" title="Soma lançada para o Item, fornecedor e processo menos QTD do produto; mínimo zero"></label>
-                <label>QTD<input data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto"></label>
+                <label>Disponível<input data-product-field="disp" data-quantity readonly aria-label="Disponibilidade calculada" title="{{ $preview ? 'Saldo disponível do item no processo da ata.' : 'Soma lançada para o Item, fornecedor e processo menos QTD do produto; mínimo zero' }}"></label>
+                <label>QTD<input data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto" @disabled($preview)></label>
                 <label>VL. Unitário<input data-product-field="unit_price" readonly data-money inputmode="decimal" maxlength="40" value="0,0000"></label>
                 <label>VL. Total<input data-money data-product-line-total readonly value="0,0000"></label>
                 <div class="product-selected-description"><textarea data-product-description readonly aria-readonly="true" aria-label="Produto selecionado" rows="1" maxlength="5000"></textarea></div>
@@ -75,10 +92,10 @@
     <div class="product-controls-row">
     <div class="product-entry-actions action-toolbar">
         <button type="button" class="section-tab" data-products-save disabled><x-nav-icon name="save"/>Salvar produto</button>
-        <button type="button" class="section-tab" data-products-new><x-nav-icon name="plus"/>Novo Produto</button>
-        <button type="button" class="section-tab" data-products-delete disabled><x-nav-icon name="trash"/>Excluir / estornar</button>
+        <button type="button" class="section-tab" data-products-new @disabled($preview)><x-nav-icon name="plus"/>Novo Produto</button>
+        <button type="button" class="section-tab" data-products-delete disabled><x-nav-icon name="trash"/>{{ $preview ? 'Excluir' : 'Excluir / estornar' }}</button>
         <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
-        <button type="button" class="section-tab products-button" data-products-new-ficha><x-nav-icon name="plus"/>Nova Ficha</button>
+        <button type="button" class="section-tab products-button" data-products-new-ficha @disabled($preview)><x-nav-icon name="plus"/>Nova Ficha</button>
     </div>
     <div class="product-panel-total"><label>Total da Ficha<input data-money data-product-contract-total readonly aria-readonly="true" value="0,0000"></label></div>
     </div>
@@ -89,7 +106,11 @@
             <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
             <label class="contract-accumulated-label">Valor Acumulado do Contrato<input data-money data-product-accumulated-total readonly aria-readonly="true" value="{{ $contract->valor_acumulado ?? '0,0000' }}"></label>
         @endif
-        @if($sessionFund = request()->attributes->get('selected_fund'))
+        @if($preview)
+            <div class="product-session-fund" aria-label="Órgão Gerenciador">
+                Órgão Gerenciador: <strong data-ata-products-managing-fund>Não informado</strong>
+            </div>
+        @elseif($sessionFund = request()->attributes->get('selected_fund'))
             <div class="product-session-fund" aria-label="Fundo logado">
                 <strong data-fit-fund-name>{{ $sessionFund['name'] }}</strong>
             </div>

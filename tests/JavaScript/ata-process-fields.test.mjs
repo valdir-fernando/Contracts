@@ -34,12 +34,13 @@ test('products opens a modal with the current supplier and closes without changi
 function editor({ fetch, initial } = {}) {
     const expression = view.match(/<div x-data="([\s\S]*?)" data-draft-state=/)[1].replace('@js($funds)', JSON.stringify(funds));
     let draftUrl;
-    const state = runInNewContext(`(${expression})`, { fetch, URL, window: {
+    const state = runInNewContext(`(${expression})`, { fetch, URL, CustomEvent, window: {
         location: { href: 'http://localhost/atas/create' },
         history: { replaceState: (_, __, url) => { draftUrl = url; } },
     } });
     state.$el = { dataset: { draftToken: 'signed-draft', participantsUrl: '/atas/participants', csrfToken: 'csrf-token',
         draftState: JSON.stringify(initial || { version: 0, process: '', managing_fund_id: '', participants: [] }) } };
+    state.$refs = { ataParticipantRemoval: { open: false, showModal() { this.open = true; }, close() { this.open = false; } } };
     let onManagerChange;
     state.$watch = (property, callback) => {
         assert.equal(property, 'managingFund');
@@ -66,6 +67,130 @@ test('a loaded ata cannot add or remove participants from the draft', async () =
     await form.state.removeParticipant(form.state.participants[0]);
     assert.equal(calls, 0);
     assert.equal(form.state.participants[0].FUNDO, 'Participante salvo');
+});
+
+test('participant selection is disabled until a saved ata is loaded', () => {
+    assert.match(view, /id="ata-participant-fund"[^>]*disabled :disabled="busy \|\| !loaded"/);
+});
+
+test('loaded ata adds to its own endpoint and version without changing the draft', async () => {
+    let request;
+    const form = editor({ fetch: async (url, options) => {
+        request = { url, options };
+        return { ok: true, json: async () => ({ version: 5, participants: [{ id: 21, fund_id: 2, FUNDO: 'Saúde' }] }) };
+    } });
+    const loaded = view.match(/@ata-loaded="([^"]+)"/)[1];
+    form.state.$event = { detail: { id: 107, version: 4, process: 'PROC', managing_fund_id: '1', participants: [] } };
+    runInNewContext(loaded, form.state);
+    assert.equal(form.state.loaded, true);
+    assert.equal(form.state.loadedAtaId, 107);
+    form.state.version = 3;
+    form.state.participantFund = '2';
+    await form.state.addParticipant();
+    assert.equal(request.url, '/atas/107/participants');
+    assert.deepEqual(JSON.parse(request.options.body), { version: 4, participant_fund_id: '2' });
+    assert.equal(form.state.loadedVersion, 5);
+    assert.equal(form.state.version, 3);
+    assert.equal(form.state.participants[0].FUNDO, 'Saúde');
+    assert.equal(form.state.participantFund, '');
+    assert.equal(form.state.busy, false);
+    form.state.clearLoaded();
+    assert.equal(form.state.loadedAtaId, 0);
+    assert.equal(form.state.loadedVersion, 0);
+});
+
+function loadedEditor(fetcher) {
+    const { state } = editor({ fetch: fetcher });
+    state.loaded = true;
+    state.loadedAtaId = 107;
+    state.loadedVersion = 4;
+    state.version = 2;
+    const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
+    state.$refs.ataManagerReplacement = dialog;
+    const events = [];
+    state.$el.dispatchEvent = event => events.push(event);
+    return { state, dialog, events };
+}
+
+test('saved participant delete targets the row with saved version and never alters draft version', async () => {
+    let request;
+    const { state } = loadedEditor(async (url, options) => {
+        request = { url, options };
+        return { ok: true, json: async () => ({ version: 5, manager_changed: false, participants: [{ id: 1, Tipo_Fundo: 'Gerenciador' }] }) };
+    });
+    state.participants = [{ id: 1 }, { id: 2 }];
+    await state.removeParticipant({ id: 2, Tipo_Fundo: 'Participante' });
+    assert.equal(request, undefined);
+    assert.equal(state.$refs.ataParticipantRemoval.open, true);
+    await state.confirmParticipantRemoval();
+    assert.equal(request.url, '/atas/107/participants/2');
+    assert.equal(request.options.method, 'DELETE');
+    assert.deepEqual(JSON.parse(request.options.body), { version: 4 });
+    assert.equal(state.loadedVersion, 5);
+    assert.equal(state.version, 2);
+    assert.equal(state.participants.length, 1);
+    assert.equal(state.busy, false);
+});
+
+test('cancel or Escape clears pending participant and cannot submit a deletion', async () => {
+    let calls = 0;
+    const { state } = loadedEditor(async () => { calls++; });
+    const participant = { id: 2, fund_id: 2, FUNDO: 'Saúde', Tipo_Fundo: 'Participante' };
+    state.participants = [participant];
+    await state.removeParticipant(participant);
+    assert.equal(calls, 0);
+    state.$refs.ataParticipantRemoval.close();
+    const close = view.match(/x-ref="ataParticipantRemoval"[^>]*@close="([^"]+)"/)[1];
+    runInNewContext(close, state);
+    await state.confirmParticipantRemoval();
+    assert.equal(calls, 0);
+    assert.equal(state.participants[0], participant);
+    assert.equal(state.loadedVersion, 4);
+});
+
+test('deleting manager opens replacement dialog without any request and excludes that fund', async () => {
+    let calls = 0;
+    const { state, dialog } = loadedEditor(async () => { calls++; });
+    const manager = { id: 7, fund_id: 1, Tipo_Fundo: 'Gerenciador' };
+    await state.removeParticipant(manager);
+    assert.equal(calls, 0);
+    assert.equal(dialog.open, true);
+    assert.equal(state.pendingRemoval, manager);
+    assert.deepEqual(Array.from(state.replacementFunds, fund => fund.id), [2, 3]);
+});
+
+test('confirmed replacement sends selected fund and refreshes authorized ata after success', async () => {
+    let payload;
+    const { state, dialog, events } = loadedEditor(async (_, options) => {
+        payload = JSON.parse(options.body);
+        return { ok: true, json: async () => ({ version: 5, number: '107/25', manager_changed: true,
+            participants: [{ id: 9, fund_id: 2, Tipo_Fundo: 'Gerenciador' }] }) };
+    });
+    const manager = { id: 7, fund_id: 1, Tipo_Fundo: 'Gerenciador' };
+    await state.removeParticipant(manager);
+    await state.removeSavedParticipant(state.pendingRemoval, '2');
+    assert.deepEqual(payload, { version: 4, replacement_fund_id: '2' });
+    assert.equal(dialog.open, false);
+    assert.equal(state.pendingRemoval, null);
+    assert.equal(state.loadedVersion, 5);
+    assert.equal(events[0].type, 'ata-saved');
+    assert.equal(events[0].bubbles, true);
+    assert.equal(events[0].detail.number, '107/25');
+});
+
+test('server manager requirement opens dialog for historical row and failure preserves the row', async () => {
+    const { state, dialog } = loadedEditor(async () => ({ ok: false, json: async () => ({
+        errors: { replacement_fund_id: ['Uma ata salva não pode ficar sem Fundo Gerenciador.'] },
+    }) }));
+    const row = { id: 7, fund_id: 1, Tipo_Fundo: 'Participante' };
+    state.participants = [row];
+    await state.removeParticipant(row);
+    await state.confirmParticipantRemoval();
+    assert.equal(dialog.open, true);
+    assert.equal(state.participants[0], row);
+    assert.match(state.replacementMessage, /não pode ficar sem/);
+    assert.equal(state.loadedVersion, 4);
+    assert.equal(state.busy, false);
 });
 
 test('clearing a saved ata restores the current draft including participants added after page load', () => {
@@ -180,10 +305,12 @@ test('delete sends the saved version and only removes rows after server confirma
             return { ok, json: async () => ok ? { version: 2, participants: [] } : { message: 'Conflito' } };
         } });
     await form.state.removeParticipant(participant);
+    await form.state.confirmParticipantRemoval();
     assert.equal(form.state.participants.length, 1);
     assert.equal(form.state.version, 1);
     ok = true;
     await form.state.removeParticipant(participant);
+    await form.state.confirmParticipantRemoval();
     assert.equal(sent.method, 'DELETE');
     assert.equal(sent.url, '/atas/participants/10');
     assert.equal(sent.headers['X-CSRF-TOKEN'], 'csrf-token');

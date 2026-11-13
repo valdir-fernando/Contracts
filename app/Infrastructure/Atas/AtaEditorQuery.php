@@ -31,20 +31,23 @@ final class AtaEditorQuery
         abort_if($matches->count() !== 1, 409, 'Mais de uma ata disponível para este número. Confira o cadastro antes de continuar.');
         $ata = DB::table('tb_ATA')->where('ID', $matches->first()->ID)->whereNull('deleted_at')->first([
             'ID', 'ATA', 'version', 'fund_id', 'DATA_ATA', 'PROCESSO', 'LICITACAO', 'N_LICIT',
-            'CNPJ_FUNDO', 'FUNDO', 'END_FUNDO', 'GESTOR', 'CPF_GESTOR', 'RG_GESTOR', 'DECRETO_GESTOR', 'MATRICULA_GESTOR',
+            'CNPJ_FUNDO', 'FUNDO', 'END_FUNDO', 'GESTOR', 'CPF_GESTOR', 'RG_GESTOR', 'CARGO_GESTOR', 'DECRETO_GESTOR', 'MATRICULA_GESTOR',
             'FORNECEDOR', 'CNPJ_FORNECEDOR', 'END_FORNECEDOR', 'SOCIO', 'CPF_SOCIO', 'RG_SOCIO', 'EMAIL', 'TELEFONE1', 'TELEFONE2',
+            'RG_FORNECEDOR', 'DOC_PROF', 'PIS_PASEP',
         ]);
         abort_unless($ata, 404);
         $actor = $this->actors->current($expected);
         abort_unless($actor->isAdmin() || $this->funds->allows($actor, (int) $ata->fund_id), 404);
         $contractor = ['fundo_documento_snapshot' => $ata->CNPJ_FUNDO, 'end_fundo' => $ata->END_FUNDO,
-            'nome_gestor' => $ata->GESTOR, 'decreto_gestor' => $ata->DECRETO_GESTOR, 'matricula_gestor' => $ata->MATRICULA_GESTOR,
+            'nome_gestor' => $ata->GESTOR, 'cargo_gestor' => $ata->CARGO_GESTOR, 'decreto_gestor' => $ata->DECRETO_GESTOR, 'matricula_gestor' => $ata->MATRICULA_GESTOR,
             'cpf_gestor' => $actor->isAdmin() ? $ata->CPF_GESTOR : Normalizer::mask($ata->CPF_GESTOR),
             'rg_gestor' => $actor->isAdmin() ? $ata->RG_GESTOR : Normalizer::mask($ata->RG_GESTOR)];
         $supplierDocument = Normalizer::document($ata->CNPJ_FORNECEDOR);
         $supplier = ['fornecedor_nome_snapshot' => $ata->FORNECEDOR,
             'fornecedor_documento_snapshot' => $actor->isAdmin() || strlen($supplierDocument) === 14 ? $ata->CNPJ_FORNECEDOR : Normalizer::mask($ata->CNPJ_FORNECEDOR),
-            'end_fornec' => $ata->END_FORNECEDOR, 'socio' => $ata->SOCIO,
+            'end_fornec' => $ata->END_FORNECEDOR, 'socio' => $ata->SOCIO, 'doc_prof' => $ata->DOC_PROF,
+            'rg_fornec' => $actor->isAdmin() ? $ata->RG_FORNECEDOR : Normalizer::mask($ata->RG_FORNECEDOR),
+            'pis_pasep' => $actor->isAdmin() ? $ata->PIS_PASEP : Normalizer::mask($ata->PIS_PASEP),
             'cpf_socio' => $actor->isAdmin() ? $ata->CPF_SOCIO : Normalizer::mask($ata->CPF_SOCIO),
             'rg_socio' => $actor->isAdmin() ? $ata->RG_SOCIO : Normalizer::mask($ata->RG_SOCIO)];
         if ($actor->canAccessCatalog('supplier')) {

@@ -56,7 +56,7 @@ class AtaReferenceImportTest extends TestCase
         $this->assertStringNotContainsString('ITEM', $ata->{'OBJETO DA ATA'});
         $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ITEM' => '1', 'QTD' => '28600.0000', 'VL_TOTAL' => '443300.0000', 'MARCA' => null]);
         $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ITEM' => '2', 'QTD' => '0.5000', 'VL_UNIT' => '5.0000', 'VL_TOTAL' => '2.5000']);
-        $this->assertDatabaseHas('tb_FUNDOS_ATA', ['ID_ATA' => $ata->ID, 'papel' => 'participante', 'CNPJ_FUNDO' => '00.000.000/0000-02']);
+        $this->assertDatabaseHas('tb_FUNDOS_ATA', ['ID_ATA' => $ata->ID, 'ATA' => $ata->ATA, 'papel' => 'participante', 'CNPJ_FUNDO' => '00.000.000/0000-02']);
         $sources = json_decode($ata->source_files, true);
         $this->assertSame(hash_file('sha256', $this->documentPath()), $sources[0]['sha256']);
         $this->assertSame(1, $service->run($this->directory, true)['existing']);

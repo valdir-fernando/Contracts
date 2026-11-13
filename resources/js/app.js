@@ -34,6 +34,8 @@ import './fund-registration';
 import './ata-contractor';
 import './ata-supplier-contacts';
 import './ata-lookup';
+import './ata-save';
+import './ata-products';
 import { initializeDecimalFields } from './decimal-fields';
 import { ataDateError, confirmAtaDate } from './ata-date';
 import { showSupplierDocumentWarning } from './system-message';

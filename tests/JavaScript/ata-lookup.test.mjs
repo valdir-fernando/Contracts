@@ -17,17 +17,24 @@ function panel(fetcher) {
     controls.Data_ATA.type = 'text';
     const total = node();
     const headingTotal = node();
+    const fundHeading = node();
+    fundHeading.textContent = 'FUNDO GERENCIADOR';
     const products = node();
+    const productsTitle = node();
+    const productsManagingFund = node();
     const contractor = node();
     contractor.dataset.ataContractorField = 'cpf_gestor';
     const form = { dataset: {}, elements: { namedItem: name => controls[name] },
         closest: () => null, querySelectorAll: () => Object.values(controls).slice(0, 8) };
     const events = [];
     const root = { dataset: { ataLookupUrl: '/atas/lookup' },
-        ownerDocument: { baseURI: 'http://contracts.test/', createElement: () => node() },
+        listeners: {}, addEventListener(name, callback) { this.listeners[name] = callback; },
+        ownerDocument: { baseURI: 'http://contracts.test/', createElement: () => node(),
+            querySelector: selector => selector === '[data-ata-managing-fund-heading]' ? fundHeading : null },
         querySelector(selector) {
             if (selector.startsWith('[name=')) return controls[selector.slice(7, -2)];
-            return { '[data-ata-supplier-form]': form, '#ata-total': total, '[data-contract-product-list]': products }[selector];
+            return { '[data-ata-supplier-form]': form, '#ata-total': total, '[data-contract-product-list]': products,
+                '#ata-products-title': productsTitle, '[data-ata-products-managing-fund]': productsManagingFund }[selector];
         },
         querySelectorAll(selector) { return selector === '[data-ata-contractor-field]' ? [contractor] : [headingTotal]; },
         dispatchEvent(event) { events.push(event); },
@@ -36,7 +43,7 @@ function panel(fetcher) {
     const opener = node();
     const status = node();
     initializeAtaLookup(root, number, opener, status, fetcher);
-    return { root, controls, number, opener, status, products, total, headingTotal, contractor, form, events };
+    return { root, controls, number, opener, status, products, productsTitle, productsManagingFund, total, headingTotal, fundHeading, contractor, form, events };
 }
 
 const saved = (id, number) => ({ id, number, process: `PROCESSO-${id}`, date: '2026-01-02', bidding: 'PREGÃO', bidding_number: '123',
@@ -58,6 +65,9 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(request.options.cache, 'no-store');
     assert.equal(request.options.credentials, 'same-origin');
     assert.equal(ui.number.value, '001/2026');
+    assert.equal(ui.productsTitle.textContent, 'Cadastro de produtos da ATA 001/2026');
+    assert.equal(ui.fundHeading.textContent, 'Fundo salvo');
+    assert.equal(ui.productsManagingFund.textContent, 'Fundo salvo');
     assert.equal(ui.controls.Data_ATA.value, '02/01/2026');
     assert.equal(ui.controls.bidding.value, 'PREGÃO');
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, 'Fornecedor 1');
@@ -86,13 +96,17 @@ test('editing the number aborts pending requests and late responses cannot repla
     await first;
     assert.equal(pending[0].options.signal.aborted, true);
     assert.equal(ui.number.value, '002/2026');
+    assert.equal(ui.productsTitle.textContent, 'Cadastro de produtos da ATA 002/2026');
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, 'Fornecedor 2');
     ui.number.value = '';
     ui.number.listeners.input();
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, '');
     assert.equal(ui.products.children.length, 0);
+    assert.equal(ui.productsTitle.textContent, 'Cadastro de produtos da ATA');
     assert.equal(ui.total.value, '0,0000');
     assert.equal(ui.form.dataset.ataSnapshot, '');
+    assert.equal(ui.fundHeading.textContent, 'FUNDO GERENCIADOR');
+    assert.equal(ui.productsManagingFund.textContent, 'Não informado');
 });
 
 test('not found, ambiguity and network errors clear stale data and do not invent a loaded ata', async () => {
@@ -110,4 +124,17 @@ test('not found, ambiguity and network errors clear stale data and do not invent
     await ui.number.listeners.blur();
     assert.match(ui.status.textContent, /Não foi possível consultar/);
     assert.equal(ui.events.at(-1).type, 'ata-cleared');
+});
+
+test('successful save waits for released editor state before loading the issued ata', async () => {
+    let requests = 0;
+    const ui = panel(async () => { requests++; return { ok: true, json: async () => saved(1, '001/26') }; });
+    ui.root.dataset.editorBusy = 'true';
+    ui.root.listeners['ata-saved']({ detail: { number: '001/26' } });
+    // Alpine updates bound attributes at the end of this event turn.
+    ui.root.dataset.editorBusy = 'false';
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(requests, 1);
+    assert.equal(ui.root.dataset.ataLoaded, '1');
+    assert.equal(ui.number.value, '001/26');
 });

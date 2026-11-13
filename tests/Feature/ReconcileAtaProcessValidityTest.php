@@ -39,6 +39,7 @@ class ReconcileAtaProcessValidityTest extends TestCase
         $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
         $this->assertDatabaseCount('tb_FUNDOS_ATA', 1);
+        $this->assertDatabaseHas('tb_FUNDOS_ATA', ['ATA' => '003/2025', 'papel' => 'gerenciador']);
         $this->assertSame(1, $service->run('/fixture', true)['confirmed']);
         $this->assertDatabaseCount('activity_events', 1);
     }

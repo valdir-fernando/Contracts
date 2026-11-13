@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Atas;
 
+use App\Infrastructure\Persistence\TransactionGuard;
 use App\Infrastructure\Security\LockActor;
 use App\Infrastructure\Security\SelectedFund;
 use App\Models\ActivityEvent;
@@ -35,6 +36,21 @@ final class AtaParticipants
         return $this->projection($draft);
     }
 
+    public function lockForSave(User $actor, string $token): ?object
+    {
+        TransactionGuard::requireActive();
+
+        return DB::table('ata_participant_drafts')->where('id', $this->draftId($actor, $token))
+            ->where('actor_id', $actor->id)->lockForUpdate()->first();
+    }
+
+    public function saveDraftId(User $actor, string $token): string
+    {
+        TransactionGuard::requireActive();
+
+        return $this->draftId($actor, $token);
+    }
+
     public function add(User $expected, string $token, array $input, ?int $sessionFundId): array
     {
         return DB::transaction(function () use ($expected, $token, $input, $sessionFundId) {
@@ -43,6 +59,7 @@ final class AtaParticipants
             // O módulo de atas é global; a escrita abaixo se limita ao rascunho do ator atual.
             $id = $this->draftId($actor, $token);
             $draft = DB::table('ata_participant_drafts')->where('id', $id)->where('actor_id', $actor->id)->lockForUpdate()->first();
+            abort_if($draft?->ata_id !== null, 409, 'Esta ata já foi salva. Abra uma nova ficha.');
             $data = Validator::make($input, ['version' => 'required|integer|min:0', 'ata_process' => 'required|string|max:64',
                 'managing_fund_id' => 'required|integer|min:1', 'participant_fund_id' => 'required|integer|min:1'])->validate();
             abort_if((int) $data['version'] !== (int) ($draft->version ?? 0), 409, 'A lista foi alterada. Recarregue o painel antes de adicionar outro Fundo.');
@@ -107,6 +124,7 @@ final class AtaParticipants
             $id = $this->draftId($actor, $token);
             $draft = DB::table('ata_participant_drafts')->where('id', $id)->where('actor_id', $actor->id)->lockForUpdate()->first();
             abort_unless($draft, 404);
+            abort_if($draft->ata_id !== null, 409, 'Esta ata já foi salva. Abra uma nova ficha.');
             $data = Validator::make($input, ['version' => 'required|integer|min:0'])->validate();
             abort_if((int) $data['version'] !== (int) $draft->version, 409, 'A lista foi alterada. Recarregue o painel.');
             $participant = DB::table('tb_Participantes')->where('draft_id', $id)->where('id', $participantId)->whereNull('deleted_at')->lockForUpdate()->first();

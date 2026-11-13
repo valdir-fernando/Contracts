@@ -209,7 +209,7 @@ final class AtaReferenceImport
             'source_files' => $this->json($entry['sources']), 'quality_issues' => $this->json($entry['issues']),
             'import_hash' => $this->hash($entry), 'created_at' => $timestamp, 'updated_at' => $timestamp], 'ID');
         foreach ($entry['funds'] as $fund) {
-            DB::table('tb_FUNDOS_ATA')->insert([...$fund, 'ID_ATA' => $id, 'created_at' => $timestamp, 'updated_at' => $timestamp]);
+            DB::table('tb_FUNDOS_ATA')->insert([...$fund, 'ID_ATA' => $id, 'ATA' => $entry['ata']['ATA'], 'created_at' => $timestamp, 'updated_at' => $timestamp]);
         }
         foreach ($entry['products'] as $product) {
             DB::table('tb_PRODUTOS_ATA')->insert([...$product, 'source_row' => $this->json($product['source_row']),
@@ -259,6 +259,9 @@ final class AtaReferenceImport
             foreach ($entry[$key] as $index => $expected) {
                 $row = $rows[$index];
                 if ($row->deleted_at !== null) {
+                    return false;
+                }
+                if ($key === 'funds' && $row->ATA !== $entry['ata']['ATA']) {
                     return false;
                 }
                 foreach ($expected as $column => $value) {
