@@ -201,7 +201,7 @@
                 this.busy = false;
             }
         }
-    }" data-draft-state="{{ json_encode($draftState, JSON_THROW_ON_ERROR) }}" data-draft-token="{{ $draftToken }}" data-participants-url="{{ route('atas.participants.store') }}" data-csrf-token="{{ csrf_token() }}" class="ata-editor" data-ata-lookup-url="{{ route('atas.lookup') }}" :data-editor-busy="busy" @ata-loading="busy = true" @ata-loaded="loaded = true; busy = false; loadedAtaId = $event.detail.id; loadedVersion = $event.detail.version; participantFund = ''; message = ''; process = $event.detail.process; managingFund = $event.detail.managing_fund_id; participants = $event.detail.participants" @ata-cleared="clearLoaded()">
+    }" data-draft-state="{{ json_encode($draftState, JSON_THROW_ON_ERROR) }}" data-draft-token="{{ $draftToken }}" data-participants-url="{{ route('atas.participants.store') }}" data-csrf-token="{{ csrf_token() }}" class="ata-editor" data-ata-lookup-url="{{ route('atas.lookup') }}" :data-editor-busy="busy" :data-ata-version="loadedVersion" @ata-product-saving="busy = true" @ata-product-finished="busy = false" @ata-loading="busy = true" @ata-loaded="loaded = true; busy = false; loadedAtaId = $event.detail.id; loadedVersion = $event.detail.version; participantFund = ''; message = ''; process = $event.detail.process; managingFund = $event.detail.managing_fund_id; participants = $event.detail.participants" @ata-cleared="clearLoaded()">
     <section class="surface contract-section" aria-label="Nova ATA">
         <div class="field-grid ata-managing-fund-grid">
             <div class="field">
@@ -355,8 +355,8 @@
     </dialog>
     <dialog id="ata-products-dialog" class="catalog-modal contract-products-dialog" x-ref="ataProducts" aria-labelledby="ata-products-title">
         <div class="modal-header">
-            <h2 id="ata-products-title" tabindex="-1">Cadastro de produtos da ATA</h2>
-            <div class="product-title-supplier"><p class="contract-heading-supplier" x-ref="ataProductsSupplier">Nome / Razão Social</p></div>
+            <h2 id="ata-products-title" tabindex="-1"><span>PRODUTOS</span><span class="product-options-separator" aria-hidden="true"></span><span class="ata-products-reference">Processo: <span class="ata-products-reference-value" x-text="process || 'Não informado'"></span></span><span class="product-options-separator" aria-hidden="true"></span><span class="ata-products-reference">ATA <span class="ata-products-reference-value" data-ata-products-number></span></span></h2>
+            <div class="product-title-supplier"><p class="contract-heading-supplier" data-fit-supplier-name x-ref="ataProductsSupplier">Nome / Razão Social</p></div>
             <button type="button" class="modal-close" @click="$refs.ataProducts.close()" aria-label="Fechar cadastro de produtos">×</button>
         </div>
         <div class="contract-section">

@@ -8,6 +8,7 @@ use App\Infrastructure\Atas\AtaParticipants;
 use App\Infrastructure\Atas\AtaProductLookup;
 use App\Infrastructure\Atas\AtaRegistration;
 use App\Infrastructure\Atas\RemoveSavedAtaParticipant;
+use App\Infrastructure\Atas\SaveAtaProduct;
 use App\Infrastructure\Atas\SavedAtaParticipants;
 use App\Infrastructure\Security\LockActor;
 use Illuminate\Http\Request;
@@ -15,6 +16,19 @@ use Illuminate\Support\Facades\DB;
 
 class AtaController extends Controller
 {
+    public function saveProduct(Request $request, int $ata, SaveAtaProduct $products)
+    {
+        return response()->json($products->save($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 201,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function productList(Request $request, int $ata, AtaProductLookup $products)
+    {
+        return response()->json($products->listing($request->user(), $ata, $request->query()), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
     public function productLookup(Request $request, int $ata, AtaProductLookup $products)
     {
         return response()->json($products->find($request->user(), $ata, $request->query()), 200,

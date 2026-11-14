@@ -17,6 +17,7 @@ function panel(fetcher) {
     controls.Data_ATA.type = 'text';
     const total = node();
     const headingTotal = node();
+    const lineTotal = node();
     const fundHeading = node();
     fundHeading.textContent = 'FUNDO GERENCIADOR';
     const products = node();
@@ -34,7 +35,8 @@ function panel(fetcher) {
         querySelector(selector) {
             if (selector.startsWith('[name=')) return controls[selector.slice(7, -2)];
             return { '[data-ata-supplier-form]': form, '#ata-total': total, '[data-contract-product-list]': products,
-                '#ata-products-title': productsTitle, '[data-ata-products-managing-fund]': productsManagingFund }[selector];
+                '[data-product-line-total]': lineTotal,
+                '[data-ata-products-number]': productsTitle, '[data-ata-products-managing-fund]': productsManagingFund }[selector];
         },
         querySelectorAll(selector) { return selector === '[data-ata-contractor-field]' ? [contractor] : [headingTotal]; },
         dispatchEvent(event) { events.push(event); },
@@ -65,7 +67,7 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(request.options.cache, 'no-store');
     assert.equal(request.options.credentials, 'same-origin');
     assert.equal(ui.number.value, '001/2026');
-    assert.equal(ui.productsTitle.textContent, 'Cadastro de produtos da ATA 001/2026');
+    assert.equal(ui.productsTitle.textContent, '001/2026');
     assert.equal(ui.fundHeading.textContent, 'Fundo salvo');
     assert.equal(ui.productsManagingFund.textContent, 'Fundo salvo');
     assert.equal(ui.controls.Data_ATA.value, '02/01/2026');
@@ -75,8 +77,9 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(ui.contractor.textContent, '529.982.247-25');
     assert.equal(ui.total.value, '1.234,5678');
     assert.equal(ui.headingTotal.value, '1.234,5678');
-    assert.equal(ui.products.children[0].children[2].textContent, '<Produto salvo>');
-    assert.equal(ui.products.children[0].children[4].textContent, '0,0001');
+    assert.equal(ui.products.children[0].children[2].children[0].textContent, '<Produto salvo>');
+    assert.equal(ui.products.children[0].children[2].children[0].className, 'ata-product-cell-content');
+    assert.equal(ui.products.children[0].children[4].children[0].textContent, '0,0001');
     assert.equal(ui.form.dataset.ataSnapshot, 'true');
     assert.equal(ui.events.at(-1).type, 'ata-loaded');
     assert.equal(ui.events.at(-1).detail.participants[0].FUNDO, 'Participante salvo');
@@ -96,13 +99,13 @@ test('editing the number aborts pending requests and late responses cannot repla
     await first;
     assert.equal(pending[0].options.signal.aborted, true);
     assert.equal(ui.number.value, '002/2026');
-    assert.equal(ui.productsTitle.textContent, 'Cadastro de produtos da ATA 002/2026');
+    assert.equal(ui.productsTitle.textContent, '002/2026');
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, 'Fornecedor 2');
     ui.number.value = '';
     ui.number.listeners.input();
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, '');
     assert.equal(ui.products.children.length, 0);
-    assert.equal(ui.productsTitle.textContent, 'Cadastro de produtos da ATA');
+    assert.equal(ui.productsTitle.textContent, '');
     assert.equal(ui.total.value, '0,0000');
     assert.equal(ui.form.dataset.ataSnapshot, '');
     assert.equal(ui.fundHeading.textContent, 'FUNDO GERENCIADOR');

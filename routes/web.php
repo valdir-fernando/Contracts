@@ -59,6 +59,8 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/atas/create', [AtaController::class, 'create'])->name('atas.create');
     Route::post('/atas', [AtaController::class, 'store'])->middleware('throttle:30,1')->name('atas.store');
     Route::get('/atas/{ata}/products/item-lookup', [AtaController::class, 'productLookup'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.products.item-lookup');
+    Route::get('/atas/{ata}/products/catalog', [AtaController::class, 'productList'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.products.catalog');
+    Route::post('/atas/{ata}/products', [AtaController::class, 'saveProduct'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.products.store');
     Route::post('/atas/{ata}/participants', [AtaController::class, 'addSavedParticipant'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.saved-participants.store');
     Route::delete('/atas/{ata}/participants/{participant}', [AtaController::class, 'removeSavedParticipant'])->whereNumber('ata')->whereNumber('participant')->middleware('throttle:60,1')->name('atas.saved-participants.destroy');
     Route::get('/atas/lookup', [AtaController::class, 'lookup'])->middleware('throttle:60,1')->name('atas.lookup');

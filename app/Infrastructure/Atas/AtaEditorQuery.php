@@ -60,19 +60,27 @@ final class AtaEditorQuery
                 'Tipo_Fundo' => $row->papel === 'gerenciador' ? 'Gerenciador' : 'Participante',
             ])->all();
         $total = '0.0000';
-        $products = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ata->ID)->whereNull('deleted_at')->orderBy('ID')
-            ->get(['ITEM', 'DISCRIMINACAO', 'MARCA', 'UND', 'QTD', 'VL_UNIT', 'VL_TOTAL'])->map(function ($row) use (&$total) {
+        $products = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ata->ID)
+            ->where('ADITIVO', 0)->whereNull('ID_ADITIVO')->whereNull('deleted_at')->orderBy('ID')
+            ->get(['ITEM', 'COD_PROD', 'FICHA', 'DISCRIMINACAO', 'MARCA', 'UND', 'QTD', 'VL_UNIT', 'VL_TOTAL'])->map(function ($row) use (&$total) {
                 $amount = DecimalAmount::normalize((string) $row->VL_TOTAL);
                 $total = bcadd($total, $amount, 4);
 
-                return ['item' => $row->ITEM, 'description' => $row->DISCRIMINACAO, 'brand' => $row->MARCA, 'unit' => $row->UND,
+                return ['item' => $row->ITEM, 'code' => $row->COD_PROD, 'ficha' => $row->FICHA, 'description' => $row->DISCRIMINACAO, 'brand' => $row->MARCA, 'unit' => $row->UND,
                     'quantity' => DecimalAmount::normalize((string) $row->QTD), 'unit_price' => DecimalAmount::normalize((string) $row->VL_UNIT), 'total' => $amount];
             })->all();
 
         $actor = $this->actors->current($expected);
         abort_unless($actor->isAdmin() || $this->funds->allows($actor, (int) $ata->fund_id), 404);
 
-        return ['id' => $ata->ID, 'number' => $ata->ATA, 'version' => $ata->version,
+        $ambiguousFicha = DB::table('tb_ATA')->where('ATA', $ata->ATA)->where('PROCESSO', $ata->PROCESSO)
+            ->where('ID', '<>', $ata->ID)->exists();
+        $fichaTotals = $ambiguousFicha ? [] : DB::table('tb_ValorFicha_ATA')->where('ATA', $ata->ATA)->where('Processo', $ata->PROCESSO)
+            ->orderBy('Ficha')->get(['Ficha', 'VALOR'])->map(fn ($row) => ['ficha' => $row->Ficha, 'total' => (string) $row->VALOR])->all();
+        $actor = $this->actors->current($expected);
+        abort_unless($actor->isAdmin() || $this->funds->allows($actor, (int) $ata->fund_id), 404);
+
+        return ['id' => $ata->ID, 'number' => $ata->ATA, 'version' => $ata->version, 'ficha_totals' => $fichaTotals,
             'managing_fund_id' => $ata->fund_id === null ? 'saved-'.$ata->ID : (string) $ata->fund_id, 'managing_fund_name' => $ata->FUNDO,
             'process' => $ata->PROCESSO, 'date' => $ata->DATA_ATA, 'bidding' => $ata->LICITACAO, 'bidding_number' => $ata->N_LICIT,
             'contractor' => $contractor, 'supplier' => $supplier, 'participants' => $participants, 'products' => $products, 'total' => $total];

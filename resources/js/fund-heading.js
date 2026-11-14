@@ -8,10 +8,12 @@ export function initializeFundHeading(heading) {
         const size = parseFloat(style.fontSize);
         context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
         const width = context.measureText(heading.textContent.trim()).width;
-        const available = heading.parentElement.clientWidth;
+        const parentStyle = getComputedStyle(heading.parentElement);
+        const available = heading.parentElement.clientWidth - parseFloat(parentStyle.paddingLeft || '0') - parseFloat(parentStyle.paddingRight || '0');
         if (width > available && available > 0) heading.style.fontSize = `${size * available / width}px`;
     };
     new ResizeObserver(fit).observe(heading.parentElement);
+    new MutationObserver(fit).observe(heading, { childList: true, characterData: true, subtree: true });
     document.fonts.ready.then(fit);
     fit();
 }

@@ -9,7 +9,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
     let sequence = 0;
     const supplierForm = root.querySelector('[data-ata-supplier-form]');
     const fundHeading = root.ownerDocument.querySelector('[data-ata-managing-fund-heading]');
-    const productsTitle = root.querySelector('#ata-products-title');
+    const productsTitle = root.querySelector('[data-ata-products-number]');
     const productsManagingFund = root.querySelector('[data-ata-products-managing-fund]');
     const field = name => root.querySelector(`[name="${name}"]`);
     const managerSelect = field('managing_fund_id');
@@ -17,7 +17,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
     const notify = (name, detail = {}) => root.dispatchEvent(new CustomEvent(name, { detail }));
     const clear = () => {
         if (fundHeading) fundHeading.textContent = 'FUNDO GERENCIADOR';
-        if (productsTitle) productsTitle.textContent = 'Cadastro de produtos da ATA';
+        if (productsTitle) productsTitle.textContent = '';
         if (productsManagingFund) productsManagingFund.textContent = 'Não informado';
         [...managerSelect.options].forEach(option => {
             if (option.dataset.ataLookupOption) option.remove();
@@ -29,6 +29,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
         root.querySelectorAll('[data-ata-contractor-field]').forEach(output => { output.textContent = ''; });
         root.querySelector('#ata-total').value = '0,0000';
         root.querySelectorAll('[data-product-heading-total], [data-product-contract-total], [data-product-line-total]').forEach(input => { input.value = '0,0000'; });
+        root.querySelector('[data-product-line-total]').value = '0,00';
         root.querySelector('[data-contract-product-list]').replaceChildren();
         root.dataset.ataLoaded = '';
         supplierForm.dataset.ataSnapshot = '';
@@ -56,7 +57,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
             if (current !== sequence || attempt.signal.aborted || number.value.trim() !== requested) return;
             if (!response.ok) throw new Error(Object.values(data.errors ?? {}).flat().join(' ') || data.message || 'Não foi possível consultar a ata.');
             number.value = data.number;
-            if (productsTitle) productsTitle.textContent = `Cadastro de produtos da ATA ${data.number}`;
+            if (productsTitle) productsTitle.textContent = data.number;
             if (fundHeading) fundHeading.textContent = data.managing_fund_name || 'FUNDO GERENCIADOR';
             if (productsManagingFund) productsManagingFund.textContent = data.managing_fund_name || 'Não informado';
             const date = field('Data_ATA');
@@ -89,10 +90,13 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
             const products = root.querySelector('[data-contract-product-list]');
             for (const product of data.products) {
                 const row = root.ownerDocument.createElement('tr');
-                [product.item, '', product.description, product.unit, formatDecimalField(product.quantity), product.brand,
-                    formatDecimalField(product.unit_price), formatDecimalField(product.total), '', ''].forEach(value => {
+                [product.item, product.code, product.description, product.unit, formatDecimalField(product.quantity), product.brand,
+                    formatDecimalField(product.unit_price), formatDecimalField(product.total), product.ficha, ''].forEach(value => {
                     const cell = root.ownerDocument.createElement('td');
-                    cell.textContent = value ?? '';
+                    const content = root.ownerDocument.createElement('div');
+                    content.className = 'ata-product-cell-content';
+                    content.textContent = value ?? '';
+                    cell.append(content);
                     row.append(cell);
                 });
                 products.append(row);

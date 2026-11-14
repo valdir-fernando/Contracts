@@ -14,6 +14,27 @@ final class AtaProductLookup
 {
     public function __construct(private LockActor $actors, private SelectedFund $funds) {}
 
+    public function listing(User $expected, int $ataId, array $input): array
+    {
+        $ata = $this->authorizedAta($expected, $ataId);
+        $data = Validator::make($input, ['page' => 'sometimes|integer|min:1|max:1000000'])->validate();
+        $process = trim($ata->PROCESSO);
+        if ($process === '') {
+            throw ValidationException::withMessages(['item' => 'A ata precisa ter um Processo para consultar os produtos.']);
+        }
+        $rows = DB::table('tb_Produtos')->whereRaw('TRIM(Processo) = ?', [$process])
+            ->orderBy('item')->orderBy('id')->paginate(50,
+                ['id', 'item', 'Cod_Prod', 'Discriminacao', 'Marca', 'Unidade', 'QTD', 'VL_Unitario'], 'page', $data['page'] ?? 1);
+        $current = $this->authorizedAta($expected, $ataId);
+        abort_if($current->PROCESSO !== $ata->PROCESSO || $current->fund_id !== $ata->fund_id || $current->version !== $ata->version,
+            409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de buscar os produtos.');
+
+        return ['process' => $process, 'page' => $rows->currentPage(), 'last_page' => $rows->lastPage(),
+            'products' => $rows->map(fn ($row) => ['id' => $row->id, 'item' => $row->item, 'code' => $row->Cod_Prod,
+                'description' => $row->Discriminacao, 'brand' => $row->Marca, 'unit' => $row->Unidade,
+                'remaining' => DecimalAmount::normalize($row->QTD), 'unit_price' => DecimalAmount::normalize($row->VL_Unitario)])->all()];
+    }
+
     public function find(User $expected, int $ataId, array $input): array
     {
         $ata = $this->authorizedAta($expected, $ataId);
@@ -29,7 +50,7 @@ final class AtaProductLookup
         $current = $this->authorizedAta($expected, $ataId);
         abort_if($current->PROCESSO !== $ata->PROCESSO || $current->fund_id !== $ata->fund_id || $current->version !== $ata->version,
             409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de buscar o Item.');
-        abort_if($matches->isEmpty(), 404, 'Nenhum produto encontrado para este Item no Processo da ata.');
+        abort_if($matches->isEmpty(), 404, 'Nenhum produto encontrado para este Item no Processo da Ata.');
         abort_if($matches->count() !== 1, 409, 'Há mais de um produto para este Item e Processo. Revise o catálogo antes de continuar.');
         $row = $matches->first();
         $remaining = DecimalAmount::normalize($row->QTD);

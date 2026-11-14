@@ -44,6 +44,23 @@ class AtaProductLookupTest extends TestCase
         return $this->getJson(route('atas.products.item-lookup', ['ata' => $this->ata] + array_replace(['item' => '001'], $params)));
     }
 
+    public function test_catalog_lists_only_saved_process_with_pagination_and_no_private_fields(): void
+    {
+        for ($item = 1; $item <= 51; $item++) {
+            $this->product(['item' => (string) $item]);
+        }
+        $this->product(['Processo' => 'OUTRO', 'Discriminacao' => 'FORA-DO-PROCESSO']);
+        $this->getJson(route('atas.products.catalog', ['ata' => $this->ata, 'process' => 'OUTRO']))
+            ->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('process', '000123/2025')->assertJsonPath('page', 1)->assertJsonPath('last_page', 2)
+            ->assertJsonCount(50, 'products')->assertJsonMissingPath('products.0.CNPJ_Fornec')
+            ->assertDontSee('FONTE-PRIVADA')->assertDontSee('11222333000181')->assertDontSee('FORA-DO-PROCESSO');
+        $this->getJson(route('atas.products.catalog', ['ata' => $this->ata, 'page' => 2]))->assertOk()->assertJsonCount(1, 'products');
+        $this->actor->update(['user_type' => 'Usuario']);
+        $this->assertThrows(fn () => app(AtaProductLookup::class)->listing($this->actor->fresh(), $this->ata, []), HttpException::class);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_exact_item_and_saved_process_fill_explicit_fields_without_supplier_filter_or_writes(): void
     {
         $id = $this->product();

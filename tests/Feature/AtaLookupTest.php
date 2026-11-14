@@ -58,6 +58,22 @@ class AtaLookupTest extends TestCase
         $this->assertDatabaseCount('tb_Participantes', 0);
     }
 
+    public function test_lookup_only_includes_original_active_products_in_list_and_total(): void
+    {
+        $id = $this->ata();
+        $base = ['ID_ATA' => $id, 'ATA' => '001/2026', 'PROCESSO' => 'PROC', 'LICITACAO' => 'PREGAO',
+            'N_LICIT' => '123', 'ITEM' => '1', 'DISCRIMINACAO' => 'Original', 'UND' => 'UN',
+            'QTD' => '1.0000', 'VL_UNIT' => '10.1234', 'VL_TOTAL' => '10.1234', 'source_row' => '{}'];
+        DB::table('tb_PRODUTOS_ATA')->insert($base);
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 1, 'DISCRIMINACAO' => 'Aditivo', 'VL_TOTAL' => '999.0000']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '2', 'deleted_at' => now(), 'VL_TOTAL' => '100.0000']));
+
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()
+            ->assertJsonCount(1, 'products')->assertJsonPath('products.0.description', 'Original')
+            ->assertJsonPath('total', '10.1234');
+        $this->assertDatabaseCount('tb_PRODUTOS_ATA', 3);
+    }
+
     public function test_ambiguous_numbers_never_select_an_arbitrary_ata_and_deleted_rows_are_ignored(): void
     {
         $id = $this->ata();
