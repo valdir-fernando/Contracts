@@ -1,5 +1,7 @@
 # Contracts
 
+**Salvar produto** em Nova ATA grava o item original e acumula seu valor na Ficha da mesma ata/processo, com validação, controle de versão e auditoria na mesma transação. Instalação: migration aditiva `2026_11_13_000004_add_native_ata_product_fields.php`. [Gravação e totais por ficha](docs/architecture.md#gravação-de-produtos-e-totais-por-ficha-da-ata).
+
 Em **Cadastro de produtos da ATA**, informar **Item** consulta `tb_Produtos` pelo **Processo da ata salva** e preenche Código, Marca, UND, Disponível, VL. Unitário e Descrição. [Regras e validação](docs/architecture.md#consulta-de-item-para-produtos-da-ata--13112026).
 
 O botão **Salvar** de **Nova ATA** grava os dados validados, gera o número anual em `tb_N_ATA` e registra a auditoria na mesma transação. Reenvios do mesmo rascunho confirmam a mesma ata. [Persistência e validação](docs/architecture.md#gravação-de-nova-ata--13112026).

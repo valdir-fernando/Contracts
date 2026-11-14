@@ -1,5 +1,84 @@
 # Arquitetura do Contracts
 
+## Diagnóstico completo da suíte — 14/11/2026
+
+A suíte PHP foi executada diretamente, sem o timeout do Composer: `docker compose exec -T app php vendor/bin/phpunit --do-not-cache-result --colors=never --log-junit=build/suite-diagnosis-20261113/phpunit.xml`. O nome do diretório preserva a data usada no início da investigação. Todos os testes de banco usaram a configuração forçada de `phpunit.xml`: SQLite em memória e storage/cache temporários de `tests/bootstrap.php`. Não houve teste ou restauração no banco operacional.
+
+| Verificação | Resultado |
+| --- | --- |
+| PHPUnit completo | 1.096 testes: 1.080 aprovados, 15 falhas, 1 ignorado; 10.649 asserções; 7min29,583s; 215,50 MB |
+| Architecture, incluída no PHPUnit completo | 3 testes aprovados |
+| Unit, incluída no PHPUnit completo | 86 testes aprovados |
+| Feature, incluída no PHPUnit completo | 1.006 testes: 991 aprovados e 15 falhas |
+| Concurrency | 1 ignorado: exige MySQL explicitamente descartável e isolado; não executado no banco local |
+| `docker compose run --rm --no-deps node npm test` | 205 testes: 203 aprovados e 2 falhas |
+| `docker compose exec -T app composer check:static` | Sem erros; análise de Domain/Application configurada no PHPStan |
+| `docker compose exec -T app vendor/bin/pint --test` | 460 arquivos aprovados |
+| `docker compose run --rm --no-deps node npm run build` | Aprovado |
+| `powershell -NoProfile -ExecutionPolicy Bypass -File tests/Operations/test-portable-backup.ps1` | Aprovado; quatro cenários sintéticos, sem Docker/banco |
+| `docker compose exec -T app python3 tests/Operations/test_backup_verification.py` | 3 testes: 1 aprovado e 2 falhas; Docker simulado |
+
+O limite de 300 segundos pertence ao processo iniciado pelo Composer, não à utilização do sistema. A execução completa consumiu cerca de 449 segundos, portanto esse limite é insuficiente neste ambiente. O teste mais lento foi `ReportScaleTest::test_export_totals_and_rows_for_zero_one_one_hundred_and_legacy_scale` (32,166s), que valida CSV, Excel e PDF com até 2.145 contratos sintéticos. A análise de tempos não indica um único teste travado; o tempo é acumulado por toda a suíte. Para validação completa, executar PHPUnit diretamente ou configurar timeout apenas para o comando de validação, sem enfraquecer as asserções.
+
+Foi extraído um snapshot de `HEAD` (`fa325f1`) com `git archive`, sem trocar a árvore de trabalho. Seus 86 testes unitários passaram. Os mesmos 15 testes PHP problemáticos foram reexecutados em um container separado com código do snapshot, vendor montado somente para leitura e SQLite em memória: 14 falharam também no GitHub; somente o teste de apresentação da Nova ATA passou no snapshot e falhou localmente. Não foram alterados arquivos de código ou testes para fazer a comparação.
+
+As 15 falhas PHP, com a primeira asserção que interrompe cada teste:
+
+| Teste e asserção | Diagnóstico | Origem confirmada |
+| --- | --- | --- |
+| `AtasOverviewTest::test_new_ata_products_is_disabled_until_an_ata_is_saved_or_loaded`, linha 82 | Espera “Cadastro de produtos”; o cabeçalho foi alterado por solicitação para “PRODUTOS”. As demais expectativas de posição dos controles e modo manual desse teste também precisam acompanhar o layout solicitado, preservando a validação de bloqueio antes de carregar a ata. | Alterações locais |
+| `ContractAmendmentsTest::test_contract_summary_embeds_paginated_amendments_with_actions_and_contract_scope`, linha 96 | Espera “Excluir contrato” na ordem antiga da tela de detalhes; o bloco não é renderizado por `contracts/show.blade.php`. | Reproduzida em HEAD |
+| `ContractAttachmentsTest::test_private_upload_download_audit_and_current_scope`, linha 59 | O upload inicial passa, mas a tela não apresenta “Instrumento assinado”. A falha ocorre antes das asserções posteriores de download e escopo desse teste. | Reproduzida em HEAD |
+| `ContractBrowsingTest::test_contract_information_panel_shows_saved_updated_values`, linha 76 | Espera a sequência de detalhes/aditivos/“Excluir contrato” da apresentação anterior. | Reproduzida em HEAD |
+| `ContractBrowsingTest::test_detail_renders_all_fields_masks_personal_documents_and_escapes_source_text`, linha 686 | Espera “Data inválida na origem.” no detalhamento completo que a view resumida não apresenta. | Reproduzida em HEAD |
+| `ContractIssuancePermissionTest::test_user_needs_explicit_issuance_permission_for_creation_and_documents_but_can_consult`, linha 82 | As proibições iniciais sem permissão passam; após conceder permissão, espera “Exportar resumo PDF”, ausente na view atual. | Reproduzida em HEAD |
+| `ContractWritingTest::test_save_confirmation_renders_with_maintenance_audit_metadata`, linha 112 | Espera “Histórico de alterações”, não renderizado na view resumida. | Reproduzida em HEAD |
+| `ContractWritingTest::test_accumulated_footer_requires_a_saved_contract_and_registered_nonzero_amendment`, linha 135 | Espera HTML e `value="R$ 12.345,67"`; o input atual tem `data-money` e decimal bruto com quatro casas para formatação no navegador. | Reproduzida em HEAD |
+| `ContractWritingTest::test_editor_action_toolbar_respects_persistence_and_delete_permission`, linha 426 | Espera `id="delete-contract"` na tela de detalhes; há link para esse destino no formulário, mas o destino não é renderizado na view de detalhes. | Reproduzida em HEAD |
+| `ContractWritingTest::test_financial_panel_displays_readonly_totals_and_allows_creation_before_item_totals`, linha 501 | Espera texto HTML “R$ 125,00”, mas recebe `125.0000` em elemento `data-money`; o teste PHP não executa o formatador JavaScript. | Reproduzida em HEAD |
+| `ContractWritingTest::test_heading_shows_generated_number_after_save_and_supplier_and_instructions_are_positioned`, linha 958 | Espera “Rua do fornecedor” no detalhamento completo que não é renderizado na view resumida. | Reproduzida em HEAD |
+| `ContractWritingTest::test_create_renders_sections_and_persists_native_contract_and_audit`, linha 1025 | Espera “Histórico de alterações” após cadastrar o contrato; a view atual não renderiza esse bloco. | Reproduzida em HEAD |
+| `HistoricalAmendmentImportTest::test_imported_amendment_is_visible_and_masked_but_cannot_be_edited_by_regular_users`, linha 146 | O fixture cria `VL_ADT=1234.5678`, e a lista mostra corretamente “R$ 1.234,57”; a asserção espera “R$ 999,00”, que é o acumulado do contrato do fixture, não o valor do aditivo. | Reproduzida em HEAD |
+| `HistoryAndOperationsTest::test_ambiguous_history_requires_admin_review_and_never_changes_money_or_end_dates`, linha 99 | Conciliação, bloqueio de usuário comum e preservação de valor/vigência passam antes de falhar ao procurar “Texto preservado”; a view resumida não apresenta o histórico. | Reproduzida em HEAD |
+| `SelectedFundTest::test_editing_a_contract_preserves_its_existing_manager`, linha 147 | O gestor histórico é encontrado; falha porque proíbe o rótulo “Gestor do Fundo”, hoje mostrado em campo somente para leitura do catálogo. A falha não demonstra substituição do gestor histórico. | Reproduzida em HEAD |
+
+Dez falhas se concentram na divergência entre a view resumida `resources/views/contracts/show.blade.php` e as expectativas de detalhamento, documentos, histórico ou ações. O controller ainda consulta anexos, histórico e auditorias que essa view não utiliza. A correção exige confirmar o caminho funcional para essas informações: restaurar os blocos/ações necessários ou atualizar as expectativas para a navegação vigente, mantendo testes próprios de autorização, mascaramento e persistência. Não basta remover as asserções que falham. Nos testes com várias etapas, a primeira falha impede a execução das verificações posteriores.
+
+JavaScript: a execução do snapshot completo de recursos de HEAD teve 193 testes, com 192 aprovados e uma falha. A comparação usou código e testes do mesmo commit, incluindo os arquivos de Blade e CSS lidos por alguns testes. Os resultados locais são:
+
+| Teste | Causa e evidência | Origem |
+| --- | --- | --- |
+| `dfd-product-filter.test.mjs:34` | `window is not defined` ao chamar `window.alert` em `dfd-product-filter.js:180`. Em prova controlada, com `window.alert` simulado sem editar arquivos, aparece uma segunda divergência na linha 92: o código limpa `appliedQuery` quando a pesquisa não encontra produto, enquanto o teste espera manter o filtro após desmarcar a seleção. É necessário simular a API e alinhar a regra de pesquisa inexistente com o requisito. | Também falha em HEAD |
+| `fund-heading.test.mjs:5` | `MutationObserver is not defined` em `fund-heading.js:16`. O teste já simula DOM, fontes e ResizeObserver, mas não o novo observador de texto. Com MutationObserver simulado por preload, as asserções existentes passam. É uma lacuna introduzida no teste pela alteração local de ajuste de fonte; isso não demonstra falha dessa API no navegador. A correção deve também testar o ajuste quando o texto muda. | Alterações locais |
+
+Operação de backup Linux: `scripts/verify-backup.sh:20` e `:58` chamam `TarFile.extractall(..., filter='data')`. O Python 3.11.2 instalado neste container expõe a assinatura `(self, path='.', members=None, *, numeric_owner=False)`, sem `filter`. Assim, o pacote válido é recusado antes do Docker simulado, e o teste de limpeza não encontra a chamada `docker rm` porque nenhum container chegou a ser criado. As duas falhas têm essa mesma causa de compatibilidade. O terceiro teste, de rejeição de traversal, passa por retorno não zero, mas neste runtime esse resultado também pode decorrer da incompatibilidade; não prova que o arquivo malicioso foi especificamente identificado. É necessário usar um runtime com extração segura compatível e repetir os testes, preservando a proteção contra caminhos externos. O script e seus testes não têm alterações locais em relação a HEAD.
+
+Prioridades recomendadas: primeiro reconciliar os caminhos de documentos/histórico/exclusão da tela de detalhes sem perder cobertura de segurança; depois alinhar os testes ao layout solicitado da ATA, à formatação monetária e ao fixture do aditivo; corrigir as simulações JavaScript e confirmar a regra da pesquisa DFD; ajustar o ambiente Python e a execução longa do PHPUnit. Os 10 testes de `SaveAtaProductTest` passaram na suíte completa. Nenhuma correção de código ou teste foi aplicada durante este diagnóstico.
+
+Evidências completas em `build/suite-diagnosis-20261113/`: `phpunit.log`, `phpunit.xml`, `phpunit-baseline.log`, `phpunit-baseline.xml`, `php-failures-compared.json` e `javascript-baseline-complete.log`. A execução JavaScript local está em `build/suite-diagnosis-javascript-20261113.log`. As primeiras tentativas de baseline JS com recursos incompletos foram desconsideradas e substituídas pela comparação completa. Não houve ensaio visual autenticado, execução dos scripts de navegador dependentes de credenciais, MySQL de concorrência ou commit.
+
+## Gravação de produtos e totais por ficha da ATA
+
+`POST /atas/{ata}/products` (`atas.products.store`) usa `Infrastructure/Atas/SaveAtaProduct`. Dentro de uma transação, bloqueia/revalida primeiro o ator e depois a ata ativa, verifica acesso ao Fundo atual da sessão e policy de escrita da ata, valida campos e versão, grava o produto original, cria ou acumula a ficha e registra auditoria inseparável. A versão da ata aumenta uma vez. Não retorna snapshots ou modelos internos. Versão antiga retorna 409 sem dados atuais, e repetição de Item ativo é recusada sem duplicar valores. Item original excluído logicamente pode ser reativado com seu estado anterior integralmente auditado; aditivos permanecem intactos.
+
+Ficha, Item, Código, UND, QTD, VL. Unitário e Descrição são obrigatórios. QTD deve ser positiva; preços não podem ser negativos. Decimais usam strings e BCMath, com limite de decimal(18,4). O servidor calcula QTD × preço e trunca para as duas a quatro casas solicitadas; ignora totais e identificações da ata/processo enviados pelo cliente. Fora do modo manual, consulta novamente o catálogo pelo processo persistido e Item, exige correspondência única, usa os campos canônicos e recusa QTD superior ao Disponível. O catálogo não é debitado nesta operação.
+
+A migration aditiva `2026_11_13_000004_add_native_ata_product_fields.php` acrescenta `COD_PROD` e `FICHA` opcionais a `tb_PRODUTOS_ATA`, preservando registros históricos. A ficha é identificada por `ATA`, `Processo` e `Ficha` em `tb_ValorFicha_ATA`: primeira gravação cria a linha; produtos posteriores somam `VL_TOTAL` ao `VALOR` existente. O lock da ata serializa essa operação, inclusive a criação da primeira ficha; duplicidades históricas de ficha ou identificação de ata/processo são recusadas para evitar atualização ambígua entre Fundos. Na leitura, fichas com identificação ambígua não são expostas.
+
+A interface mantém a Ficha digitada, bloqueia cliques concorrentes, apresenta erros na janela padrão e recarrega a ata após o sucesso, atualizando produtos, códigos, fichas, totais, versão e quadro por ficha. As consultas de produtos originais continuam excluindo os aditivos. O botão de Salvar produto fica disponível somente para ata carregada e fora de operações pendentes; o servidor reautoriza toda gravação.
+
+Validação específica executada: `SaveAtaProductTest` passou (10 testes, 88 asserções, SQLite em memória e storage temporário); `AtaLookupTest` e `AtaProductLookupTest` também passaram (12 testes, 90 asserções). JavaScript de consulta, produtos e gravação passou (22 testes). `composer check:architecture` passou (3 testes, 4 asserções), `composer test:unit` passou (86 testes, 210 asserções), Pint dos PHP alterados, `php artisan view:cache`, `npm run build` e `git diff --check` passaram. Migration aditiva aplicada no MySQL local; rotas confirmadas por `route:list --name=atas.products`. Sem teste de escrita no banco operacional, sem ensaio visual autenticado e sem commit.
+
+`composer check` também foi executado: Pint geral passou (460 arquivos), mas PHPUnit sinalizou falhas e atingiu o timeout de 300 segundos antes de produzir o resumo dos 1.096 testes. Não se declara aprovação da suíte geral nem se atribuem essas falhas à nova gravação sem diagnóstico individual. Log local preservado em `build/ata-product-save-composer-check-20261113.log`.
+
+## Lista de produtos do processo no editor de ATA
+
+A lupa de Item consulta o item preenchido; vazia, abre o catálogo do processo da ata salva. `GET /atas/{ata}/products/catalog` autoriza a ata, deriva o processo no servidor e retorna projeção explícita sem fornecedor ou fontes privadas, paginada em 50 registros e com `private, no-store`. Revalida ator, acesso, versão e processo após a leitura. Selecionar um registro consulta novamente o item; ambiguidades continuam recusadas. A janela descarta respostas antigas e fecha ao trocar de ata. Validação: `AtaProductLookupTest` (7 testes, 47 asserções, SQLite em memória), Architecture, Pint, compilação Blade e build aprovados; sem escrita no banco operacional.
+
+## Produtos originais no editor de ATA
+
+A consulta `GET /atas/lookup` carrega apenas produtos ativos com `ADITIVO = 0` e `ID_ADITIVO` nulo. O total retornado soma somente os produtos originais. Os produtos dos aditivos permanecem no banco; os relatórios mantêm seus critérios próprios. Esta regra substitui a inclusão de aditivos no editor descrita no histórico abaixo. Validação: `AtaLookupTest` passou (5 testes, 43 asserções, SQLite em memória), assim como Architecture (3 testes, 4 asserções) e Pint dos dois arquivos PHP alterados. Sem testes no banco operacional.
+
 ## Verificação antes dos commits e push — 13/11/2026
 
 Por solicitação do usuário, as alterações foram organizadas em correção do envio de fornecedor, funcionalidades de atas/participantes/produtos e documentação. Referências locais não rastreadas, `build/`, dependências, configurações privadas, backups e assets compilados ficaram fora dos commits. O fetch anterior confirmou `main` e `origin/main` em `3d30f46` antes dos commits; não foi necessário reaplicar alterações locais por pull.
