@@ -3,6 +3,9 @@
 @source "../js";
 @source "../../app/Livewire";
 
+.ata-product-row { cursor: pointer; }
+.ata-product-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
 .nav-catalogs > summary { cursor: pointer; list-style: none; }
 .nav-catalogs > summary::-webkit-details-marker { display: none; }
 .nav-catalogs > summary::after { content: '›'; margin-left: auto; }
@@ -436,6 +439,12 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .ata-product-process-budget { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ata-product-process { margin-left: auto; text-align: right; overflow-wrap: anywhere; }
 .ata-product-process-budget .ata-product-heading-actions { margin: 0 0 0 auto; }
+.ata-product-document-actions { display: inline-flex; align-items: center; gap: 8px; }
+#ata-products-dialog .ata-product-document-actions .document-action, #ata-summary-document-actions .document-action { background-color: #002395; border-color: #002395; color: #fff; }
+#ata-products-dialog .ata-product-document-actions .document-action:is(:hover, :focus-visible):not(:disabled), #ata-summary-document-actions .document-action:is(:hover, :focus-visible):not(:disabled) { background-color: #001b45; border-color: #001b45; color: #fff; }
+.ata-summary-number-field { justify-items: end; }
+.ata-summary-number-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.ata-summary-number-actions .contract-number-control { flex: 0 1 18rem; min-width: 140px; }
 .contract-products-panel .ata-product-process-budget label { display: flex; align-items: center; gap: 8px; }
 .contract-products-preview .product-entry-main { display: flex; flex-direction: column; }
 .contract-products-preview .product-entry-layout { grid-template-columns: minmax(0, 1fr); }
@@ -507,6 +516,16 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 #ata-products-title .ata-products-reference { font-size: 14px; }
 #ata-products-title .ata-products-reference-value { font-weight: 400; }
 .ata-total-label { display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+.ata-product-quantity-field { display: grid; align-content: start; gap: 3px; min-width: 0; }
+.ata-quantity-pricing { grid-column: span 2; display: grid; align-items: end; grid-template-columns: minmax(0, .8fr) minmax(0, .9fr); gap: 6px; min-width: 0; }
+.ata-quantity-pricing.has-special-quantity { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.contract-products-panel .ata-quantity-pricing [hidden] { display: none; }
+.ata-quantity-pricing.has-special-quantity .ata-product-quantity-label { flex-wrap: wrap; gap: 0 4px; }
+.ata-quantity-pricing.has-special-quantity .ata-special-quantity-link { margin-left: auto; }
+.ata-quantity-pricing label > span { overflow-wrap: anywhere; }
+.ata-product-quantity-label { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+.ata-special-quantity-link { border: 0; padding: 0; background: transparent; color: #002395; font: inherit; font-size: 10px; line-height: inherit; text-decoration: underline; white-space: nowrap; }
+.ata-special-quantity-link:hover, .ata-special-quantity-link:focus-visible { color: #001b45; }
 .ata-total-label button { display: inline-grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 1px solid #cbd5e1; border-radius: 3px; background: #f7f8fb; color: #26364b; font-size: 12px; line-height: 1; }
 .ata-total-label button:disabled { opacity: .4; }
 #ata-products-dialog .product-title-supplier .contract-heading-supplier { white-space: nowrap; overflow-wrap: normal; }
@@ -528,7 +547,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .product-budget-row > label:first-child { width: 100%; max-width: 100%; }
 .product-entry-fields { display: grid; grid-template-columns: var(--product-item-search-width) calc(7ch + 14px) minmax(0, 1fr) minmax(45px, .6fr) minmax(75px, .8fr) minmax(55px, .6fr) minmax(85px, .9fr) minmax(85px, 1fr); gap: 6px; margin-top: 10px; }
 @media (min-width: 901px) {
-    #ata-products-dialog .product-entry-fields { grid-template-columns: calc(5ch + 38px) calc(7ch + 14px) minmax(0, 1fr) minmax(45px, .6fr) minmax(75px, .8fr) minmax(75px, .8fr) minmax(85px, .9fr) minmax(85px, 1fr); }
+    #ata-products-dialog .product-entry-fields { grid-template-columns: calc(5ch + 38px) calc(7ch + 14px) minmax(0, 1fr) minmax(45px, .6fr) minmax(75px, .8fr) minmax(110px, .8fr) minmax(85px, .9fr) minmax(85px, 1fr); }
 }
 .product-item-search { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: end; gap: 6px; min-width: 0; }
 .product-item-search-button { display: grid; place-items: center; width: 32px; height: var(--contract-single-line-height, 35px); padding: 6px; border: 1px solid var(--border); border-radius: 6px; background: #163b65; color: #7dbbff; }
@@ -567,6 +586,11 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .product-contract-list .data-table :is(th, td):is(:nth-child(1), :nth-child(2), :nth-child(4), :nth-child(5)) { text-align: center; }
 .product-contract-list .data-table :is(th, td):nth-child(9) { width: 80px; text-align: center; }
 .product-contract-list .data-table :is(th, td):nth-child(10) { width: 72px; padding-inline: 4px; text-align: center; }
+#ata-products-dialog .product-contract-list .data-table :is(th, td):nth-child(6) { width: 86px; text-align: center; }
+#ata-products-dialog .product-contract-list .data-table :is(th, td):nth-child(7) { width: 120px; text-align: left; }
+#ata-products-dialog .product-contract-list .data-table :is(th, td):is(:nth-child(8), :nth-child(9)) { width: 100px; text-align: right; }
+#ata-products-dialog .product-contract-list .data-table [hidden] { display: none; }
+#ata-products-dialog [data-ata-product-select] { width: auto; margin: 0; vertical-align: middle; }
 .product-contract-list .data-table td { font-size: 11px; }
 .product-panel-total { display: flex; justify-content: flex-end; margin-top: 10px; }
 .product-panel-total input { text-align: right; font-weight: 650; }
@@ -629,8 +653,16 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-editor { container-type: inline-size; --ata-process-width: calc((100cqw - 7 * clamp(3px, .5vw, 8px)) / 8 - var(--panel-padding) - 1px); }
 .ata-process-fields { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, var(--ata-process-width)) minmax(0, calc((100% - 48px) * .1458333333)) minmax(0, calc((100% - 48px) * .1)) minmax(0, calc((100% - 48px) * .4666666667)); width: 100%; gap: 10px 24px; }
 .ata-process-fields > .field { margin-bottom: 0; }
-.field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, calc(var(--ata-process-width) + (100% - 48px) * .2458333333 + 48px)) minmax(0, 180px); }
-@media (max-width: 900px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 180px); } }
+.ata-validity-fields { display: grid; grid-template-columns: minmax(140px, var(--ata-process-width)) minmax(140px, var(--ata-process-width)) minmax(0, 1fr); gap: 10px 24px; margin-top: 10px; }
+.ata-validity-heading, .ata-validity-period-control { display: flex; align-items: center; gap: 10px; }
+.ata-validity-heading { justify-content: space-between; flex-wrap: wrap; }
+.ata-validity-heading .ata-validity-option { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; margin: 0; }
+.ata-validity-option input { width: auto; margin: 0; }
+.ata-validity-period-control input { min-width: 0; flex: 1; }
+.ata-validity-period-control button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ata-validity-period-control button svg { width: 16px; height: 16px; }
+@media (max-width: 650px) { .ata-validity-fields { grid-template-columns: minmax(0, 1fr); } }
+.field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 180px) minmax(0, 210px); }
 @media (max-width: 650px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) { .ata-process-fields { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); } .ata-process-fields > .field:last-child { grid-column: 1 / -1; } }
 @media (max-width: 650px) { .ata-process-fields { grid-template-columns: minmax(0, 1fr); } }

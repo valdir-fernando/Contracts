@@ -74,6 +74,17 @@ class AtaLookupTest extends TestCase
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 3);
     }
 
+    public function test_lookup_preserves_unknown_admission_on_existing_atas_and_returns_explicit_choices(): void
+    {
+        $id = $this->ata();
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()->assertJsonPath('admitir_adesao', null);
+        foreach (['SIM', 'NAO'] as $value) {
+            DB::table('tb_ATA')->where('ID', $id)->update(['ADMITIR_ADESAO' => $value]);
+            $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()->assertJsonPath('admitir_adesao', $value);
+        }
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_ambiguous_numbers_never_select_an_arbitrary_ata_and_deleted_rows_are_ignored(): void
     {
         $id = $this->ata();

@@ -12,12 +12,16 @@ test('products opens a modal with the current supplier and closes without changi
     const supplier = { value: 'Fornecedor <Teste>' };
     const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
     const heading = { textContent: '' };
+    const ticks = [], dispatched = [];
     const context = { $refs: { ataProducts: dialog, ataProductsSupplier: heading },
-        $root: { querySelector: () => supplier } };
+        $root: { querySelector: () => supplier }, $nextTick: callback => ticks.push(callback), $dispatch: name => dispatched.push(name) };
 
     runInNewContext(open, context);
     assert.equal(dialog.open, true);
     assert.equal(heading.textContent, supplier.value);
+    assert.deepEqual(dispatched, []);
+    ticks.shift()();
+    assert.deepEqual(dispatched, ['ata-products-opened']);
     runInNewContext(close, context);
     assert.equal(dialog.open, false);
     assert.equal(supplier.value, 'Fornecedor <Teste>');

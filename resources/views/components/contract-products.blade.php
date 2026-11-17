@@ -53,9 +53,15 @@
                     @endunless
                     @if($preview)
                     <span class="product-entry-actions action-toolbar ata-product-heading-actions">
+                        <span class="ata-product-document-actions" role="group" aria-label="Documentos da ATA">
+                            <button type="button" class="section-tab document-action" data-ata-document="ata" :disabled="!loaded || busy"><x-nav-icon name="contracts"/>ATA</button>
+                            <button type="button" class="section-tab document-action" data-ata-document="extract" data-ata-extract-url="{{ route('atas.extract', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="document-extract"/>EXTRATO</button>
+                            <button type="button" class="section-tab document-action" data-ata-document="publication" :disabled="!loaded || busy"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
+                        </span>
+                        <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
                         <button type="button" class="section-tab" data-products-save data-ata-product-save-url="{{ route('atas.products.store', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="save"/>Salvar produto</button>
                         <button type="button" class="section-tab" data-products-new :disabled="!loaded || busy"><x-nav-icon name="plus"/>Novo Produto</button>
-                        <button type="button" class="section-tab" data-products-delete disabled><x-nav-icon name="trash"/>Excluir</button>
+                        <button type="button" class="section-tab" data-products-delete data-ata-product-delete-url="{{ route('atas.products.destroy', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="trash"/>Excluir</button>
                     </span>
                     @else
                     <span>Processo: <strong>{{ $contract?->processo ?: 'Não informado' }}</strong></span>
@@ -78,15 +84,34 @@
             @if($preview)<p data-product-feedback role="status" aria-live="polite" data-ata-item-lookup-url="{{ $itemLookupUrl }}"></p>@endif
             <div class="product-entry-fields">
                 <div class="product-item-search">
-                    <label><span>Item<x-required-mark :when="$preview"/></span><input type="text" data-product-field="item" maxlength="100" @required($preview)></label>
+                    <label><span>Item<x-required-mark :when="$preview"/></span><input type="text" data-product-field="item" maxlength="100" @required($preview) @if($preview) autofocus @endif></label>
                     <button type="button" class="product-item-search-button" data-product-item-search aria-label="Buscar item" title="Buscar item"><x-nav-icon name="search"/></button>
                 </div>
                 <label><span>{{ $codeLabel }}</span><input data-product-field="code" maxlength="100" @if($codeLabel !== 'CATSER') readonly @endif></label>
                 <label>Marca<input data-product-field="brand" readonly></label>
                 <label><span>UND<x-required-mark :when="$preview"/></span><input data-product-field="unit" readonly @required($preview)></label>
                 <label>Disponível<input data-product-field="disp" data-quantity readonly aria-label="Disponibilidade calculada" title="{{ $preview ? 'Saldo disponível do item no processo da ata.' : 'Soma lançada para o Item, fornecedor e processo menos QTD do produto; mínimo zero' }}"></label>
-                <label><span>QTD<x-required-mark :when="$preview"/></span><input data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto" @required($preview) @disabled($preview)></label>
+                @if($preview)
+                    <div class="ata-quantity-pricing" data-ata-quantity-pricing>
+                    <div class="ata-product-quantity-field">
+                        <div class="ata-product-quantity-label">
+                            <label for="ata-product-quantity"><span>QTD<x-required-mark/></span></label>
+                            <button type="button" class="text-link ata-special-quantity-link" data-ata-special-quantity data-ata-special-quantity-url="{{ route('atas.special-quantity.update', ['ata' => 0]) }}" tabindex="-1" title="Para adicionar uma QTD de item diferente da QTD padrão">QTD Especial</button>
+                        </div>
+                        <input id="ata-product-quantity" data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto" required disabled>
+                    </div>
+                    <div class="ata-product-quantity-field" data-ata-special-quantity-field hidden>
+                        <div class="ata-product-quantity-label">
+                            <label for="ata-special-quantity-value"><span data-ata-special-quantity-label></span></label>
+                            <button type="button" class="text-link ata-special-quantity-link" data-ata-special-quantity-delete tabindex="-1" title="Excluir a QTD Especial e seus valores desta ata">Excluir QTD</button>
+                        </div>
+                        <input id="ata-special-quantity-value" data-product-special-quantity data-quantity inputmode="decimal" maxlength="40" aria-label="Quantidade especial" value="0,0000">
+                    </div>
+                @else
+                    <label><span>QTD</span><input data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto"></label>
+                @endif
                 <label><span>VL. Unitário<x-required-mark :when="$preview"/></span><input data-product-field="unit_price" readonly data-money inputmode="decimal" maxlength="40" value="0,0000" @required($preview)></label>
+                @if($preview)</div>@endif
                 <label>@if($preview)<span class="ata-total-label"><button type="button" data-ata-total-more aria-label="Aumentar casas decimais" title="Aumentar casas decimais">+</button><button type="button" data-ata-total-less aria-label="Diminuir casas decimais" title="Diminuir casas decimais">−</button><span>VL. Total<x-required-mark/></span></span>@else VL. Total @endif<input @unless($preview) data-money @endunless data-product-line-total readonly @required($preview) value="{{ $preview ? '0,00' : '0,0000' }}"></label>
                 <div class="product-selected-description">@if($preview)<label for="ata-product-description"><span>Descrição<x-required-mark/></span></label>@endif<textarea @if($preview) id="ata-product-description" required @endif data-product-description readonly aria-readonly="true" aria-label="Produto selecionado" rows="{{ $preview ? 3 : 1 }}" maxlength="5000"></textarea></div>
             </div>
@@ -112,7 +137,11 @@
     <div class="product-panel-total"><label>Total da Ficha<input data-money data-product-contract-total readonly aria-readonly="true" value="0,0000"></label></div>
     </div>
     @endunless
-    <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>{{ $codeLabel }}</th><th>Produto</th><th>UND</th><th>QTD</th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th>@unless($preview)<th>Ficha</th>@endunless<th>Ação</th></tr></thead><tbody data-contract-product-list></tbody></table></div>
+    <div class="product-list-scroll product-contract-list"><table class="data-table"><thead><tr><th>Item</th><th>{{ $codeLabel }}</th><th>Produto</th><th>UND</th><th>QTD</th>@if($preview)<th data-ata-special-quantity-heading hidden></th>@endif<th>Marca</th><th>VL. Unitário</th><th>VL. Total</th>@unless($preview)<th>Ficha</th>@endunless@if($preview)
+<th aria-label="Selecionar produtos para exclusão"></th>
+@else
+<th>Ação</th>
+@endif</tr></thead><tbody data-contract-product-list></tbody></table></div>
     <div class="product-contract-values">
         <label>Valor Total {{ $documentLabel === 'ATA' ? 'da ATA' : 'do Contrato' }}<input data-money data-product-heading-total readonly aria-readonly="true" value="{{ $contract?->valor_total ?? '0,0000' }}"></label>
         @if($showAccumulatedValue)

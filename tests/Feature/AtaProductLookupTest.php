@@ -86,7 +86,7 @@ class AtaProductLookupTest extends TestCase
         $this->lookup(['item' => '999'])->assertNotFound();
     }
 
-    public function test_remaining_subtracts_active_quantities_by_exact_item_and_process_and_clamps_at_zero(): void
+    public function test_remaining_subtracts_only_active_original_quantities_by_exact_item_and_process_and_clamps_at_zero(): void
     {
         $this->product(['QTD' => '10,0001']);
         $base = ['ID_ATA' => $this->ata, 'ATA' => '107/25', 'PROCESSO' => '000123/2025', 'ITEM' => '001',
@@ -97,14 +97,15 @@ class AtaProductLookupTest extends TestCase
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 2, 'QTD' => '100', 'deleted_at' => now()]));
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '1', 'QTD' => '100']));
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '001 ', 'PROCESSO' => 'OUTRO', 'QTD' => '100']));
-        $this->lookup()->assertOk()->assertJsonPath('product.remaining', '5.0001');
-        $this->getJson(route('atas.products.catalog', ['ata' => $this->ata]))->assertOk()->assertJsonPath('products.0.remaining', '5.0001');
+        // The active amendment's quantity does not consume the original limit.
+        $this->lookup()->assertOk()->assertJsonPath('product.remaining', '8.0001');
+        $this->getJson(route('atas.products.catalog', ['ata' => $this->ata]))->assertOk()->assertJsonPath('products.0.remaining', '8.0001');
         $other = DB::table('tb_ATA')->insertGetId(['ATA' => '108/25', 'PROCESSO' => '000123/2025', 'LICITACAO' => 'Pregão',
             'N_LICIT' => '12', 'CNPJ_FUNDO' => '04252011000110', 'source_files' => '[]', 'quality_issues' => '[]', 'import_hash' => str_repeat('b', 64)], 'ID');
         $id = DB::table('tb_PRODUTOS_ATA')->insertGetId(array_replace($base, ['ID_ATA' => $other, 'ATA' => '108/25',
-            'PROCESSO' => ' 000123/2025 ', 'ITEM' => ' 001 ', 'QTD' => '5.0001']), 'ID');
+            'PROCESSO' => ' 000123/2025 ', 'ITEM' => ' 001 ', 'QTD' => '8.0001']), 'ID');
         $this->lookup()->assertOk()->assertJsonPath('product.remaining', '0.0000');
-        DB::table('tb_PRODUTOS_ATA')->where('ID', $id)->update(['QTD' => '6']);
+        DB::table('tb_PRODUTOS_ATA')->where('ID', $id)->update(['QTD' => '9']);
         $this->lookup()->assertOk()->assertJsonPath('product.remaining', '0.0000');
         $this->assertDatabaseCount('activity_events', 0);
     }

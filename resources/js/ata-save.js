@@ -59,6 +59,11 @@ export function initializeAtaSave(root, warn = showSupplierDocumentWarning, fetc
                 draft_token: root.dataset.draftToken,
                 version: Number(button.dataset.version ?? JSON.parse(root.dataset.draftState).version),
                 managing_fund_id: values.managing_fund_id, Data_ATA: isoDate(values.Data_ATA),
+                admitir_adesao: values.admitir_adesao || null,
+                start_date: values.start_date ? isoDate(values.start_date) : null,
+                end_date: values.end_date ? isoDate(values.end_date) : null,
+                validity_period: values.validity_period || null,
+                one_year_inpc: root.querySelector('[name="one_year_inpc"]')?.checked ?? false,
                 ata_process: values.ata_process, bidding: values.bidding, bidding_number: values.bidding_number,
                 fornecedor_documento_snapshot: values.fornecedor_documento_snapshot,
             };

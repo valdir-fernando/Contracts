@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ataMissingFields, initializeAtaSave } from '../../resources/js/ata-save.js';
 
-const complete = () => ({ managing_fund_id: '1', Data_ATA: '2026-11-13', ata_process: '123', bidding: 'Pregão',
+const complete = () => ({ managing_fund_id: '1', Data_ATA: '2026-11-13', admitir_adesao: 'NAO', ata_process: '123', bidding: 'Pregão',
     bidding_number: '12', fornecedor_documento_snapshot: '11.222.333/0001-81', fornecedor_nome_snapshot: 'Fornecedor',
     end_fornec: 'Rua', supplier_email: 'contato@example.test', supplier_mobile: '123', supplier_whatsapp: '',
     socio: 'Representante', cpf_socio: '123', rg_socio: '456' });
@@ -92,6 +92,7 @@ test('complete fields POST only references and process data, then load the issue
     assert.equal(request.options.headers['X-CSRF-TOKEN'], 'token');
     assert.deepEqual(JSON.parse(request.options.body), { draft_token: 'encrypted-draft', version: 3,
         managing_fund_id: '1', Data_ATA: '2026-11-13', ata_process: '123', bidding: 'Pregão', bidding_number: '12',
+        admitir_adesao: 'NAO', start_date: null, end_date: null, validity_period: null, one_year_inpc: false,
         fornecedor_documento_snapshot: '11.222.333/0001-81' });
     assert.deepEqual(panel.events.map(event => event.type), ['ata-saving', 'ata-save-finished', 'ata-saved']);
     assert.equal(panel.events.at(-1).detail.number, '059/26');

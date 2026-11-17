@@ -35,9 +35,11 @@ final class AtaRegistration
             $data = Validator::make($input, [
                 'draft_token' => 'required|string|max:2048', 'version' => 'required|integer|min:0',
                 'managing_fund_id' => 'required|integer|min:1', 'Data_ATA' => 'required|date_format:Y-m-d',
+                'admitir_adesao' => 'sometimes|nullable|in:SIM,NAO',
                 'ata_process' => 'required|string|max:64', 'bidding' => 'required|string|max:100',
                 'bidding_number' => 'required|string|max:32', 'fornecedor_documento_snapshot' => 'required|string|max:32',
             ], [], ['managing_fund_id' => 'Fundo Gerenciador', 'Data_ATA' => 'Data_ATA',
+                'admitir_adesao' => 'Admitir Adesão a ATA',
                 'ata_process' => 'Processo ATA', 'bidding' => 'Licitação', 'bidding_number' => 'Nº Licit',
                 'fornecedor_documento_snapshot' => 'CPF/CNPJ do fornecedor'])->validate();
             $draft = $this->participants->lockForSave($actor, $data['draft_token']);
@@ -71,8 +73,9 @@ final class AtaRegistration
                 }
             }
             $number = $this->numbering->next();
-            $record = $contractor + $supplier + [
+            $record = $contractor + $supplier + (new AtaValidityInput)->validate($input) + [
                 'ATA' => $number, 'DATA_ATA' => $data['Data_ATA'], 'PROCESSO' => trim($data['ata_process']),
+                'ADMITIR_ADESAO' => ($data['admitir_adesao'] ?? null) ?: null,
                 'LICITACAO' => trim($data['bidding']), 'N_LICIT' => trim($data['bidding_number']), 'fund_id' => $fund->id,
                 'source_files' => '[]', 'quality_issues' => '[]', 'import_hash' => hash('sha256', 'native:'.$draftId),
                 'version' => 1, 'created_at' => $now, 'updated_at' => $now,

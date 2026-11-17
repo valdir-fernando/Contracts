@@ -30,7 +30,8 @@ final class AtaEditorQuery
         abort_if($matches->isEmpty(), 404, 'Nenhuma ata disponível para este número.');
         abort_if($matches->count() !== 1, 409, 'Mais de uma ata disponível para este número. Confira o cadastro antes de continuar.');
         $ata = DB::table('tb_ATA')->where('ID', $matches->first()->ID)->whereNull('deleted_at')->first([
-            'ID', 'ATA', 'version', 'fund_id', 'DATA_ATA', 'PROCESSO', 'LICITACAO', 'N_LICIT',
+            'ID', 'ATA', 'version', 'fund_id', 'DATA_ATA', 'ADMITIR_ADESAO', 'QTD_ESPECIAL_NOME', 'PROCESSO', 'LICITACAO', 'N_LICIT',
+            'INICIO_ATA', 'FINAL_ATA', 'PERIODO_ATA', 'VIGENCIA_ANO_INPC',
             'CNPJ_FUNDO', 'FUNDO', 'END_FUNDO', 'GESTOR', 'CPF_GESTOR', 'RG_GESTOR', 'CARGO_GESTOR', 'DECRETO_GESTOR', 'MATRICULA_GESTOR',
             'FORNECEDOR', 'CNPJ_FORNECEDOR', 'END_FORNECEDOR', 'SOCIO', 'CPF_SOCIO', 'RG_SOCIO', 'EMAIL', 'TELEFONE1', 'TELEFONE2',
             'RG_FORNECEDOR', 'DOC_PROF', 'PIS_PASEP',
@@ -62,12 +63,13 @@ final class AtaEditorQuery
         $total = '0.0000';
         $products = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ata->ID)
             ->where('ADITIVO', 0)->whereNull('ID_ADITIVO')->whereNull('deleted_at')->orderBy('ID')
-            ->get(['ITEM', 'COD_PROD', 'FICHA', 'DISCRIMINACAO', 'MARCA', 'UND', 'QTD', 'VL_UNIT', 'VL_TOTAL'])->map(function ($row) use (&$total) {
+            ->get(['ID', 'ITEM', 'COD_PROD', 'FICHA', 'DISCRIMINACAO', 'MARCA', 'UND', 'QTD', 'QTD_ESPECIAL', 'VL_UNIT', 'VL_TOTAL'])->map(function ($row) use (&$total) {
                 $amount = DecimalAmount::normalize((string) $row->VL_TOTAL);
                 $total = bcadd($total, $amount, 4);
 
-                return ['item' => $row->ITEM, 'code' => $row->COD_PROD, 'ficha' => $row->FICHA, 'description' => $row->DISCRIMINACAO, 'brand' => $row->MARCA, 'unit' => $row->UND,
-                    'quantity' => DecimalAmount::normalize((string) $row->QTD), 'unit_price' => DecimalAmount::normalize((string) $row->VL_UNIT), 'total' => $amount];
+                return ['id' => $row->ID, 'item' => $row->ITEM, 'code' => $row->COD_PROD, 'ficha' => $row->FICHA, 'description' => $row->DISCRIMINACAO, 'brand' => $row->MARCA, 'unit' => $row->UND,
+                    'quantity' => DecimalAmount::normalize((string) $row->QTD), 'special_quantity' => $row->QTD_ESPECIAL === null ? null : DecimalAmount::normalize((string) $row->QTD_ESPECIAL),
+                    'unit_price' => DecimalAmount::normalize((string) $row->VL_UNIT), 'total' => $amount];
             })->all();
 
         $actor = $this->actors->current($expected);
@@ -78,7 +80,10 @@ final class AtaEditorQuery
 
         return ['id' => $ata->ID, 'number' => $ata->ATA, 'version' => $ata->version, 'ficha_totals' => [],
             'managing_fund_id' => $ata->fund_id === null ? 'saved-'.$ata->ID : (string) $ata->fund_id, 'managing_fund_name' => $ata->FUNDO,
-            'process' => $ata->PROCESSO, 'date' => $ata->DATA_ATA, 'bidding' => $ata->LICITACAO, 'bidding_number' => $ata->N_LICIT,
+            'process' => $ata->PROCESSO, 'date' => $ata->DATA_ATA, 'admitir_adesao' => $ata->ADMITIR_ADESAO, 'special_quantity_name' => $ata->QTD_ESPECIAL_NOME,
+            'start_date' => $ata->INICIO_ATA, 'end_date' => $ata->FINAL_ATA, 'validity_period' => $ata->PERIODO_ATA,
+            'one_year_inpc' => $ata->VIGENCIA_ANO_INPC === null ? null : (bool) $ata->VIGENCIA_ANO_INPC,
+            'bidding' => $ata->LICITACAO, 'bidding_number' => $ata->N_LICIT,
             'contractor' => $contractor, 'supplier' => $supplier, 'participants' => $participants, 'products' => $products, 'total' => $total];
     }
 }

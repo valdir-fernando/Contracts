@@ -17,7 +17,8 @@ final class AtaProductAvailability
             throw ValidationException::withMessages(['item' => 'O produto tem saldo inválido no cadastro.']);
         }
         $query = DB::table('tb_PRODUTOS_ATA')->whereRaw('TRIM(PROCESSO) = ?', [trim($process)])
-            ->whereRaw('TRIM(ITEM) = ?', [trim($item)])->whereNull('deleted_at')->orderBy('ID');
+            ->whereRaw('TRIM(ITEM) = ?', [trim($item)])
+            ->where('ADITIVO', 0)->whereNull('ID_ADITIVO')->whereNull('deleted_at')->orderBy('ID');
         if ($lock) {
             TransactionGuard::requireActive();
             $query->lockForUpdate();

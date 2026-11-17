@@ -55,6 +55,51 @@ class AtaRegistrationTest extends TestCase
             'bidding' => 'Pregão', 'bidding_number' => '12/26', 'fornecedor_documento_snapshot' => '11.222.333/0001-81'], $extra);
     }
 
+    public function test_new_ata_saves_validity_dates_and_the_one_year_choice_with_its_audit(): void
+    {
+        $result = $this->postJson(route('atas.store'), $this->input(['one_year_inpc' => true, 'validity_period' => 'Outra coisa',
+            'start_date' => '2026-11-13', 'end_date' => '2027-11-13']))->assertCreated()->json();
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $result['id'], 'VIGENCIA_ANO_INPC' => true, 'PERIODO_ATA' => '1 Ano INPC',
+            'INICIO_ATA' => '2026-11-13', 'FINAL_ATA' => '2027-11-13']);
+        $this->assertSame('1 Ano INPC', ActivityEvent::where('action', 'ata_created')->sole()->metadata['after']['PERIODO_ATA']);
+        $html = $this->get(route('atas.create'))->assertOk()->getContent();
+        $this->assertLessThan(strpos($html, 'data-ata-validity'), strpos($html, 'name="ata_process"'));
+    }
+
+    public function test_invalid_manual_validity_dates_do_not_create_ata_or_consume_number(): void
+    {
+        $this->postJson(route('atas.store'), $this->input(['one_year_inpc' => false, 'start_date' => '2026-11-13',
+            'end_date' => '2026-01-01', 'validity_period' => '12 meses']))->assertUnprocessable()->assertJsonValidationErrors('end_date');
+        $this->assertDatabaseCount('tb_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_admission_choice_is_saved_audited_and_loaded_without_defaulting_unknown_values(): void
+    {
+        foreach (['SIM', 'NAO', null] as $value) {
+            $result = $this->postJson(route('atas.store'), $this->input(['admitir_adesao' => $value]))->assertCreated()->json();
+            $this->assertDatabaseHas('tb_ATA', ['ID' => $result['id'], 'ADMITIR_ADESAO' => $value]);
+            $event = ActivityEvent::where('action', 'ata_created')->orderByDesc('id')->firstOrFail();
+            $this->assertSame($value, $event->metadata['after']['ADMITIR_ADESAO']);
+            $this->getJson(route('atas.lookup', ['number' => $result['number']]))->assertOk()->assertJsonPath('admitir_adesao', $value);
+        }
+        $this->get(route('atas.create'))->assertOk()->assertSeeInOrder(['Data_ATA', 'Admitir Adesão a ATA', 'SIM', 'NÃO']);
+        $before = DB::table('tb_ATA')->orderBy('ID')->get()->all();
+        $migration = require database_path('migrations/2026_11_17_000001_add_ata_admission.php');
+        $migration->up();
+        $migration->down();
+        $this->assertEquals($before, DB::table('tb_ATA')->orderBy('ID')->get()->all());
+    }
+
+    public function test_invalid_admission_choices_do_not_create_ata_or_audit(): void
+    {
+        foreach (['sim', 'NÃO', 'TALVEZ', true, ['SIM']] as $value) {
+            $this->postJson(route('atas.store'), $this->input(['admitir_adesao' => $value]))->assertUnprocessable()->assertJsonValidationErrors('admitir_adesao');
+        }
+        $this->assertDatabaseCount('tb_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
     public function test_save_numbers_and_audits_canonical_snapshots_and_returns_only_explicit_identifiers(): void
     {
         $input = $this->input(['ATA' => '999/25', 'version_ata' => 99, 'Valor_ATA' => '9999.9999', 'actor_id' => 999,
@@ -62,6 +107,7 @@ class AtaRegistrationTest extends TestCase
         $result = $this->postJson(route('atas.store'), $input)->assertCreated()->assertExactJson(['id' => 1, 'number' => '001/26', 'version' => 1])
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->assertDatabaseHas('tb_ATA', ['ATA' => '001/26', 'DATA_ATA' => '2026-11-13', 'PROCESSO' => '123/2026',
+            'ADMITIR_ADESAO' => null,
             'GESTOR' => 'Gestor autorizado', 'FORNECEDOR' => 'Fornecedor autorizado', 'CARGO_GESTOR' => 'Gestor',
             'CPF_SOCIO' => '52998224725', 'TELEFONE2' => '62999998888', 'DOC_PROF' => 'DOC PROF', 'version' => 1]);
         $this->assertDatabaseHas('tb_N_ATA', ['ANO' => 2026, 'NUMERO' => 1]);

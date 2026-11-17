@@ -1,5 +1,6 @@
 import { formatDecimalField } from './decimal-fields.js';
 import { showSupplierDocumentWarning } from './system-message.js';
+import { initializeAtaProductDelete } from './ata-product-delete.js';
 
 export function ataProductTotal(quantity, price, places = 2) {
     const units = value => {
@@ -49,6 +50,9 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
     root.ownerDocument.fonts?.ready.then(fitDescription);
     const manual = panel.querySelector('[data-ata-products-manual]');
     const quantity = panel.querySelector('[data-product-quantity]');
+    const specialQuantity = panel.querySelector('[data-product-special-quantity]');
+    const entryOrder = [item, field('code'), field('brand'), field('unit'), quantity, specialQuantity, field('unit_price'), description].filter(Boolean);
+    const activeEntryOrder = () => entryOrder.filter(control => control !== specialQuantity || root.dataset.ataSpecialQuantityName);
     const total = panel.querySelector('[data-product-line-total]');
     let places = 2;
     const more = panel.querySelector('[data-ata-total-more]');
@@ -61,13 +65,8 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
     more.addEventListener('click', () => { places = Math.min(4, places + 1); updateTotal(); });
     less.addEventListener('click', () => { places = Math.max(2, places - 1); updateTotal(); });
     less.disabled = true;
-    const enforceQuantity = () => {
-        if (!manual.checked && limitAtaQuantity(quantity.value, field('disp').value) !== quantity.value) {
-            quantity.value = '';
-            warn(`A Quantidade limite é ${formatDecimalField(field('disp').value)}`, root.ownerDocument);
-        }
-    };
-    quantity.addEventListener('blur', () => { enforceQuantity(); updateTotal(); });
+    // QTD also selects how much to remove; inclusion limits are checked when saving.
+    quantity.addEventListener('blur', updateTotal);
     field('unit_price').addEventListener('blur', updateTotal);
     const applyMode = () => {
         const editable = manual.checked;
@@ -77,11 +76,17 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         description.readOnly = !editable;
         description.setAttribute('aria-readonly', String(!editable));
         opener.disabled = editable;
+        const tabOrder = editable ? activeEntryOrder() : [item, quantity, ...(root.dataset.ataSpecialQuantityName && specialQuantity ? [specialQuantity] : [])];
+        panel.querySelectorAll('input, textarea, button, a[href], [tabindex]').forEach(control => {
+            const ownerDialog = control.closest('dialog');
+            if (!ownerDialog || !panel.contains(ownerDialog)) control.tabIndex = tabOrder.includes(control) ? 0 : -1;
+        });
     };
     let controller;
     let sequence = 0;
     let resolved = '';
     const clearFields = () => {
+        if (specialQuantity) specialQuantity.value = '0,0000';
         ['code', 'brand', 'unit'].forEach(name => { field(name).value = ''; });
         ['disp', 'unit_price'].forEach(name => { field(name).value = '0,0000'; });
         total.value = '0,00';
@@ -108,6 +113,12 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         item.focus();
     });
     const dialog = root.querySelector('#ata-products-dialog');
+    root.addEventListener('ata-products-opened', () => {
+        if (!dialog?.open || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
+        applyMode();
+        item.focus();
+        item.select();
+    });
     dialog?.addEventListener('close', event => {
         if (event.target !== dialog) return;
         reset();
@@ -124,6 +135,54 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         if (!manual.checked) { clearFields(); quantity.value = '0,0000'; }
     });
     applyMode();
+    root.addEventListener('ata-special-quantity-configured', () => {
+        const disabled = quantity.disabled;
+        applyMode();
+        quantity.disabled = disabled;
+    });
+    root.addEventListener('ata-product-selected', async ({ detail }) => {
+        if (root.dataset.editorBusy === 'true' || root.dataset.ataLoaded !== detail.ataId) return;
+        invalidate();
+        const product = detail.product;
+        item.value = String(product.item ?? '');
+        ['code', 'brand', 'unit'].forEach(name => { field(name).value = product[name] ?? ''; });
+        field('unit_price').value = formatDecimalField(product.unit_price);
+        field('disp').value = '';
+        quantity.value = formatDecimalField(product.quantity);
+        if (specialQuantity) specialQuantity.value = formatDecimalField(product.special_quantity ?? '0');
+        quantity.disabled = false;
+        description.value = product.description ?? '';
+        fitDescription();
+        // Show the recorded total, which may include rounding from previous entries.
+        places = 4;
+        more.disabled = true;
+        less.disabled = false;
+        total.value = formatDecimalField(product.total);
+        const selectedItem = item.value.trim();
+        resolved = JSON.stringify([detail.ataId, selectedItem]);
+        if (manual.checked) return;
+        const current = sequence;
+        const attempt = new AbortController();
+        controller = attempt;
+        try {
+            const url = new URL(feedback.dataset.ataItemLookupUrl.replace('/0/', `/${encodeURIComponent(detail.ataId)}/`), root.ownerDocument.baseURI);
+            url.searchParams.set('item', selectedItem);
+            const response = await fetcher(url, { credentials: 'same-origin', cache: 'no-store',
+                headers: { Accept: 'application/json' }, signal: attempt.signal });
+            if (current !== sequence || attempt.signal.aborted || root.dataset.ataLoaded !== detail.ataId || item.value.trim() !== selectedItem) return;
+            if (!response.ok) throw new Error();
+            const data = await response.json();
+            if (current !== sequence || attempt.signal.aborted || root.dataset.ataLoaded !== detail.ataId || item.value.trim() !== selectedItem) return;
+            if (data.process !== detail.process) throw new Error();
+            field('disp').value = formatDecimalField(data.product.remaining);
+        } catch {
+            if (current === sequence && !attempt.signal.aborted && item.value.trim() === selectedItem) {
+                warn('Não foi possível consultar o saldo. Os dados salvos do item foram mantidos.', root.ownerDocument);
+            }
+        } finally {
+            if (current === sequence) controller = null;
+        }
+    });
     const lookup = async (showWarning = true) => {
         const ataId = root.dataset.ataLoaded;
         const requested = item.value.trim();
@@ -152,15 +211,13 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
             field('disp').value = formatDecimalField(product.remaining);
             field('unit_price').value = formatDecimalField(product.unit_price);
             const exhausted = formatDecimalField(product.remaining) === '0,0000';
-            quantity.disabled = exhausted;
+            quantity.disabled = false;
             if (exhausted) quantity.value = '0,0000';
-            else enforceQuantity();
             description.value = product.description ?? '';
             fitDescription();
             resolved = key;
             feedback.textContent = '';
             updateTotal();
-            if (exhausted) warn('Não é possível fazer novo lançamento: este produto já atingiu o limite para esta ATA.', root.ownerDocument);
         } catch (error) {
             if (current !== sequence || attempt.signal.aborted) return;
             clearFields();
@@ -173,6 +230,27 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         }
     };
     item.addEventListener('blur', () => { if (!manual.checked) return lookup(); });
+    entryOrder.forEach(control => control.addEventListener('keydown', async event => {
+        if (event.key !== 'Tab' || event.ctrlKey || event.altKey || event.metaKey
+            || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
+        if (manual.checked) {
+            const order = activeEntryOrder();
+            const index = order.indexOf(control);
+            const next = order[(index + (event.shiftKey ? -1 : 1) + order.length) % order.length];
+            if (next && !next.disabled) { event.preventDefault(); next.focus(); }
+            return;
+        }
+        if (control === specialQuantity) { event.preventDefault(); (event.shiftKey ? quantity : item).focus(); return; }
+        if (control === quantity) { event.preventDefault(); (root.dataset.ataSpecialQuantityName && specialQuantity && !event.shiftKey ? specialQuantity : item).focus(); return; }
+        if (control !== item || event.shiftKey || !item.value.trim()) return;
+        event.preventDefault();
+        const ataId = root.dataset.ataLoaded;
+        const requested = item.value.trim();
+        await lookup();
+        if (root.ownerDocument.activeElement !== item || root.dataset.ataLoaded !== ataId
+            || item.value.trim() !== requested || root.dataset.editorBusy === 'true') return;
+        if (!quantity.disabled) quantity.focus();
+    }));
     opener.addEventListener('mousedown', event => event.preventDefault());
     const openPicker = initializeAtaProductPicker(root, panel, item, lookup, fetcher);
     opener.addEventListener('click', () => {
@@ -182,6 +260,7 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
     });
     ['ata-loading', 'ata-cleared', 'ata-loaded'].forEach(event => root.addEventListener(event, reset));
     initializeAtaProductSave(root, panel, () => places, fetcher, warn);
+    initializeAtaProductDelete(root, panel, fetcher, warn);
 }
 
 export function initializeAtaProductSave(root, panel, getPlaces, fetcher, warn) {
@@ -200,24 +279,49 @@ export function initializeAtaProductSave(root, panel, getPlaces, fetcher, warn) 
             quantity: panel.querySelector('[data-product-quantity]').value.trim(), unit_price: field('unit_price').value.trim(), places: getPlaces(),
         };
         const labels = { item: 'Item', unit: 'UND', quantity: 'QTD', unit_price: 'VL. Unitário', description: 'Descrição' };
+        if (root.dataset.ataSpecialQuantityName) payload.special_quantity = panel.querySelector('[data-product-special-quantity]').value.trim() || null;
         const missing = Object.entries(labels).filter(([key]) => !payload[key]).map(([, label]) => label);
         if (!panel.querySelector('[data-product-line-total]').value.trim()) missing.push('VL. Total');
         if (missing.length) { warn(`Preencha os campos obrigatórios: ${missing.join(', ')}.`, root.ownerDocument); return; }
+        if (!payload.manual && limitAtaQuantity(payload.quantity, field('disp').value) !== payload.quantity) {
+            warn(`A Quantidade limite é ${formatDecimalField(field('disp').value)}`, root.ownerDocument); return;
+        }
         const ataId = root.dataset.ataLoaded;
         saving = true;
         button.disabled = true;
         notify('ata-product-saving');
         let saved;
+        let failureMessage;
         try {
             const url = button.dataset.ataProductSaveUrl.replace('/0/', `/${encodeURIComponent(ataId)}/`);
             const response = await fetcher(url, { method: 'POST', credentials: 'same-origin',
                 headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': root.dataset.csrfToken }, body: JSON.stringify(payload) });
+            if (root.dataset.ataLoaded !== ataId) return;
+            if (response.redirected || !response.ok) {
+                const messages = {
+                    401: 'Sua sessão terminou. Entre novamente e consulte a ata antes de salvar.',
+                    403: 'Você não tem permissão para salvar produtos nesta ata.',
+                    404: 'A ata não está disponível. Consulte novamente pelo Nº ATA.',
+                    409: 'Os dados da ata mudaram ou precisam de conferência. Consulte novamente pelo Nº ATA antes de salvar.',
+                    419: 'Sua sessão terminou. Entre novamente e consulte a ata antes de salvar.',
+                    422: 'Há campos inválidos no produto. Confira os dados informados.',
+                    429: 'Foram feitas muitas tentativas em pouco tempo. Aguarde um momento antes de tentar novamente.',
+                };
+                failureMessage = messages[response.redirected ? 401 : response.status]
+                    || 'O sistema encontrou um problema ao salvar o produto. Consulte novamente a ata antes de tentar salvar. Se o erro continuar, avise o administrador.';
+                if (response.status === 422 && !response.redirected) {
+                    const data = await response.json();
+                    failureMessage = Object.values(data.errors ?? {}).flat().join(' ') || failureMessage;
+                }
+                throw new Error(failureMessage);
+            }
             const data = await response.json();
             if (root.dataset.ataLoaded !== ataId) return;
-            if (!response.ok) throw new Error(Object.values(data.errors ?? {}).flat().join(' ') || data.message || 'Não foi possível salvar o produto.');
             saved = data;
         } catch (error) {
-            warn(['TypeError', 'SyntaxError'].includes(error.name) ? 'Não foi possível confirmar a gravação. Consulte novamente a ata antes de tentar salvar.' : error.message, root.ownerDocument);
+            if (root.dataset.ataLoaded === ataId) {
+                warn(failureMessage || 'Não foi possível confirmar a gravação. Consulte novamente a ata antes de tentar salvar.', root.ownerDocument);
+            }
         } finally {
             saving = false;
             button.disabled = false;

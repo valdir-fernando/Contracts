@@ -63,7 +63,9 @@ test('description shrinks to fit, stops at 10px with scroll and restores size fo
 
 function fixture(fetcher) {
     const control = value => ({ value, listeners: {}, style: {}, scrollHeight: 70,
+        closest() { return this.ownerDialog ?? null; },
         focus() { this.focused = true; },
+        select() { this.selected = true; },
         setAttribute(name, value) { this[name] = value; },
         addEventListener(name, callback) { this.listeners[name] = callback; } });
     const fields = Object.fromEntries(['item', 'code', 'brand', 'unit', 'disp', 'unit_price'].map(name => [name, control('')]));
@@ -72,15 +74,20 @@ function fixture(fetcher) {
     const opener = control('');
     const manual = control('');
     const quantity = control('0,0000');
+    const specialQuantity = control('0,0000');
     const total = control('0,00');
     const more = control('');
     const less = control('');
     const dialog = control('');
     const newProduct = control('');
-    const panel = { querySelector(selector) {
+    const nestedDialogControl = control('');
+    nestedDialogControl.ownerDialog = { nested: true };
+    Object.values(fields).forEach(control => { control.ownerDialog = { nested: false }; });
+    const panel = { contains(dialog) { return dialog.nested; }, querySelectorAll() { return [...Object.values(fields), description, opener, manual, quantity, specialQuantity, total, more, less, newProduct, nestedDialogControl]; }, querySelector(selector) {
         if (selector.startsWith('[data-product-field=')) return fields[selector.slice(21, -2)];
         return { '[data-ata-total-more]': more, '[data-ata-total-less]': less,
             '[data-products-new]': newProduct,
+            '[data-product-special-quantity]': specialQuantity,
             '[data-product-line-total]': total, '[data-ata-products-manual]': manual, '[data-product-quantity]': quantity,
             '[data-ata-item-lookup-url]': feedback, '[data-product-description]': description, '[data-product-item-search]': opener }[selector];
     } };
@@ -91,11 +98,200 @@ function fixture(fetcher) {
     };
     const warnings = [];
     initializeAtaProducts(root, fetcher, message => warnings.push(message));
-    return { root, fields, feedback, description, opener, warnings, manual, quantity, total, more, less, dialog, newProduct,
+    return { root, fields, feedback, description, opener, warnings, manual, quantity, specialQuantity, total, more, less, dialog, newProduct, nestedDialogControl,
         input(value) { fields.item.value = value; fields.item.listeners.input?.(); },
         lookup: () => fields.item.listeners.blur(),
     };
 }
+
+const selectedProduct = (extra = {}) => ({ detail: { ataId: '107', process: 'PROC', product: {
+    item: '2', code: '0042', brand: 'Marca salva', unit: 'KM', quantity: '20000.0000',
+    unit_price: '8.5000', total: '169999.9999', description: '<Descrição salva>', ...extra,
+} } });
+
+test('special quantity participates in Tab only for configured ATAs and selection restores its value', async () => {
+    const ui = fixture(() => { assert.fail('Manual selection must not consult the catalog'); });
+    assert.equal(ui.specialQuantity.tabIndex, -1);
+    ui.root.dataset.ataSpecialQuantityName = 'veículos';
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    assert.equal(ui.specialQuantity.tabIndex, 0);
+    const event = { key: 'Tab', preventDefault() {} };
+    await ui.quantity.listeners.keydown(event);
+    assert.equal(ui.specialQuantity.focused, true);
+    await ui.specialQuantity.listeners.keydown(event);
+    assert.equal(ui.fields.unit_price.focused, true);
+    await ui.root.listeners['ata-product-selected'](selectedProduct({ special_quantity: '1234.5678' }));
+    assert.equal(ui.specialQuantity.value, '1.234,5678');
+    assert.equal(ui.total.value, '169.999,9999');
+});
+
+test('opening products focuses and selects Item with the current Tab order on each opening', () => {
+    const ui = fixture(() => { assert.fail('Opening the panel must not query products'); });
+    ui.dialog.open = true;
+    ui.root.listeners['ata-products-opened']();
+    assert.equal(ui.fields.item.focused, true);
+    assert.equal(ui.fields.item.selected, true);
+    assert.equal(ui.fields.item.tabIndex, 0);
+    assert.equal(ui.fields.code.tabIndex, -1);
+    assert.equal(ui.newProduct.tabIndex, -1);
+    ui.manual.checked = true;
+    ui.fields.item.focused = false;
+    ui.fields.item.selected = false;
+    ui.root.listeners['ata-products-opened']();
+    assert.equal(ui.fields.item.focused, true);
+    assert.equal(ui.fields.item.selected, true);
+    assert.equal(ui.fields.code.tabIndex, 0);
+    assert.equal(ui.description.tabIndex, 0);
+    assert.equal(ui.fields.disp.tabIndex, -1);
+    ui.root.dataset.editorBusy = 'true';
+    ui.fields.item.focused = false;
+    ui.root.listeners['ata-products-opened']();
+    assert.equal(ui.fields.item.focused, false);
+    ui.root.dataset.editorBusy = 'false';
+    ui.dialog.open = false;
+    ui.root.listeners['ata-products-opened']();
+    assert.equal(ui.fields.item.focused, false);
+});
+
+test('Tab from Item waits for lookup and focuses QTD, while manual mode starts at code without lookup', async () => {
+    const request = deferred();
+    let calls = 0;
+    const ui = fixture(() => { calls++; return request.promise; });
+    ui.input('2');
+    ui.root.ownerDocument.activeElement = ui.fields.item;
+    let prevented = false;
+    const pending = ui.fields.item.listeners.keydown({ key: 'Tab', preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(ui.quantity.focused, undefined);
+    request.resolve(response());
+    await pending;
+    assert.equal(ui.quantity.focused, true);
+    assert.equal(calls, 1);
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    ui.quantity.focused = false;
+    await ui.fields.item.listeners.keydown({ key: 'Tab', preventDefault() {} });
+    assert.equal(ui.quantity.focused, false);
+    assert.equal(ui.fields.code.focused, true);
+    assert.equal(calls, 1);
+});
+
+test('manual Tab cycles through entry fields including description and excludes other controls', async () => {
+    const ui = fixture(() => { assert.fail('Manual keyboard navigation must not query the catalog'); });
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    const controls = [ui.fields.item, ui.fields.code, ui.fields.brand, ui.fields.unit, ui.quantity, ui.fields.unit_price, ui.description];
+    for (let index = 0; index < controls.length - 1; index++) {
+        let prevented = false;
+        await controls[index].listeners.keydown({ key: 'Tab', preventDefault() { prevented = true; } });
+        assert.equal(prevented, true);
+        assert.equal(controls[index + 1].focused, true);
+    }
+    for (let index = controls.length - 1; index > 0; index--) {
+        controls[index - 1].focused = false;
+        await controls[index].listeners.keydown({ key: 'Tab', shiftKey: true, preventDefault() {} });
+        assert.equal(controls[index - 1].focused, true);
+    }
+    ui.fields.item.focused = false;
+    await controls.at(-1).listeners.keydown({ key: 'Tab', preventDefault() {} });
+    assert.equal(ui.fields.item.focused, true);
+    ui.description.focused = false;
+    await controls[0].listeners.keydown({ key: 'Tab', shiftKey: true, preventDefault() {} });
+    assert.equal(ui.description.focused, true);
+    for (const control of controls) assert.equal(control.tabIndex, 0);
+    for (const control of [ui.opener, ui.manual, ui.fields.disp, ui.total, ui.more, ui.less, ui.newProduct]) assert.equal(control.tabIndex, -1);
+    assert.equal(ui.nestedDialogControl.tabIndex, undefined);
+    ui.manual.checked = false;
+    ui.manual.listeners.change();
+    assert.equal(ui.fields.code.tabIndex, -1);
+    assert.equal(ui.description.tabIndex, -1);
+    await ui.quantity.listeners.keydown({ key: 'Tab', preventDefault() {} });
+    assert.equal(ui.fields.item.focused, true);
+});
+
+test('Shift+Tab keeps native navigation and a pending lookup never steals focus', async () => {
+    const request = deferred();
+    const ui = fixture(() => request.promise);
+    ui.input('2');
+    ui.root.ownerDocument.activeElement = ui.fields.item;
+    await ui.fields.item.listeners.keydown({ key: 'Tab', shiftKey: true, preventDefault() { assert.fail('Native reverse navigation must remain available'); } });
+    const pending = ui.fields.item.listeners.keydown({ key: 'Tab', preventDefault() {} });
+    ui.root.ownerDocument.activeElement = ui.manual;
+    request.resolve(response());
+    await pending;
+    assert.equal(ui.quantity.focused, undefined);
+});
+
+test('selecting a saved product fills exact saved fields and refreshes only availability from the catalog', async () => {
+    const ui = fixture(async () => response({ remaining: '30000', description: 'Catálogo diferente', unit_price: '999' }));
+    await ui.root.listeners['ata-product-selected'](selectedProduct());
+    assert.equal(ui.fields.item.value, '2');
+    assert.equal(ui.fields.code.value, '0042');
+    assert.equal(ui.fields.brand.value, 'Marca salva');
+    assert.equal(ui.fields.unit.value, 'KM');
+    assert.equal(ui.fields.unit_price.value, '8,5000');
+    assert.equal(ui.quantity.value, '20.000,0000');
+    assert.equal(ui.quantity.disabled, false);
+    assert.equal(ui.total.value, '169.999,9999');
+    assert.equal(ui.description.value, '<Descrição salva>');
+    assert.equal(ui.fields.disp.value, '30.000,0000');
+    await ui.lookup();
+    assert.equal(ui.quantity.value, '20.000,0000');
+    assert.equal(ui.total.value, '169.999,9999');
+    assert.deepEqual(ui.warnings, []);
+});
+
+test('manual selection fills saved data without consulting or changing the manual option', async () => {
+    let calls = 0;
+    const ui = fixture(async () => { calls++; return response(); });
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    await ui.root.listeners['ata-product-selected'](selectedProduct({ code: null, brand: null }));
+    assert.equal(calls, 0);
+    assert.equal(ui.manual.checked, true);
+    assert.equal(ui.fields.code.value, '');
+    assert.equal(ui.fields.brand.value, '');
+    assert.equal(ui.fields.disp.value, '');
+    assert.equal(ui.quantity.value, '20.000,0000');
+});
+
+test('selection cancels prior lookups and late availability cannot overwrite a newer selection', async () => {
+    const pending = [];
+    const ui = fixture((url, options) => { const request = deferred(); pending.push({ ...request, options }); return request.promise; });
+    ui.input('001');
+    const lookup = ui.lookup();
+    const first = ui.root.listeners['ata-product-selected'](selectedProduct());
+    const second = ui.root.listeners['ata-product-selected'](selectedProduct({ item: '3', quantity: '12' }));
+    pending[2].resolve(response({ remaining: '5' }));
+    await second;
+    pending[1].resolve(response({ remaining: '999' }));
+    await first;
+    pending[0].resolve(response({ code: 'OBSOLETO' }));
+    await lookup;
+    assert.equal(ui.fields.item.value, '3');
+    assert.equal(ui.quantity.value, '12,0000');
+    assert.equal(ui.fields.disp.value, '5,0000');
+    assert.equal(ui.fields.code.value, '0042');
+    assert.equal(pending[0].options.signal.aborted, true);
+    assert.equal(pending[1].options.signal.aborted, true);
+});
+
+test('catalog failure preserves the selected saved item and busy or foreign contexts cannot select it', async () => {
+    const ui = fixture(async () => ({ ok: false, status: 404 }));
+    await ui.root.listeners['ata-product-selected'](selectedProduct());
+    assert.equal(ui.quantity.value, '20.000,0000');
+    assert.equal(ui.total.value, '169.999,9999');
+    assert.equal(ui.fields.disp.value, '');
+    assert.match(ui.warnings[0], /dados salvos do item foram mantidos/);
+    ui.root.dataset.editorBusy = 'true';
+    await ui.root.listeners['ata-product-selected'](selectedProduct({ item: '3' }));
+    assert.equal(ui.fields.item.value, '2');
+    ui.root.dataset.editorBusy = 'false';
+    ui.root.dataset.ataLoaded = '108';
+    await ui.root.listeners['ata-product-selected'](selectedProduct({ item: '3' }));
+    assert.equal(ui.fields.item.value, '2');
+});
 
 test('new product clears entry and cancels pending lookup without ficha controls', async () => {
     const request = deferred();
@@ -222,7 +418,7 @@ test('quantity limit respects exact decimals, zero, blank availability and large
     assert.equal(limitAtaQuantity('99999999999999.9999', '99999999999999.9998'), '99.999.999.999.999,9998');
 });
 
-test('excess quantity is cleared only on blur with the requested warning outside manual mode', async () => {
+test('quantity above availability remains available for removal when leaving the field', async () => {
     const ui = fixture(async () => response({ remaining: '2.0001' }));
     ui.input('001');
     await ui.lookup();
@@ -231,19 +427,19 @@ test('excess quantity is cleared only on blur with the requested warning outside
     assert.equal(ui.quantity.listeners.input, undefined);
     assert.equal(ui.quantity.value, '3');
     ui.quantity.listeners.blur();
-    assert.equal(ui.quantity.value, '');
-    assert.deepEqual(ui.warnings, ['A Quantidade limite é 2,0001']);
-    assert.equal(ui.total.value, '0,00');
+    assert.equal(ui.quantity.value, '3');
+    assert.deepEqual(ui.warnings, []);
+    assert.equal(ui.total.value, '37,02');
     ui.quantity.value = '2,0001';
     ui.quantity.listeners.blur();
     assert.equal(ui.quantity.value, '2,0001');
-    assert.equal(ui.warnings.length, 1);
+    assert.equal(ui.warnings.length, 0);
     ui.manual.checked = true;
     ui.manual.listeners.change();
     ui.quantity.value = '99';
     ui.quantity.listeners.blur();
     assert.equal(ui.quantity.value, '99');
-    assert.equal(ui.warnings.length, 1);
+    assert.equal(ui.warnings.length, 0);
 });
 
 test('quantity and unit price blur both refresh the total', () => {
@@ -347,22 +543,22 @@ test('editing item clears previous fields and a late response cannot overwrite t
     assert.equal(ui.description.value, '');
 });
 
-test('exhausted item displays zero, blocks quantity and warns before any new entry', async () => {
+test('exhausted item loads silently and keeps quantity editable for removal', async () => {
     const ui = fixture(async () => response({ remaining: '0.0000' }));
     ui.quantity.value = '9,0000';
     ui.input('001');
     await ui.lookup();
     assert.equal(ui.fields.disp.value, '0,0000');
-    assert.equal(ui.quantity.disabled, true);
+    assert.equal(ui.quantity.disabled, false);
     assert.equal(ui.quantity.value, '0,0000');
     assert.equal(ui.total.value, '0,00');
     assert.equal(ui.fields.code.value, '00042');
-    assert.deepEqual(ui.warnings, ['Não é possível fazer novo lançamento: este produto já atingiu o limite para esta ATA.']);
+    assert.deepEqual(ui.warnings, []);
     await ui.lookup();
-    assert.equal(ui.warnings.length, 1);
+    assert.equal(ui.warnings.length, 0);
 });
 
-test('partial balance is displayed and quantity above the remaining balance is refused', async () => {
+test('partial balance is displayed without clearing a quantity intended for removal', async () => {
     const ui = fixture(async () => response({ remaining: '3.0001' }));
     ui.input('001');
     await ui.lookup();
@@ -370,8 +566,8 @@ test('partial balance is displayed and quantity above the remaining balance is r
     assert.equal(ui.quantity.disabled, false);
     ui.quantity.value = '3,0002';
     ui.quantity.listeners.blur();
-    assert.equal(ui.quantity.value, '');
-    assert.deepEqual(ui.warnings, ['A Quantidade limite é 3,0001']);
+    assert.equal(ui.quantity.value, '3,0002');
+    assert.deepEqual(ui.warnings, []);
 });
 
 test('clearing or switching ata cancels lookup and never applies a product from the previous context', async () => {

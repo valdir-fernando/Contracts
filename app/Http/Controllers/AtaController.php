@@ -4,18 +4,73 @@ namespace App\Http\Controllers;
 
 use App\Infrastructure\Atas\AtaContractor;
 use App\Infrastructure\Atas\AtaEditorQuery;
+use App\Infrastructure\Atas\AtaExtractPdf;
 use App\Infrastructure\Atas\AtaParticipants;
 use App\Infrastructure\Atas\AtaProductLookup;
 use App\Infrastructure\Atas\AtaRegistration;
+use App\Infrastructure\Atas\RemoveAtaProduct;
+use App\Infrastructure\Atas\RemoveAtaSpecialQuantity;
 use App\Infrastructure\Atas\RemoveSavedAtaParticipant;
 use App\Infrastructure\Atas\SaveAtaProduct;
+use App\Infrastructure\Atas\SaveAtaValidity;
 use App\Infrastructure\Atas\SavedAtaParticipants;
+use App\Infrastructure\Atas\UpdateAtaAdmission;
+use App\Infrastructure\Atas\UpdateAtaSpecialQuantity;
 use App\Infrastructure\Security\LockActor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AtaController extends Controller
 {
+    public function saveValidity(Request $request, int $ata, SaveAtaValidity $validity)
+    {
+        return response()->json($validity->save($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function publication(Request $request, int $ata, AtaExtractPdf $extract)
+    {
+        return $this->extract($request, $ata, $extract);
+    }
+
+    public function extract(Request $request, int $ata, AtaExtractPdf $extract)
+    {
+        $data = $request->validate(['version' => 'required|integer|min:1']);
+        $bytes = $extract->generate($request->user(), $ata, (int) $data['version']);
+
+        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="extrato-ata-'.$ata.'.pdf"']);
+    }
+
+    public function removeSpecialQuantity(Request $request, int $ata, RemoveAtaSpecialQuantity $quantity)
+    {
+        return response()->json($quantity->remove($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function updateSpecialQuantity(Request $request, int $ata, UpdateAtaSpecialQuantity $quantity)
+    {
+        return response()->json($quantity->update($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function updateAdmission(Request $request, int $ata, UpdateAtaAdmission $admission)
+    {
+        return response()->json($admission->update($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function removeProduct(Request $request, int $ata, RemoveAtaProduct $products)
+    {
+        return response()->json($products->remove($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
     public function saveProduct(Request $request, int $ata, SaveAtaProduct $products)
     {
         return response()->json($products->save($request->user(), $ata, $request->all(),

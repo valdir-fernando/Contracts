@@ -5,11 +5,19 @@
     <x-slot:contractSummary>
         <div class="contract-heading-title" aria-label="Resumo da nova ata">
             <h1 class="sr-only">Nova ATA</h1>
-            <div class="contract-number-field">
+            <div class="contract-number-field ata-summary-number-field">
                 <label for="ata-summary-number">Nº ATA</label>
-                <div class="contract-number-control">
-                    <input id="ata-summary-number" class="contract-number-highlight" type="text" maxlength="100" aria-label="Número da ata para busca">
-                    <button type="button" class="contract-number-search" aria-label="Buscar atas" title="Buscar atas"><x-nav-icon name="search"/></button>
+                <div class="ata-summary-number-actions">
+                    <span id="ata-summary-document-actions" class="ata-product-document-actions" role="group" aria-label="Documentos da ATA">
+                        <button type="button" class="section-tab document-action" data-ata-document="ata"><x-nav-icon name="contracts"/>ATA</button>
+                        <button type="button" class="section-tab document-action" data-ata-document="extract" data-ata-extract-url="{{ route('atas.extract', ['ata' => 0]) }}"><x-nav-icon name="document-extract"/>EXTRATO</button>
+                        <button type="button" class="section-tab document-action" data-ata-document="publication"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
+                    </span>
+                    <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
+                    <div class="contract-number-control">
+                        <input id="ata-summary-number" class="contract-number-highlight" type="text" maxlength="100" aria-label="Número da ata para busca">
+                        <button type="button" class="contract-number-search" aria-label="Buscar atas" title="Buscar atas"><x-nav-icon name="search"/></button>
+                    </div>
                 </div>
                 <p class="hint" role="status" aria-live="polite" data-ata-lookup-status></p>
             </div>
@@ -201,7 +209,7 @@
                 this.busy = false;
             }
         }
-    }" data-draft-state="{{ json_encode($draftState, JSON_THROW_ON_ERROR) }}" data-draft-token="{{ $draftToken }}" data-participants-url="{{ route('atas.participants.store') }}" data-csrf-token="{{ csrf_token() }}" class="ata-editor" data-ata-lookup-url="{{ route('atas.lookup') }}" :data-editor-busy="busy" :data-ata-version="loadedVersion" @ata-product-saving="busy = true" @ata-product-finished="busy = false" @ata-loading="busy = true" @ata-loaded="loaded = true; busy = false; loadedAtaId = $event.detail.id; loadedVersion = $event.detail.version; participantFund = ''; message = ''; process = $event.detail.process; managingFund = $event.detail.managing_fund_id; participants = $event.detail.participants" @ata-cleared="clearLoaded()">
+    }" data-draft-state="{{ json_encode($draftState, JSON_THROW_ON_ERROR) }}" data-draft-token="{{ $draftToken }}" data-participants-url="{{ route('atas.participants.store') }}" data-csrf-token="{{ csrf_token() }}" class="ata-editor" data-ata-lookup-url="{{ route('atas.lookup') }}" :data-editor-busy="busy" :data-ata-version="loadedVersion" @ata-product-saving="busy = true" @ata-product-finished="busy = false" @ata-loading="busy = true" @ata-loaded="loaded = true; busy = false; loadedAtaId = $event.detail.id; loadedVersion = $event.detail.version; participantFund = ''; message = ''; process = $event.detail.process; managingFund = $event.detail.managing_fund_id; participants = $event.detail.participants" @ata-special-quantity-updated="loadedVersion = $event.detail.version" @ata-cleared="clearLoaded()">
     <section class="surface contract-section" aria-label="Nova ATA">
         <div class="field-grid ata-managing-fund-grid">
             <div class="field">
@@ -215,13 +223,21 @@
                 <label for="ata-date">Data_ATA<x-required-mark/></label>
                 <input id="ata-date" name="Data_ATA" type="date" min="0001-01-01" max="9999-12-31" data-ata-date :disabled="busy || loaded" required>
             </div>
+            <div class="field">
+                <label for="ata-admit-admission">Admitir Adesão a ATA</label>
+                <select id="ata-admit-admission" name="admitir_adesao" data-ata-admission-url="{{ route('atas.admission.update', ['ata' => 0]) }}" :disabled="busy">
+                    <option value="">Selecione</option>
+                    <option value="SIM">SIM</option>
+                    <option value="NAO">NÃO</option>
+                </select>
+            </div>
         </div>
     </section>
     <nav class="section-tabs contract-section-navigation" aria-label="Seções da ata">
         <button type="button" class="section-tab active" :class="{ active: step === 0 }" aria-pressed="true" :aria-pressed="step === 0" aria-controls="ata-process-panel" @click="step = 0">1. Dados Processuais</button>
         <button type="button" class="section-tab" :class="{ active: step === 1 }" aria-pressed="false" :aria-pressed="step === 1" aria-controls="ata-manager-panel" @click="step = 1">2. Dados Gerenciador</button>
         <button type="button" class="section-tab" :class="{ active: step === 2 }" aria-pressed="false" :aria-pressed="step === 2" aria-controls="ata-supplier-panel" @click="step = 2">3. Dados do Fornecedor</button>
-        <button type="button" class="section-tab products-button" disabled title="Salve ou carregue uma ata para acessar os Produtos." :disabled="!loaded || busy" :title="loaded ? 'Consultar produtos da ata' : 'Salve ou carregue uma ata para acessar os Produtos.'" aria-haspopup="dialog" aria-controls="ata-products-dialog" @click="$refs.ataProductsSupplier.textContent = $root.querySelector('[name=fornecedor_nome_snapshot]').value || 'Nome / Razão Social'; $refs.ataProducts.showModal()">4. Produtos</button>
+        <button type="button" class="section-tab products-button" disabled title="Salve ou carregue uma ata para acessar os Produtos." :disabled="!loaded || busy" :title="loaded ? 'Consultar produtos da ata' : 'Salve ou carregue uma ata para acessar os Produtos.'" aria-haspopup="dialog" aria-controls="ata-products-dialog" @click="$refs.ataProductsSupplier.textContent = $root.querySelector('[name=fornecedor_nome_snapshot]').value || 'Nome / Razão Social'; $refs.ataProducts.showModal(); $nextTick(() => $dispatch('ata-products-opened'))">4. Produtos</button>
     </nav>
     <section id="ata-process-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados Processuais" x-show="step === 0">
         <div class="field-grid">
@@ -241,6 +257,20 @@
                     <button type="button" class="primary-button compact shrink-0" @click="addParticipant()" disabled :disabled="busy || !loaded || !participantFund"><x-nav-icon name="plus"/>Adicionar</button>
                 </div>
             </div>
+            </div>
+        </div>
+        <div class="ata-validity-fields" data-ata-validity>
+            <div class="field"><label for="ata-validity-start">Data_Inicial</label><input id="ata-validity-start" name="start_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || $el.dataset.validityDisabled === 'true'"></div>
+            <div class="field"><label for="ata-validity-end">Data_Final</label><input id="ata-validity-end" name="end_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || $el.dataset.validityDisabled === 'true'"></div>
+            <div class="field">
+                <div class="ata-validity-heading">
+                    <label for="ata-validity-period">Período da Vigência</label>
+                    <label class="ata-validity-option" title="1 (um) ano, contado a partir do primeiro dia útil subsequente à data de divulgação no PNCP"><input type="checkbox" name="one_year_inpc" value="1" :disabled="busy">1 Ano INPC</label>
+                </div>
+                <div class="ata-validity-period-control">
+                    <input id="ata-validity-period" name="validity_period" type="text" maxlength="5000" :disabled="busy">
+                    <button type="button" class="section-tab" data-ata-validity-save-url="{{ route('atas.validity.update', ['ata' => 0]) }}" x-show="loaded" :disabled="!loaded || busy"><x-nav-icon name="save"/>Salvar vigência</button>
+                </div>
             </div>
         </div>
         <p role="status" aria-live="polite" x-text="message"></p>
