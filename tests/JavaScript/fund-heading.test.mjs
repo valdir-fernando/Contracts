@@ -5,7 +5,9 @@ import { initializeFundHeading } from '../../resources/js/fund-heading.js';
 test('fund name shrinks to its available column and regains normal size when space grows', async () => {
     let resized;
     let fontsLoaded;
-    const context = { font: '', measureText: () => ({ width: 300 }) };
+    let mutated;
+    let textWidth = 300;
+    const context = { font: '', measureText: () => ({ width: textWidth }) };
     globalThis.document = {
         createElement: () => ({ getContext: () => context }),
         fonts: { ready: new Promise((resolve) => { fontsLoaded = resolve; }) },
@@ -13,6 +15,10 @@ test('fund name shrinks to its available column and regains normal size when spa
     globalThis.getComputedStyle = () => ({ fontSize: '30px', fontWeight: '650', fontFamily: 'Inter' });
     globalThis.ResizeObserver = class {
         constructor(callback) { resized = callback; }
+        observe() {}
+    };
+    globalThis.MutationObserver = class {
+        constructor(callback) { mutated = callback; }
         observe() {}
     };
     const heading = { style: {}, textContent: 'MUNICIPIO DE NIQUELÂNDIA', parentElement: { clientWidth: 200 } };
@@ -25,4 +31,8 @@ test('fund name shrinks to its available column and regains normal size when spa
     fontsLoaded();
     await document.fonts.ready;
     assert.equal(heading.style.fontSize, '15px');
+    heading.textContent = 'FUNDO';
+    textWidth = 100;
+    mutated();
+    assert.equal(heading.style.fontSize, '');
 });

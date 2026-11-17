@@ -31,7 +31,11 @@ test('quantities use a decimal comma and exactly four decimal places without flo
     for (const input of ['-1', 'abc', '1,23456', '1.2,3', '12.34']) assert.equal(formatDfdQuantity(input), null);
 });
 
-test('blur filters names while selected products remain visible and clearing restores all', () => {
+test('blur filters names while selected products remain visible and clearing restores all', (t) => {
+    const originalWindow = globalThis.window;
+    const alerts = [];
+    globalThis.window = { alert: message => alerts.push(message) };
+    t.after(() => { if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow; });
     const events = {};
     const query = { value: '', addEventListener: (name, callback) => { events[name] = callback; } };
     const rows = ['Papel A4', 'Caneta azul', 'Álcool líquido'].map((name) => {
@@ -86,10 +90,12 @@ test('blur filters names while selected products remain visible and clearing res
     rows[0].querySelector().change();
     query.value = 'inexistente';
     events.blur();
+    assert.deepEqual(alerts, ['O produto “inexistente” não foi encontrado.']);
+    assert.ok(rows.every(row => !row.hidden));
     assert.equal(empty.hidden, true);
     rows[1].querySelector().checked = false;
     rows[1].querySelector().change();
-    assert.equal(empty.hidden, false);
+    assert.equal(empty.hidden, true);
     assert.equal(total.hidden, true);
     assert.ok(rows.every((row) => row.quantity.disabled));
     assert.ok(rows.every((row) => row.quantity.value === '0,0000'));
