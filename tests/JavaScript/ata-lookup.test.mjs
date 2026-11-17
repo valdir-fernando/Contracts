@@ -80,6 +80,7 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(ui.products.children[0].children[2].children[0].textContent, '<Produto salvo>');
     assert.equal(ui.products.children[0].children[2].children[0].className, 'ata-product-cell-content');
     assert.equal(ui.products.children[0].children[4].children[0].textContent, '0,0001');
+    assert.equal(ui.products.children[0].children.length, 9);
     assert.equal(ui.form.dataset.ataSnapshot, 'true');
     assert.equal(ui.events.at(-1).type, 'ata-loaded');
     assert.equal(ui.events.at(-1).detail.participants[0].FUNDO, 'Participante salvo');
@@ -140,4 +141,6 @@ test('successful save waits for released editor state before loading the issued 
     assert.equal(requests, 1);
     assert.equal(ui.root.dataset.ataLoaded, '1');
     assert.equal(ui.number.value, '001/26');
+    assert.equal(ui.products.children.length, 1);
+    assert.equal(ui.products.children[0].children[0].children[0].textContent, '1');
 });

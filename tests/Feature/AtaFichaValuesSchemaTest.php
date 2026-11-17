@@ -11,11 +11,16 @@ class AtaFichaValuesSchemaTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_table_stores_requested_fields_and_preserves_text_identifiers(): void
+    public function test_retired_table_is_archived_with_fields_and_identifiers_preserved(): void
     {
-        $this->assertEqualsCanonicalizing(['ATA', 'Processo', 'Ficha', 'VALOR'], Schema::getColumnListing('tb_ValorFicha_ATA'));
+        $this->assertFalse(Schema::hasTable('tb_ValorFicha_ATA'));
+        $this->assertEqualsCanonicalizing(['ATA', 'Processo', 'Ficha', 'VALOR'], Schema::getColumnListing('tb_ValorFicha_ATA_historico'));
+        Schema::rename('tb_ValorFicha_ATA_historico', 'tb_ValorFicha_ATA');
         DB::table('tb_ValorFicha_ATA')->insert(['ATA' => '107/25', 'Processo' => '000123/2025', 'Ficha' => '00042', 'VALOR' => '1234.5678']);
-        $row = DB::table('tb_ValorFicha_ATA')->sole();
+        $migration = require database_path('migrations/2026_11_15_000002_retire_ata_ficha_values.php');
+        $migration->up();
+        $this->assertFalse(Schema::hasTable('tb_ValorFicha_ATA'));
+        $row = DB::table('tb_ValorFicha_ATA_historico')->sole();
         $this->assertSame('107/25', $row->ATA);
         $this->assertSame('000123/2025', $row->Processo);
         $this->assertSame('00042', $row->Ficha);
@@ -25,12 +30,13 @@ class AtaFichaValuesSchemaTest extends TestCase
     public function test_repeat_and_rollback_preserve_new_values_and_original_contract_catalog(): void
     {
         DB::table('tb_ValorFicha')->insert(['Contrato' => '001/26', 'Ficha' => '9', 'Valor' => '50.0000']);
-        DB::table('tb_ValorFicha_ATA')->insert(['ATA' => '001/26', 'Processo' => 'PROC', 'Ficha' => '9', 'VALOR' => '0.0001']);
-        $migration = require database_path('migrations/2026_11_13_000003_create_ata_ficha_values.php');
+        DB::table('tb_ValorFicha_ATA_historico')->insert(['ATA' => '001/26', 'Processo' => 'PROC', 'Ficha' => '9', 'VALOR' => '0.0001']);
+        $migration = require database_path('migrations/2026_11_15_000002_retire_ata_ficha_values.php');
         $migration->up();
         $migration->down();
-        $this->assertDatabaseCount('tb_ValorFicha_ATA', 1);
-        $this->assertDatabaseHas('tb_ValorFicha_ATA', ['ATA' => '001/26', 'Processo' => 'PROC', 'Ficha' => '9', 'VALOR' => '0.0001']);
+        $this->assertFalse(Schema::hasTable('tb_ValorFicha_ATA'));
+        $this->assertDatabaseCount('tb_ValorFicha_ATA_historico', 1);
+        $this->assertDatabaseHas('tb_ValorFicha_ATA_historico', ['ATA' => '001/26', 'Processo' => 'PROC', 'Ficha' => '9', 'VALOR' => '0.0001']);
         $this->assertDatabaseHas('tb_ValorFicha', ['Contrato' => '001/26', 'Ficha' => '9', 'Valor' => '50.0000']);
     }
 }

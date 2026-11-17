@@ -91,7 +91,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
             for (const product of data.products) {
                 const row = root.ownerDocument.createElement('tr');
                 [product.item, product.code, product.description, product.unit, formatDecimalField(product.quantity), product.brand,
-                    formatDecimalField(product.unit_price), formatDecimalField(product.total), product.ficha, ''].forEach(value => {
+                    formatDecimalField(product.unit_price), formatDecimalField(product.total), ''].forEach(value => {
                     const cell = root.ownerDocument.createElement('td');
                     const content = root.ownerDocument.createElement('div');
                     content.className = 'ata-product-cell-content';

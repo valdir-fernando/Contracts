@@ -63,6 +63,7 @@ test('description shrinks to fit, stops at 10px with scroll and restores size fo
 
 function fixture(fetcher) {
     const control = value => ({ value, listeners: {}, style: {}, scrollHeight: 70,
+        focus() { this.focused = true; },
         setAttribute(name, value) { this[name] = value; },
         addEventListener(name, callback) { this.listeners[name] = callback; } });
     const fields = Object.fromEntries(['item', 'code', 'brand', 'unit', 'disp', 'unit_price'].map(name => [name, control('')]));
@@ -74,24 +75,91 @@ function fixture(fetcher) {
     const total = control('0,00');
     const more = control('');
     const less = control('');
+    const dialog = control('');
+    const newProduct = control('');
     const panel = { querySelector(selector) {
         if (selector.startsWith('[data-product-field=')) return fields[selector.slice(21, -2)];
         return { '[data-ata-total-more]': more, '[data-ata-total-less]': less,
+            '[data-products-new]': newProduct,
             '[data-product-line-total]': total, '[data-ata-products-manual]': manual, '[data-product-quantity]': quantity,
             '[data-ata-item-lookup-url]': feedback, '[data-product-description]': description, '[data-product-item-search]': opener }[selector];
     } };
     const root = { dataset: { ataLoaded: '107', editorBusy: 'false' }, listeners: {},
         ownerDocument: { baseURI: 'http://contracts.test/', defaultView: { getComputedStyle: () => ({ lineHeight: '19.2px' }) } },
-        querySelector(selector) { return selector === '.contract-products-preview' ? panel : { value: 'PROC' }; },
+        querySelector(selector) { return selector === '.contract-products-preview' ? panel : selector === '#ata-products-dialog' ? dialog : { value: 'PROC' }; },
         addEventListener(name, callback) { this.listeners[name] = callback; },
     };
     const warnings = [];
     initializeAtaProducts(root, fetcher, message => warnings.push(message));
-    return { root, fields, feedback, description, opener, warnings, manual, quantity, total, more, less,
-        input(value) { fields.item.value = value; fields.item.listeners.input(); },
+    return { root, fields, feedback, description, opener, warnings, manual, quantity, total, more, less, dialog, newProduct,
+        input(value) { fields.item.value = value; fields.item.listeners.input?.(); },
         lookup: () => fields.item.listeners.blur(),
     };
 }
+
+test('new product clears entry and cancels pending lookup without ficha controls', async () => {
+    const request = deferred();
+    const ui = fixture(() => request.promise);
+    ui.input('001');
+    const pending = ui.lookup();
+    ui.more.listeners.click();
+    ui.newProduct.listeners.click();
+    request.resolve(response());
+    await pending;
+    assert.equal(ui.fields.item.value, '');
+    assert.equal(ui.fields.item.focused, true);
+    assert.equal(ui.fields.code.value, '');
+    assert.equal(ui.description.value, '');
+    assert.equal(ui.quantity.value, '0,0000');
+    assert.equal(ui.total.value, '0,00');
+    assert.equal(ui.less.disabled, true);
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    ui.fields.item.value = 'manual';
+    ui.quantity.value = '99';
+    ui.root.dataset.editorBusy = 'true';
+    ui.newProduct.listeners.click();
+    assert.equal(ui.quantity.value, '99');
+    ui.root.dataset.editorBusy = 'false';
+    ui.newProduct.listeners.click();
+    assert.equal(ui.manual.checked, false);
+    assert.equal(ui.quantity.value, '0,0000');
+});
+
+test('closing products clears entry, restores mode and precision, and rejects late lookup responses', async () => {
+    const pending = deferred();
+    let signal;
+    const ui = fixture((url, options) => { signal = options.signal; return pending.promise; });
+    ui.input('001');
+    const lookup = ui.lookup();
+    ui.more.listeners.click();
+    ui.dialog.listeners.close({ target: ui.dialog });
+    assert.equal(signal.aborted, true);
+    pending.resolve(response());
+    await lookup;
+    for (const name of ['item', 'code', 'brand', 'unit']) assert.equal(ui.fields[name].value, '');
+    for (const name of ['disp', 'unit_price']) assert.equal(ui.fields[name].value, '0,0000');
+    assert.equal(ui.description.value, '');
+    assert.equal(ui.quantity.value, '0,0000');
+    assert.equal(ui.quantity.disabled, true);
+    assert.equal(ui.total.value, '0,00');
+    assert.equal(ui.less.disabled, true);
+    assert.equal(ui.more.disabled, false);
+    assert.equal(ui.feedback.textContent, '');
+    assert.equal(ui.root.dataset.ataLoaded, '107');
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    ui.fields.item.value = 'manual';
+    ui.quantity.value = '9';
+    ui.dialog.listeners.close({ target: {} });
+    assert.equal(ui.fields.item.value, 'manual');
+    ui.dialog.listeners.close({ target: ui.dialog });
+    assert.equal(ui.manual.checked, false);
+    assert.equal(ui.fields.item.value, '');
+    assert.equal(ui.quantity.value, '0,0000');
+    assert.equal(ui.fields.unit_price.readOnly, true);
+    assert.deepEqual(ui.warnings, []);
+});
 
 test('total truncates exact multiplication to two decimal places and groups thousands', () => {
     assert.equal(ataProductTotal('1,2345', '6,7890'), '8,38');
@@ -100,6 +168,50 @@ test('total truncates exact multiplication to two decimal places and groups thou
     assert.equal(ataProductTotal('99999999999999.9999', '1.0000'), '99.999.999.999.999,99');
     assert.equal(ataProductTotal('', '2'), '0,00');
     assert.equal(ataProductTotal('inválido', '2'), '0,00');
+});
+
+test('typing item leaves fields untouched and only blur requests and fills the product', async () => {
+    let calls = 0;
+    const ui = fixture(async () => { calls++; return response(); });
+    ui.fields.code.value = 'ANTERIOR';
+    ui.input('001');
+    await new Promise(resolve => setTimeout(resolve, 400));
+    assert.equal(calls, 0);
+    assert.equal(ui.fields.code.value, 'ANTERIOR');
+    await ui.lookup();
+    assert.equal(calls, 1);
+    assert.equal(ui.fields.code.value, '00042');
+    ui.input('');
+    assert.equal(ui.fields.code.value, '00042');
+    await ui.lookup();
+    assert.equal(calls, 1);
+    assert.equal(ui.fields.code.value, '');
+});
+
+test('manual item blur and search never consult or clear entered values, even with empty item', async () => {
+    let calls = 0;
+    const ui = fixture(async () => { calls++; return response(); });
+    ui.manual.checked = true;
+    ui.manual.listeners.change();
+    ui.fields.code.value = 'CODIGO MANUAL';
+    ui.description.value = 'Descricao manual';
+    ui.quantity.value = '7,0000';
+    for (const item of ['123', '']) {
+        ui.input(item);
+        await ui.lookup();
+        await ui.opener.listeners.click();
+        assert.equal(calls, 0);
+        assert.equal(ui.fields.code.value, 'CODIGO MANUAL');
+        assert.equal(ui.description.value, 'Descricao manual');
+        assert.equal(ui.quantity.value, '7,0000');
+    }
+    assert.deepEqual(ui.warnings, []);
+    ui.manual.checked = false;
+    ui.manual.listeners.change();
+    ui.input('123');
+    await ui.lookup();
+    assert.equal(calls, 1);
+    assert.equal(ui.fields.code.value, '00042');
 });
 
 test('quantity limit respects exact decimals, zero, blank availability and large values', () => {
@@ -229,9 +341,37 @@ test('editing item clears previous fields and a late response cannot overwrite t
     assert.equal(pending[0].options.signal.aborted, true);
     assert.equal(ui.fields.code.value, 'NOVO');
     ui.input('');
+    await ui.lookup();
     assert.equal(ui.fields.code.value, '');
     assert.equal(ui.fields.disp.value, '0,0000');
     assert.equal(ui.description.value, '');
+});
+
+test('exhausted item displays zero, blocks quantity and warns before any new entry', async () => {
+    const ui = fixture(async () => response({ remaining: '0.0000' }));
+    ui.quantity.value = '9,0000';
+    ui.input('001');
+    await ui.lookup();
+    assert.equal(ui.fields.disp.value, '0,0000');
+    assert.equal(ui.quantity.disabled, true);
+    assert.equal(ui.quantity.value, '0,0000');
+    assert.equal(ui.total.value, '0,00');
+    assert.equal(ui.fields.code.value, '00042');
+    assert.deepEqual(ui.warnings, ['Não é possível fazer novo lançamento: este produto já atingiu o limite para esta ATA.']);
+    await ui.lookup();
+    assert.equal(ui.warnings.length, 1);
+});
+
+test('partial balance is displayed and quantity above the remaining balance is refused', async () => {
+    const ui = fixture(async () => response({ remaining: '3.0001' }));
+    ui.input('001');
+    await ui.lookup();
+    assert.equal(ui.fields.disp.value, '3,0001');
+    assert.equal(ui.quantity.disabled, false);
+    ui.quantity.value = '3,0002';
+    ui.quantity.listeners.blur();
+    assert.equal(ui.quantity.value, '');
+    assert.deepEqual(ui.warnings, ['A Quantidade limite é 3,0001']);
 });
 
 test('clearing or switching ata cancels lookup and never applies a product from the previous context', async () => {

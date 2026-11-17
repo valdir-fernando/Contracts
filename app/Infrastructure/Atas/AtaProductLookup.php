@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 final class AtaProductLookup
 {
-    public function __construct(private LockActor $actors, private SelectedFund $funds) {}
+    public function __construct(private LockActor $actors, private SelectedFund $funds, private AtaProductAvailability $availability) {}
 
     public function listing(User $expected, int $ataId, array $input): array
     {
@@ -25,14 +25,16 @@ final class AtaProductLookup
         $rows = DB::table('tb_Produtos')->whereRaw('TRIM(Processo) = ?', [$process])
             ->orderBy('item')->orderBy('id')->paginate(50,
                 ['id', 'item', 'Cod_Prod', 'Discriminacao', 'Marca', 'Unidade', 'QTD', 'VL_Unitario'], 'page', $data['page'] ?? 1);
+        $products = $rows->map(fn ($row) => ['id' => $row->id, 'item' => $row->item, 'code' => $row->Cod_Prod,
+            'description' => $row->Discriminacao, 'brand' => $row->Marca, 'unit' => $row->Unidade,
+            'remaining' => $this->availability->remaining($process, $row->item, $row->QTD),
+            'unit_price' => DecimalAmount::normalize($row->VL_Unitario)])->all();
         $current = $this->authorizedAta($expected, $ataId);
         abort_if($current->PROCESSO !== $ata->PROCESSO || $current->fund_id !== $ata->fund_id || $current->version !== $ata->version,
             409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de buscar os produtos.');
 
         return ['process' => $process, 'page' => $rows->currentPage(), 'last_page' => $rows->lastPage(),
-            'products' => $rows->map(fn ($row) => ['id' => $row->id, 'item' => $row->item, 'code' => $row->Cod_Prod,
-                'description' => $row->Discriminacao, 'brand' => $row->Marca, 'unit' => $row->Unidade,
-                'remaining' => DecimalAmount::normalize($row->QTD), 'unit_price' => DecimalAmount::normalize($row->VL_Unitario)])->all()];
+            'products' => $products];
     }
 
     public function find(User $expected, int $ataId, array $input): array
@@ -53,11 +55,14 @@ final class AtaProductLookup
         abort_if($matches->isEmpty(), 404, 'Nenhum produto encontrado para este Item no Processo da Ata.');
         abort_if($matches->count() !== 1, 409, 'Há mais de um produto para este Item e Processo. Revise o catálogo antes de continuar.');
         $row = $matches->first();
-        $remaining = DecimalAmount::normalize($row->QTD);
+        $remaining = $this->availability->remaining($process, $row->item, $row->QTD);
         $price = DecimalAmount::normalize($row->VL_Unitario);
         if ($remaining === null || $price === null || bccomp($remaining, '0', 4) < 0 || bccomp($price, '0', 4) < 0) {
             throw ValidationException::withMessages(['item' => 'O produto tem saldo ou valor unitário inválido no cadastro.']);
         }
+        $current = $this->authorizedAta($expected, $ataId);
+        abort_if($current->PROCESSO !== $ata->PROCESSO || $current->fund_id !== $ata->fund_id || $current->version !== $ata->version,
+            409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de buscar o Item.');
 
         return ['process' => $process, 'product' => ['id' => $row->id, 'item' => $row->item,
             'code' => $row->Cod_Prod, 'brand' => $row->Marca, 'unit' => $row->Unidade,

@@ -78,7 +78,6 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         description.setAttribute('aria-readonly', String(!editable));
         opener.disabled = editable;
     };
-    let timer;
     let controller;
     let sequence = 0;
     let resolved = '';
@@ -93,7 +92,6 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         description.style.overflowY = 'hidden';
     };
     const invalidate = () => {
-        clearTimeout(timer);
         controller?.abort();
         controller = null;
         sequence++;
@@ -102,8 +100,21 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
         clearFields();
     };
     const reset = () => { manual.checked = false; applyMode(); invalidate(); item.value = ''; };
+    panel.querySelector('[data-products-new]').addEventListener('click', () => {
+        if (!root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
+        reset();
+        places = 2;
+        updateTotal();
+        item.focus();
+    });
+    const dialog = root.querySelector('#ata-products-dialog');
+    dialog?.addEventListener('close', event => {
+        if (event.target !== dialog) return;
+        reset();
+        places = 2;
+        updateTotal();
+    });
     manual.addEventListener('change', () => {
-        clearTimeout(timer);
         controller?.abort();
         controller = null;
         sequence++;
@@ -114,10 +125,10 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
     });
     applyMode();
     const lookup = async (showWarning = true) => {
-        clearTimeout(timer);
         const ataId = root.dataset.ataLoaded;
         const requested = item.value.trim();
-        if (manual.checked || !ataId || root.dataset.editorBusy === 'true' || !requested) return;
+        if (manual.checked || !ataId || root.dataset.editorBusy === 'true') return;
+        if (!requested) { invalidate(); return; }
         const key = JSON.stringify([ataId, requested]);
         if (resolved === key) return;
         invalidate();
@@ -140,12 +151,16 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
             ['code', 'brand', 'unit'].forEach(name => { field(name).value = product[name] ?? ''; });
             field('disp').value = formatDecimalField(product.remaining);
             field('unit_price').value = formatDecimalField(product.unit_price);
-            quantity.disabled = false;
-            enforceQuantity();
+            const exhausted = formatDecimalField(product.remaining) === '0,0000';
+            quantity.disabled = exhausted;
+            if (exhausted) quantity.value = '0,0000';
+            else enforceQuantity();
             description.value = product.description ?? '';
             fitDescription();
             resolved = key;
             feedback.textContent = '';
+            updateTotal();
+            if (exhausted) warn('Não é possível fazer novo lançamento: este produto já atingiu o limite para esta ATA.', root.ownerDocument);
         } catch (error) {
             if (current !== sequence || attempt.signal.aborted) return;
             clearFields();
@@ -157,11 +172,14 @@ export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplier
             if (current === sequence) controller = null;
         }
     };
-    item.addEventListener('input', () => { if (manual.checked) return; invalidate(); if (item.value.trim()) timer = setTimeout(() => lookup(false), 350); });
-    item.addEventListener('blur', () => lookup());
+    item.addEventListener('blur', () => { if (!manual.checked) return lookup(); });
     opener.addEventListener('mousedown', event => event.preventDefault());
     const openPicker = initializeAtaProductPicker(root, panel, item, lookup, fetcher);
-    opener.addEventListener('click', () => { if (item.value.trim()) return lookup(); return openPicker(); });
+    opener.addEventListener('click', () => {
+        if (manual.checked) return;
+        if (item.value.trim()) return lookup();
+        return openPicker();
+    });
     ['ata-loading', 'ata-cleared', 'ata-loaded'].forEach(event => root.addEventListener(event, reset));
     initializeAtaProductSave(root, panel, () => places, fetcher, warn);
 }
@@ -170,40 +188,20 @@ export function initializeAtaProductSave(root, panel, getPlaces, fetcher, warn) 
     const button = panel.querySelector('[data-ata-product-save-url]');
     if (!button) return;
     const field = name => panel.querySelector(`[data-product-field="${name}"]`);
-    const ficha = panel.querySelector('[data-product-budget]');
-    const fichaTotal = panel.querySelector('[data-product-contract-total]');
-    const fichaRows = panel.querySelector('[data-product-budget-totals]');
-    let totals = [];
     let saving = false;
     const notify = (name, detail = {}) => root.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
-    const refreshFicha = () => { fichaTotal.value = formatDecimalField(totals.find(row => row.ficha === ficha.value.trim())?.total ?? '0'); };
-    ficha.addEventListener('input', refreshFicha);
-    root.addEventListener('ata-loaded', ({ detail }) => {
-        totals = detail.ficha_totals ?? [];
-        fichaRows.replaceChildren();
-        for (const entry of totals) {
-            const row = root.ownerDocument.createElement('tr');
-            for (const value of [entry.ficha, formatDecimalField(entry.total)]) {
-                const cell = root.ownerDocument.createElement('td');
-                cell.textContent = value;
-                row.append(cell);
-            }
-            fichaRows.append(row);
-        }
-        refreshFicha();
-    });
-    root.addEventListener('ata-cleared', () => { totals = []; fichaRows.replaceChildren(); refreshFicha(); });
     button.addEventListener('click', async () => {
         if (saving || button.disabled || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
         const payload = {
             version: Number(root.dataset.ataVersion), manual: panel.querySelector('[data-ata-products-manual]').checked,
-            ficha: ficha.value.trim(), item: field('item').value.trim(), code: field('code').value.trim(),
+            item: field('item').value.trim(), code: field('code').value.trim(),
             unit: field('unit').value.trim(), brand: field('brand').value.trim(),
             description: panel.querySelector('[data-product-description]').value.trim(),
             quantity: panel.querySelector('[data-product-quantity]').value.trim(), unit_price: field('unit_price').value.trim(), places: getPlaces(),
         };
-        const labels = { ficha: 'Ficha', item: 'Item', code: 'Código', unit: 'UND', quantity: 'QTD', unit_price: 'VL. Unitário', description: 'Descrição' };
+        const labels = { item: 'Item', unit: 'UND', quantity: 'QTD', unit_price: 'VL. Unitário', description: 'Descrição' };
         const missing = Object.entries(labels).filter(([key]) => !payload[key]).map(([, label]) => label);
+        if (!panel.querySelector('[data-product-line-total]').value.trim()) missing.push('VL. Total');
         if (missing.length) { warn(`Preencha os campos obrigatórios: ${missing.join(', ')}.`, root.ownerDocument); return; }
         const ataId = root.dataset.ataLoaded;
         saving = true;

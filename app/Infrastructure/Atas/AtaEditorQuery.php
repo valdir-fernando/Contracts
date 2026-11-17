@@ -73,14 +73,10 @@ final class AtaEditorQuery
         $actor = $this->actors->current($expected);
         abort_unless($actor->isAdmin() || $this->funds->allows($actor, (int) $ata->fund_id), 404);
 
-        $ambiguousFicha = DB::table('tb_ATA')->where('ATA', $ata->ATA)->where('PROCESSO', $ata->PROCESSO)
-            ->where('ID', '<>', $ata->ID)->exists();
-        $fichaTotals = $ambiguousFicha ? [] : DB::table('tb_ValorFicha_ATA')->where('ATA', $ata->ATA)->where('Processo', $ata->PROCESSO)
-            ->orderBy('Ficha')->get(['Ficha', 'VALOR'])->map(fn ($row) => ['ficha' => $row->Ficha, 'total' => (string) $row->VALOR])->all();
         $actor = $this->actors->current($expected);
         abort_unless($actor->isAdmin() || $this->funds->allows($actor, (int) $ata->fund_id), 404);
 
-        return ['id' => $ata->ID, 'number' => $ata->ATA, 'version' => $ata->version, 'ficha_totals' => $fichaTotals,
+        return ['id' => $ata->ID, 'number' => $ata->ATA, 'version' => $ata->version, 'ficha_totals' => [],
             'managing_fund_id' => $ata->fund_id === null ? 'saved-'.$ata->ID : (string) $ata->fund_id, 'managing_fund_name' => $ata->FUNDO,
             'process' => $ata->PROCESSO, 'date' => $ata->DATA_ATA, 'bidding' => $ata->LICITACAO, 'bidding_number' => $ata->N_LICIT,
             'contractor' => $contractor, 'supplier' => $supplier, 'participants' => $participants, 'products' => $products, 'total' => $total];

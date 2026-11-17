@@ -72,7 +72,7 @@ class AtaProductLookupTest extends TestCase
             ->assertHeader('Cache-Control', 'no-store, private')->assertDontSee('FONTE-PRIVADA')->assertDontSee('11222333000181');
         $this->assertDatabaseCount('activity_events', 0);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
-        $this->assertDatabaseCount('tb_ValorFicha_ATA', 0);
+        $this->assertDatabaseCount('tb_ValorFicha_ATA_historico', 0);
         $this->assertDatabaseHas('tb_Produtos', ['id' => $id, 'QTD' => '1.234,5678']);
     }
 
@@ -84,6 +84,38 @@ class AtaProductLookupTest extends TestCase
         $this->product(['CNPJ_Fornec' => '04252011000110']);
         $this->lookup()->assertConflict()->assertJsonMissingPath('product');
         $this->lookup(['item' => '999'])->assertNotFound();
+    }
+
+    public function test_remaining_subtracts_active_quantities_by_exact_item_and_process_and_clamps_at_zero(): void
+    {
+        $this->product(['QTD' => '10,0001']);
+        $base = ['ID_ATA' => $this->ata, 'ATA' => '107/25', 'PROCESSO' => '000123/2025', 'ITEM' => '001',
+            'LICITACAO' => 'Pregão', 'N_LICIT' => '12', 'DISCRIMINACAO' => 'Produto', 'UND' => 'UN',
+            'QTD' => '2.0000', 'VL_UNIT' => '1', 'VL_TOTAL' => '2', 'source_row' => '{}'];
+        DB::table('tb_PRODUTOS_ATA')->insert($base);
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 1, 'QTD' => '3.0000']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 2, 'QTD' => '100', 'deleted_at' => now()]));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '1', 'QTD' => '100']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '001 ', 'PROCESSO' => 'OUTRO', 'QTD' => '100']));
+        $this->lookup()->assertOk()->assertJsonPath('product.remaining', '5.0001');
+        $this->getJson(route('atas.products.catalog', ['ata' => $this->ata]))->assertOk()->assertJsonPath('products.0.remaining', '5.0001');
+        $other = DB::table('tb_ATA')->insertGetId(['ATA' => '108/25', 'PROCESSO' => '000123/2025', 'LICITACAO' => 'Pregão',
+            'N_LICIT' => '12', 'CNPJ_FUNDO' => '04252011000110', 'source_files' => '[]', 'quality_issues' => '[]', 'import_hash' => str_repeat('b', 64)], 'ID');
+        $id = DB::table('tb_PRODUTOS_ATA')->insertGetId(array_replace($base, ['ID_ATA' => $other, 'ATA' => '108/25',
+            'PROCESSO' => ' 000123/2025 ', 'ITEM' => ' 001 ', 'QTD' => '5.0001']), 'ID');
+        $this->lookup()->assertOk()->assertJsonPath('product.remaining', '0.0000');
+        DB::table('tb_PRODUTOS_ATA')->where('ID', $id)->update(['QTD' => '6']);
+        $this->lookup()->assertOk()->assertJsonPath('product.remaining', '0.0000');
+        $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_large_remaining_is_calculated_without_float_rounding(): void
+    {
+        $this->product(['QTD' => '99999999999999.9999']);
+        DB::table('tb_PRODUTOS_ATA')->insert(['ID_ATA' => $this->ata, 'ATA' => '107/25', 'PROCESSO' => '000123/2025',
+            'ITEM' => '001', 'LICITACAO' => 'Pregão', 'N_LICIT' => '12', 'DISCRIMINACAO' => 'Produto', 'UND' => 'UN',
+            'QTD' => '0.0001', 'VL_UNIT' => '0', 'VL_TOTAL' => '0', 'source_row' => '{}']);
+        $this->lookup()->assertOk()->assertJsonPath('product.remaining', '99999999999999.9998');
     }
 
     public function test_decimal_strings_retain_four_places_large_values_and_zero_balance(): void

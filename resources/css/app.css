@@ -437,14 +437,12 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .ata-product-process { margin-left: auto; text-align: right; overflow-wrap: anywhere; }
 .ata-product-process-budget .ata-product-heading-actions { margin: 0 0 0 auto; }
 .contract-products-panel .ata-product-process-budget label { display: flex; align-items: center; gap: 8px; }
-.ata-product-process-budget [data-product-budget] { width: 120px; }
 .contract-products-preview .product-entry-main { display: flex; flex-direction: column; }
-.contract-products-preview .product-budget-summary { margin-top: 0; }
+.contract-products-preview .product-entry-layout { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 901px) {
-    .contract-products-dialog .contract-products-preview .contract-products-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); grid-template-rows: auto auto minmax(0, 1fr) auto; column-gap: 12px; }
+    .contract-products-dialog .contract-products-preview .contract-products-panel { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; }
     .contract-products-preview .product-entry-layout { display: contents; }
     .contract-products-preview .product-entry-main { grid-column: 1; grid-row: 1; }
-    .contract-products-preview .product-budget-summary { grid-column: 2; grid-row: 1 / 3; }
     .contract-products-preview .product-controls-row { grid-column: 1; grid-row: 2; margin-bottom: 0; }
     .contract-products-preview .product-contract-list { grid-column: 1 / -1; grid-row: 3; margin-top: 12px; }
     .contract-products-preview .product-contract-values { grid-column: 1 / -1; grid-row: 4; }
