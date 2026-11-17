@@ -1,5 +1,27 @@
 # Contracts
 
+**EXTRATO**, em Nova ATA e em Produtos da ATA, gera o PDF conforme o modelo fornecido. Cabeçalho e contratante usam o órgão gerenciador salvo na ATA; a administração do cabeçalho e rodapé vem das configurações do sistema. A emissão usa a ATA consultada, exige autorização e registra auditoria. Informações ausentes aparecem como “Não informado”; não são copiadas do exemplo do modelo.
+
+Na linha abaixo de **Processo ATA**, informe **Data_Inicial**, **Data_Final** e **Período da Vigência**. A opção **1 Ano INPC**, ao lado do período, exibe a explicação sobre o primeiro dia útil após a divulgação no PNCP. Marcar preenche o período e bloqueia as datas; editar o texto para um período diferente desmarca a opção e libera as datas. Atas novas gravam esses campos em Salvar; em atas carregadas, use **Salvar vigência**. O EXTRATO usa a cláusula de um ano a partir da divulgação no PNCP quando marcado e, quando desmarcado, o período e as duas datas informados. O botão PUBLICAÇÃO aguarda seu próprio modelo.
+
+Na lista de produtos da ATA, a última coluna tem seletores e nenhum título visível. O primeiro item marcado preenche os campos; **Excluir** remove integralmente todos os marcados, após confirmação na janela padrão com **OK** ou **Cancelar**, inclusive quando há apenas um marcado. Sem seleção, usa Item e QTD dos campos com a mesma confirmação e as regras de retirada parcial. Sem seleção e sem Item informado, exibe aviso explicando que não há item para excluir.
+
+Em **Produtos da ATA**, **QTD Especial** abre a janela padrão com **QTD de ...** e somente **OK**. Nome vazio fecha sem alterar nada. Informar, por exemplo, `veículos` habilita **QTD de veículos** entre QTD e VL. Unitário, usando a mesma área dos dois campos anteriores. O nome fica na ATA e os valores ficam nos produtos, reaparecendo na consulta e na lista somente para atas configuradas. Nesta etapa, a quantidade especial é informativa: o total continua QTD × VL. Unitário.
+
+Ao lado do novo rótulo, **Excluir QTD** pede confirmação na janela padrão com **OK** e **Cancelar**. Confirmar remove o nome da quantidade especial da ATA e seus valores nos produtos vinculados, oculta campo e coluna, restaura as larguras e volta a exibir **QTD Especial**. A operação é auditada; os produtos e seus valores financeiros são preservados.
+
+Em **Nova ATA**, **Admitir Adesão a ATA** aparece ao lado de **Data_ATA**, com **SIM** e **NÃO**. A escolha é salva em `tb_ATA.ADMITIR_ADESAO` e reaparece ao consultar a ata. Em atas carregadas, alterar a seleção salva automaticamente com confirmação na janela padrão; atas antigas permanecem sem informação até uma escolha ser registrada.
+
+Clique em um produto da lista da ATA para preencher Item, Código, Marca, UND, QTD, valor unitário, total e descrição com os dados salvos. O saldo Disponível é consultado separadamente quando Lançamento Manual está desmarcado.
+
+Em **Excluir** no painel de produtos da ATA, informe Item e QTD a retirar e confirme na janela padrão com **OK** ou **Cancelar**. Quantidade menor reduz o item e seu valor proporcionalmente; igual exclui o item logicamente; maior informa o limite permitido. A lista e o total são atualizados, com histórico e aditivos preservados.
+
+O saldo disponível de produtos das atas considera apenas os lançamentos originais ativos do mesmo Item e Processo. Quantidades de aditivos não entram nesse cálculo.
+
+Com **Lançamento Manual** ativo, o salvamento não limita a quantidade pelo catálogo nem pelo campo Disponível. Repetir o Item na mesma ATA e Processo continua somando quantidade e valor no mesmo registro. Sem essa opção, o limite do catálogo permanece obrigatório.
+
+Em **Salvar Produto**, repetir o Item na mesma ATA e Processo soma a quantidade e o valor ao registro existente. A lista e o total são recarregados e a janela padrão informa sucesso ou o motivo da falha. Unidade e valor unitário devem coincidir para permitir a soma.
+
 **Salvar produto** em Nova ATA grava o item original sem Ficha, respeitando o saldo do Item e Processo na `tb_Produtos`, com validação, controle de versão e auditoria na mesma transação. O campo e a lista de fichas foram retirados; a tabela de valores por ficha foi arquivada pela migration `2026_11_15_000002_retire_ata_ficha_values.php`. [Gravação de produtos sem ficha](docs/architecture.md#gravação-de-produtos-da-ata-sem-ficha).
 
 Em **Cadastro de produtos da ATA**, informar **Item** consulta `tb_Produtos` pelo **Processo da ata salva** e preenche Código, Marca, UND, Disponível, VL. Unitário e Descrição. [Regras e validação](docs/architecture.md#consulta-de-item-para-produtos-da-ata--13112026).
