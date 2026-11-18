@@ -1,5 +1,15 @@
 # Arquitetura do Contracts
 
+## Commits e sincronização dos modelos — 18/11/2026
+
+Os modelos `Reference/ATAS/Modelo_ATA.docx`, `Public_ATA.docx`, `Publicacao_ATA.dotx`, `Reference/Modelos_Doc/ATA/Modelo de ATA.docx` e os extratos de credenciamento PF/PJ foram incluídos no Git. Após o push, `git pull` na outra máquina transfere esses arquivos e o código versionado. Atas assinadas, fontes de importação, planilhas operacionais, capturas locais, arquivos de `build/`, banco, ambientes e documentos privados permanecem fora destes commits; a transferência dos dados operacionais continua pelo backup próprio do projeto.
+
+Validação para o envio: `docker compose exec -T app composer check:architecture` passou (3 testes, 4 asserções); `docker compose exec -T app composer test:unit` passou (89 testes, 223 asserções); `docker compose exec -T app composer check:static` passou. `npm.cmd test` passou (291 testes), `npm.cmd run build` e `git diff --check` passaram. `docker compose exec -T app php artisan test --filter='AtaEditingTest|AtaPublicationTest|AtaExtractTest|AtaRegistrationTest|AtasOverviewTest|UpdateAtaAdmissionTest' --compact` passou (70 testes, 628 asserções). PHP usa SQLite em memória e storage/cache temporários conforme `phpunit.xml` e `tests/bootstrap.php`.
+
+`docker compose exec -T app composer check` aprovou Pint (489 arquivos), mas apresentou falhas na suíte PHP geral; não se declara aprovação dessa suíte. A execução dirigida por `docker compose exec -T app php vendor/bin/phpunit --filter='test_contract_summary_embeds_paginated_amendments_with_actions_and_contract_scope|test_contract_information_panel_shows_saved_updated_values' --do-not-cache-result --colors=never` reproduziu as duas falhas já documentadas por ausência de “Excluir contrato” nas asserções de ordem do HTML em `ContractAmendmentsTest:96` e `ContractBrowsingTest:76` (2 testes, 6 asserções). Logs locais em `build/push-composer-check.log`, `build/push-contract-failures.log`, `build/push-ata-tests.log` e `build/push-js-tests.log`. Sem alterações ou enfraquecimento dos testes, migrations, restaurações, testes no banco operacional ou ensaio visual autenticado nesta preparação.
+
+O `composer check` encerrou pelo timeout de 300 segundos antes do resumo final do PHPUnit, após apresentar falhas. A causa das demais falhas não foi isolada nesta preparação; os resultados aprovados acima se referem somente às verificações concluídas.
+
 ## Revisão do modelo de publicação da ATA — 18/11/2026
 
 O arquivo atualizado em `Reference/ATAS/Public_ATA.docx` foi relido para ajustar somente a composição de `resources/views/atas/publication.blade.php`: título EXTRATO DA ATA em negrito e sublinhado, ADM e rótulos Processo/Licitação, Fornecedor, VALOR TOTAL e DATA em negrito, OBJETO em maiúsculas/negrito/sublinhado, e documento do fornecedor antes do nome, juntos no mesmo parágrafo. O nome e seu hífen permanecem em negrito, com linha vazia antes de OBJETO. Foi normalizado somente o espaço entre DA e ATA, unido no Word como DAATA. Margens, tamanho de fonte, dados salvos, total original, autorização e auditoria seguem as regras da entrega anterior.
