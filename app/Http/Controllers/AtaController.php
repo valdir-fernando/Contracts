@@ -7,13 +7,16 @@ use App\Infrastructure\Atas\AtaEditorQuery;
 use App\Infrastructure\Atas\AtaExtractPdf;
 use App\Infrastructure\Atas\AtaParticipants;
 use App\Infrastructure\Atas\AtaProductLookup;
+use App\Infrastructure\Atas\AtaPublicationPdf;
 use App\Infrastructure\Atas\AtaRegistration;
+use App\Infrastructure\Atas\RemoveAta;
 use App\Infrastructure\Atas\RemoveAtaProduct;
 use App\Infrastructure\Atas\RemoveAtaSpecialQuantity;
 use App\Infrastructure\Atas\RemoveSavedAtaParticipant;
 use App\Infrastructure\Atas\SaveAtaProduct;
 use App\Infrastructure\Atas\SaveAtaValidity;
 use App\Infrastructure\Atas\SavedAtaParticipants;
+use App\Infrastructure\Atas\UpdateAta;
 use App\Infrastructure\Atas\UpdateAtaAdmission;
 use App\Infrastructure\Atas\UpdateAtaSpecialQuantity;
 use App\Infrastructure\Security\LockActor;
@@ -22,6 +25,20 @@ use Illuminate\Support\Facades\DB;
 
 class AtaController extends Controller
 {
+    public function update(Request $request, int $ata, UpdateAta $editor)
+    {
+        return response()->json($editor->update($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function destroy(Request $request, int $ata, RemoveAta $editor)
+    {
+        return response()->json($editor->remove($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
     public function saveValidity(Request $request, int $ata, SaveAtaValidity $validity)
     {
         return response()->json($validity->save($request->user(), $ata, $request->all(),
@@ -29,9 +46,13 @@ class AtaController extends Controller
             ['Cache-Control' => 'private, no-store']);
     }
 
-    public function publication(Request $request, int $ata, AtaExtractPdf $extract)
+    public function publication(Request $request, int $ata, AtaPublicationPdf $publication)
     {
-        return $this->extract($request, $ata, $extract);
+        $data = $request->validate(['version' => 'required|integer|min:1']);
+        $bytes = $publication->generate($request->user(), $ata, (int) $data['version']);
+
+        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="publicacao-ata-'.$ata.'.pdf"']);
     }
 
     public function extract(Request $request, int $ata, AtaExtractPdf $extract)

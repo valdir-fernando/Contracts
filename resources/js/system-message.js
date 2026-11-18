@@ -16,7 +16,7 @@ export function showSupplierDocumentWarning(message, ownerDocument = document) {
     if (!dialog.open) dialog.showModal();
 }
 
-export function confirmSystemMessage(message, ownerDocument = document) {
+export function confirmSystemMessage(message, ownerDocument = document, { emphasize = [] } = {}) {
     let dialog = ownerDocument.querySelector('[data-system-confirmation]');
     if (!dialog) {
         dialog = ownerDocument.createElement('dialog');
@@ -33,7 +33,17 @@ export function confirmSystemMessage(message, ownerDocument = document) {
         ownerDocument.body.append(dialog);
     }
     if (dialog.open) return Promise.resolve(false);
-    dialog.querySelector('p').textContent = message;
+    const paragraph = dialog.querySelector('p');
+    paragraph.textContent = message;
+    if (emphasize.length) {
+        const terms = new RegExp(`(${emphasize.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g');
+        paragraph.replaceChildren(...message.split(terms).map(part => {
+            if (!emphasize.includes(part)) return part;
+            const strong = ownerDocument.createElement('strong');
+            strong.textContent = part;
+            return strong;
+        }));
+    }
     dialog.returnValue = '';
     return new Promise(resolve => {
         dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });

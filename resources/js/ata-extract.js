@@ -1,19 +1,19 @@
 import { showSupplierDocumentWarning } from './system-message.js';
 
-export function openAtaExtract(blob, ownerDocument = document, browser = window) {
+export function openAtaExtract(blob, ownerDocument = document, browser = window, filename = 'extrato-ata.pdf') {
     const url = URL.createObjectURL(blob);
     const tab = browser.open(url, '_blank');
     if (tab) tab.opener = null;
     else {
         const link = ownerDocument.createElement('a');
         link.href = url;
-        link.download = 'extrato-ata.pdf';
+        link.download = filename;
         link.click();
     }
     browser.setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = showSupplierDocumentWarning, openPdf = openAtaExtract) {
+export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = showSupplierDocumentWarning, openPdf = openAtaExtract, urlKey = 'ataExtractUrl') {
     let pending = false;
     buttons.forEach(button => button.addEventListener('click', async () => {
         if (pending || button.disabled) return;
@@ -26,7 +26,7 @@ export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = show
         button.disabled = true;
         root.dispatchEvent(new CustomEvent('ata-product-saving', { bubbles: true }));
         try {
-            const url = new URL(button.dataset.ataExtractUrl.replace('/0/', `/${encodeURIComponent(ataId)}/`), root.ownerDocument.baseURI);
+            const url = new URL(button.dataset[urlKey].replace('/0/', `/${encodeURIComponent(ataId)}/`), root.ownerDocument.baseURI);
             url.searchParams.set('version', version);
             const response = await fetcher(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
             if (root.dataset.ataLoaded !== ataId || root.dataset.ataVersion !== version) return;

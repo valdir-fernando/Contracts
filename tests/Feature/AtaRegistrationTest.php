@@ -55,6 +55,22 @@ class AtaRegistrationTest extends TestCase
             'bidding' => 'Pregão', 'bidding_number' => '12/26', 'fornecedor_documento_snapshot' => '11.222.333/0001-81'], $extra);
     }
 
+    public function test_created_ata_is_edited_without_reissuing_number_and_draft_retry_returns_the_edited_record(): void
+    {
+        $input = $this->input();
+        $created = $this->postJson(route('atas.store'), $input)->assertCreated()->json();
+        $counter = DB::table('tb_N_ATA')->get()->map(fn ($row) => (array) $row)->all();
+        $this->patchJson(route('atas.update', $created['id']), ['version' => $created['version'], 'bidding_number' => '45/26'])
+            ->assertOk()->assertExactJson(['id' => $created['id'], 'number' => $created['number'], 'version' => 2]);
+        $this->postJson(route('atas.store'), $input)->assertCreated()
+            ->assertExactJson(['id' => $created['id'], 'number' => $created['number'], 'version' => 2]);
+        $this->assertDatabaseCount('tb_ATA', 1);
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $created['id'], 'N_LICIT' => '45/26']);
+        $this->assertSame($counter, DB::table('tb_N_ATA')->get()->map(fn ($row) => (array) $row)->all());
+        $this->assertSame(1, ActivityEvent::where('action', 'ata_created')->count());
+        $this->assertSame(1, ActivityEvent::where('action', 'ata_updated')->count());
+    }
+
     public function test_new_ata_saves_validity_dates_and_the_one_year_choice_with_its_audit(): void
     {
         $result = $this->postJson(route('atas.store'), $this->input(['one_year_inpc' => true, 'validity_period' => 'Outra coisa',
@@ -64,6 +80,8 @@ class AtaRegistrationTest extends TestCase
         $this->assertSame('1 Ano INPC', ActivityEvent::where('action', 'ata_created')->sole()->metadata['after']['PERIODO_ATA']);
         $html = $this->get(route('atas.create'))->assertOk()->getContent();
         $this->assertLessThan(strpos($html, 'data-ata-validity'), strpos($html, 'name="ata_process"'));
+        $this->assertStringNotContainsString('data-ata-validity-save-url', $html);
+        $this->assertStringNotContainsString('Salvar Vigência/Publicação', $html);
     }
 
     public function test_invalid_manual_validity_dates_do_not_create_ata_or_consume_number(): void

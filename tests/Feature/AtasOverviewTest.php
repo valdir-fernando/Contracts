@@ -58,8 +58,8 @@ class AtasOverviewTest extends TestCase
             ->assertSee('aria-label="Ações da ata"', false)
             ->assertSee('for="ata-total">Valor da ATA</label>', false)
             ->assertSee('id="ata-total" data-money name="Valor_ATA" readonly aria-readonly="true" value="0,0000"', false)
-            ->assertSeeInOrder(['title="Salve ou carregue uma ata para excluir."', 'Excluir</button>',
-                'href="'.route('atas.create').'"', 'Novo</a>', 'data-ata-save', ':disabled="busy || loaded"', 'Salvar</button>'], false)
+            ->assertSeeInOrder(['data-ata-delete', 'disabled :disabled="!loaded"', 'Excluir</button>',
+                '<a class="section-tab" href="'.route('atas.create').'" data-ata-new>', 'Novo</a>', 'data-ata-save', ':data-version="version" @ata-saving.window', 'Salvar</button>'], false)
             ->assertDontSee('data-contract-form', false);
         $this->assertDatabaseCount('tb_ATA', 0);
         $this->assertDatabaseCount('activity_events', 0);

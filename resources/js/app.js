@@ -38,6 +38,7 @@ import './ata-save';
 import './ata-admission';
 import './ata-special-quantity';
 import './ata-extract';
+import './ata-publication';
 import './ata-validity';
 import './ata-products';
 import { initializeDecimalFields } from './decimal-fields';

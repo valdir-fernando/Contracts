@@ -56,7 +56,7 @@
                         <span class="ata-product-document-actions" role="group" aria-label="Documentos da ATA">
                             <button type="button" class="section-tab document-action" data-ata-document="ata" :disabled="!loaded || busy"><x-nav-icon name="contracts"/>ATA</button>
                             <button type="button" class="section-tab document-action" data-ata-document="extract" data-ata-extract-url="{{ route('atas.extract', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="document-extract"/>EXTRATO</button>
-                            <button type="button" class="section-tab document-action" data-ata-document="publication" :disabled="!loaded || busy"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
+                            <button type="button" class="section-tab document-action" data-ata-document="publication" data-ata-publication-url="{{ route('atas.publication', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
                         </span>
                         <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
                         <button type="button" class="section-tab" data-products-save data-ata-product-save-url="{{ route('atas.products.store', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="save"/>Salvar produto</button>

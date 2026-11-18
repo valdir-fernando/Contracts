@@ -6,6 +6,19 @@ import { runInNewContext } from 'node:vm';
 const view = readFileSync(new URL('../../resources/views/atas/create.blade.php', import.meta.url), 'utf8');
 const funds = [{ id: 1, name: 'Educação' }, { id: 2, name: 'Saúde' }, { id: 3, name: 'Município' }];
 
+test('toolbar keeps New and Save enabled and enables Delete only with a persisted ATA', () => {
+    const toolbar = view.slice(view.indexOf('aria-label="Ações da ata"'), view.indexOf('<dialog class="catalog-modal"'));
+    const save = toolbar.split('\n').find(line => line.includes('data-ata-save'));
+    const remove = toolbar.split('\n').find(line => line.includes('data-ata-delete'));
+    const fresh = toolbar.match(/<a[^>]+>/)[0];
+    assert.doesNotMatch(save, /disabled|pointer-events-none/);
+    assert.doesNotMatch(fresh, /disabled|pointer-events-none/);
+    const disabled = remove.match(/:disabled="([^"]+)"/)[1];
+    for (const loaded of [false, true]) {
+        for (const busy of [false, true]) assert.equal(runInNewContext(disabled, { loaded, busy }), !loaded);
+    }
+});
+
 test('products opens a modal with the current supplier and closes without changing the ata', () => {
     const open = view.match(/aria-controls="ata-products-dialog" @click="([^"]+)"/)[1];
     const close = view.match(/@click="([^"]+)" aria-label="Fechar cadastro de produtos"/)[1];

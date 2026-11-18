@@ -29,7 +29,7 @@ class AtaExtractPdf
             abort_unless((int) $ata->version === $version, 409, 'A ata foi alterada. Consulte novamente antes de emitir o extrato.');
             $settings = $this->settings->current();
 
-            return ['fields' => $this->fields($ata, $actor, $settings), 'source' => $this->fingerprint($ata),
+            return ['fields' => $this->fields($ata, $actor, $settings), 'source' => $this->sourceFingerprint($ata),
                 'version' => (int) $ata->version, 'role' => $actor->user_type, 'settings' => $this->fingerprint($settings)];
         });
         $bytes = $this->render($this->template->render($snapshot['fields']));
@@ -37,11 +37,11 @@ class AtaExtractPdf
             $actor = $this->actors->lock($expected);
             $ata = $this->authorized($actor, $ataId);
             abort_unless($actor->user_type === $snapshot['role'], 403);
-            abort_unless(hash_equals($snapshot['source'], $this->fingerprint($ata)), 409, 'A ata foi alterada durante a emissão. Gere o extrato novamente.');
+            abort_unless(hash_equals($snapshot['source'], $this->sourceFingerprint($ata)), 409, 'A ata foi alterada durante a emissão. Gere o extrato novamente.');
             $settings = DB::table('document_settings')->where('id', 1)->lockForUpdate()->firstOrFail();
             abort_unless(hash_equals($snapshot['settings'], $this->fingerprint($settings)), 409, 'A administração mudou durante a emissão. Gere o extrato novamente.');
             abort_unless(hash_equals($templateHash, $this->template->fingerprint()), 409, 'O modelo mudou durante a emissão. Gere o extrato novamente.');
-            ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'ata_extract_generated', 'created_at' => now(),
+            ActivityEvent::create(['actor_id' => $actor->id, 'action' => $this->auditAction(), 'created_at' => now(),
                 'metadata' => ['ata_id' => $ataId, 'ata_version' => $snapshot['version'], 'model_sha256' => $templateHash,
                     'administration' => $snapshot['fields']['administration'], 'sha256' => hash('sha256', $bytes)]]);
         });
@@ -68,7 +68,17 @@ class AtaExtractPdf
         return hash('sha256', json_encode($source, JSON_THROW_ON_ERROR));
     }
 
-    private function fields(object $ata, User $actor, object $settings): array
+    protected function auditAction(): string
+    {
+        return 'ata_extract_generated';
+    }
+
+    protected function sourceFingerprint(object $ata): string
+    {
+        return $this->fingerprint($ata);
+    }
+
+    protected function fields(object $ata, User $actor, object $settings): array
     {
         $text = static fn ($value) => filled($value) ? (string) $value : 'Não informado';
         $months = [1 => 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];

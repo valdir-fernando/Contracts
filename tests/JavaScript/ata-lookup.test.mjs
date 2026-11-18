@@ -13,6 +13,7 @@ function node(value = '') {
 
 function panel(fetcher) {
     let warning;
+    const navigations = [];
     const warningText = node();
     const names = ['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'supplier_id', 'supplier_email', 'supplier_mobile', 'supplier_whatsapp',
         'cpf_socio', 'rg_socio', 'Data_ATA', 'admitir_adesao', 'bidding', 'bidding_number', 'managing_fund_id'];
@@ -34,6 +35,7 @@ function panel(fetcher) {
     const root = { dataset: { ataLookupUrl: '/atas/lookup' },
         listeners: {}, addEventListener(name, callback) { this.listeners[name] = callback; },
         ownerDocument: { baseURI: 'http://contracts.test/',
+            defaultView: { location: { assign: url => navigations.push(url) } },
             body: { append(dialog) { warning = dialog; } },
             createElement(tag) {
                 if (tag !== 'dialog') return node();
@@ -43,6 +45,7 @@ function panel(fetcher) {
             querySelector: selector => selector === '[data-ata-managing-fund-heading]' ? fundHeading
                 : selector === '[data-supplier-document-warning]' ? warning : null },
         querySelector(selector) {
+            if (selector === '[data-ata-new]') return { href: 'http://contracts.test/atas/create' };
             if (selector.startsWith('[name=')) return controls[selector.slice(7, -2)];
             return { '[data-ata-supplier-form]': form, '#ata-total': total, '[data-contract-product-list]': products,
                 '[data-product-line-total]': lineTotal,
@@ -56,7 +59,7 @@ function panel(fetcher) {
     const status = node();
     initializeAtaLookup(root, number, opener, status, fetcher);
     return { root, controls, number, opener, status, products, productsTitle, productsManagingFund, total, headingTotal, fundHeading, contractor, form, events,
-        warningText, get warning() { return warning; } };
+        navigations, warningText, get warning() { return warning; } };
 }
 
 const saved = (id, number) => ({ id, number, process: `PROCESSO-${id}`, date: '2026-01-02', admitir_adesao: 'SIM', bidding: 'PREGÃO', bidding_number: '123',
@@ -64,6 +67,16 @@ const saved = (id, number) => ({ id, number, process: `PROCESSO-${id}`, date: '2
     contractor: { cpf_gestor: '52998224725' }, supplier: { fornecedor_nome_snapshot: `Fornecedor ${id}`, fornecedor_documento_snapshot: '11222333000181' },
     participants: [{ id: 20, FUNDO: 'Participante salvo' }], total: '1234.5678',
     products: [{ item: '1', description: '<Produto salvo>', unit: 'UN', quantity: '0.0001', unit_price: '1.1234', total: '1234.5678' }],
+});
+
+test('successful deletion opens the same fresh page as New without restoring the previous draft', async () => {
+    const ui = panel(async () => ({ ok: true, json: async () => saved(7, '107/2025') }));
+    ui.number.value = '107/25';
+    await ui.number.listeners.blur();
+    assert.equal(ui.root.dataset.ataLoaded, '7');
+    ui.root.listeners['ata-deleted']();
+    assert.deepEqual(ui.navigations, ['http://contracts.test/atas/create']);
+    assert.equal(ui.events.at(-1).type, 'ata-loaded');
 });
 
 test('selection checkboxes fill the first item selected in click order and promote the next when unchecked', async () => {

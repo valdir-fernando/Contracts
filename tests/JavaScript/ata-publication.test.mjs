@@ -1,0 +1,104 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { initializeAtaPublication } from '../../resources/js/ata-publication.js';
+
+function fixture(fetcher) {
+    const buttons = [0, 1].map(() => ({ dataset: { ataPublicationUrl: '/atas/0/publication' }, listeners: {},
+        addEventListener(name, callback) { this.listeners[name] = callback; } }));
+    const warnings = [], opened = [], events = [];
+    const root = { dataset: { ataLoaded: '81', ataVersion: '3', editorBusy: 'false' },
+        ownerDocument: { baseURI: 'http://contracts.test/' }, dispatchEvent: event => events.push(event) };
+    initializeAtaPublication(root, buttons, fetcher, message => warnings.push(message), blob => opened.push(blob));
+    return { root, buttons, warnings, opened, events, click: (index = 0) => buttons[index].listeners.click() };
+}
+
+const success = () => ({ ok: true, headers: new Headers({ 'Content-Type': 'application/pdf' }), blob: async () => 'PDF-BLOB' });
+
+test('both publication buttons fetch the saved ATA and version before opening the PDF', async () => {
+    const requests = [];
+    const ui = fixture(async (url, options) => { requests.push({ url, options }); return success(); });
+    await ui.click(0);
+    await ui.click(1);
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0].url.pathname, '/atas/81/publication');
+    assert.equal(requests[0].url.searchParams.get('version'), '3');
+    assert.equal(requests[0].options.cache, 'no-store');
+    assert.equal(requests[0].options.credentials, 'same-origin');
+    assert.deepEqual(ui.opened, ['PDF-BLOB', 'PDF-BLOB']);
+    assert.deepEqual(ui.warnings, []);
+    assert.deepEqual(ui.events.map(event => event.type), ['ata-product-saving', 'ata-product-finished', 'ata-product-saving', 'ata-product-finished']);
+});
+
+test('no saved ATA or a busy editor explains why issuing is unavailable', async () => {
+    const ui = fixture(() => assert.fail('Should not request an unavailable ATA'));
+    ui.root.dataset.ataLoaded = '';
+    await ui.click();
+    assert.match(ui.warnings[0], /Salve ou consulte/);
+    ui.root.dataset.ataLoaded = '81';
+    ui.root.dataset.editorBusy = 'true';
+    await ui.click();
+    assert.match(ui.warnings[1], /Aguarde/);
+});
+
+test('changed validity must be saved before issuing the publication', async () => {
+    const ui = fixture(() => assert.fail('Cannot issue using unsaved validity'));
+    ui.root.dataset.ataValidityDirty = 'true';
+    await ui.click();
+    assert.match(ui.warnings[0], /Salve a vigência/);
+});
+
+test('parallel clicks on the two buttons share the same issuance lock', async () => {
+    let complete;
+    let requests = 0;
+    const ui = fixture(() => { requests++; return new Promise(resolve => { complete = resolve; }); });
+    const pending = ui.click();
+    await ui.click(1);
+    assert.equal(requests, 1);
+    complete(success());
+    await pending;
+    assert.equal(ui.buttons[0].disabled, false);
+});
+
+test('permission, session, conflicts and server errors appear as plain messages without server internals', async () => {
+    for (const [status, reason] of [[401, /sessão terminou/], [403, /permissão/], [409, /mudaram/], [500, /problema ao gerar/]]) {
+        const ui = fixture(async () => ({ ok: false, status, json: async () => ({ message: 'SQLSTATE SECRET' }) }));
+        await ui.click();
+        assert.match(ui.warnings[0], reason);
+        assert.match(ui.warnings[0], /publicação/);
+        assert.doesNotMatch(ui.warnings[0], /SQLSTATE|SECRET/);
+        assert.deepEqual(ui.opened, []);
+        assert.equal(ui.buttons[0].disabled, false);
+    }
+});
+
+test('network errors and non-PDF responses do not open an invalid publication', async () => {
+    for (const fetcher of [async () => { throw new TypeError(); }, async () => ({ ok: true, headers: new Headers({ 'Content-Type': 'text/html' }) })]) {
+        const ui = fixture(fetcher);
+        await ui.click();
+        assert.match(ui.warnings[0], /Não foi possível abrir/);
+        assert.deepEqual(ui.opened, []);
+    }
+});
+
+test('a new version loaded while the publication body downloads prevents opening the old PDF', async () => {
+    let finish;
+    const ui = fixture(async () => ({ ...success(), blob: () => new Promise(resolve => { finish = resolve; }) }));
+    const pending = ui.click();
+    await new Promise(resolve => setImmediate(resolve));
+    ui.root.dataset.ataVersion = '4';
+    finish('OLD-PDF');
+    await pending;
+    assert.deepEqual(ui.opened, []);
+    assert.deepEqual(ui.warnings, []);
+});
+
+test('responses from a previously loaded ATA are ignored', async () => {
+    let complete;
+    const ui = fixture(() => new Promise(resolve => { complete = resolve; }));
+    const pending = ui.click();
+    ui.root.dataset.ataLoaded = '82';
+    complete(success());
+    await pending;
+    assert.deepEqual(ui.opened, []);
+    assert.deepEqual(ui.warnings, []);
+});

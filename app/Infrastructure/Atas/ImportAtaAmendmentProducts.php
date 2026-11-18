@@ -17,7 +17,7 @@ final class ImportAtaAmendmentProducts
     {
         $prepared = [];
         $pending = [];
-        foreach (DB::table('tb_ADITIVOS_ATA')->orderBy('ID')->get() as $record) {
+        foreach (DB::table('tb_ADITIVOS_ATA')->whereNull('deleted_at')->orderBy('ID')->get() as $record) {
             $metadata = (array) $record;
             try {
                 $entry = $this->reader->read($directory, $metadata);
@@ -43,6 +43,9 @@ final class ImportAtaAmendmentProducts
             $amendments = DB::table('tb_ADITIVOS_ATA')->orderBy('ID')->lockForUpdate()->get()->keyBy('ID');
             foreach ($prepared as ['metadata' => $before, 'entry' => $entry]) {
                 $amendment = $amendments->get($before['ID']);
+                if ($amendment === null || $amendment->deleted_at !== null) {
+                    throw new RuntimeException('Aditivo excluído durante a preparação: '.$before['ID']);
+                }
                 foreach (['ID_ATA', 'ATA', 'NUMERO', 'PROCESSO_ORIGEM', 'PROCESSO_ADITIVO', 'N_LICIT', 'source_path', 'source_sha256', 'extraction', 'link_status', 'products_import'] as $column) {
                     if ($amendment->{$column} !== $before[$column]) {
                         throw new RuntimeException('Aditivo alterado durante a preparação: '.$before['ID']);

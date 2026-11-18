@@ -157,7 +157,7 @@ class AtaExtractTest extends TestCase
         $this->assertGreaterThan(5000, strlen($response->getContent()));
         $html = $this->get(route('atas.create'))->assertOk()->getContent();
         $this->assertSame(2, substr_count($html, 'data-ata-extract-url='));
-        $this->assertSame(0, substr_count($html, 'data-ata-publication-url='));
+        $this->assertSame(2, substr_count($html, 'data-ata-publication-url='));
     }
 
     public function test_scoped_issuer_receives_masked_personal_documents(): void

@@ -45,7 +45,7 @@ class AtaReportQuery
         $identity = new AtaAmendmentReader;
         $amendments = [];
         $amendmentEnds = [];
-        foreach (DB::table('tb_ADT_ATA')->where('ADT', '>', 0)->whereNotNull('Proc_ATA')
+        foreach (DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)->whereNotNull('Proc_ATA')
             ->orderByDesc('Data_ADT')->orderByDesc('ID')->get(['ID', 'ATA', 'Proc_ATA', 'ADT', 'Proc_ADT', 'FINAL']) as $amendment) {
             $number = $identity->key($amendment->ATA);
             $process = trim($amendment->Proc_ATA);

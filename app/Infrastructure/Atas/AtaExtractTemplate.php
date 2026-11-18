@@ -2,7 +2,7 @@
 
 namespace App\Infrastructure\Atas;
 
-final class AtaExtractTemplate
+class AtaExtractTemplate
 {
     public function fingerprint(): string
     {

@@ -194,6 +194,12 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
         status.textContent = '';
     });
     number.addEventListener('blur', load);
+    root.addEventListener('ata-deleted', () => {
+        sequence++;
+        controller?.abort();
+        controller = null;
+        root.ownerDocument.defaultView.location.assign(root.querySelector('[data-ata-new]').href);
+    });
     root.addEventListener('ata-saved', ({ detail }) => {
         number.value = detail.number;
         // Alpine must first apply the released save state to data-editor-busy.

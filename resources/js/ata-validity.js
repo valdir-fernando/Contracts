@@ -1,68 +1,97 @@
 import { isoDate } from './input-masks.js';
-import { showSupplierDocumentWarning } from './system-message.js';
+import { confirmSystemMessage, showSupplierDocumentWarning } from './system-message.js';
+import { ataPublicationDates } from './ata-publication-dates.js';
 
-export function initializeAtaValidity(root, fetcher = fetch, warn = showSupplierDocumentWarning) {
+export function initializeAtaValidity(root, confirm = confirmSystemMessage) {
     const panel = root.querySelector('[data-ata-validity]');
     if (!panel) return;
     const field = name => panel.querySelector(`[name="${name}"]`);
     const start = field('start_date'), end = field('end_date'), period = field('validity_period'), mode = field('one_year_inpc');
-    const save = panel.querySelector('[data-ata-validity-save-url]');
+    const publicationField = panel.querySelector('[data-ata-publication-field]');
+    const publication = field('publication_date');
+    const inpcNotice = panel.querySelector('[data-ata-inpc-notice]');
     const values = () => ({ start_date: start.value ? isoDate(start.value) : null, end_date: end.value ? isoDate(end.value) : null,
         validity_period: period.value.trim() || null, one_year_inpc: mode.checked });
     let baseline = JSON.stringify(values());
-    let pending = false;
-    const notify = (name, detail = {}) => root.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
+    let savedPeriod = '';
+    let generatedDates = false;
+    const setGeneratedDates = generated => {
+        generatedDates = generated;
+        [start, end].forEach(input => { input.dataset.autoCalculated = String(generated); });
+    };
+    let modeRevision = 0;
     const applyMode = () => {
-        [start, end].forEach(input => { input.dataset.validityDisabled = String(mode.checked); input.disabled = mode.checked || root.dataset.editorBusy === 'true'; });
+        if (inpcNotice) inpcNotice.hidden = !mode.checked;
+        [start, end].forEach(input => {
+            input.dataset.validityDisabled = String(mode.checked);
+            input.disabled = mode.checked || root.dataset.editorBusy === 'true';
+            input.parentElement?.querySelectorAll('.date-picker-button, .date-native-picker').forEach(control => { control.disabled = input.disabled; });
+        });
     };
     const dirty = () => { root.dataset.ataValidityDirty = String(JSON.stringify(values()) !== baseline); };
-    mode.addEventListener('change', () => { if (mode.checked) period.value = '1 Ano INPC'; applyMode(); dirty(); });
+    const date = (input, value) => {
+        input.value = input.type === 'date' ? value ?? '' : (value ?? '').split('-').reverse().join('/');
+        input.setCustomValidity?.('');
+    };
+    const calculateDates = () => {
+        if (!mode.checked) return;
+        const dates = ataPublicationDates(publication?.value ?? '');
+        if (dates) {
+            date(start, dates.start_date); date(end, dates.end_date);
+            setGeneratedDates(true);
+        } else if (generatedDates) {
+            date(start, null); date(end, null);
+            setGeneratedDates(false);
+        }
+        dirty();
+    };
+    publication?.addEventListener('input', calculateDates);
+    publication?.addEventListener('change', calculateDates);
+    mode.addEventListener('change', async () => {
+        const revision = ++modeRevision;
+        if (mode.checked && (start.value || end.value)) {
+            mode.checked = false;
+            const accepted = await confirm('Ao marcar a opção "1 Ano INPC" a "Data_Inicial" e a "Data_Final" serão preenchidas automaticamente após a inclusão da "Data de Publicação no INPC"', root.ownerDocument,
+                { emphasize: ['1 Ano INPC', 'Data_Inicial', 'Data_Final', 'Data de Publicação no INPC'] });
+            if (revision !== modeRevision) return;
+            if (!accepted) { applyMode(); dirty(); return; }
+            mode.checked = true;
+            start.value = ''; end.value = '';
+            setGeneratedDates(false);
+        }
+        period.value = mode.checked ? '1 Ano INPC' : savedPeriod;
+        if (mode.checked) calculateDates();
+        applyMode(); dirty();
+    });
     period.addEventListener('input', () => {
+        modeRevision++;
         if (mode.checked && period.value !== '1 Ano INPC') { mode.checked = false; applyMode(); }
         dirty();
     });
-    [start, end].forEach(input => { input.addEventListener('input', dirty); input.addEventListener('change', dirty); });
+    [start, end].forEach(input => {
+        const notice = input.closest?.('.ata-validity-date-control')?.querySelector('[data-ata-locked-date]');
+        notice?.addEventListener('mousedown', event => {
+            if (input.disabled) event.preventDefault();
+        });
+        notice?.addEventListener('click', () => {
+            if (input.disabled) showSupplierDocumentWarning('Campo bloqueado para edição', root.ownerDocument);
+        });
+        const edited = () => { generatedDates = false; input.dataset.autoCalculated = 'false'; dirty(); };
+        input.addEventListener('input', edited); input.addEventListener('change', edited);
+    });
     const load = data => {
-        const date = (input, value) => { input.value = input.type === 'date' ? value ?? '' : (value ?? '').split('-').reverse().join('/'); };
+        modeRevision++;
+        setGeneratedDates(false);
+        if (publicationField) field('publication_date').value = '';
+        savedPeriod = data.validity_period ?? '';
         date(start, data.start_date); date(end, data.end_date);
         mode.checked = data.one_year_inpc === true;
-        period.value = mode.checked ? '1 Ano INPC' : data.validity_period ?? '';
+        period.value = mode.checked ? '1 Ano INPC' : savedPeriod;
         applyMode();
         baseline = JSON.stringify(values()); dirty();
     };
     root.addEventListener('ata-loaded', ({ detail }) => load(detail));
     root.addEventListener('ata-cleared', () => load({}));
-    save.addEventListener('click', async () => {
-        if (pending || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
-        const ataId = root.dataset.ataLoaded;
-        const payload = { version: Number(root.dataset.ataVersion), ...values() };
-        pending = true;
-        notify('ata-product-saving');
-        let saved;
-        try {
-            const response = await fetcher(save.dataset.ataValiditySaveUrl.replace('/0/', `/${encodeURIComponent(ataId)}/`), {
-                method: 'PATCH', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': root.dataset.csrfToken },
-                body: JSON.stringify(payload),
-            });
-            if (root.dataset.ataLoaded !== ataId) return;
-            if (response.redirected || !response.ok) {
-                const messages = { 401: 'Sua sessão terminou. Entre novamente para salvar a vigência.', 419: 'Sua sessão terminou. Entre novamente para salvar a vigência.',
-                    403: 'Você não tem permissão para alterar esta ata.', 404: 'A ata não está disponível. Consulte novamente pelo Nº ATA.',
-                    409: 'A ata foi alterada. Consulte novamente antes de salvar a vigência.', 422: 'Confira as datas e o período da vigência. A Data_Final deve ser igual ou posterior à Data_Inicial.',
-                    429: 'Aguarde um momento antes de tentar salvar novamente.' };
-                warn(messages[response.redirected ? 401 : response.status] || 'Não foi possível salvar a vigência. Consulte novamente a ata antes de tentar outra vez.', root.ownerDocument);
-                return;
-            }
-            const data = await response.json();
-            if (root.dataset.ataLoaded === ataId) saved = data;
-        } catch {
-            if (root.dataset.ataLoaded === ataId) warn('Não foi possível confirmar a gravação da vigência. Consulte novamente a ata antes de tentar outra vez.', root.ownerDocument);
-        } finally {
-            pending = false;
-            notify('ata-product-finished');
-        }
-        if (saved) { notify('ata-saved', saved); warn('Vigência salva com sucesso.', root.ownerDocument); }
-    });
     applyMode();
 }
 

@@ -31,6 +31,9 @@ final class UpdateAtaValidity
             $blocked = [];
             $documentChanges = [];
             foreach ($stored as $record) {
+                if ($record->deleted_at !== null) {
+                    continue;
+                }
                 if ((new AtaAmendmentSourcePolicy)->isUnsigned($directory.'/'.$record->source_path)) {
                     $result['ignored_unsigned']++;
                     if ($apply && $record->link_status !== 'nao_assinado') {
@@ -45,6 +48,9 @@ final class UpdateAtaValidity
                 }
             }
             foreach ($documents as $document) {
+                if ($stored->get($document['source_path'])?->deleted_at !== null) {
+                    continue;
+                }
                 $candidates = $atas->filter(fn ($ata) => $this->reader->key($ata->ATA) === $document['ATA']);
                 $matching = $candidates->filter(fn ($ata) => $ata->deleted_at === null
                     && $ata->PROCESSO === $document['PROCESSO_ORIGEM']

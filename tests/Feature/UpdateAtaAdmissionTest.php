@@ -43,7 +43,8 @@ class UpdateAtaAdmissionTest extends TestCase
 
     public function test_existing_ata_admission_is_editable_and_only_that_value_is_updated_with_audit(): void
     {
-        $this->get(route('atas.create'))->assertOk()->assertSee('data-ata-admission-url', false);
+        $this->get(route('atas.create'))->assertOk()->assertSee('name="admitir_adesao"', false)
+            ->assertSee('data-update-url', false)->assertDontSee('data-ata-admission-url', false);
         $before = (array) DB::table('tb_ATA')->sole();
         foreach (['SIM', 'NAO', null] as $index => $value) {
             $this->change(['version' => $index + 1, 'admitir_adesao' => $value, 'PROCESSO' => 'FORJADO', 'actor_id' => 999])->assertOk()

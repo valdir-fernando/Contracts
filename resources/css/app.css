@@ -650,18 +650,37 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .data-table td { padding: 17px 20px; border-bottom: 1px solid #edf1f7; vertical-align: middle; font-variant-numeric: tabular-nums; }
 .data-table tr:last-child td { border-bottom: 0; }
 .data-table.ata-participants-table { table-layout: fixed; min-width: 1000px; }
+.ata-editor .table-scroll:has(> .ata-participants-table) { padding-top: 12px; }
 .ata-editor { container-type: inline-size; --ata-process-width: calc((100cqw - 7 * clamp(3px, .5vw, 8px)) / 8 - var(--panel-padding) - 1px); }
 .ata-process-fields { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, var(--ata-process-width)) minmax(0, calc((100% - 48px) * .1458333333)) minmax(0, calc((100% - 48px) * .1)) minmax(0, calc((100% - 48px) * .4666666667)); width: 100%; gap: 10px 24px; }
 .ata-process-fields > .field { margin-bottom: 0; }
-.ata-validity-fields { display: grid; grid-template-columns: minmax(140px, var(--ata-process-width)) minmax(140px, var(--ata-process-width)) minmax(0, 1fr); gap: 10px 24px; margin-top: 10px; }
+.ata-validity-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 24px; margin-top: 10px; }
+.ata-validity-date-control { position: relative; }
+.ata-editor .ata-validity-date-control > .ata-locked-date-notice { display: none; position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 9px; background: transparent; box-shadow: none; cursor: help; }
+.ata-editor .ata-validity-date-control:has(input:disabled) > .ata-locked-date-notice { display: block; }
+.ata-editor .ata-validity-date-control > .ata-locked-date-notice:is(:hover, :focus-visible) { background: transparent; border: 0; box-shadow: none; }
+.ata-editor .ata-validity-date-control > .ata-locked-date-notice:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.ata-validity-fields input:is([name="start_date"], [name="end_date"]):disabled { background: #f7f8fb; color: var(--muted); }
+.ata-editor .ata-validity-fields input[data-auto-calculated="true"] { color: #ff0000 !important; -webkit-text-fill-color: #ff0000; opacity: 1; }
+.ata-validity-fields > .field { margin-bottom: 0; flex: 0 0 max(140px, var(--ata-process-width)); }
+.ata-validity-fields > .ata-validity-period-field { flex: 0 0 auto; width: max-content; }
+.ata-inpc-notice { flex: 0 0 100%; margin: -6px 0 0; color: #8b4513; font-size: 11px; line-height: 1.4; }
+.ata-inpc-notice[hidden] { display: none; }
+.ata-validity-fields > .ata-publication-date-field { flex-basis: 160px; }
 .ata-validity-heading, .ata-validity-period-control { display: flex; align-items: center; gap: 10px; }
-.ata-validity-heading { justify-content: space-between; flex-wrap: wrap; }
+.ata-validity-heading { flex-wrap: wrap; }
+.ata-validity-heading > label:first-child { margin: 0; }
+.ata-validity-separator { align-self: center; height: 16px; border-left: 1px solid var(--border); }
 .ata-validity-heading .ata-validity-option { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; margin: 0; }
 .ata-validity-option input { width: auto; margin: 0; }
 .ata-validity-period-control input { min-width: 0; flex: 1; }
-.ata-validity-period-control button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.ata-validity-period-control button svg { width: 16px; height: 16px; }
-@media (max-width: 650px) { .ata-validity-fields { grid-template-columns: minmax(0, 1fr); } }
+.ata-publication-date-field { margin-bottom: 0; min-width: 0; }
+.ata-publication-date-field input:not(.date-native-picker) { background: #eaf7e8; }
+.ata-editor :is(.ata-date-field, .ata-publication-date-field) > label { font-family: inherit; font-size: 12px; font-weight: 600; }
+.ata-editor :is(.ata-date-field, .ata-publication-date-field) input { font-family: inherit; font-size: 13px; font-weight: 400; }
+.ata-publication-date-field[hidden] { display: none; }
+@media (min-width: 651px) { .ata-validity-heading { flex-wrap: nowrap; } }
+@media (max-width: 650px) { .ata-validity-fields { display: grid; grid-template-columns: minmax(0, 1fr); } .ata-validity-fields > .ata-validity-period-field { width: auto; } }
 .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 180px) minmax(0, 210px); }
 @media (max-width: 650px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) { .ata-process-fields { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); } .ata-process-fields > .field:last-child { grid-column: 1 / -1; } }

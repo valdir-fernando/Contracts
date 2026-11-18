@@ -11,7 +11,7 @@
                     <span id="ata-summary-document-actions" class="ata-product-document-actions" role="group" aria-label="Documentos da ATA">
                         <button type="button" class="section-tab document-action" data-ata-document="ata"><x-nav-icon name="contracts"/>ATA</button>
                         <button type="button" class="section-tab document-action" data-ata-document="extract" data-ata-extract-url="{{ route('atas.extract', ['ata' => 0]) }}"><x-nav-icon name="document-extract"/>EXTRATO</button>
-                        <button type="button" class="section-tab document-action" data-ata-document="publication"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
+                        <button type="button" class="section-tab document-action" data-ata-document="publication" data-ata-publication-url="{{ route('atas.publication', ['ata' => 0]) }}"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
                     </span>
                     <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
                     <div class="contract-number-control">
@@ -220,12 +220,12 @@
                 </select>
             </div>
             <div class="field ata-date-field">
-                <label for="ata-date">Data_ATA<x-required-mark/></label>
-                <input id="ata-date" name="Data_ATA" type="date" min="0001-01-01" max="9999-12-31" data-ata-date :disabled="busy || loaded" required>
+                <label for="ata-date">Data da ATA<x-required-mark/></label>
+                <input id="ata-date" name="Data_ATA" type="date" min="0001-01-01" max="9999-12-31" data-ata-date :disabled="busy" required>
             </div>
             <div class="field">
                 <label for="ata-admit-admission">Admitir Adesão a ATA</label>
-                <select id="ata-admit-admission" name="admitir_adesao" data-ata-admission-url="{{ route('atas.admission.update', ['ata' => 0]) }}" :disabled="busy">
+                <select id="ata-admit-admission" name="admitir_adesao" :disabled="busy">
                     <option value="">Selecione</option>
                     <option value="SIM">SIM</option>
                     <option value="NAO">NÃO</option>
@@ -242,9 +242,9 @@
     <section id="ata-process-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados Processuais" x-show="step === 0">
         <div class="field-grid">
             <div class="ata-process-fields">
-            <div class="field"><label for="ata-process">Processo ATA<x-required-mark/></label><input id="ata-process" name="ata_process" type="text" maxlength="64" x-model="process" :disabled="busy || loaded" required></div>
-            <div class="field"><label for="ata-bidding">Licitação<x-required-mark/></label><input id="ata-bidding" name="bidding" type="text" :readonly="loaded" required></div>
-            <div class="field"><label for="ata-bidding-number">Nº Licit<x-required-mark/></label><input id="ata-bidding-number" name="bidding_number" type="text" :readonly="loaded" required></div>
+            <div class="field"><label for="ata-process">Processo ATA<x-required-mark/></label><input id="ata-process" name="ata_process" type="text" maxlength="64" x-model="process" :disabled="busy" required></div>
+            <div class="field"><label for="ata-bidding">Licitação<x-required-mark/></label><input id="ata-bidding" name="bidding" type="text" maxlength="100" :disabled="busy" required></div>
+            <div class="field"><label for="ata-bidding-number">Nº Licit<x-required-mark/></label><input id="ata-bidding-number" name="bidding_number" type="text" maxlength="32" :disabled="busy" required></div>
             <div class="field">
                 <label for="ata-participant-fund">Fundos Participantes</label>
                 <div class="flex items-center gap-2">
@@ -260,18 +260,23 @@
             </div>
         </div>
         <div class="ata-validity-fields" data-ata-validity>
-            <div class="field"><label for="ata-validity-start">Data_Inicial</label><input id="ata-validity-start" name="start_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || $el.dataset.validityDisabled === 'true'"></div>
-            <div class="field"><label for="ata-validity-end">Data_Final</label><input id="ata-validity-end" name="end_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || $el.dataset.validityDisabled === 'true'"></div>
-            <div class="field">
+            <div class="field ata-validity-period-field">
                 <div class="ata-validity-heading">
                     <label for="ata-validity-period">Período da Vigência</label>
+                    <span class="ata-validity-separator" aria-hidden="true"></span>
                     <label class="ata-validity-option" title="1 (um) ano, contado a partir do primeiro dia útil subsequente à data de divulgação no PNCP"><input type="checkbox" name="one_year_inpc" value="1" :disabled="busy">1 Ano INPC</label>
                 </div>
                 <div class="ata-validity-period-control">
-                    <input id="ata-validity-period" name="validity_period" type="text" maxlength="5000" :disabled="busy">
-                    <button type="button" class="section-tab" data-ata-validity-save-url="{{ route('atas.validity.update', ['ata' => 0]) }}" x-show="loaded" :disabled="!loaded || busy"><x-nav-icon name="save"/>Salvar vigência</button>
+                    <input id="ata-validity-period" name="validity_period" type="text" maxlength="5000" aria-describedby="ata-inpc-notice" :disabled="busy">
                 </div>
             </div>
+            <div class="field"><label for="ata-validity-start">Data_Inicial</label><div class="ata-validity-date-control"><input id="ata-validity-start" name="start_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || $el.dataset.validityDisabled === 'true'"><button type="button" class="text-link ata-locked-date-notice" data-ata-locked-date aria-label="Data_Inicial: campo bloqueado para edição"></button></div></div>
+            <div class="field"><label for="ata-validity-end">Data_Final</label><div class="ata-validity-date-control"><input id="ata-validity-end" name="end_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || $el.dataset.validityDisabled === 'true'"><button type="button" class="text-link ata-locked-date-notice" data-ata-locked-date aria-label="Data_Final: campo bloqueado para edição"></button></div></div>
+            <div class="field ata-publication-date-field" data-ata-publication-field>
+                <label for="ata-publication-date">Data_Public_INPC</label>
+                <input id="ata-publication-date" name="publication_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy">
+            </div>
+            <p id="ata-inpc-notice" class="ata-inpc-notice" data-ata-inpc-notice hidden>A validade da Ata de Registro de Preços será de 1 (um) ano, contado a partir do primeiro dia útil subsequente à data de divulgação no PNCP</p>
         </div>
         <p role="status" aria-live="polite" x-text="message"></p>
         <div class="table-scroll" tabindex="0" role="region" aria-label="Fundos participantes adicionados">
@@ -356,9 +361,9 @@
                 <input id="ata-total" data-money name="Valor_ATA" readonly aria-readonly="true" value="0,0000">
             </div>
         </div>
-        <button class="section-tab" type="button" disabled title="Salve ou carregue uma ata para excluir."><x-nav-icon name="trash"/>Excluir</button>
-        <a class="section-tab" href="{{ route('atas.create') }}" :class="{ 'pointer-events-none': busy }" :aria-disabled="busy"><x-nav-icon name="plus"/>Novo</a>
-        <button class="section-tab" type="button" data-ata-save data-save-url="{{ route('atas.store') }}" :data-version="version" :disabled="busy || loaded" @ata-saving.window="busy = true" @ata-save-finished.window="busy = false" @ata-validation-failed.window="step = $event.detail.step"><x-nav-icon name="save"/>Salvar</button>
+        <button class="section-tab" type="button" data-ata-delete data-delete-url="{{ route('atas.destroy', ['ata' => 0]) }}" disabled :disabled="!loaded"><x-nav-icon name="trash"/>Excluir</button>
+        <a class="section-tab" href="{{ route('atas.create') }}" data-ata-new><x-nav-icon name="plus"/>Novo</a>
+        <button class="section-tab" type="button" data-ata-save data-save-url="{{ route('atas.store') }}" data-update-url="{{ route('atas.update', ['ata' => 0]) }}" :data-version="version" @ata-saving.window="busy = true" @ata-save-finished.window="busy = false" @ata-validation-failed.window="step = $event.detail.step"><x-nav-icon name="save"/>Salvar</button>
     </div>
     <dialog class="catalog-modal" x-ref="ataParticipantRemoval" role="alertdialog" aria-labelledby="ata-participant-removal-title" aria-describedby="ata-participant-removal-message" @close="pendingParticipantRemoval = null">
         <div class="modal-header"><h2 id="ata-participant-removal-title">Excluir Fundo Participante</h2></div>

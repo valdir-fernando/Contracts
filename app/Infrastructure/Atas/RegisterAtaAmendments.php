@@ -74,6 +74,11 @@ final class RegisterAtaAmendments
                     throw new RuntimeException('Cadastro existente ambíguo: '.$fields['ATA']);
                 }
                 $existing = $matches->first();
+                if ($existing !== null && $existing->deleted_at !== null) {
+                    $result['existing']++;
+
+                    continue;
+                }
                 $result[$pdf === null ? 'without_attachment' : 'with_both_signatures']++;
                 if ($existing !== null) {
                     foreach ($fields as $column => $value) {

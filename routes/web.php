@@ -58,6 +58,8 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::view('/atas', 'atas.dashboard')->name('atas.dashboard');
     Route::get('/atas/create', [AtaController::class, 'create'])->name('atas.create');
     Route::post('/atas', [AtaController::class, 'store'])->middleware('throttle:30,1')->name('atas.store');
+    Route::patch('/atas/{ata}', [AtaController::class, 'update'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.update');
+    Route::delete('/atas/{ata}', [AtaController::class, 'destroy'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.destroy');
     Route::get('/atas/{ata}/extract', [AtaController::class, 'extract'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.extract');
     Route::get('/atas/{ata}/publication', [AtaController::class, 'publication'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.publication');
     Route::patch('/atas/{ata}/validity', [AtaController::class, 'saveValidity'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.validity.update');
