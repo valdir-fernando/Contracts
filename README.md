@@ -1,5 +1,9 @@
 # Contracts
 
+O botão **ATA**, em Nova ATA e em Produtos da ATA, abre a janela padrão da suíte para escolher **ATA em PDF**, **ATA em Word** ou **Cancelar**. Word baixa um `.docx` editável com o conteúdo e o padrão visual do PDF: fontes do modelo original, tamanhos, negritos, sublinhados, alinhamentos, recuos, tabelas, assinaturas, cabeçalho e rodapé. Ambos exigem ATA salva/consultada com **Admitir Adesão = SIM**, autorização e auditoria. A paginação pode variar entre editores.
+
+Após escolher PDF ou Word, outra janela permite escolher a tabela **Contínua** (modelo anterior) ou **Paralela** (conforme `Reference/Tabela_ATA.jpg`). Na Paralela, cada item tem seu próprio cabeçalho, uma linha de dados e a descrição do produto na linha seguinte, ocupando toda a largura; um espaço estreito separa os itens. A quantidade especial aparece quando configurada. A escolha vale somente para a emissão atual; Cancelar ou Esc interrompem a emissão em qualquer janela.
+
 Ao salvar uma ATA existente, a janela padrão pede **“Confirma a alteração dos dados desta ATA?”**, com **OK** e **Cancelar**. O Processo só pode mudar se não houver aditivos vinculados. Produtos originais não impedem a alteração; suas referências de Processo acompanham a ATA, preservando quantidades e valores. A tela confirma o sucesso ou informa o motivo da impossibilidade, mantendo os campos digitados em caso de recusa.
 
 Após confirmar a exclusão de uma ATA e concluir a operação, o painel abre uma ficha nova, exatamente como **Novo**, sem recuperar Fundo, Processo ou participantes do rascunho anterior. Cancelamento ou falha preservam o painel atual.
