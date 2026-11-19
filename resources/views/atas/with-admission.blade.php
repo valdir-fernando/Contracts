@@ -29,6 +29,10 @@
     .products thead { display: table-header-group; }
     .products th, .products td { border: 0.5pt solid #000; padding: 2pt; overflow-wrap: break-word; }
     .products td.number { text-align: right; }
+    .products.parallel-item { margin-top: 3pt; page-break-inside: avoid; }
+    .products.parallel-item.parallel-first { margin-top: 11.5pt; }
+    .products.parallel-item th { background: #e7e6e6; }
+    .products.parallel-item td.description { text-align: left; }
     ul { margin: 0; }
     .closing-date { margin: 23pt 0; text-align: right; font-size: 11pt; }
     .signatures { page-break-inside: avoid; }
@@ -61,6 +65,33 @@
 @else
 <p class="spaced supplier">FORNECEDOR: <strong>{{ $fields['supplier'] }}</strong>, com sede na {{ $fields['supplier_address'] }}, inscrita no CNPJ/MF sob o nº {{ $fields['supplier_document'] }}, e-mail: {{ $fields['supplier_email'] }}, telefone para contato nº {{ $fields['supplier_phone'] }}, neste ato representada por seu sócio proprietário, Sr(a). <strong>{{ $fields['representative'] }}</strong>, RG nº {{ $fields['representative_rg'] }}, CPF nº {{ $fields['representative_cpf'] }}.</p>
 @endif
+@if(($fields['presentation']['products_layout'] ?? 'continuous') === 'parallel')
+    @forelse($fields['products'] as $product)
+        <table class="products parallel-item{{ $loop->first ? ' parallel-first' : '' }}">
+            <thead><tr>
+                <th style="width: 7%">Item</th><th style="width: 10%">Código</th><th style="width: 10%">UND</th>
+                @if($fields['special_quantity_name'] !== '')
+                    <th style="width: 11%">{{ $fields['special_quantity_name'] }}</th>
+                @endif
+                <th style="width: 12%">QTD</th><th>Marca</th>
+                <th style="width: 15%">VL. Unitário</th><th style="width: 16%">VL. Total</th>
+            </tr></thead>
+            <tbody>
+                <tr class="item-values">
+                    <td class="center">{{ $product['item'] }}</td><td class="center">{{ $product['code'] }}</td><td class="center">{{ $product['unit'] }}</td>
+                    @if($fields['special_quantity_name'] !== '')
+                        <td class="center">{{ $product['special_quantity'] }}</td>
+                    @endif
+                    <td class="center">{{ $product['quantity'] }}</td><td class="center">{{ $product['brand'] }}</td>
+                    <td class="number">{{ $product['unit_price'] }}</td><td class="number">{{ $product['total'] }}</td>
+                </tr>
+                <tr><td class="description" colspan="{{ $fields['special_quantity_name'] !== '' ? 8 : 7 }}">{{ $product['description'] }}</td></tr>
+            </tbody>
+        </table>
+    @empty
+        <p class="spaced">Nenhum produto registrado.</p>
+    @endforelse
+@else
 <table class="products">
     <thead>
         <tr>
@@ -74,11 +105,11 @@
     <tbody>
         @forelse($fields['products'] as $product)
             <tr>
-                <td>{{ $product['item'] }}</td><td>{{ $product['code'] }}</td><td>{{ $product['description'] }}</td><td>{{ $product['unit'] }}</td>
+                <td class="center">{{ $product['item'] }}</td><td class="center">{{ $product['code'] }}</td><td>{{ $product['description'] }}</td><td class="center">{{ $product['unit'] }}</td>
                 @if($fields['special_quantity_name'] !== '')
-                    <td class="number">{{ $product['special_quantity'] }}</td>
+                    <td class="center">{{ $product['special_quantity'] }}</td>
                 @endif
-                <td class="number">{{ $product['quantity'] }}</td><td>{{ $product['brand'] }}</td>
+                <td class="center">{{ $product['quantity'] }}</td><td class="center">{{ $product['brand'] }}</td>
                 <td class="number">{{ $product['unit_price'] }}</td><td class="number">{{ $product['total'] }}</td>
             </tr>
         @empty
@@ -86,6 +117,7 @@
         @endforelse
     </tbody>
 </table>
+@endif
 <p class="spaced"><strong>2.2</strong> - A listagem do cadastro de reserva referente ao presente registro de preços consta como anexo a esta Ata. (CASO TENHA INTERESSADO).</p>
 <h2 class="spaced"><strong>3. ÓRGÃO(S) GERENCIADOR E PARTICIPANTE(S)</strong></h2>
 <p class="spaced"><strong>3.1</strong> - O órgão gerenciador será o {{ $fields['fund'] }}.</p>

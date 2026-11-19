@@ -22,6 +22,11 @@ class AtaExtractPdf
 
     public function generate(User $expected, int $ataId, int $version): string
     {
+        return $this->generateDocument($expected, $ataId, $version);
+    }
+
+    protected function generateDocument(User $expected, int $ataId, int $version, array $presentation = []): string
+    {
         $templateHash = $this->template->fingerprint();
         $document = $this->documentName();
         $snapshot = DB::transaction(function () use ($expected, $ataId, $version, $document) {
@@ -33,8 +38,8 @@ class AtaExtractPdf
             return ['fields' => $this->fields($ata, $actor, $settings), 'source' => $this->sourceFingerprint($ata),
                 'version' => (int) $ata->version, 'access' => $this->documentAccess($actor), 'settings' => $this->fingerprint($settings)];
         });
-        $bytes = $this->render($this->template->render($snapshot['fields']));
-        DB::transaction(function () use ($expected, $ataId, $snapshot, $templateHash, $bytes, $document) {
+        $bytes = $this->render($this->template->render($snapshot['fields'] + ['presentation' => $presentation]));
+        DB::transaction(function () use ($expected, $ataId, $snapshot, $templateHash, $bytes, $document, $presentation) {
             $actor = $this->actors->lock($expected);
             $ata = $this->authorized($actor, $ataId);
             abort_unless($this->documentAccess($actor) === $snapshot['access'], 403);
@@ -44,7 +49,8 @@ class AtaExtractPdf
             abort_unless(hash_equals($templateHash, $this->template->fingerprint()), 409, "O modelo mudou durante a emissão. Gere {$document} novamente.");
             ActivityEvent::create(['actor_id' => $actor->id, 'action' => $this->auditAction(), 'created_at' => now(),
                 'metadata' => ['ata_id' => $ataId, 'ata_version' => $snapshot['version'], 'model_sha256' => $templateHash,
-                    'administration' => $snapshot['fields']['administration'], 'sha256' => hash('sha256', $bytes)]]);
+                    'administration' => $snapshot['fields']['administration'], 'sha256' => hash('sha256', $bytes),
+                    ...($presentation ? ['presentation' => $presentation] : [])]]);
         });
 
         return $bytes;

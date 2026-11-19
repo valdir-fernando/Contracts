@@ -10,6 +10,7 @@ use App\Infrastructure\Atas\AtaProductLookup;
 use App\Infrastructure\Atas\AtaPublicationPdf;
 use App\Infrastructure\Atas\AtaRegistration;
 use App\Infrastructure\Atas\AtaWithAdmissionPdf;
+use App\Infrastructure\Atas\AtaWithAdmissionWord;
 use App\Infrastructure\Atas\RemoveAta;
 use App\Infrastructure\Atas\RemoveAtaProduct;
 use App\Infrastructure\Atas\RemoveAtaSpecialQuantity;
@@ -58,11 +59,14 @@ class AtaController extends Controller
 
     public function document(Request $request, int $ata, AtaWithAdmissionPdf $document)
     {
-        $data = $request->validate(['version' => 'required|integer|min:1']);
-        $bytes = $document->generate($request->user(), $ata, (int) $data['version']);
+        $data = $request->validate(['version' => 'required|integer|min:1', 'format' => 'sometimes|required|in:pdf,docx',
+            'products_layout' => 'sometimes|required|in:continuous,parallel']);
+        $word = ($data['format'] ?? 'pdf') === 'docx';
+        $renderer = $word ? resolve(AtaWithAdmissionWord::class) : $document;
+        $bytes = $renderer->generateWithLayout($request->user(), $ata, (int) $data['version'], $data['products_layout'] ?? 'continuous');
 
-        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
-            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="ata-'.$ata.'.pdf"']);
+        return response($bytes, 200, ['Content-Type' => $word ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => ($word ? 'attachment' : 'inline').'; filename="ata-'.$ata.'.'.($word ? 'docx' : 'pdf').'"']);
     }
 
     public function extract(Request $request, int $ata, AtaExtractPdf $extract)

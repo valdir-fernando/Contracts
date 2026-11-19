@@ -51,6 +51,54 @@ export function confirmSystemMessage(message, ownerDocument = document, { emphas
     });
 }
 
+export function chooseAtaDocumentFormat(ownerDocument = document) {
+    let dialog = ownerDocument.querySelector('[data-ata-format-dialog]');
+    if (!dialog) {
+        dialog = ownerDocument.createElement('dialog');
+        dialog.className = 'catalog-modal supplier-document-warning';
+        dialog.setAttribute('data-ata-format-dialog', '');
+        dialog.setAttribute('aria-labelledby', 'ata-format-title');
+        dialog.setAttribute('aria-describedby', 'ata-format-description');
+        dialog.innerHTML = '<div class="modal-header"><h2 id="ata-format-title">Gestão Sistem informa:</h2></div>'
+            + '<p id="ata-format-description">Escolha o formato da ATA.</p>'
+            + '<form method="dialog" class="form-actions modal-actions">'
+            + '<button type="submit" class="primary-button" value="pdf" autofocus>ATA em PDF</button>'
+            + '<button type="submit" class="primary-button" value="docx">ATA em Word</button>'
+            + '<button type="submit" class="section-tab" value="cancel">Cancelar</button></form>';
+        ownerDocument.body.append(dialog);
+    }
+    if (dialog.open) return Promise.resolve(null);
+    dialog.returnValue = '';
+    return new Promise(resolve => {
+        dialog.addEventListener('close', () => resolve(['pdf', 'docx'].includes(dialog.returnValue) ? dialog.returnValue : null), { once: true });
+        dialog.showModal();
+    });
+}
+
+export function chooseAtaProductsLayout(ownerDocument = document) {
+    let dialog = ownerDocument.querySelector('[data-ata-layout-dialog]');
+    if (!dialog) {
+        dialog = ownerDocument.createElement('dialog');
+        dialog.className = 'catalog-modal supplier-document-warning';
+        dialog.setAttribute('data-ata-layout-dialog', '');
+        dialog.setAttribute('aria-labelledby', 'ata-layout-title');
+        dialog.setAttribute('aria-describedby', 'ata-layout-description');
+        dialog.innerHTML = '<div class="modal-header"><h2 id="ata-layout-title">Gestão Sistem informa:</h2></div>'
+            + '<p id="ata-layout-description">Escolha o tipo da tabela de produtos.</p>'
+            + '<form method="dialog" class="form-actions modal-actions">'
+            + '<button type="submit" class="primary-button" value="continuous" autofocus>Contínua</button>'
+            + '<button type="submit" class="primary-button" value="parallel">Paralela</button>'
+            + '<button type="submit" class="section-tab" value="cancel">Cancelar</button></form>';
+        ownerDocument.body.append(dialog);
+    }
+    if (dialog.open) return Promise.resolve(null);
+    dialog.returnValue = '';
+    return new Promise(resolve => {
+        dialog.addEventListener('close', () => resolve(['continuous', 'parallel'].includes(dialog.returnValue) ? dialog.returnValue : null), { once: true });
+        dialog.showModal();
+    });
+}
+
 export function requestAtaSpecialQuantityName(ownerDocument = document) {
     let dialog = ownerDocument.querySelector('[data-ata-special-quantity-dialog]');
     if (!dialog) {

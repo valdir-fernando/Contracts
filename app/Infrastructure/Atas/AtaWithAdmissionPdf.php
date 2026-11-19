@@ -18,6 +18,13 @@ use Illuminate\Support\Facades\DB;
 
 class AtaWithAdmissionPdf extends AtaExtractPdf
 {
+    public function generateWithLayout(User $expected, int $ataId, int $version, string $layout): string
+    {
+        abort_unless(in_array($layout, ['continuous', 'parallel'], true), 422);
+
+        return $this->generateDocument($expected, $ataId, $version, ['products_layout' => $layout]);
+    }
+
     public function __construct(LockActor $actors, AtaWritePolicy $policy, DocumentSettings $settings, AtaWithAdmissionTemplate $template)
     {
         parent::__construct($actors, $policy, $settings, $template);
