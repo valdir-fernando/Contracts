@@ -1,5 +1,21 @@
 # Arquitetura do Contracts
 
+## PDF da ATA com adesão — 18/11/2026
+
+A linha de identificação do cabeçalho exibe o número da ATA, o número do processo e a paginação separada por uma barra vertical. A paginação usa a mesma linha de base do texto, logo acima do filete. O CNPJ do Fundo é apresentado em fonte regular no parágrafo de abertura.
+
+Antes do push, os testes dirigidos de ATA com adesão, extrato e publicação passaram no Docker (27 testes, 214 asserções). Também passaram `composer check:architecture`, Pint dos sete arquivos PHP, `npm.cmd test` (291 testes), `npm.cmd run build` e `git diff --check`. A suíte PHP geral ficou fora dessa execução.
+
+A revisão visual transpõe do DOCX os tamanhos de fonte, os negritos por trecho, os sublinhados, os recuos e as assinaturas em duas colunas. O Dompdf usa Helvetica como substituta da Arial. Os dados da ata e a paginação ficam acima do filete do cabeçalho. A posição da numeração é obtida da linha de dados renderizada em cada página, e os números são escritos em negrito após a contagem final.
+
+Validação da revisão visual: `php vendor/bin/phpunit --filter='AtaWithAdmissionTest|AtaExtractTest|AtaPublicationTest' --do-not-cache-result --colors=never` passou no Docker (27 testes, 213 asserções), assim como `composer check:architecture`, Pint nos três arquivos PHP revisados e `git diff --check`. A prévia A4 com dados fictícios foi conferida com `pdfinfo`, `pdftotext` e `pdftoppm`, incluindo a sequência de páginas e a posição do cabeçalho. A exportação de referência pelo Microsoft Word não concluiu neste ambiente. Sem comparação pixel a pixel ou uso do banco operacional.
+
+Os botões **ATA** do painel Nova Ata e da lista de produtos chamam `GET /atas/{ata}/document?version=...`. O modelo Blade e as imagens de cabeçalho e rodapé foram derivados de `Reference/Modelos_Doc/ATA/Modelo de ATA_Com_Adesao.docx`. A emissão exige `ADMITIR_ADESAO = SIM` no registro salvo. A cláusula 2.1 usa os produtos originais ativos com os valores na precisão exibida no painel. O nome configurado da quantidade especial aparece como coluna adicional à QTD fixa. A cláusula 3.2 usa os fundos participantes ativos e exclui o gerenciador. A cláusula 5.1 usa o texto do PNCP no modo 1 Ano INPC ou o período e as datas gravadas.
+
+O adaptador reaproveita a autorização por ator e fundo, o controle de versão, o cache privado e a auditoria dos PDFs de ata. CPF e RG seguem o mascaramento do painel, e o contato do fornecedor exige a permissão do catálogo. A renderização ocorre fora da transação, seguida de nova conferência da autorização, dados de origem, administração e modelo antes da entrega.
+
+Validação no Docker com SQLite em memória: `php vendor/bin/phpunit --filter='AtaWithAdmissionTest|AtaExtractTest|AtaPublicationTest' --do-not-cache-result --colors=never` passou (26 testes, 205 asserções); `composer check:architecture` (3 testes, 4 asserções), `composer test:unit` (89 testes, 223 asserções), `composer check:static` e Pint nos sete arquivos PHP passaram. `npm.cmd test` (291 testes) e `npm.cmd run build` passaram. A rota foi confirmada por `php artisan route:list --name=atas.document`, e uma prévia A4 fictícia foi conferida com `pdfinfo`, `pdftotext` e imagem da primeira página gerada por `pdftoppm`. Sem execução da suíte PHP geral, teste autenticado em navegador, migrations ou gravação no banco operacional.
+
 ## Commits e sincronização dos modelos — 18/11/2026
 
 Os modelos `Reference/ATAS/Modelo_ATA.docx`, `Public_ATA.docx`, `Publicacao_ATA.dotx`, `Reference/Modelos_Doc/ATA/Modelo de ATA.docx` e os extratos de credenciamento PF/PJ foram incluídos no Git. Após o push, `git pull` na outra máquina transfere esses arquivos e o código versionado. Atas assinadas, fontes de importação, planilhas operacionais, capturas locais, arquivos de `build/`, banco, ambientes e documentos privados permanecem fora destes commits; a transferência dos dados operacionais continua pelo backup próprio do projeto.
