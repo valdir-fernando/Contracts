@@ -9,6 +9,7 @@ use App\Infrastructure\Atas\AtaParticipants;
 use App\Infrastructure\Atas\AtaProductLookup;
 use App\Infrastructure\Atas\AtaPublicationPdf;
 use App\Infrastructure\Atas\AtaRegistration;
+use App\Infrastructure\Atas\AtaWithAdmissionPdf;
 use App\Infrastructure\Atas\RemoveAta;
 use App\Infrastructure\Atas\RemoveAtaProduct;
 use App\Infrastructure\Atas\RemoveAtaSpecialQuantity;
@@ -53,6 +54,15 @@ class AtaController extends Controller
 
         return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="publicacao-ata-'.$ata.'.pdf"']);
+    }
+
+    public function document(Request $request, int $ata, AtaWithAdmissionPdf $document)
+    {
+        $data = $request->validate(['version' => 'required|integer|min:1']);
+        $bytes = $document->generate($request->user(), $ata, (int) $data['version']);
+
+        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff', 'Content-Disposition' => 'inline; filename="ata-'.$ata.'.pdf"']);
     }
 
     public function extract(Request $request, int $ata, AtaExtractPdf $extract)

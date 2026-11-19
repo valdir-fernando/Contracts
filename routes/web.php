@@ -62,6 +62,7 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::delete('/atas/{ata}', [AtaController::class, 'destroy'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.destroy');
     Route::get('/atas/{ata}/extract', [AtaController::class, 'extract'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.extract');
     Route::get('/atas/{ata}/publication', [AtaController::class, 'publication'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.publication');
+    Route::get('/atas/{ata}/document', [AtaController::class, 'document'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.document');
     Route::patch('/atas/{ata}/validity', [AtaController::class, 'saveValidity'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.validity.update');
     Route::patch('/atas/{ata}/admission', [AtaController::class, 'updateAdmission'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.admission.update');
     Route::patch('/atas/{ata}/special-quantity', [AtaController::class, 'updateSpecialQuantity'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.special-quantity.update');

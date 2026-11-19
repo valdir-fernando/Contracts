@@ -10,12 +10,16 @@ final class AtaExtractPeriod
 
     public static function text(bool $oneYearInpc, ?string $period, ?string $start, ?string $end): string
     {
-        $prefix = 'O registro de preços formalizado na presente ata terá vigência de ';
+        return 'O registro de preços formalizado na presente ata terá vigência de '.self::duration($oneYearInpc, $period, $start, $end).self::ENDING;
+    }
+
+    public static function duration(bool $oneYearInpc, ?string $period, ?string $start, ?string $end): string
+    {
         if ($oneYearInpc) {
-            return $prefix.'1 (um) ano, contado a partir do primeiro dia útil subsequente à data de divulgação no PNCP'.self::ENDING;
+            return '1 (um) ano, contado a partir do primeiro dia útil subsequente à data de divulgação no PNCP';
         }
         $date = static fn (?string $value) => $value ? (new DateTimeImmutable($value))->format('d/m/Y') : 'Não informado';
 
-        return $prefix.(trim($period ?? '') ?: 'Não informado').', iniciando-se em '.$date($start).' e término em '.$date($end).self::ENDING;
+        return (trim($period ?? '') ?: 'Não informado').', iniciando-se em '.$date($start).' e término em '.$date($end);
     }
 }

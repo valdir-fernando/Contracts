@@ -9,7 +9,7 @@
                 <label for="ata-summary-number">Nº ATA</label>
                 <div class="ata-summary-number-actions">
                     <span id="ata-summary-document-actions" class="ata-product-document-actions" role="group" aria-label="Documentos da ATA">
-                        <button type="button" class="section-tab document-action" data-ata-document="ata"><x-nav-icon name="contracts"/>ATA</button>
+                        <button type="button" class="section-tab document-action" data-ata-document="ata" data-ata-document-url="{{ route('atas.document', ['ata' => 0]) }}"><x-nav-icon name="contracts"/>ATA</button>
                         <button type="button" class="section-tab document-action" data-ata-document="extract" data-ata-extract-url="{{ route('atas.extract', ['ata' => 0]) }}"><x-nav-icon name="document-extract"/>EXTRATO</button>
                         <button type="button" class="section-tab document-action" data-ata-document="publication" data-ata-publication-url="{{ route('atas.publication', ['ata' => 0]) }}"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
                     </span>

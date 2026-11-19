@@ -54,7 +54,7 @@
                     @if($preview)
                     <span class="product-entry-actions action-toolbar ata-product-heading-actions">
                         <span class="ata-product-document-actions" role="group" aria-label="Documentos da ATA">
-                            <button type="button" class="section-tab document-action" data-ata-document="ata" :disabled="!loaded || busy"><x-nav-icon name="contracts"/>ATA</button>
+                            <button type="button" class="section-tab document-action" data-ata-document="ata" data-ata-document-url="{{ route('atas.document', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="contracts"/>ATA</button>
                             <button type="button" class="section-tab document-action" data-ata-document="extract" data-ata-extract-url="{{ route('atas.extract', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="document-extract"/>EXTRATO</button>
                             <button type="button" class="section-tab document-action" data-ata-document="publication" data-ata-publication-url="{{ route('atas.publication', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
                         </span>

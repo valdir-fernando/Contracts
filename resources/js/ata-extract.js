@@ -13,7 +13,7 @@ export function openAtaExtract(blob, ownerDocument = document, browser = window,
     browser.setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = showSupplierDocumentWarning, openPdf = openAtaExtract, urlKey = 'ataExtractUrl') {
+export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = showSupplierDocumentWarning, openPdf = openAtaExtract, urlKey = 'ataExtractUrl', invalidMessage) {
     let pending = false;
     buttons.forEach(button => button.addEventListener('click', async () => {
         if (pending || button.disabled) return;
@@ -37,7 +37,7 @@ export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = show
                     404: 'A ata não está disponível. Consulte novamente pelo Nº ATA.',
                     409: 'Os dados da ata, da administração ou do modelo mudaram. Consulte novamente a ata e gere o extrato outra vez.',
                     419: 'Sua sessão terminou. Entre novamente para emitir o extrato.',
-                    422: 'Confira os dados e consulte novamente a ata antes de emitir o extrato.',
+                    422: invalidMessage ?? 'Confira os dados e consulte novamente a ata antes de emitir o extrato.',
                     429: 'Foram feitas muitas tentativas. Aguarde um momento e tente novamente.',
                 };
                 warn(messages[response.redirected ? 401 : response.status] || 'O sistema encontrou um problema ao gerar o extrato. Tente novamente. Se continuar, avise o administrador.', root.ownerDocument);
@@ -58,5 +58,11 @@ export function initializeAtaExtract(root, buttons, fetcher = fetch, warn = show
 
 if (typeof document !== 'undefined') {
     const root = document.querySelector('.ata-editor');
-    if (root) initializeAtaExtract(root, [...document.querySelectorAll('[data-ata-extract-url]')]);
+    if (root) {
+        initializeAtaExtract(root, [...document.querySelectorAll('[data-ata-extract-url]')]);
+        initializeAtaExtract(root, [...document.querySelectorAll('[data-ata-document-url]')], fetch,
+            (message, ownerDocument) => showSupplierDocumentWarning(message.replaceAll('o extrato', 'a ata').replaceAll('do extrato', 'da ata'), ownerDocument),
+            (blob, ownerDocument) => openAtaExtract(blob, ownerDocument, window, 'ata.pdf'), 'ataDocumentUrl',
+            'Para emitir a ata, salve a opção Admitir Adesão a ATA em SIM e consulte o registro novamente.');
+    }
 }

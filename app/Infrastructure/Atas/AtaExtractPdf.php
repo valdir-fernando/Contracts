@@ -23,24 +23,25 @@ class AtaExtractPdf
     public function generate(User $expected, int $ataId, int $version): string
     {
         $templateHash = $this->template->fingerprint();
-        $snapshot = DB::transaction(function () use ($expected, $ataId, $version) {
+        $document = $this->documentName();
+        $snapshot = DB::transaction(function () use ($expected, $ataId, $version, $document) {
             $actor = $this->actors->lock($expected);
             $ata = $this->authorized($actor, $ataId);
-            abort_unless((int) $ata->version === $version, 409, 'A ata foi alterada. Consulte novamente antes de emitir o extrato.');
+            abort_unless((int) $ata->version === $version, 409, "A ata foi alterada. Consulte novamente antes de emitir {$document}.");
             $settings = $this->settings->current();
 
             return ['fields' => $this->fields($ata, $actor, $settings), 'source' => $this->sourceFingerprint($ata),
-                'version' => (int) $ata->version, 'role' => $actor->user_type, 'settings' => $this->fingerprint($settings)];
+                'version' => (int) $ata->version, 'access' => $this->documentAccess($actor), 'settings' => $this->fingerprint($settings)];
         });
         $bytes = $this->render($this->template->render($snapshot['fields']));
-        DB::transaction(function () use ($expected, $ataId, $snapshot, $templateHash, $bytes) {
+        DB::transaction(function () use ($expected, $ataId, $snapshot, $templateHash, $bytes, $document) {
             $actor = $this->actors->lock($expected);
             $ata = $this->authorized($actor, $ataId);
-            abort_unless($actor->user_type === $snapshot['role'], 403);
-            abort_unless(hash_equals($snapshot['source'], $this->sourceFingerprint($ata)), 409, 'A ata foi alterada durante a emissão. Gere o extrato novamente.');
+            abort_unless($this->documentAccess($actor) === $snapshot['access'], 403);
+            abort_unless(hash_equals($snapshot['source'], $this->sourceFingerprint($ata)), 409, "A ata foi alterada durante a emissão. Gere {$document} novamente.");
             $settings = DB::table('document_settings')->where('id', 1)->lockForUpdate()->firstOrFail();
-            abort_unless(hash_equals($snapshot['settings'], $this->fingerprint($settings)), 409, 'A administração mudou durante a emissão. Gere o extrato novamente.');
-            abort_unless(hash_equals($templateHash, $this->template->fingerprint()), 409, 'O modelo mudou durante a emissão. Gere o extrato novamente.');
+            abort_unless(hash_equals($snapshot['settings'], $this->fingerprint($settings)), 409, "A administração mudou durante a emissão. Gere {$document} novamente.");
+            abort_unless(hash_equals($templateHash, $this->template->fingerprint()), 409, "O modelo mudou durante a emissão. Gere {$document} novamente.");
             ActivityEvent::create(['actor_id' => $actor->id, 'action' => $this->auditAction(), 'created_at' => now(),
                 'metadata' => ['ata_id' => $ataId, 'ata_version' => $snapshot['version'], 'model_sha256' => $templateHash,
                     'administration' => $snapshot['fields']['administration'], 'sha256' => hash('sha256', $bytes)]]);
@@ -52,7 +53,7 @@ class AtaExtractPdf
     private function authorized(User $actor, int $id): object
     {
         abort_unless($actor->canIssueContracts(), 403);
-        $ata = DB::table('tb_ATA')->where('ID', $id)->whereNull('deleted_at')->lockForUpdate()->first(self::COLUMNS);
+        $ata = DB::table('tb_ATA')->where('ID', $id)->whereNull('deleted_at')->lockForUpdate()->first([...self::COLUMNS, ...$this->additionalColumns()]);
         abort_unless($ata, 404);
         if ($ata->fund_id === null) {
             abort_unless($actor->isAdmin(), 403);
@@ -71,6 +72,21 @@ class AtaExtractPdf
     protected function auditAction(): string
     {
         return 'ata_extract_generated';
+    }
+
+    protected function documentName(): string
+    {
+        return 'o extrato';
+    }
+
+    protected function additionalColumns(): array
+    {
+        return [];
+    }
+
+    protected function documentAccess(User $actor): array
+    {
+        return [$actor->user_type];
     }
 
     protected function sourceFingerprint(object $ata): string
@@ -96,7 +112,7 @@ class AtaExtractPdf
             'decree' => $text($ata->DECRETO_GESTOR), 'position' => $text($ata->CARGO_GESTOR)];
     }
 
-    private function document(string $digits, User $actor): string
+    protected function document(string $digits, User $actor): string
     {
         if (strlen($digits) === 14) {
             return preg_replace('/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/', '$1.$2.$3/$4-$5', $digits);
@@ -113,8 +129,11 @@ class AtaExtractPdf
         $pdf = new Dompdf(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
         $pdf->setPaper('A4');
         $pdf->loadHtml($html, 'UTF-8');
+        $this->configureRenderer($pdf);
         $pdf->render();
 
         return $pdf->output();
     }
+
+    protected function configureRenderer(Dompdf $pdf): void {}
 }
