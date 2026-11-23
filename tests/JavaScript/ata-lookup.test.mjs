@@ -16,9 +16,10 @@ function panel(fetcher) {
     const navigations = [];
     const warningText = node();
     const names = ['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'supplier_id', 'supplier_email', 'supplier_mobile', 'supplier_whatsapp',
-        'cpf_socio', 'rg_socio', 'Data_ATA', 'admitir_adesao', 'bidding', 'bidding_number', 'managing_fund_id'];
+        'cpf_socio', 'rg_socio', 'Data_ATA', 'Data_Orçamento', 'admitir_adesao', 'bidding', 'bidding_number', 'managing_fund_id'];
     const controls = Object.fromEntries(names.map(name => [name, node()]));
     controls.Data_ATA.type = 'text';
+    controls.Data_Orçamento.type = 'text';
     const total = node();
     const headingTotal = node();
     const lineTotal = node();
@@ -63,7 +64,7 @@ function panel(fetcher) {
 }
 
 const saved = (id, number) => ({ id, number, process: `PROCESSO-${id}`, date: '2026-01-02', admitir_adesao: 'SIM', bidding: 'PREGÃO', bidding_number: '123',
-    managing_fund_id: '1', managing_fund_name: 'Fundo salvo', version: 1,
+    managing_fund_id: '1', managing_fund_name: 'Fundo salvo', version: 1, budget_date: '2025-12-20',
     contractor: { cpf_gestor: '52998224725' }, supplier: { fornecedor_nome_snapshot: `Fornecedor ${id}`, fornecedor_documento_snapshot: '11222333000181' },
     participants: [{ id: 20, FUNDO: 'Participante salvo' }], total: '1234.5678',
     products: [{ item: '1', description: '<Produto salvo>', unit: 'UN', quantity: '0.0001', unit_price: '1.1234', total: '1234.5678' }],
@@ -119,6 +120,47 @@ test('configured ATA lists exact special quantities alongside standard quantitie
     assert.equal(row.children[4].children[0].textContent, '0,0001');
 });
 
+test('the amendment list only shows the special quantity column when an original product has a value', async () => {
+    const data = saved(81, '107/2025');
+    data.special_quantity_name = 'veículos';
+    data.products[0].special_quantity = '9.0000';
+    data.amendment_base_products = [{ ...data.products[0], special_quantity: null }];
+    const ui = panel(async () => ({ ok: true, json: async () => data }));
+    ui.number.value = '107/25';
+    await ui.number.listeners.blur();
+    assert.equal(ui.events.at(-1).detail.amendment_special_quantity_label, '');
+    assert.equal(ui.events.at(-1).detail.amendment_base_products[0].special_quantity, '');
+
+    data.amendment_base_products.push({ ...data.products[0], id: 2, special_quantity: '0.0000' });
+    await ui.number.listeners.blur();
+    assert.equal(ui.events.at(-1).detail.amendment_special_quantity_label, 'QTD de veículos');
+    assert.equal(ui.events.at(-1).detail.amendment_base_products[1].special_quantity, '0,0000');
+});
+
+test('the amendment panel receives the updated ATA total with exact decimal formatting', async () => {
+    const data = saved(81, '107/2025');
+    data.amendment_updated_total = '1234567890123.0001';
+    const ui = panel(async () => ({ ok: true, json: async () => data }));
+    ui.number.value = '107/25';
+    await ui.number.listeners.blur();
+    assert.equal(ui.events.at(-1).detail.amendment_updated_total, '1.234.567.890.123,0001');
+});
+
+test('the amendment panel receives product quantities and calculated totals with exact decimal formatting', async () => {
+    const data = saved(81, '107/2025');
+    data.amendment_base_total = '12345.6780';
+    data.amendment_base_products = [
+        { id: 1, quantity: '1234.5678', total: '12345.6780' },
+        { id: 2, quantity: '0.0001' },
+    ];
+    const ui = panel(async () => ({ ok: true, json: async () => data }));
+    ui.number.value = '107/25';
+    await ui.number.listeners.blur();
+    assert.deepEqual(ui.events.at(-1).detail.amendment_base_products.map(product => product.quantity), ['1.234,5678', '0,0001']);
+    assert.deepEqual(ui.events.at(-1).detail.amendment_base_products.map(product => product.total), ['12.345,6780', '']);
+    assert.equal(ui.events.at(-1).detail.amendment_base_total, '12.345,6780');
+});
+
 test('blur loads persisted fields, participants and products with exact monetary formatting', async () => {
     let request;
     const ui = panel(async (url, options) => {
@@ -135,6 +177,7 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(ui.fundHeading.textContent, 'Fundo salvo');
     assert.equal(ui.productsManagingFund.textContent, 'Fundo salvo');
     assert.equal(ui.controls.Data_ATA.value, '02/01/2026');
+    assert.equal(ui.controls.Data_Orçamento.value, '20/12/2025');
     assert.equal(ui.controls.admitir_adesao.value, 'SIM');
     assert.equal(ui.controls.bidding.value, 'PREGÃO');
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, 'Fornecedor 1');
@@ -148,6 +191,7 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(ui.products.children[0].children.length, 10);
     assert.equal(ui.products.children[0].children[5].hidden, true);
     assert.equal(ui.form.dataset.ataSnapshot, 'true');
+    assert.equal(ui.root.dataset.ataSupplierDocument, '11.222.333/0001-81');
     assert.equal(ui.events.at(-1).type, 'ata-loaded');
     assert.equal(ui.events.at(-1).detail.participants[0].FUNDO, 'Participante salvo');
     assert.equal(ui.status.textContent, '');
@@ -284,4 +328,18 @@ test('successful save waits for released editor state before loading the issued 
     assert.equal(ui.number.value, '001/26');
     assert.equal(ui.products.children.length, 1);
     assert.equal(ui.products.children[0].children[0].children[0].textContent, '1');
+});
+
+test('confirmed amendment total is available while the ATA reload is pending', async () => {
+    let complete;
+    const ui = panel(() => new Promise(resolve => { complete = resolve; }));
+    ui.root.listeners['ata-saved']({ detail: { number: '001/26', amendment_updated_total: '1234.5678' } });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(ui.events.at(-1).type, 'ata-loading');
+    assert.equal(ui.events.at(-1).detail.amendment_updated_total, '1.234,5678');
+
+    complete({ ok: true, json: async () => ({ ...saved(1, '001/26'), amendment_updated_total: '1234.5678' }) });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(ui.events.at(-1).type, 'ata-loaded');
+    assert.equal(ui.events.at(-1).detail.amendment_updated_total, '1.234,5678');
 });

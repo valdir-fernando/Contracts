@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Infrastructure\Atas\AtaEditorQuery;
+use App\Infrastructure\Atas\UpdateAtaValidity;
 use App\Models\AccessScope;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,6 +53,7 @@ class AtaLookupTest extends TestCase
             ->assertJsonPath('contractor.nome_gestor', 'Gestor histórico')->assertJsonPath('contractor.cpf_gestor', '52998224725')
             ->assertJsonPath('supplier.fornecedor_nome_snapshot', 'Fornecedor salvo')->assertJsonPath('supplier.supplier_email', 'salvo@example.test')
             ->assertJsonPath('participants.0.FUNDO', 'Participante salvo')->assertJsonPath('total', '0.3003')->assertJsonCount(2, 'products')
+            ->assertJsonPath('amendment_updated_total', '0.3003')->assertJsonPath('amendment_base_total', '0.0002')
             ->assertJsonMissingPath('Doc_ATA')->assertJsonMissingPath('source_files')->assertDontSee('PDF-PRIVADO')->assertDontSee('CAMINHO-PRIVADO')->assertDontSee('FONTE-PRIVADA');
         $this->assertDatabaseCount('activity_events', 0);
         $this->assertDatabaseCount('ata_participant_drafts', 0);
@@ -66,12 +68,106 @@ class AtaLookupTest extends TestCase
             'QTD' => '1.0000', 'VL_UNIT' => '10.1234', 'VL_TOTAL' => '10.1234', 'source_row' => '{}'];
         DB::table('tb_PRODUTOS_ATA')->insert($base);
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 1, 'DISCRIMINACAO' => 'Aditivo', 'VL_TOTAL' => '999.0000']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 2, 'VL_TOTAL' => '0.0001']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 3, 'deleted_at' => now(), 'VL_TOTAL' => '200.0000']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 4, 'VL_TOTAL' => '']));
+        DB::table('tb_ADT_ATA')->insert(['ATA' => '001/2026', 'Proc_ATA' => 'PROC-SALVO', 'ADT' => 5]);
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '2', 'deleted_at' => now(), 'VL_TOTAL' => '100.0000']));
 
         $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()
             ->assertJsonCount(1, 'products')->assertJsonPath('products.0.description', 'Original')
-            ->assertJsonPath('total', '10.1234');
-        $this->assertDatabaseCount('tb_PRODUTOS_ATA', 3);
+            ->assertJsonPath('total', '10.1234')->assertJsonPath('amendment_updated_total', '1009.1235')->assertJsonCount(1, 'amendment_base_products')
+            ->assertJsonPath('amendment_numbers', [5])
+            ->assertJsonPath('amendment_base_products.0.description', 'Original')
+            ->assertJsonPath('amendment_base_products.0.quantity', '1.0000')->assertJsonPath('amendment_base_products.0.special_quantity', null);
+        $this->assertDatabaseCount('tb_PRODUTOS_ATA', 6);
+    }
+
+    public function test_a_new_amendment_uses_original_active_products_and_quantities(): void
+    {
+        $ata = $this->ata(['QTD_ESPECIAL_NOME' => 'veículos']);
+        $other = $this->ata(['ATA' => '002/2026']);
+        $base = ['ID_ATA' => $ata, 'ATA' => '001/2026', 'PROCESSO' => 'PROC-SALVO', 'LICITACAO' => 'PREGAO', 'N_LICIT' => '123',
+            'DISCRIMINACAO' => 'Produto', 'UND' => 'UN', 'QTD' => '5.0000', 'QTD_ESPECIAL' => '7.0000', 'VL_UNIT' => '10.1234',
+            'VL_TOTAL' => '50.6100', 'source_row' => '{}'];
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '10']));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '11', 'deleted_at' => now()]));
+        foreach ([1, 2, 3] as $number) {
+            $amendment = DB::table('tb_ADITIVOS_ATA')->insertGetId(['ID_ATA' => $ata, 'NUMERO' => $number, 'source_path' => "adt-{$number}",
+                'source_sha256' => str_repeat((string) $number, 64), 'source_size' => 1, 'extraction' => 'pdf',
+                'link_status' => 'vinculado', 'issues' => '[]', 'deleted_at' => $number === 3 ? now() : null], 'ID');
+            DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ID_ADITIVO' => $amendment, 'ADITIVO' => $number,
+                'ITEM' => (string) $number, 'deleted_at' => $number === 2 ? now() : null]));
+        }
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 2, 'ITEM' => '4', 'deleted_at' => now()]));
+        DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ID_ATA' => $other, 'ITEM' => '5']));
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()
+            ->assertJsonPath('amendment_numbers', [2, 1])->assertJsonCount(1, 'amendment_base_products')
+            ->assertJsonPath('amendment_base_products.0.item', '10')->assertJsonPath('amendment_base_products.0.unit_price', '10.1234')
+            ->assertJsonPath('special_quantity_name', 'veículos')
+            ->assertJsonPath('amendment_base_products.0.special_quantity', '7.0000')
+            ->assertJsonPath('amendment_base_products.0.quantity', '5.0000')
+            ->assertJsonPath('products.0.total', '50.6100')
+            ->assertJsonPath('amendment_base_products.0.total', '50.6170');
+    }
+
+    public function test_lookup_recovers_the_original_end_from_an_amended_legacy_validity_basis(): void
+    {
+        $basis = ['rule' => UpdateAtaValidity::RULE, 'start' => '2025-06-02',
+            'end' => '2027-06-02', 'period' => '1 (um) ano, contado a partir da divulgação no PNCP',
+            'amendments' => [['number' => 1, 'end' => '2027-06-02']]];
+        $id = $this->ata(['INICIO_ATA' => '2025-06-02', 'FINAL_ATA' => '2027-06-02', 'validity_basis' => json_encode($basis)]);
+        $lookup = route('atas.lookup', ['number' => '1/26']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('end_date', '2026-06-02')
+            ->assertJsonPath('end_date_derived', true)->assertJsonMissingPath('validity_basis');
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'FINAL_ATA' => '2027-06-02']);
+
+        DB::table('tb_ATA')->where('ID', $id)->update(['validity_basis' => json_encode(array_replace($basis, ['period' => 'Indefinido']))]);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('end_date', null)->assertJsonPath('end_date_derived', true);
+
+        DB::table('tb_ATA')->where('ID', $id)->update(['FINAL_ATA' => '2026-05-29']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('end_date', '2026-05-29')->assertJsonPath('end_date_derived', false);
+    }
+
+    public function test_lookup_preserves_saved_amendment_dates_without_supplying_date_constraints(): void
+    {
+        $this->ata(['INICIO_ATA' => '2026-01-01', 'FINAL_ATA' => '2026-12-31']);
+        DB::table('tb_ADT_ATA')->insert(['ATA' => '1/26', 'Proc_ATA' => 'PROC-SALVO', 'ADT' => 1,
+            'INICIO' => '2027-01-03', 'FINAL' => '2028-03-01']);
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()
+            ->assertJsonPath('amendments.1.start', '2027-01-03')->assertJsonPath('amendments.1.end', '2028-03-01')
+            ->assertJsonMissingPath('amendment_required_start')->assertJsonMissingPath('amendment_date_limit');
+    }
+
+    public function test_lookup_lists_only_distinct_active_amendment_numbers_for_the_open_ata(): void
+    {
+        $id = $this->ata();
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()->assertJsonPath('amendment_numbers', []);
+        $legacy = ['ATA' => '1/26', 'Proc_ATA' => 'PROC-SALVO', 'ADT' => 2, 'Doc_ADT' => 'PDF-ADITIVO-PRIVADO',
+            'Data_ADT' => '2026-06-01', 'Proc_ADT' => 'PROC-ADITIVO', 'Tipo_ADT' => 'Prorrogação',
+            'INICIO' => '2026-07-01', 'FINAL' => '2027-06-30', 'Período' => '12 meses'];
+        DB::table('tb_ADT_ATA')->insert($legacy);
+        DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 3, 'deleted_at' => now()]));
+        DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 4, 'Proc_ATA' => 'OUTRO']));
+        DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 5, 'ATA' => '2/26']));
+        $import = ['ID_ATA' => $id, 'source_size' => 1, 'extraction' => 'pdf', 'link_status' => 'vinculado', 'issues' => '[]'];
+        foreach ([1, 2] as $number) {
+            DB::table('tb_ADITIVOS_ATA')->insert($import + ['NUMERO' => $number, 'source_path' => "PRIVADO-{$number}", 'PROCESSO_ADITIVO' => 'IMPORTADO',
+                'source_sha256' => str_repeat((string) $number, 64)]);
+        }
+        DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 12]));
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()
+            ->assertJsonPath('amendment_numbers', [12, 2, 1])
+            ->assertJsonPath('amendments.2', ['date' => '2026-06-01', 'process' => 'PROC-ADITIVO', 'type' => 'Prorrogação',
+                'start' => '2026-07-01', 'end' => '2027-06-30', 'period' => '12 meses'])
+            ->assertJsonPath('amendments.1.process', 'IMPORTADO')->assertJsonMissingPath('amendments.1.date')
+            ->assertJsonMissingPath('amendments.3')->assertJsonMissingPath('amendments.4')
+            ->assertDontSee('PRIVADO-1')->assertDontSee('PDF-ADITIVO-PRIVADO');
+
+        $other = $this->ata(['ATA' => '1/26', 'CNPJ_FUNDO' => '04252011000110']);
+        DB::table('tb_ATA')->where('ID', $other)->update(['deleted_at' => now()]);
+        $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()->assertJsonPath('amendment_numbers', [2, 1])
+            ->assertJsonPath('amendments.2.process', 'IMPORTADO')->assertJsonMissingPath('amendments.12');
     }
 
     public function test_lookup_preserves_unknown_admission_on_existing_atas_and_returns_explicit_choices(): void

@@ -26,6 +26,7 @@ final class SaveAtaValidity
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             $data = Validator::make($input, ['version' => 'required|integer|min:1'])->validate();
             abort_if((int) $data['version'] !== (int) $ata->version, 409, 'A ata foi alterada. Consulte novamente antes de salvar a vigência.');
             $previous = ['one_year_inpc' => $ata->VIGENCIA_ANO_INPC === null ? false : (bool) $ata->VIGENCIA_ANO_INPC,

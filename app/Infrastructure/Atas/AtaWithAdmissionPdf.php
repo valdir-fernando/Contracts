@@ -42,7 +42,7 @@ class AtaWithAdmissionPdf extends AtaExtractPdf
 
     protected function additionalColumns(): array
     {
-        return ['ADMITIR_ADESAO', 'QTD_ESPECIAL_NOME', 'CNPJ_FUNDO', 'END_FUNDO', 'MATRICULA_GESTOR',
+        return ['ADMITIR_ADESAO', 'QTD_ESPECIAL_NOME', 'CNPJ_FUNDO', 'END_FUNDO',
             'END_FORNECEDOR', 'EMAIL', 'TELEFONE1', 'SOCIO', 'RG_SOCIO', 'CPF_SOCIO', 'RG_FORNECEDOR'];
     }
 
@@ -72,7 +72,6 @@ class AtaWithAdmissionPdf extends AtaExtractPdf
         return $fields + [
             'fund_document' => $this->document(Normalizer::document($ata->CNPJ_FUNDO), $actor),
             'fund_address' => $text($ata->END_FUNDO),
-            'manager_registration' => $text($ata->MATRICULA_GESTOR),
             'supplier_address' => $text($ata->END_FORNECEDOR),
             'supplier_email' => $text($actor->canAccessCatalog('supplier') ? $ata->EMAIL : null),
             'supplier_phone' => $text($actor->canAccessCatalog('supplier') ? $ata->TELEFONE1 : null),

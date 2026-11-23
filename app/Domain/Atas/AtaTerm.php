@@ -8,6 +8,16 @@ use InvalidArgumentException;
 
 final class AtaTerm
 {
+    public static function maximumAmendmentEnd(?string $originalStart): ?DateTimeImmutable
+    {
+        $start = DateTimeImmutable::createFromFormat('!Y-m-d', $originalStart ?? '');
+        if (! $start || $start->format('Y-m-d') !== $originalStart) {
+            return null;
+        }
+
+        return self::end($start, '2 anos');
+    }
+
     public static function end(DateTimeImmutable $start, string $period): DateTimeImmutable
     {
         if (! preg_match('/^\s*(\d{1,3})\s*(?:\([^)]*\)\s*)?(anos?|meses|mês|mes|dias?)\b/ui', $period, $match) || (int) $match[1] < 1) {

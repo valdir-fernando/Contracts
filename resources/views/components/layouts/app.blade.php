@@ -143,6 +143,10 @@
             @endif
             @if($errors->any())<div class="notice notice-error" role="alert"><strong>Confira os dados informados.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             {{ $slot }}
+            <dialog class="catalog-modal document-progress-dialog" data-document-progress aria-labelledby="document-progress-title" closedby="none">
+                <div class="modal-header"><h2 id="document-progress-title">Gerando documento…</h2></div>
+                <progress class="document-progress-bar" aria-labelledby="document-progress-title"></progress>
+            </dialog>
         </main>
     </div>
 </x-layouts.auth>

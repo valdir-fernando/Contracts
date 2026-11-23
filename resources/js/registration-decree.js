@@ -1,4 +1,5 @@
 import { showSupplierDocumentWarning } from './system-message.js';
+import { startDocumentProgress } from './document-progress.js';
 
 if (typeof document !== 'undefined') document.querySelectorAll('[data-registration-decree]').forEach((button) => {
     button.addEventListener('click', (event) => {
@@ -19,6 +20,7 @@ export function initializeInspectorDecree(form, request = fetch, warn = showSupp
         pending = true;
         const button = event.submitter || form.querySelector('[type="submit"]');
         button.disabled = true;
+        const finish = startDocumentProgress(form.ownerDocument);
         try {
             const response = await request(form.action, {
                 method: 'POST', body: new FormData(form), credentials: 'same-origin',
@@ -41,8 +43,10 @@ export function initializeInspectorDecree(form, request = fetch, warn = showSupp
             link.remove();
             setTimeout(() => URL.revokeObjectURL(url), 60000);
         } catch (error) {
+            finish();
             warn(error.message || 'Não foi possível gerar o decreto.', form.ownerDocument);
         } finally {
+            finish();
             pending = false;
             button.disabled = false;
         }

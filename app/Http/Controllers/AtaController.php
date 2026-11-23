@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Infrastructure\Atas\AtaAmendmentPdf;
+use App\Infrastructure\Atas\AtaAmendmentWord;
 use App\Infrastructure\Atas\AtaContractor;
 use App\Infrastructure\Atas\AtaEditorQuery;
 use App\Infrastructure\Atas\AtaExtractPdf;
@@ -12,9 +14,11 @@ use App\Infrastructure\Atas\AtaRegistration;
 use App\Infrastructure\Atas\AtaWithAdmissionPdf;
 use App\Infrastructure\Atas\AtaWithAdmissionWord;
 use App\Infrastructure\Atas\RemoveAta;
+use App\Infrastructure\Atas\RemoveAtaAmendment;
 use App\Infrastructure\Atas\RemoveAtaProduct;
 use App\Infrastructure\Atas\RemoveAtaSpecialQuantity;
 use App\Infrastructure\Atas\RemoveSavedAtaParticipant;
+use App\Infrastructure\Atas\SaveAtaAmendment;
 use App\Infrastructure\Atas\SaveAtaProduct;
 use App\Infrastructure\Atas\SaveAtaValidity;
 use App\Infrastructure\Atas\SavedAtaParticipants;
@@ -24,6 +28,8 @@ use App\Infrastructure\Atas\UpdateAtaSpecialQuantity;
 use App\Infrastructure\Security\LockActor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class AtaController extends Controller
 {
@@ -39,6 +45,47 @@ class AtaController extends Controller
         return response()->json($editor->remove($request->user(), $ata, $request->all(),
             $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
             ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function storeAmendment(Request $request, int $ata, SaveAtaAmendment $editor)
+    {
+        return response()->json($editor->save($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 201,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function updateAmendment(Request $request, int $ata, int $amendment, SaveAtaAmendment $editor)
+    {
+        return response()->json($editor->save($request->user(), $ata, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null, $amendment), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function destroyAmendment(Request $request, int $ata, int $amendment, RemoveAtaAmendment $editor)
+    {
+        return response()->json($editor->remove($request->user(), $ata, $amendment, $request->all(),
+            $request->session()->has('fund_id') ? (int) $request->session()->get('fund_id') : null), 200,
+            ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function amendmentDocument(Request $request, int $ata, int $amendment, AtaAmendmentWord $document)
+    {
+        $data = $request->validate(['version' => 'required|integer|min:1', 'products_layout' => 'sometimes|required|in:continuous,parallel',
+            'format' => 'sometimes|required|in:pdf,docx']);
+        $format = $data['format'] ?? 'docx';
+        $renderer = $format === 'pdf' ? resolve(AtaAmendmentPdf::class) : $document;
+        $issued = $renderer->generateForAmendment($request->user(), $ata, (int) $data['version'], $amendment, $data['products_layout'] ?? 'continuous');
+        $part = static fn (string $value, int $limit) => trim(mb_strcut(preg_replace('/[^\p{L}\p{M}\p{N}-]+/u', '_', $value), 0, $limit, 'UTF-8'), '_');
+        $supplier = $part($issued['supplier'], 160) ?: 'Fornecedor';
+        $number = $part(preg_replace('~\s*/\s*~', '-', $issued['number']), 40) ?: (string) $ata;
+        $ordinal = str_pad((string) $amendment, 3, '0', STR_PAD_LEFT);
+        $suffix = "_ATA_{$number}.{$format}";
+        $filename = "ADT_{$ordinal}_{$supplier}".$suffix;
+        $fallback = "ADT_{$ordinal}_".($part(Str::ascii($supplier), 160) ?: 'Fornecedor').$suffix;
+
+        return response($issued['bytes'], 200, ['Content-Type' => $format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => HeaderUtils::makeDisposition('attachment', $filename, $fallback)]);
     }
 
     public function saveValidity(Request $request, int $ata, SaveAtaValidity $validity)

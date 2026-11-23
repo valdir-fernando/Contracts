@@ -4,7 +4,9 @@ use App\Http\Controllers\AccountAvatarController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdministrationController;
 use App\Http\Controllers\AtaController;
+use App\Http\Controllers\AtaDeliveryOrderController;
 use App\Http\Controllers\AtaReportController;
+use App\Http\Controllers\AtaSignedDocumentController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CalendarController;
@@ -60,9 +62,25 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::post('/atas', [AtaController::class, 'store'])->middleware('throttle:30,1')->name('atas.store');
     Route::patch('/atas/{ata}', [AtaController::class, 'update'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.update');
     Route::delete('/atas/{ata}', [AtaController::class, 'destroy'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.destroy');
+    Route::post('/atas/{ata}/amendments', [AtaController::class, 'storeAmendment'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.amendments.store');
+    Route::patch('/atas/{ata}/amendments/{amendment}', [AtaController::class, 'updateAmendment'])->whereNumber(['ata', 'amendment'])->middleware('throttle:30,1')->name('atas.amendments.update');
+    Route::delete('/atas/{ata}/amendments/{amendment}', [AtaController::class, 'destroyAmendment'])->whereNumber(['ata', 'amendment'])->middleware('throttle:30,1')->name('atas.amendments.destroy');
+    Route::get('/atas/{ata}/amendments/{amendment}/document', [AtaController::class, 'amendmentDocument'])->whereNumber(['ata', 'amendment'])->middleware('throttle:20,1')->name('atas.amendments.document');
+    Route::prefix('/atas/{ata}/amendments/{amendment}/signed-document')->where(['ata' => '[0-9]+', 'amendment' => '[0-9]+'])->name('atas.amendments.signed-document.')->group(function () {
+        Route::post('/preview', [AtaSignedDocumentController::class, 'preview'])->middleware('throttle:6,1,ata-signed-preview:')->name('preview');
+        Route::post('/', [AtaSignedDocumentController::class, 'store'])->middleware('throttle:6,1,ata-signed-store:')->name('store');
+        Route::delete('/', [AtaSignedDocumentController::class, 'destroy'])->middleware('throttle:6,1,ata-signed-remove:')->name('destroy');
+        Route::get('/{copy}', [AtaSignedDocumentController::class, 'downloadAmendment'])->whereIn('copy', ['original', 'redacted'])
+            ->middleware('throttle:20,1,ata-signed-download:')->name('download');
+    });
     Route::get('/atas/{ata}/extract', [AtaController::class, 'extract'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.extract');
     Route::get('/atas/{ata}/publication', [AtaController::class, 'publication'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.publication');
     Route::get('/atas/{ata}/document', [AtaController::class, 'document'])->whereNumber('ata')->middleware('throttle:20,1')->name('atas.document');
+    Route::post('/atas/{ata}/signed-document/preview', [AtaSignedDocumentController::class, 'preview'])->whereNumber('ata')->middleware('throttle:6,1,ata-signed-preview:')->name('atas.signed-document.preview');
+    Route::post('/atas/{ata}/signed-document', [AtaSignedDocumentController::class, 'store'])->whereNumber('ata')->middleware('throttle:6,1,ata-signed-store:')->name('atas.signed-document.store');
+    Route::delete('/atas/{ata}/signed-document', [AtaSignedDocumentController::class, 'destroy'])->whereNumber('ata')->middleware('throttle:6,1,ata-signed-remove:')->name('atas.signed-document.destroy');
+    Route::get('/atas/{ata}/signed-document/{copy}', [AtaSignedDocumentController::class, 'download'])
+        ->whereNumber('ata')->whereIn('copy', ['original', 'redacted'])->middleware('throttle:20,1,ata-signed-download:')->name('atas.signed-document.download');
     Route::patch('/atas/{ata}/validity', [AtaController::class, 'saveValidity'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.validity.update');
     Route::patch('/atas/{ata}/admission', [AtaController::class, 'updateAdmission'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.admission.update');
     Route::patch('/atas/{ata}/special-quantity', [AtaController::class, 'updateSpecialQuantity'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.special-quantity.update');
@@ -74,6 +92,9 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::post('/atas/{ata}/participants', [AtaController::class, 'addSavedParticipant'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.saved-participants.store');
     Route::delete('/atas/{ata}/participants/{participant}', [AtaController::class, 'removeSavedParticipant'])->whereNumber('ata')->whereNumber('participant')->middleware('throttle:60,1')->name('atas.saved-participants.destroy');
     Route::get('/atas/lookup', [AtaController::class, 'lookup'])->middleware('throttle:60,1')->name('atas.lookup');
+    Route::get('/atas/{ata}/delivery-orders/lookup', [AtaDeliveryOrderController::class, 'lookup'])->whereNumber('ata')->middleware('throttle:60,1')->name('atas.delivery-orders.lookup');
+    Route::post('/atas/{ata}/delivery-orders', [AtaDeliveryOrderController::class, 'store'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.delivery-orders.store');
+    Route::delete('/atas/{ata}/delivery-orders', [AtaDeliveryOrderController::class, 'destroy'])->whereNumber('ata')->middleware('throttle:30,1')->name('atas.delivery-orders.destroy');
     Route::get('/atas/funds/{fund}/contractor-defaults', [AtaController::class, 'contractorDefaults'])->whereNumber('fund')->name('atas.contractor-defaults');
     Route::post('/atas/participants', [AtaController::class, 'addParticipant'])->middleware('throttle:60,1')->name('atas.participants.store');
     Route::delete('/atas/participants/{participant}', [AtaController::class, 'removeParticipant'])->whereNumber('participant')->middleware('throttle:60,1')->name('atas.participants.destroy');

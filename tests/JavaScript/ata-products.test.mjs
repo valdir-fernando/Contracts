@@ -1,6 +1,57 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initializeAtaProducts, initializeAtaProductPicker, ataProductTotal, fitAtaDescription, limitAtaQuantity } from '../../resources/js/ata-products.js';
+import { initializeAtaProducts, initializeAtaProductPicker, initializeAtaAmendmentBalanceCorrection, ataProductTotal, ataAmendmentBalanceLineTotals, fitAtaDescription, limitAtaQuantity } from '../../resources/js/ata-products.js';
+
+test('positive-balance amendments show reference totals per line with four decimal places', () => {
+    const products = [
+        { id: 2, quantity: '10,0000', unit_price: '2,3333' }, { id: 3, quantity: '10,0000', unit_price: '6,7890' },
+        { id: 4, quantity: '10,0000', unit_price: '100,0000' }, { id: 5, quantity: '10,0000', unit_price: '200,0000' },
+    ];
+    assert.deepEqual(ataAmendmentBalanceLineTotals(products, { 2: '1,1111', 3: '1,2345', 4: '', 5: '-2' }), {
+        2: '2,5925', 3: '8,3810',
+    });
+    assert.deepEqual(ataAmendmentBalanceLineTotals(products, {}), {});
+});
+
+test('positive-balance totals exclude quantities above the original until they are corrected', () => {
+    const products = [
+        { id: 2, quantity: '1,2500', unit_price: '4,0000' },
+        { id: 3, quantity: '5,0000', unit_price: '2,0000' },
+        { id: 4, quantity: '0,0000', unit_price: '9,0000' },
+    ];
+    assert.deepEqual(ataAmendmentBalanceLineTotals(products, { 2: '1,2501', 3: '3', 4: '1' }), {
+        3: '6,0000',
+    });
+});
+
+test('an oversized balance stays visible until the user corrects it or cancels', async () => {
+    let leave, reply;
+    const events = [];
+    const root = { dataset: { ataLoaded: '18', ataVersion: '1' }, ownerDocument: {},
+        addEventListener(name, callback) { assert.equal(name, 'focusout'); leave = callback; } };
+    const target = { value: '9,2500', isConnected: true, dataset: { amendmentOriginalQuantity: '5,0000' },
+        matches: () => true, dispatchEvent: event => events.push(event.type), focus() {} };
+    initializeAtaAmendmentBalanceCorrection(root, (entered, original, validate) => {
+        assert.equal(entered, '9,2500');
+        assert.equal(original, '5,0000');
+        assert.equal(validate('5,0001'), false);
+        assert.equal(validate(''), false);
+        assert.equal(validate('-1'), false);
+        assert.equal(validate('2,5000'), true);
+        return new Promise(resolve => { reply = resolve; });
+    });
+    const correction = leave({ target });
+    assert.equal(target.value, '9,2500');
+    reply('2,5000');
+    await correction;
+    assert.equal(target.value, '2,5000');
+    target.value = '9,2500';
+    const cancellation = leave({ target });
+    reply('');
+    await cancellation;
+    assert.equal(target.value, '');
+    assert.deepEqual(events, ['input', 'input']);
+});
 
 const response = (product = {}) => ({ ok: true, json: async () => ({ process: 'PROC', product: {
     id: 1, item: '001', code: '00042', brand: 'Marca', unit: 'CX', remaining: '1234.5678', unit_price: '12.3400', description: '<Produto seguro>', ...product,

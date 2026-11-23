@@ -22,6 +22,7 @@ export function initializeDecimalInput(input) {
     input.dataset.decimalKind = input.hasAttribute('data-quantity') ? 'quantity' : 'money';
     const format = () => {
         if (input.value !== state.displayed) state.blank = !input.value.trim();
+        if (state.blank && input.hasAttribute('data-decimal-keep-blank')) return;
         const formatted = formatDecimalField(input.value);
         if (formatted === null) return;
         input.value = formatted;

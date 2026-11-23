@@ -37,18 +37,20 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
         });
         field('fornecedor_documento_snapshot').dispatchEvent(new Event('input', { bubbles: true }));
         supplierForm.querySelectorAll('input:not([name="_token"]), textarea').forEach(input => { input.value = ''; });
-        ['Data_ATA', 'admitir_adesao', 'bidding', 'bidding_number'].forEach(name => { field(name).value = ''; });
+        ['Data_ATA', 'Data_Orçamento', 'admitir_adesao', 'bidding', 'bidding_number'].forEach(name => { field(name).value = ''; });
         root.querySelectorAll('[data-ata-contractor-field]').forEach(output => { output.textContent = ''; });
         root.querySelector('#ata-total').value = '0,0000';
         root.querySelectorAll('[data-product-heading-total], [data-product-contract-total], [data-product-line-total]').forEach(input => { input.value = '0,0000'; });
         root.querySelector('[data-product-line-total]').value = '0,00';
         root.querySelector('[data-contract-product-list]').replaceChildren();
         root.dataset.ataLoaded = '';
+        root.dataset.ataPublicationLocked = 'false';
+        delete root.dataset.ataSupplierDocument;
         supplierForm.dataset.ataSnapshot = '';
         refreshContractSummary(supplierForm);
         notify('ata-cleared');
     };
-    const load = async () => {
+    const load = async ({ amendment_updated_total: savedTotal } = {}) => {
         if (root.dataset.editorBusy === 'true' && !controller) return;
         controller?.abort();
         const current = ++sequence;
@@ -58,7 +60,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
         if (!requested) return;
         controller = new AbortController();
         const attempt = controller;
-        notify('ata-loading');
+        notify('ata-loading', savedTotal == null ? {} : { amendment_updated_total: formatDecimalField(savedTotal) });
         status.textContent = 'Consultando ata...';
         let failureMessage;
         try {
@@ -78,8 +80,10 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
             if (productsTitle) productsTitle.textContent = data.number;
             if (fundHeading) fundHeading.textContent = data.managing_fund_name || 'FUNDO GERENCIADOR';
             if (productsManagingFund) productsManagingFund.textContent = data.managing_fund_name || 'Não informado';
-            const date = field('Data_ATA');
-            date.value = date.type === 'date' ? (data.date ?? '') : (data.date ?? '').split('-').reverse().join('/');
+            for (const [name, value] of [['Data_ATA', data.date], ['Data_Orçamento', data.budget_date]]) {
+                const input = field(name);
+                input.value = input.type === 'date' ? value ?? '' : (value ?? '').split('-').reverse().join('/');
+            }
             field('admitir_adesao').value = data.admitir_adesao ?? '';
             field('bidding').value = data.bidding ?? '';
             field('bidding_number').value = data.bidding_number ?? '';
@@ -165,8 +169,26 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
                 products.append(row);
             }
             root.dataset.ataLoaded = String(data.id);
+            root.dataset.ataPublicationLocked = String(Boolean(data.publication_date));
+            root.dataset.ataSupplierDocument = field('fornecedor_documento_snapshot').value;
             supplierForm.dataset.ataSnapshot = 'true';
-            notify('ata-loaded', data);
+            const amendmentProducts = (data.amendment_base_products ?? []).map(product => ({
+                ...product,
+                unit_price: formatDecimalField(product.unit_price),
+                quantity: product.quantity == null ? '' : formatDecimalField(product.quantity),
+                total: product.total == null ? '' : formatDecimalField(product.total),
+                special_quantity: product.special_quantity == null ? '' : formatDecimalField(product.special_quantity),
+            }));
+            const amendmentSpecialQuantityLabel = amendmentProducts.some(product => product.special_quantity)
+                ? (data.special_quantity_name ? 'QTD de ' + data.special_quantity_name : 'QTD Especial')
+                : '';
+            notify('ata-loaded', {
+                ...data,
+                amendment_base_products: amendmentProducts,
+                amendment_base_total: formatDecimalField(data.amendment_base_total),
+                amendment_special_quantity_label: amendmentSpecialQuantityLabel,
+                amendment_updated_total: formatDecimalField(data.amendment_updated_total),
+            });
             refreshContractSummary(supplierForm);
             status.textContent = '';
         } catch (error) {
@@ -203,7 +225,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
     root.addEventListener('ata-saved', ({ detail }) => {
         number.value = detail.number;
         // Alpine must first apply the released save state to data-editor-busy.
-        setTimeout(load, 0);
+        setTimeout(() => load(detail), 0);
     });
     opener.addEventListener('mousedown', event => event.preventDefault());
     opener.addEventListener('click', load);

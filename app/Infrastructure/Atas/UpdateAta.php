@@ -7,13 +7,20 @@ use App\Infrastructure\Security\LockActor;
 use App\Infrastructure\Security\SelectedFund;
 use App\Models\ActivityEvent;
 use App\Models\User;
+use App\Services\Legacy\Normalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 final class UpdateAta
 {
-    public function __construct(private LockActor $actors, private SelectedFund $funds, private AtaWritePolicy $policy, private AtaValidityInput $validity) {}
+    public function __construct(
+        private LockActor $actors,
+        private SelectedFund $funds,
+        private AtaWritePolicy $policy,
+        private AtaValidityInput $validity,
+        private AtaSupplierSnapshot $suppliers,
+    ) {}
 
     public function update(User $expected, int $id, array $input, ?int $sessionFundId): array
     {
@@ -27,15 +34,19 @@ final class UpdateAta
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             $data = Validator::make($input, [
                 'version' => 'required|integer|min:1', 'Data_ATA' => 'sometimes|required|date_format:Y-m-d',
+                'Data_Orçamento' => 'sometimes|required|date_format:Y-m-d',
                 'ata_process' => 'sometimes|required|string|max:64', 'bidding' => 'sometimes|required|string|max:100',
                 'bidding_number' => 'sometimes|required|string|max:32', 'admitir_adesao' => 'sometimes|nullable|in:SIM,NAO',
-            ])->validate();
+                'publication_date' => 'sometimes|nullable|date_format:Y-m-d',
+                'fornecedor_documento_snapshot' => ['sometimes', 'required', 'string', 'max:32', 'regex:/^[\d\s.\/-]+$/D'],
+            ], [], ['fornecedor_documento_snapshot' => 'CPF/CNPJ do fornecedor', 'Data_Orçamento' => 'Data_Orçamento Estimado'])->validate();
             abort_if((int) $data['version'] !== (int) $ata->version, 409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de salvar.');
             $record = [];
-            foreach (['Data_ATA' => 'DATA_ATA', 'ata_process' => 'PROCESSO', 'bidding' => 'LICITACAO',
-                'bidding_number' => 'N_LICIT', 'admitir_adesao' => 'ADMITIR_ADESAO'] as $field => $column) {
+            foreach (['Data_ATA' => 'DATA_ATA', 'Data_Orçamento' => 'DATA_ORCAMENTO', 'ata_process' => 'PROCESSO', 'bidding' => 'LICITACAO',
+                'bidding_number' => 'N_LICIT', 'admitir_adesao' => 'ADMITIR_ADESAO', 'publication_date' => 'DATA_PUBLIC_INPC'] as $field => $column) {
                 if (array_key_exists($field, $data)) {
                     $record[$column] = $data[$field] === null ? null : trim($data[$field]);
                 }
@@ -65,6 +76,12 @@ final class UpdateAta
                     'one_year_inpc' => (bool) $ata->VIGENCIA_ANO_INPC, 'start_date' => $ata->INICIO_ATA,
                     'end_date' => $ata->FINAL_ATA, 'validity_period' => $ata->PERIODO_ATA,
                 ], $input));
+            }
+            if (isset($data['fornecedor_documento_snapshot'])) {
+                $document = Normalizer::document($data['fornecedor_documento_snapshot']);
+                if ($document !== Normalizer::document($ata->CNPJ_FORNECEDOR) || ! Normalizer::validDocument($document)) {
+                    $record += $this->suppliers->capture($actor, $data['fornecedor_documento_snapshot']);
+                }
             }
             $before = array_intersect_key((array) $ata, $record);
             $changes = array_filter($record, fn ($value, $key) => $value === null

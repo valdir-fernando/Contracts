@@ -402,6 +402,10 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 .contract-section-navigation .section-tab { min-width: 0; height: 40px; min-height: 40px; max-height: 40px; padding: 2px 4px; font-size: clamp(10px, .8vw, 11px); line-height: 1.15; text-align: center; overflow-wrap: anywhere; overflow: hidden; }
 :is(.contract-section-navigation, .action-toolbar) .section-tab { background-color: #163b65; border-color: #163b65; color: #7dbbff; }
 :is(.contract-section-navigation, .action-toolbar) .section-tab:hover, :is(.contract-section-navigation, .action-toolbar) .section-tab:focus-visible, :is(.contract-section-navigation, .action-toolbar) .section-tab.active { background-color: #a9c9ed; border-color: #a9c9ed; color: #000000; }
+.contract-section-navigation .section-tab.ata-delivery-button { background-color: #a9c9ed; border-color: #a9c9ed; color: #163b65; }
+.contract-section-navigation .section-tab.ata-delivery-button:is(:hover, :focus-visible) { background-color: #c8dff7; border-color: #c8dff7; }
+.ata-editor .contract-section-navigation .ata-amend-tab { grid-area: 1 / -3; }
+.ata-editor .contract-section-navigation .ata-cancel-tab { grid-area: 1 / -2; }
 .action-toolbar .section-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
 .action-toolbar .section-tab:disabled { opacity: .5; pointer-events: none; }
 .contract-action-values { display: flex; flex: 0 1 536px; gap: 16px; min-width: 0; margin-right: auto; }
@@ -443,8 +447,18 @@ input::file-selector-button { margin-right: 12px; padding: 5px 10px; border: 0; 
 #ata-products-dialog .ata-product-document-actions .document-action, #ata-summary-document-actions .document-action { background-color: #002395; border-color: #002395; color: #fff; }
 #ata-products-dialog .ata-product-document-actions .document-action:is(:hover, :focus-visible):not(:disabled), #ata-summary-document-actions .document-action:is(:hover, :focus-visible):not(:disabled) { background-color: #001b45; border-color: #001b45; color: #fff; }
 .ata-summary-number-field { justify-items: end; }
+.workspace-top-contract:has(.ata-summary-number-field) { flex-wrap: wrap; row-gap: 4px; }
+.workspace-top-contract:has(.ata-summary-number-field) > .fund-header-group { flex-basis: 12rem; }
+.ata-header-supplier-name { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.workspace-top-contract > .contract-context-heading:has(.ata-summary-number-field) { max-width: 100%; margin-inline-start: auto; }
+.workspace-top-contract > .contract-context-heading:has(.ata-signed-downloads:not([hidden])) { align-self: end; }
+.ata-signed-downloads:not([hidden]) { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; padding-bottom: 2px; }
+.ata-signed-downloads [data-signed-create-redacted] { --primary: #8b4513; }
 .ata-summary-number-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
-.ata-summary-number-actions .contract-number-control { flex: 0 1 18rem; min-width: 140px; }
+.ata-summary-number-search { display: flex; align-items: center; gap: 8px; max-width: 100%; }
+.ata-summary-number-search label { white-space: nowrap; }
+.ata-summary-number-search .contract-number-control { width: 10.8rem; min-width: 0; }
+.ata-summary-number-search input { padding-inline: 10px 42px; }
 .contract-products-panel .ata-product-process-budget label { display: flex; align-items: center; gap: 8px; }
 .contract-products-preview .product-entry-main { display: flex; flex-direction: column; }
 .contract-products-preview .product-entry-layout { grid-template-columns: minmax(0, 1fr); }
@@ -503,32 +517,82 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 :is(.contract-products-dialog, .contract-amendments-dialog) > .modal-header .modal-close:hover { background: #f7f8fb; color: #26364b; }
 :is(.contract-products-dialog, .contract-amendments-dialog) > .modal-header .modal-close:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 .catalog-modal.contract-products-dialog { padding-block: 12px; }
-#ata-products-dialog { inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
-#ata-products-dialog .product-contract-list { max-height: none; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) { inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+.ata-delivery-order-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 6px 12px; }
+.ata-delivery-order-toolbar .ata-delivery-products-button { height: var(--contract-single-line-height, 35px); min-height: 0; padding-block: 0; }
+:is(.ata-delivery-order-number, .ata-amend-number) { width: 10.8rem; max-width: 100%; margin-bottom: 0; }
+.ata-amend-number { width: calc((10.8rem - 38px) * .7 + 38px); }
+#ata-amend-number { text-align: center; }
+.ata-amend-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.ata-amend-fields > .field { margin-bottom: 0; }
+.ata-amend-date { width: 9rem; }
+.ata-amend-process { flex: .5 1 4.5rem; }
+.ata-amend-type { flex: 1.5 1 13.5rem; }
+#ata-amend-type option { font-size: 13px; }
+#ata-amend-dialog .date-input-control > input[data-brazilian-date] { padding-inline-end: 42px; }
+.ata-amend-period { flex: 1 1 12rem; }
+.ata-amend-advantage { width: min(100%, 14rem); margin-block: 8px 0; }
+#ata-amend-dialog .ata-amend-product-list { margin-block-start: 10px; margin-block-end: calc(12px + var(--ata-amend-list-spacer, 0px)); min-height: 0; max-height: none; overflow-y: auto; scrollbar-gutter: stable; }
+#ata-amend-dialog .ata-amend-balance-quantity { width: 100%; min-width: 0; min-height: 28px; height: 28px; padding: 2px 4px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+#ata-amend-dialog .ata-amend-product-list .data-table { min-width: max(1000px, calc(800px + var(--ata-amend-quantity-width, 86px))); border-collapse: separate; border-spacing: 0; }
+#ata-amend-dialog .ata-amend-product-list thead { position: sticky; top: 0; z-index: 2; background: var(--canvas); }
+#ata-amend-dialog .ata-amend-product-list thead th { position: static; border-block-start-width: 1px; }
+#ata-amend-dialog .ata-amend-product-list tbody td { border-block-start-width: 0; }
+#ata-amend-dialog .ata-amend-product-list :is(th, td):not(:first-child) { border-inline-start-width: 0; }
+#ata-amend-dialog .ata-amend-product-list th:nth-child(5) { width: var(--ata-amend-quantity-width, 86px); }
+.ata-amend-product-notices { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 8px; }
+.ata-amend-product-notices .hint { margin: 0; }
+.ata-amend-exclusion-notice { margin: 0 0 0 auto; text-align: right; font-size: 12px; }
+#ata-amend-dialog .ata-amend-list-with-exclusion-notice { margin-block-start: 3px; }
+#ata-amend-dialog .ata-amend-product-list .data-table .ata-amend-exclusion { width: 38px; text-align: center; vertical-align: middle; }
+#ata-amend-dialog .ata-amend-exclusion input { width: 15px; min-width: 0; height: 15px; min-height: 0; margin: 0; accent-color: var(--primary); }
+#ata-amend-dialog { padding-block-end: max(56px, env(safe-area-inset-bottom)); }
+.ata-amend-document-actions { margin-inline-start: 0; }
+#ata-amend-dialog .ata-amend-actions { display: flex; flex: 0 0 auto; flex-wrap: nowrap; justify-content: flex-start; align-items: end; gap: 8px; margin-block: 4px 0; padding-block: 6px; overflow-x: auto; }
+.ata-amend-actions .contract-action-values { flex: 0 1 22rem; flex-wrap: nowrap; gap: 8px; min-width: 16rem; margin-inline-end: 0; }
+.ata-amend-actions .ata-amend-document-actions { flex: 0 0 auto; }
+.ata-amend-actions .ata-amend-document-actions nav { flex-wrap: nowrap; }
+#ata-amend-dialog .ata-amend-actions > .section-tab { flex: 0 0 auto; width: auto; white-space: nowrap; }
+.ata-amend-actions :is(.section-tab, .document-action) { height: 44px; }
+.ata-amend-actions > .product-actions-separator { align-self: end; height: 32px; margin-block: 6px; }
+.ata-amend-actions .field { flex: 0 1 11rem; margin-bottom: 0; }
+#ata-amend-dialog .ata-amend-actions :is(.contract-action-values input, .ata-signed-file-field > input) { height: 44px; padding-block: 8px; }
+#ata-amend-dialog .ata-amend-actions .contract-action-values input { text-align: right; }
+#ata-delivery-dialog .modal-header { margin-bottom: 4px; padding-bottom: 4px; }
+#ata-delivery-dialog [data-order-status] { margin: 0; align-self: center; }
+#ata-delivery-dialog [data-delivery-product-list] {
+    --delivery-product-row-height: 60px;
+    flex: 0 1 calc(22px + 5 * var(--delivery-product-row-height));
+    margin-block-start: 6px;
+    overflow-y: auto;
+}
+#ata-delivery-dialog [data-delivery-product-list] thead tr { height: 22px; }
+#ata-delivery-dialog [data-delivery-product-list] tbody tr { height: var(--delivery-product-row-height); }
+:is(#ata-products-dialog, #ata-delivery-dialog) .product-contract-list { max-height: none; }
 #ata-products-dialog .product-selected-description textarea { font-size: 13px; height: 76.4px; min-height: 76.4px; max-height: 76.4px; overflow-y: auto; }
-#ata-products-dialog .product-contract-list .data-table td { font-size: 9px; }
-#ata-products-dialog .ata-product-cell-content { height: 3lh; max-height: 3lh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; scrollbar-width: none; }
-#ata-products-dialog .ata-product-cell-content::-webkit-scrollbar { width: 0; }
-#ata-products-dialog td:hover > .ata-product-cell-content { scrollbar-width: thin; }
-#ata-products-dialog td:hover > .ata-product-cell-content::-webkit-scrollbar { width: 6px; }
-#ata-products-dialog .ata-product-cell-content::-webkit-scrollbar-thumb { background: #aab2c2; border-radius: 3px; }
-#ata-products-title { display: flex; align-items: center; gap: 8px; }
-#ata-products-title .ata-products-reference { font-size: 14px; }
-#ata-products-title .ata-products-reference-value { font-weight: 400; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table td { font-size: 9px; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .ata-product-cell-content { height: 3lh; max-height: 3lh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; scrollbar-width: none; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .ata-product-cell-content::-webkit-scrollbar { width: 0; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) td:hover > .ata-product-cell-content { scrollbar-width: thin; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) td:hover > .ata-product-cell-content::-webkit-scrollbar { width: 6px; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .ata-product-cell-content::-webkit-scrollbar-thumb { background: #aab2c2; border-radius: 3px; }
+:is(#ata-products-title, #ata-delivery-title, #ata-amend-title) { display: flex; align-items: center; gap: 8px; }
+:is(#ata-products-title, #ata-delivery-title, #ata-amend-title) .ata-products-reference { font-size: 14px; }
+:is(#ata-products-title, #ata-delivery-title, #ata-amend-title) .ata-products-reference-value { font-weight: 400; }
 .ata-total-label { display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
 .ata-product-quantity-field { display: grid; align-content: start; gap: 3px; min-width: 0; }
 .ata-quantity-pricing { grid-column: span 2; display: grid; align-items: end; grid-template-columns: minmax(0, .8fr) minmax(0, .9fr); gap: 6px; min-width: 0; }
 .ata-quantity-pricing.has-special-quantity { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .contract-products-panel .ata-quantity-pricing [hidden] { display: none; }
-.ata-quantity-pricing.has-special-quantity .ata-product-quantity-label { flex-wrap: wrap; gap: 0 4px; }
-.ata-quantity-pricing.has-special-quantity .ata-special-quantity-link { margin-left: auto; }
+.ata-quantity-pricing [data-ata-special-quantity-field] { position: relative; }
+.ata-quantity-pricing [data-ata-special-quantity-delete] { position: absolute; inset-block-start: calc(100% + 2px); inset-inline-end: 0; line-height: 12px; }
 .ata-quantity-pricing label > span { overflow-wrap: anywhere; }
 .ata-product-quantity-label { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
 .ata-special-quantity-link { border: 0; padding: 0; background: transparent; color: #002395; font: inherit; font-size: 10px; line-height: inherit; text-decoration: underline; white-space: nowrap; }
 .ata-special-quantity-link:hover, .ata-special-quantity-link:focus-visible { color: #001b45; }
 .ata-total-label button { display: inline-grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 1px solid #cbd5e1; border-radius: 3px; background: #f7f8fb; color: #26364b; font-size: 12px; line-height: 1; }
 .ata-total-label button:disabled { opacity: .4; }
-#ata-products-dialog .product-title-supplier .contract-heading-supplier { white-space: nowrap; overflow-wrap: normal; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-title-supplier .contract-heading-supplier { white-space: nowrap; overflow-wrap: normal; }
 .contract-products-dialog [data-product-feedback]:empty,
 .contract-products-dialog [data-product-budget-status]:empty,
 .contract-products-dialog [data-product-balance]:empty { display: none; }
@@ -546,6 +610,8 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .product-budget-row { display: grid; grid-template-columns: var(--product-item-search-width) calc((100% - (10ch + 26px) - 16px) / 2) minmax(0, 1fr); gap: 8px; margin-bottom: 10px; }
 .product-budget-row > label:first-child { width: 100%; max-width: 100%; }
 .product-entry-fields { display: grid; grid-template-columns: var(--product-item-search-width) calc(7ch + 14px) minmax(0, 1fr) minmax(45px, .6fr) minmax(75px, .8fr) minmax(55px, .6fr) minmax(85px, .9fr) minmax(85px, 1fr); gap: 6px; margin-top: 10px; }
+#ata-products-dialog .product-entry-fields { align-items: end; }
+#ata-products-dialog .product-entry-fields:has(.has-special-quantity) { row-gap: 16px; }
 @media (min-width: 901px) {
     #ata-products-dialog .product-entry-fields { grid-template-columns: calc(5ch + 38px) calc(7ch + 14px) minmax(0, 1fr) minmax(45px, .6fr) minmax(75px, .8fr) minmax(110px, .8fr) minmax(85px, .9fr) minmax(85px, 1fr); }
 }
@@ -586,10 +652,10 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .product-contract-list .data-table :is(th, td):is(:nth-child(1), :nth-child(2), :nth-child(4), :nth-child(5)) { text-align: center; }
 .product-contract-list .data-table :is(th, td):nth-child(9) { width: 80px; text-align: center; }
 .product-contract-list .data-table :is(th, td):nth-child(10) { width: 72px; padding-inline: 4px; text-align: center; }
-#ata-products-dialog .product-contract-list .data-table :is(th, td):nth-child(6) { width: 86px; text-align: center; }
-#ata-products-dialog .product-contract-list .data-table :is(th, td):nth-child(7) { width: 120px; text-align: left; }
-#ata-products-dialog .product-contract-list .data-table :is(th, td):is(:nth-child(8), :nth-child(9)) { width: 100px; text-align: right; }
-#ata-products-dialog .product-contract-list .data-table [hidden] { display: none; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table :is(th, td):nth-child(6) { width: 86px; text-align: center; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table :is(th, td):nth-child(7) { width: 120px; text-align: left; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table :is(th, td):is(:nth-child(8), :nth-child(9)) { width: 100px; text-align: right; }
+:is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table [hidden] { display: none; }
 #ata-products-dialog [data-ata-product-select] { width: auto; margin: 0; vertical-align: middle; }
 .product-contract-list .data-table td { font-size: 11px; }
 .product-panel-total { display: flex; justify-content: flex-end; margin-top: 10px; }
@@ -649,11 +715,43 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .data-table th { padding: 12px 20px; background: #f6f8fc; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); color: #64748b; font-size: 11px; font-weight: 650; letter-spacing: .02em; white-space: nowrap; }
 .data-table td { padding: 17px 20px; border-bottom: 1px solid #edf1f7; vertical-align: middle; font-variant-numeric: tabular-nums; }
 .data-table tr:last-child td { border-bottom: 0; }
-.data-table.ata-participants-table { table-layout: fixed; min-width: 1000px; }
-.ata-editor .table-scroll:has(> .ata-participants-table) { padding-top: 12px; }
+.data-table.ata-participants-table { table-layout: fixed; min-width: 1000px; font-size: 11px; }
+.ata-editor .table-scroll:has(> .ata-participants-table) { margin-top: 4px; }
 .ata-editor { container-type: inline-size; --ata-process-width: calc((100cqw - 7 * clamp(3px, .5vw, 8px)) / 8 - var(--panel-padding) - 1px); }
-.ata-process-fields { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, var(--ata-process-width)) minmax(0, calc((100% - 48px) * .1458333333)) minmax(0, calc((100% - 48px) * .1)) minmax(0, calc((100% - 48px) * .4666666667)); width: 100%; gap: 10px 24px; }
+.ata-editor > .contract-editor-section { margin-bottom: 0; }
+.ata-editor > .contract-action-toolbar { position: static; margin-top: 4px; padding: 4px 12px; }
+.ata-editor .contract-items-total { display: flex; align-items: center; gap: 8px; }
+.ata-editor .contract-items-total > label { margin: 0; white-space: nowrap; }
+.ata-editor .contract-items-total > input { padding-block: 6px; }
+.ata-process-fields {
+    --ata-bidding-width: calc((100% - 48px) * .1458333333 * 1.3);
+    --ata-bidding-number-width: calc((100% - 48px) * .1);
+    --ata-participants-width: calc((100% - 48px) * .4666666667);
+    --ata-budget-date-width: 9rem;
+    --ata-budget-info-space: 30px;
+    --ata-budget-control-width: calc(var(--ata-budget-date-width) + var(--ata-budget-info-space));
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, var(--ata-process-width)) minmax(0, var(--ata-bidding-width)) minmax(0, var(--ata-bidding-number-width)) minmax(0, var(--ata-participants-width));
+    width: 100%;
+    gap: 10px 24px;
+}
 .ata-process-fields > .field { margin-bottom: 0; }
+.ata-process-participants { display: grid; grid-template-columns: minmax(0, 1fr); align-items: end; gap: 8px; }
+.ata-process-participants > .field { margin-bottom: 0; }
+.ata-process-participants > .field:last-child { width: var(--ata-budget-control-width); max-width: 100%; }
+.ata-budget-date-control { display: flex; align-items: center; gap: 8px; }
+.ata-budget-date-control > :first-child { flex: 1 1 0; min-width: 0; }
+@container (width > 900px) {
+    .ata-process-fields {
+        --ata-bidding-number-available: calc(100% - var(--ata-process-width) - var(--ata-bidding-width) - var(--ata-participants-width) - var(--ata-budget-date-width) - 80px);
+        --ata-bidding-number-track: clamp(0px, var(--ata-bidding-number-available), var(--ata-bidding-number-width));
+        --ata-bidding-available: calc(100% - var(--ata-process-width) - var(--ata-bidding-number-track) - var(--ata-participants-width) - var(--ata-budget-control-width) - 80px);
+        grid-template-columns: minmax(0, var(--ata-process-width)) clamp(0px, var(--ata-bidding-available), var(--ata-bidding-width))
+            var(--ata-bidding-number-track) minmax(0, var(--ata-participants-width));
+    }
+    .ata-process-participants { grid-template-columns: 100% var(--ata-budget-control-width); }
+}
 .ata-validity-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 24px; margin-top: 10px; }
 .ata-validity-date-control { position: relative; }
 .ata-editor .ata-validity-date-control > .ata-locked-date-notice { display: none; position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 9px; background: transparent; box-shadow: none; cursor: help; }
@@ -667,6 +765,54 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-inpc-notice { flex: 0 0 100%; margin: -6px 0 0; color: #8b4513; font-size: 11px; line-height: 1.4; }
 .ata-inpc-notice[hidden] { display: none; }
 .ata-validity-fields > .ata-publication-date-field { flex-basis: 160px; }
+.ata-signed-document { display: contents; }
+.ata-amend-signed-document { display: flex; flex: 1 1 14rem; flex-direction: column; min-width: 11rem; max-width: 24rem; }
+.ata-amend-signed-document .ata-signed-file-field { flex: 1 1 auto; }
+.ata-signed-downloads[data-amendment-signed-downloads] { justify-content: flex-start; }
+.ata-amend-signed-document .ata-signed-feedback { flex: 0 0 auto; }
+.ata-signed-file-field { flex: 1 1 0; min-width: 130px; margin-bottom: 0; }
+.ata-signed-file-field > input { height: var(--form-single-line-height); min-height: var(--form-single-line-height); }
+.ata-signed-file-field > input::file-selector-button { padding-block: 1px; }
+.ata-signed-feedback { flex: 0 0 100%; }
+.ata-signed-feedback:empty { display: none; }
+@container (800px <= width <= 980px) {
+    .ata-validity-fields:has(.ata-signed-file-field) > .field:not(.ata-validity-period-field) { flex-basis: 126px; }
+}
+.ata-signed-review-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 11px; }
+.ata-signed-review-toolbar .secondary-button { min-height: 30px; padding: 3px 8px; font-size: inherit; }
+.catalog-modal.ata-signed-review { width: min(900px, 95vw); max-width: none; height: 100dvh; max-height: 100dvh; margin-block: 0; padding-block: 12px; }
+.ata-signed-review[open] { display: flex; flex-direction: column; }
+.ata-signed-review > :not(.ata-signed-page-preview) { flex-shrink: 0; }
+.ata-signed-review-instructions { margin: 0 0 6px; font-size: 12px; line-height: 1.4; }
+.catalog-modal:is(.ata-signed-progress, .document-progress-dialog) { width: min(420px, 90vw); font-size: 13px; }
+.ata-signed-progress [data-signed-percent] { float: right; font-variant-numeric: tabular-nums; }
+.document-progress-bar {
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 12px;
+    margin-top: 6px;
+    border: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #e2e8f0;
+    accent-color: #15803d;
+}
+.document-progress-bar::-webkit-progress-bar { background: transparent; }
+.document-progress-bar::-webkit-progress-value { background: #15803d; transition: width 200ms linear; }
+.document-progress-bar::-moz-progress-bar { background: #15803d; }
+.document-progress-bar:indeterminate {
+    background: #e2e8f0 linear-gradient(90deg, transparent 35%, #15803d 35% 60%, transparent 60%) 0 center / 300% 100% no-repeat;
+    animation: document-progress-slide 1.2s ease-in-out infinite alternate;
+}
+.document-progress-bar:indeterminate::-moz-progress-bar { background: transparent; }
+.document-progress-bar[hidden] { display: none; }
+@keyframes document-progress-slide { to { background-position: 100% center; } }
+@media (prefers-reduced-motion: reduce) { .document-progress-bar:indeterminate { animation: none; background-position: 50% center; } }
+.ata-signed-page-preview { flex: 1; min-height: 0; overflow: auto; margin-block: 8px; background: var(--canvas); }
+.ata-signed-page-preview canvas { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: none; }
+.ata-signed-review .ata-signed-confirm { display: flex; align-items: center; gap: 8px; }
+.ata-signed-confirm input[type="checkbox"] { width: auto; min-height: 0; }
 .ata-validity-heading, .ata-validity-period-control { display: flex; align-items: center; gap: 10px; }
 .ata-validity-heading { flex-wrap: wrap; }
 .ata-validity-heading > label:first-child { margin: 0; }
@@ -683,7 +829,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 @media (max-width: 650px) { .ata-validity-fields { display: grid; grid-template-columns: minmax(0, 1fr); } .ata-validity-fields > .ata-validity-period-field { width: auto; } }
 .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 180px) minmax(0, 210px); }
 @media (max-width: 650px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 900px) { .ata-process-fields { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); } .ata-process-fields > .field:last-child { grid-column: 1 / -1; } }
+@media (max-width: 900px) { .ata-process-fields { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, calc((100% - 48px) / 3 * 1.3)) minmax(0, 1fr); } .ata-process-participants { grid-column: 1 / -1; } }
 @media (max-width: 650px) { .ata-process-fields { grid-template-columns: minmax(0, 1fr); } }
 .ata-participants-table .ata-participant-number { width: 90px; }
 .ata-participants-table .ata-participant-process { width: 120px; }
@@ -692,9 +838,13 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-participant-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ata-contractor-fund-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); gap: 10px 24px; }
 .ata-contractor-manager-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, calc((100% - 24px) / 5))) minmax(0, 1fr); gap: 10px 24px; }
-.ata-manager-registration-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, calc((100% - 24px) / 5))); gap: 10px 24px; }
+.ata-manager-registration-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, calc((100% - 24px) / 5))) minmax(0, 1fr); align-items: end; gap: 10px 24px; }
 .ata-manager-registration-row > .field { margin-bottom: 0; }
-@media (max-width: 650px) { .ata-manager-registration-row { grid-template-columns: minmax(0, 1fr); } }
+.ata-manager-name { display: block; color: #002395; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 650px) {
+    .ata-manager-registration-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ata-manager-registration-row > .field:first-child { grid-column: 1 / -1; }
+}
 .surface .ata-supplier-heading { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 15px; }
 .ata-supplier-identification-row { grid-column: 1 / -1; display: grid; grid-template-columns: max-content minmax(0, 1fr) minmax(0, var(--ata-supplier-document-width, 160px)) minmax(0, var(--ata-supplier-document-width, 160px)); gap: 10px 24px; }
 .ata-supplier-identification-row > .field { margin-bottom: 0; }
@@ -711,7 +861,8 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 @media (max-width: 650px) { .ata-supplier-identification-row { grid-template-columns: minmax(0, 1fr); } }
 .ata-contractor-fund-row > .field, .ata-contractor-manager-row > .field { margin-bottom: 0; }
 @media (max-width: 650px) { .ata-contractor-fund-row, .ata-contractor-manager-row { grid-template-columns: minmax(0, 1fr); } }
-.data-table.ata-participants-table :is(th, td) { padding: 8px 12px; border: 1px solid var(--border); }
+.data-table.ata-participants-table :is(th, td) { padding: 4px 12px; border: 1px solid var(--border); }
+.data-table.ata-participants-table .text-link { font-size: inherit; }
 .data-table.ata-participants-table tr:last-child td { border-bottom: 1px solid var(--border); }
 .ata-participants-table td:nth-child(4) { overflow-wrap: anywhere; }
 .ata-participants-table td:is(:nth-child(2), :nth-child(3), :nth-child(5)) { white-space: nowrap; }
@@ -1699,10 +1850,7 @@ body.modal-open { overflow: hidden; }
 .report-generation-body h3 { margin: 0 0 6px; }
 .report-generation-body p { margin: 0; color: #53647a; }
 .report-generation-card[data-state="ready"] { border-color: #9bd6bb; }
-.report-spinner { width: 28px; height: 28px; flex-shrink: 0; border: 3px solid #e3ebf8; border-top-color: #3478f6; border-radius: 50%; animation: report-spin .85s linear infinite; }
-.report-spinner[hidden], [data-report-download][hidden] { display: none; }
-@keyframes report-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .report-spinner { animation: none; } }
+[data-report-download][hidden] { display: none; }
 
 /* Keep the contract controls stationary while its panels scroll. */
 .workspace-contract-editor { height: 100dvh; min-height: 0; overflow: hidden; }
@@ -2037,13 +2185,13 @@ html[data-supplier-catalog=true] .workspace > .workspace-nav { display: none; }
 .budget-panel-content { padding: 12px; }
 
 /* General buttons use gold; dedicated action colors remain intact. */
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):not(.inspector-diary-tab) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.ata-delivery-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):not(.inspector-diary-tab) {
     background-color: #ffd700;
     border-color: #ffd700;
     color: #000;
     box-shadow: 0 2px 4px #172b4926;
 }
-:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):not(.inspector-diary-tab):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
+:root :is(button, input[type=button], input[type=submit], input[type=reset], [role=button], .primary-button, .secondary-button, .section-tab, .document-action, .pagination-button):not(.text-link):not(.section-tab.active):not(.products-button):not(.ata-delivery-button):not(.danger-button):not(.document-action):not(.report-process-trigger.active):not(.pagination-button.current):not(.report-pdf-button):not(.header-module-button):not(.dfd-class-row):not(.inspector-diary-tab):is(:hover, :focus-visible):not(:disabled):not([aria-disabled=true]) {
     background-color: #e6c200;
     border-color: #e6c200;
     color: #000;

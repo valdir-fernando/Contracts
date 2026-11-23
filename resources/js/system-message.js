@@ -51,7 +51,7 @@ export function confirmSystemMessage(message, ownerDocument = document, { emphas
     });
 }
 
-export function chooseAtaDocumentFormat(ownerDocument = document) {
+export function chooseAtaDocumentFormat(ownerDocument = document, subject = 'ATA') {
     let dialog = ownerDocument.querySelector('[data-ata-format-dialog]');
     if (!dialog) {
         dialog = ownerDocument.createElement('dialog');
@@ -68,6 +68,9 @@ export function chooseAtaDocumentFormat(ownerDocument = document) {
         ownerDocument.body.append(dialog);
     }
     if (dialog.open) return Promise.resolve(null);
+    dialog.querySelector('#ata-format-description').textContent = subject === 'ATA' ? 'Escolha o formato da ATA.' : 'Escolha o formato do aditivo.';
+    dialog.querySelector('[value="pdf"]').textContent = `${subject} em PDF`;
+    dialog.querySelector('[value="docx"]').textContent = `${subject} em Word`;
     dialog.returnValue = '';
     return new Promise(resolve => {
         dialog.addEventListener('close', () => resolve(['pdf', 'docx'].includes(dialog.returnValue) ? dialog.returnValue : null), { once: true });
@@ -118,6 +121,51 @@ export function requestAtaSpecialQuantityName(ownerDocument = document) {
     dialog.returnValue = '';
     return new Promise(resolve => {
         dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok' ? input.value.trim() : ''), { once: true });
+        dialog.showModal();
+        input.focus();
+    });
+}
+
+export function requestAtaBalanceCorrection(entered, original, validate, ownerDocument = document) {
+    let dialog = ownerDocument.querySelector('[data-ata-balance-correction]');
+    if (!dialog) {
+        dialog = ownerDocument.createElement('dialog');
+        dialog.className = 'catalog-modal supplier-document-warning';
+        dialog.setAttribute('data-ata-balance-correction', '');
+        dialog.setAttribute('aria-labelledby', 'ata-balance-title');
+        dialog.setAttribute('aria-describedby', 'ata-balance-description');
+        dialog.innerHTML = '<div class="modal-header"><h2 id="ata-balance-title">Gestão Sistem informa:</h2></div>'
+            + '<p id="ata-balance-description"></p>'
+            + '<form method="dialog" novalidate><label for="ata-balance-replacement">Saldo restante</label>'
+            + '<input id="ata-balance-replacement" type="text" inputmode="decimal" data-decimal-keep-blank autocomplete="off" autofocus>'
+            + '<div class="form-actions modal-actions"><button type="submit" class="primary-button" value="ok">OK</button>'
+            + '<button type="submit" class="section-tab" value="cancel">Cancelar</button></div></form>';
+        ownerDocument.body.append(dialog);
+    }
+    if (dialog.open) return Promise.resolve('');
+    dialog.querySelector('p').textContent = `A quantidade informada (${entered}) supera a quantidade original da ATA (${original}). Informe apenas o saldo restante deste item.`;
+    const form = dialog.querySelector('form');
+    const input = dialog.querySelector('input');
+    input.value = '';
+    input.setCustomValidity('');
+    dialog.returnValue = '';
+    const check = (event) => {
+        if (event.submitter?.value === 'cancel') return;
+        if (validate(input.value.trim())) return;
+        event.preventDefault();
+        input.setCustomValidity(`Informe um saldo entre zero e ${original}, com até quatro casas decimais.`);
+        input.reportValidity();
+    };
+    const clear = () => input.setCustomValidity('');
+    form.addEventListener('submit', check);
+    input.addEventListener('input', clear);
+
+    return new Promise(resolve => {
+        dialog.addEventListener('close', () => {
+            form.removeEventListener('submit', check);
+            input.removeEventListener('input', clear);
+            resolve(dialog.returnValue === 'ok' ? input.value.trim() : '');
+        }, { once: true });
         dialog.showModal();
         input.focus();
     });

@@ -102,6 +102,17 @@ final class UpdateAtaValidity
                 if ($ata->deleted_at !== null) {
                     continue;
                 }
+                if ($ata->DATA_PUBLIC_INPC !== null) {
+                    $result['skipped_atas'][] = ['ata' => $ata->ATA, 'reason' => 'publicada_no_tcm'];
+
+                    continue;
+                }
+                $existingBasis = json_decode($ata->validity_basis ?? '', true);
+                if (array_column($existingBasis['amendments'] ?? [], 'legacy_id') !== []) {
+                    $result['skipped_atas'][] = ['ata' => $ata->ATA, 'reason' => 'aditivo_registrado_no_painel'];
+
+                    continue;
+                }
                 if (isset($blocked[$ata->ID])) {
                     $result['skipped_atas'][] = ['ata' => $ata->ATA, 'reason' => 'aditivo_com_vinculo_ou_leitura_pendente'];
 

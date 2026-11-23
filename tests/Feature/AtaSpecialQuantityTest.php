@@ -59,7 +59,7 @@ class AtaSpecialQuantityTest extends TestCase
         $this->save(2)->assertCreated();
         $original = (array) DB::table('tb_PRODUTOS_ATA')->sole();
         $copy = $original;
-        unset($copy['ID'], $copy['ficha_identity']);
+        unset($copy['ID'], $copy['ficha_identity'], $copy['amendment_active_slot']);
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($copy, ['ITEM' => '3', 'ADITIVO' => 1, 'QTD_ESPECIAL' => '4.1234']));
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($copy, ['ITEM' => '4', 'deleted_at' => now(), 'QTD_ESPECIAL' => '9']));
         $otherAta = (array) DB::table('tb_ATA')->sole();

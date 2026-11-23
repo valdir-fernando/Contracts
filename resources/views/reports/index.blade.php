@@ -43,7 +43,7 @@
         </form>
     </div>
     <nav class="report-panel-navigation" aria-label="Relatórios">
-        <a class="secondary-button compact report-pdf-button" href="{{ route('reports.panel-pdf', request()->except('page')) }}"><x-nav-icon name="printer"/>Gerar PDF</a>
+        <a class="secondary-button compact report-pdf-button" data-document-pdf href="{{ route('reports.panel-pdf', request()->except('page')) }}"><x-nav-icon name="printer"/>Gerar PDF</a>
         <p class="report-contract-count" role="status">Total de Contratos: {{ number_format($reportContracts->total(), 0, ',', '.') }}</p>
     </nav>
     <section class="surface contract-section report-contract-panel" aria-label="Contratos do Fundo no ano atual">

@@ -20,13 +20,14 @@ final class UpdateAtaSpecialQuantity
             $actor = $this->actors->lock($expected);
             abort_unless($sessionFundId !== null && $this->funds->allows($actor, $sessionFundId), 403);
             $ata = DB::table('tb_ATA')->where('ID', $ataId)->whereNull('deleted_at')->lockForUpdate()
-                ->first(['ID', 'ATA', 'fund_id', 'version', 'QTD_ESPECIAL_NOME']);
+                ->first(['ID', 'ATA', 'fund_id', 'version', 'QTD_ESPECIAL_NOME', 'DATA_PUBLIC_INPC']);
             abort_unless($ata, 404);
             if ($ata->fund_id === null) {
                 abort_unless($actor->isAdmin(), 403);
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             if (isset($input['special_quantity_name']) && is_string($input['special_quantity_name'])) {
                 $input['special_quantity_name'] = trim($input['special_quantity_name']);
             }

@@ -24,7 +24,9 @@ test('contacts load after catalog selection and old responses cannot replace cur
     const pending = [];
     initializeAtaSupplierContacts(form, (url, options) => new Promise(resolve => pending.push({ url, options, resolve })));
     controls.fornecedor_documento_snapshot.value = '11.222.333/0001-81';
+    form.dataset.ataSnapshot = 'true';
     const first = events['supplier-selected']();
+    assert.equal(form.dataset.ataSnapshot, '');
     listeners.input();
     controls.fornecedor_documento_snapshot.value = '19.131.243/0001-97';
     const second = listeners.focusout();

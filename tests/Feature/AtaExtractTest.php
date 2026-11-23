@@ -83,6 +83,7 @@ class AtaExtractTest extends TestCase
             ->assertJsonPath('start_date', '2025-06-02')->assertJsonPath('validity_period', '1 Ano INPC');
         $renderer = $this->renderer();
         $this->issue(['version' => 2])->assertOk();
+        $this->assertSame(2, substr_count($renderer->html, 'CPF: 529.982.247-25'));
         $this->assertStringContainsString('1 (um) ano, contado a partir do primeiro dia útil subsequente à data de divulgação no PNCP e poderá ser prorrogado', $renderer->html);
         $this->assertStringNotContainsString('iniciando-se em', $renderer->html);
         $this->patchJson($url, ['version' => 2, 'one_year_inpc' => false, 'validity_period' => '24 meses',
@@ -136,7 +137,7 @@ class AtaExtractTest extends TestCase
             ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertStringContainsString('ÓRGÃO GERENCIADOR TESTE', $renderer->html);
         $this->assertStringContainsString('ADM: 2031/2034', $renderer->html);
-        $this->assertStringContainsString('Gestão 2031–2034', $renderer->html);
+        $this->assertStringNotContainsString('Gestão 2031–2034', $renderer->html);
         $this->assertStringContainsString('EXTRATO DA ATA DE REGISTRO DE PREÇOS N.º 002/2025', $renderer->html);
         $this->assertStringContainsString('02 de junho de 2025', $renderer->html);
         $this->assertStringContainsString('vigência de 12 meses conforme a ata original., iniciando-se em Não informado e término em Não informado', $renderer->html);

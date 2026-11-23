@@ -1,6 +1,58 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initializeAtaExtract } from '../../resources/js/ata-extract.js';
+import { initializeAtaAmendmentDocument, initializeAtaExtract } from '../../resources/js/ata-extract.js';
+
+test('Aditivo downloads the saved amendment Word and discards responses for a different selection', async () => {
+    const button = { dataset: { amendmentNumber: '2', ataAmendmentDocumentUrl: '/atas/0/amendments/0/document' },
+        addEventListener(name, callback) { this.click = callback; } };
+    const root = { dataset: { ataLoaded: '81', ataVersion: '3' }, ownerDocument: { baseURI: 'http://contracts.test/' },
+        querySelector: () => button, dispatchEvent() {} };
+    const downloads = [];
+    let respond;
+    let layout = null;
+    let format = null;
+    let layoutChoices = 0;
+    initializeAtaAmendmentDocument(root, url => {
+        assert.equal(url.pathname, '/atas/81/amendments/2/document');
+        assert.equal(url.searchParams.get('version'), '3');
+        assert.equal(url.searchParams.get('products_layout'), 'parallel');
+        assert.equal(url.searchParams.get('format'), format);
+        return new Promise(resolve => { respond = resolve; });
+    }, message => assert.fail(message), (blob, ownerDocument, browser, filename) => downloads.push([blob, filename]),
+    async () => { layoutChoices++; return layout; }, async () => format);
+    const word = { ok: true, headers: new Headers({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Disposition': "attachment; filename=ADT_002_Comercio_Sul_ATA_107-2025.docx; filename*=utf-8''ADT_002_Com%C3%A9rcio_Sul_ATA_107-2025.docx",
+    }),
+        blob: async () => 'WORD-BLOB' };
+    await button.click();
+    assert.equal(layoutChoices, 0);
+    format = 'docx';
+    await button.click();
+    assert.equal(respond, undefined);
+    layout = 'parallel';
+    const first = button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    respond(word);
+    await first;
+    const second = button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    button.dataset.amendmentNumber = '4';
+    respond(word);
+    await second;
+    assert.deepEqual(downloads, [['WORD-BLOB', 'ADT_002_Comércio_Sul_ATA_107-2025.docx']]);
+    button.dataset.amendmentNumber = '2';
+    format = 'pdf';
+    const pdf = button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    respond({ ok: true, headers: new Headers({ 'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=ADT_002_Comercio_Sul_ATA_107-2025.pdf' }), blob: async () => 'PDF-BLOB' });
+    await pdf;
+    assert.deepEqual(downloads[1], ['PDF-BLOB', 'ADT_002_Comercio_Sul_ATA_107-2025.pdf']);
+});
 
 function fixture(fetcher) {
     const buttons = [0, 1].map(() => ({ dataset: { ataExtractUrl: '/atas/0/extract' }, listeners: {},
@@ -77,6 +129,16 @@ test('network errors and non-PDF responses do not open an invalid extract', asyn
         assert.match(ui.warnings[0], /Não foi possível abrir/);
         assert.deepEqual(ui.opened, []);
     }
+});
+
+test('missing manager identification displays the correction message and does not open a PDF', async () => {
+    const warning = 'Informe um documento nos dados do gestor.';
+    const ui = fixture(async () => ({
+        ok: false, status: 422, json: async () => ({ errors: { manager_document: [warning] } }),
+    }));
+    await ui.click();
+    assert.deepEqual(ui.warnings, [warning]);
+    assert.deepEqual(ui.opened, []);
 });
 
 test('responses from a previously loaded ATA are ignored', async () => {

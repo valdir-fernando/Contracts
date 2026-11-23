@@ -1,19 +1,39 @@
 import { formatDecimalField } from './decimal-fields.js';
-import { showSupplierDocumentWarning } from './system-message.js';
+import { requestAtaBalanceCorrection, showSupplierDocumentWarning } from './system-message.js';
 import { initializeAtaProductDelete } from './ata-product-delete.js';
 
-export function ataProductTotal(quantity, price, places = 2) {
-    const units = value => {
-        const formatted = formatDecimalField(value);
-        if (formatted === null || formatted.startsWith('-')) return null;
-        return BigInt(formatted.replaceAll('.', '').replace(',', ''));
-    };
-    const qty = units(quantity);
-    const unitPrice = units(price);
+function ataDecimalUnits(value) {
+    const formatted = formatDecimalField(value);
+    if (formatted === null || formatted.startsWith('-')) return null;
+    return BigInt(formatted.replaceAll('.', '').replace(',', ''));
+}
+
+function ataProductTotalUnits(quantity, price, places) {
+    const qty = ataDecimalUnits(quantity);
+    const unitPrice = ataDecimalUnits(price);
+    return qty === null || unitPrice === null ? null : qty * unitPrice / (10n ** BigInt(8 - places));
+}
+
+function formatAtaTotalUnits(value, places) {
     const scale = 10n ** BigInt(places);
-    const value = qty === null || unitPrice === null ? 0n : qty * unitPrice / (10n ** BigInt(8 - places));
     const integer = String(value / scale).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     return places ? `${integer},${String(value % scale).padStart(places, '0')}` : integer;
+}
+
+export function ataProductTotal(quantity, price, places = 2) {
+    return formatAtaTotalUnits(ataProductTotalUnits(quantity, price, places) ?? 0n, places);
+}
+
+export function ataAmendmentBalanceLineTotals(products, quantities) {
+    const items = {};
+    for (const product of products) {
+        const quantity = quantities[product.id];
+        if (!quantity?.trim() || !product.quantity || limitAtaQuantity(quantity, product.quantity) !== quantity) continue;
+        const amount = ataProductTotalUnits(quantity, product.unit_price, 4);
+        if (amount === null) continue;
+        items[product.id] = formatAtaTotalUnits(amount, 4);
+    }
+    return items;
 }
 
 export function fitAtaDescription(input, getStyle = element => getComputedStyle(element)) {
@@ -35,6 +55,28 @@ export function limitAtaQuantity(value, available) {
     if (quantity === null || maximum === null || maximum.startsWith('-')) return value;
     const units = text => BigInt(text.replaceAll('.', '').replace(',', ''));
     return units(quantity) > units(maximum) ? maximum : value;
+}
+
+export function initializeAtaAmendmentBalanceCorrection(root, requestCorrection = requestAtaBalanceCorrection) {
+    let pending = false;
+    root.addEventListener('focusout', async ({ target }) => {
+        if (pending || target.disabled || !target.matches('input[data-amendment-original-quantity]')) return;
+        const entered = target.value;
+        const original = target.dataset.amendmentOriginalQuantity;
+        if (limitAtaQuantity(entered, original) === entered) return;
+        const { ataLoaded, ataVersion } = root.dataset;
+        const validate = value => value !== '' && ataDecimalUnits(value) !== null && limitAtaQuantity(value, original) === value;
+        pending = true;
+        try {
+            const replacement = await requestCorrection(entered, original, validate, root.ownerDocument);
+            if (!target.isConnected || target.disabled || root.dataset.ataLoaded !== ataLoaded || root.dataset.ataVersion !== ataVersion) return;
+            target.value = validate(replacement) ? replacement : '';
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.focus({ preventScroll: true });
+        } finally {
+            pending = false;
+        }
+    });
 }
 
 export function initializeAtaProducts(root, fetcher = fetch, warn = showSupplierDocumentWarning) {
@@ -270,7 +312,7 @@ export function initializeAtaProductSave(root, panel, getPlaces, fetcher, warn) 
     let saving = false;
     const notify = (name, detail = {}) => root.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
     button.addEventListener('click', async () => {
-        if (saving || button.disabled || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
+        if (saving || button.disabled || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true' || root.dataset.ataPublicationLocked === 'true') return;
         const payload = {
             version: Number(root.dataset.ataVersion), manual: panel.querySelector('[data-ata-products-manual]').checked,
             item: field('item').value.trim(), code: field('code').value.trim(),
@@ -404,5 +446,13 @@ export function initializeAtaProductPicker(root, panel, item, lookup, fetcher) {
 }
 
 if (typeof document !== 'undefined') {
-    document.querySelectorAll('.ata-editor').forEach(root => initializeAtaProducts(root));
+    document.querySelectorAll('.ata-editor').forEach(root => {
+        initializeAtaProducts(root);
+        initializeAtaAmendmentBalanceCorrection(root);
+        root.addEventListener('ata-amendment-balance-input', ({ target, detail }) => {
+            target.dispatchEvent(new CustomEvent('ata-amendment-balance-calculated', {
+                bubbles: true, detail: ataAmendmentBalanceLineTotals(detail.products, detail.quantities),
+            }));
+        });
+    });
 }

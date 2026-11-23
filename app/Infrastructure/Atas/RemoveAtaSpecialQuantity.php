@@ -20,13 +20,14 @@ final class RemoveAtaSpecialQuantity
             $actor = $this->actors->lock($expected);
             abort_unless($sessionFundId !== null && $this->funds->allows($actor, $sessionFundId), 403);
             $ata = DB::table('tb_ATA')->where('ID', $ataId)->whereNull('deleted_at')->lockForUpdate()
-                ->first(['ID', 'ATA', 'fund_id', 'version', 'QTD_ESPECIAL_NOME']);
+                ->first(['ID', 'ATA', 'fund_id', 'version', 'QTD_ESPECIAL_NOME', 'DATA_PUBLIC_INPC']);
             abort_unless($ata, 404);
             if ($ata->fund_id === null) {
                 abort_unless($actor->isAdmin(), 403);
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             $data = Validator::make($input, ['version' => 'required|integer|min:1'])->validate();
             abort_if((int) $data['version'] !== (int) $ata->version, 409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de excluir a QTD Especial.');
             $products = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ataId)->whereNotNull('QTD_ESPECIAL')

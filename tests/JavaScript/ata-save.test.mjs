@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ataMissingFields, initializeAtaSave, initializeAtaDelete } from '../../resources/js/ata-save.js';
+import { ataMissingFields, initializeAtaSave, initializeAtaDelete, initializeAtaAmendmentDelete, initializeAtaAmendmentSave } from '../../resources/js/ata-save.js';
 
 const complete = () => ({ managing_fund_id: '1', Data_ATA: '2026-11-13', admitir_adesao: 'NAO', ata_process: '123', bidding: 'Pregão',
-    bidding_number: '12', fornecedor_documento_snapshot: '11.222.333/0001-81', fornecedor_nome_snapshot: 'Fornecedor',
+    bidding_number: '12', Data_Orçamento: '20/10/2026', fornecedor_documento_snapshot: '11.222.333/0001-81', fornecedor_nome_snapshot: 'Fornecedor',
     end_fornec: 'Rua', supplier_email: 'contato@example.test', supplier_mobile: '123', supplier_whatsapp: '',
     socio: 'Representante', cpf_socio: '123', rg_socio: '456' });
 const manager = [{ label: 'CNPJ', value: '123' }, { label: 'Endereço', value: 'Rua' }];
@@ -11,7 +11,7 @@ const manager = [{ label: 'CNPJ', value: '123' }, { label: 'Endereço', value: '
 test('reports every missing general field and manager field with its tab', () => {
     const missing = ataMissingFields({}, [{ label: 'CPF do Gestor', value: '  ' }]);
     assert.deepEqual(missing.filter(item => item.step === 0).map(item => item.label),
-        ['Fundo Gerenciador', 'Data_ATA', 'Processo ATA', 'Licitação', 'Nº Licit']);
+        ['Fundo Gerenciador', 'Data_ATA', 'Processo ATA', 'Licitação', 'Nº Licit', 'Data_Orçamento Estimado']);
     assert.deepEqual(missing.find(item => item.step === 1), { group: 'Dados Gerenciador', step: 1, label: 'CPF do Gestor' });
 });
 
@@ -79,7 +79,7 @@ function savePanel(fetcher, confirm = async () => true) {
         dispatchEvent: event => events.push(event),
     };
     initializeAtaSave(root, message => messages.push(message), fetcher, (...args) => { confirmations.push(args); return confirm(...args); });
-    return { root, events, messages, confirmations, click: () => click() };
+    return { root, values, events, messages, confirmations, click: () => click() };
 }
 
 test('complete fields POST only references and process data, then load the issued number', async () => {
@@ -93,6 +93,7 @@ test('complete fields POST only references and process data, then load the issue
     assert.equal(request.options.headers['X-CSRF-TOKEN'], 'token');
     assert.deepEqual(JSON.parse(request.options.body), { draft_token: 'encrypted-draft', version: 3,
         managing_fund_id: '1', Data_ATA: '2026-11-13', ata_process: '123', bidding: 'Pregão', bidding_number: '12',
+        Data_Orçamento: '2026-10-20',
         admitir_adesao: 'NAO', start_date: null, end_date: null, validity_period: null, one_year_inpc: false,
         fornecedor_documento_snapshot: '11.222.333/0001-81' });
     assert.deepEqual(panel.events.map(event => event.type), ['ata-saving', 'ata-save-finished', 'ata-saved']);
@@ -141,9 +142,26 @@ test('loaded ATA uses PATCH and current ATA version without submitting masked sn
     assert.equal(payload.version, 8);
     assert.equal(payload.bidding_number, '12');
     assert.equal(payload.Data_ATA, '2026-11-13');
+    assert.equal(payload.Data_Orçamento, '2026-10-20');
     for (const key of ['draft_token', 'managing_fund_id', 'fornecedor_documento_snapshot']) assert.equal(key in payload, false);
     assert.equal(panel.messages[0], 'Ata 107/2025 alterada com sucesso.');
     assert.equal(panel.confirmations[0][0], 'Confirma a alteração dos dados desta ATA?');
+});
+
+test('saving another field preserves the amended legacy end unless the displayed original end was edited', async () => {
+    const payloads = [];
+    const panel = savePanel(async (url, options) => {
+        payloads.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ id: 7, number: '107/2025', version: 9 }) };
+    });
+    Object.assign(panel.root.dataset, { ataLoaded: '7', ataVersion: '8', ataDerivedEndDate: '2026-06-02' });
+    panel.root.querySelector('[data-ata-save]').dataset.updateUrl = '/atas/0';
+    panel.values.end_date = '02/06/2026';
+    await panel.click();
+    assert.equal('end_date' in payloads[0], false);
+    panel.values.end_date = '03/06/2026';
+    await panel.click();
+    assert.equal(payloads[1].end_date, '2026-06-03');
 });
 
 test('pending operations and an unverified typed number cannot start a new registration', async () => {
@@ -157,6 +175,37 @@ test('pending operations and an unverified typed number cannot start a new regis
     await panel.click();
     assert.equal(calls, 0);
     assert.match(panel.messages[0], /Consulte a ATA pelo número/);
+});
+
+test('a changed CPF or CNPJ on a saved ATA sends only the new supplier document', async () => {
+    let payload;
+    const panel = savePanel(async (_url, options) => {
+        payload = JSON.parse(options.body);
+        return { ok: true, json: async () => ({ id: 7, number: '107/2025', version: 9 }) };
+    });
+    Object.assign(panel.root.dataset, { ataLoaded: '7', ataVersion: '8', ataSupplierDocument: '•••0000' });
+    panel.root.querySelector('[data-ata-save]').dataset.updateUrl = '/atas/0';
+    panel.values.fornecedor_documento_snapshot = '529.982.247-25';
+    await panel.click();
+    assert.equal(payload.fornecedor_documento_snapshot, '529.982.247-25');
+    assert.equal('fornecedor_nome_snapshot' in payload, false);
+    assert.equal('supplier_email' in payload, false);
+});
+
+test('the main save sends the publication date and a published ATA cannot be saved again', async () => {
+    const requests = [];
+    const panel = savePanel(async (_url, options) => {
+        requests.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ id: 7, number: '107/2025', version: 9 }) };
+    });
+    Object.assign(panel.root.dataset, { ataLoaded: '7', ataVersion: '8' });
+    panel.root.querySelector('[data-ata-save]').dataset.updateUrl = '/atas/0';
+    panel.values.publication_date = '20/11/2026';
+    await panel.click();
+    assert.equal(requests[0].publication_date, '2026-11-20');
+    panel.root.dataset.ataPublicationLocked = 'true';
+    await panel.click();
+    assert.equal(requests.length, 1);
 });
 
 test('stale edit response cannot reload a different ATA', async () => {
@@ -261,4 +310,116 @@ test('delete conflict keeps the current panel and reports the failure', async ()
     assert.equal(panel.events.some(event => event.type === 'ata-deleted'), false);
     assert.equal(panel.messages[0], 'Consulte novamente.');
     assert.equal(panel.events.at(-1).type, 'ata-save-finished');
+});
+
+test('amendment deletion requires confirmation and refreshes the same ATA after success', async () => {
+    let click, request, accepted = false;
+    const events = [];
+    const button = { dataset: { deleteUrl: '/atas/0/amendments/0', amendmentNumber: '2' },
+        addEventListener: (event, handler) => { click = handler; } };
+    const root = { ownerDocument: {}, dataset: { ataLoaded: '7', ataVersion: '4', csrfToken: 'token' },
+        querySelector: () => button, dispatchEvent: event => events.push(event) };
+    const saved = { id: 7, number: '107/2025', version: 5 };
+    initializeAtaAmendmentDelete(root, async message => {
+        assert.match(message, /2/);
+        return accepted;
+    }, assert.fail, async (url, options) => {
+        request = { url, options };
+        return { ok: true, json: async () => saved };
+    });
+    await click();
+    assert.equal(request, undefined);
+    assert.deepEqual(events, []);
+
+    accepted = true;
+    await click();
+    assert.equal(request.url, '/atas/7/amendments/2');
+    assert.equal(request.options.method, 'DELETE');
+    assert.deepEqual(JSON.parse(request.options.body), { version: 4 });
+    assert.deepEqual(events.map(event => event.type), ['ata-saving', 'ata-saved', 'ata-save-finished']);
+    assert.deepEqual(events[1].detail, saved);
+});
+
+test('amendment save warns for missing fields, retains them after success and edits on the next save', async () => {
+    let click, request, blurEnd;
+    const events = [], messages = [];
+    const values = { number: '', date: '', process: '', type: '', start: '', end: '', period: '' };
+    const advantage = { required: false, disabled: true, value: '' };
+    const finalField = { dataset: { amendmentEndLimit: '2027-11-07' }, get value() { return values.end; },
+        addEventListener: (event, handler) => { if (event === 'blur') blurEnd = handler; } };
+    const button = { dataset: { saveUrl: '/atas/0/amendments' },
+        addEventListener: (event, handler) => { click = handler; } };
+    const root = { ownerDocument: {}, dataset: { ataLoaded: '7', ataVersion: '4', csrfToken: 'token' },
+        querySelector: selector => {
+            if (selector === '[data-ata-amendment-save]') return button;
+            if (selector === '#ata-amend-advantage') return advantage;
+            if (selector === '#ata-amend-end') return finalField;
+            return { value: values[selector.slice('#ata-amend-'.length)] };
+        },
+        dispatchEvent: event => {
+            events.push(event);
+            if (event.type === 'ata-amendment-saved') {
+                button.dataset.savedAmendmentNumber = String(event.detail.amendment_number);
+                root.dataset.ataVersion = String(event.detail.version);
+            }
+        } };
+    initializeAtaAmendmentSave(root, message => messages.push(message), async (url, options) => {
+        request = { url, options };
+        const payload = JSON.parse(options.body);
+        return { ok: true, json: async () => ({ id: 7, number: '107/2025', version: 5,
+            amendment_number: 2, amendment_updated_total: '1234.5678', original_end_date: '2026-11-06',
+            ...(payload.excluded_product_ids ? { amendment: { excluded_product_ids: payload.excluded_product_ids,
+                balance_products: payload.balance_quantities } } : {}) }) };
+    });
+    await click();
+    assert.equal(request, undefined);
+    assert.match(messages[0], /Nº Aditivo, Data_ADT, Proc_ADT, Tipo_ADT, INICIO, FINAL, Período/);
+
+    Object.assign(values, { number: '002', date: '05/11/2026', process: 'P-2', type: 'Prorrogação - Saldo Positivo',
+        start: '07/11/2026', end: '06/11/2027', period: '12 meses' });
+    Object.assign(advantage, { required: true, disabled: false });
+    await click();
+    assert.equal(request, undefined);
+    assert.match(messages.at(-1), /Vantajosidade/);
+    advantage.value = 'Declaração do Gestor';
+    values.end = '08/11/2027';
+    blurEnd();
+    assert.match(messages.at(-1), /até 07\/11\/2027/);
+    await click();
+    assert.equal(request, undefined);
+    values.end = '06/11/2027';
+    button.dataset.excludedProducts = '["8"]';
+    button.dataset.balanceQuantities = '[{"product_id":"31","quantity":"2,"}]';
+    await click();
+    assert.equal(request.url, '/atas/7/amendments');
+    assert.equal(request.options.method, 'POST');
+    assert.deepEqual(JSON.parse(request.options.body), { ...values, number: '2', date: '2026-11-05',
+        start: '2026-11-07', end: '2027-11-06', version: 4, advantage: 'Declaração do Gestor', excluded_product_ids: ['8'],
+        balance_quantities: [{ product_id: '31', quantity: '2,0' }] });
+    assert.deepEqual(events.map(event => event.type), ['ata-saving', 'ata-amendment-saved', 'ata-save-finished']);
+    assert.equal(events[1].detail.amendment_updated_total, '1.234,5678');
+    assert.equal(root.dataset.ataDerivedEndDate, '2026-11-06');
+    assert.equal(values.number, '002');
+    assert.equal(values.process, 'P-2');
+    assert.equal(messages.at(-1), 'Aditivo salvo com sucesso. Saldos gravados (1). Itens excluídos da prorrogação (1).');
+
+    values.process = 'P-2-EDITADO';
+    await click();
+    assert.equal(request.url, '/atas/7/amendments/2');
+    assert.equal(request.options.method, 'PATCH');
+    assert.equal(JSON.parse(request.options.body).version, 5);
+    assert.equal(JSON.parse(request.options.body).process, 'P-2-EDITADO');
+    assert.equal(messages.at(-1), 'Aditivo atualizado com sucesso. Saldos gravados (1). Itens excluídos da prorrogação (1).');
+
+    values.type = 'Prorrogação/Quantitativo - Igual Período e Valor';
+    delete button.dataset.excludedProducts;
+    delete button.dataset.balanceQuantities;
+    advantage.value = '';
+    request = undefined;
+    await click();
+    assert.equal(request, undefined);
+    assert.match(messages.at(-1), /Vantajosidade/);
+    advantage.value = 'Pesquisa de Preços';
+    await click();
+    assert.equal(JSON.parse(request.options.body).advantage, 'Pesquisa de Preços');
 });

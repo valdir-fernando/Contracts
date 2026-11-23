@@ -165,7 +165,7 @@ class SaveAtaProductTest extends TestCase
         $this->save(['manual' => false, 'quantity' => '2'])->assertCreated();
         $original = (array) DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $this->ata)->sole();
         $amendment = $original;
-        unset($amendment['ID'], $amendment['ficha_identity']);
+        unset($amendment['ID'], $amendment['ficha_identity'], $amendment['amendment_active_slot']);
         $amendment['ADITIVO'] = 1;
         $amendment['QTD'] = '100';
         $amendmentId = DB::table('tb_PRODUTOS_ATA')->insertGetId($amendment, 'ID');
@@ -202,7 +202,7 @@ class SaveAtaProductTest extends TestCase
         $this->save()->assertCreated();
         $first = (array) DB::table('tb_PRODUTOS_ATA')->sole();
         $legacy = $first;
-        unset($legacy['ID'], $legacy['ficha_identity']);
+        unset($legacy['ID'], $legacy['ficha_identity'], $legacy['amendment_active_slot']);
         $legacy['FICHA'] = 'HISTÓRICA';
         $secondId = DB::table('tb_PRODUTOS_ATA')->insertGetId($legacy, 'ID');
         $before = (array) DB::table('tb_PRODUTOS_ATA')->where('ID', $secondId)->sole();
@@ -235,7 +235,7 @@ class SaveAtaProductTest extends TestCase
     {
         $this->save()->assertCreated();
         $legacy = (array) DB::table('tb_PRODUTOS_ATA')->sole();
-        unset($legacy['ID'], $legacy['ficha_identity']);
+        unset($legacy['ID'], $legacy['ficha_identity'], $legacy['amendment_active_slot']);
         $legacy['FICHA'] = 'HISTÓRICA';
         DB::table('tb_PRODUTOS_ATA')->insert($legacy);
         $before = DB::table('tb_PRODUTOS_ATA')->orderBy('ID')->get()->all();
@@ -259,7 +259,7 @@ class SaveAtaProductTest extends TestCase
     {
         $this->save()->assertCreated();
         $product = (array) DB::table('tb_PRODUTOS_ATA')->first();
-        unset($product['ID'], $product['ficha_identity']);
+        unset($product['ID'], $product['ficha_identity'], $product['amendment_active_slot']);
         $this->assertThrows(fn () => DB::table('tb_PRODUTOS_ATA')->insert($product), UniqueConstraintViolationException::class);
         $product['FICHA'] = 'historica';
         DB::table('tb_PRODUTOS_ATA')->insert($product);

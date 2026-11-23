@@ -13,6 +13,20 @@ final class AtaWordDocument
 {
     private const NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
+    public function productTables(array $fields): DOMDocument
+    {
+        $html = view('atas.document-products', ['fields' => $fields])->render();
+        $dom = new DOMDocument;
+        $dom->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        $body = $dom->getElementsByTagName('body')->item(0);
+        $word = new DOMDocument;
+        if (! $body || ! $word->loadXML('<w:body xmlns:w="'.self::NS.'">'.$this->blocks($body).'</w:body>', LIBXML_NONET)) {
+            throw new RuntimeException('Não foi possível gerar a tabela de produtos.');
+        }
+
+        return $word;
+    }
+
     public function render(string $html): string
     {
         $dom = new DOMDocument;

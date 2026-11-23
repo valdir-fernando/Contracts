@@ -74,6 +74,9 @@ final class ReconcileAtaProcessValidity
                     if ($apply) {
                         $row['id'] = $this->insertOriginal($entry, $funds[$entry['CNPJ_FUNDO']]);
                     }
+                } elseif ($ata->deleted_at === null && $ata->DATA_PUBLIC_INPC !== null) {
+                    $row['status'] = 'publicada_no_tcm';
+                    $row['current_end'] = $ata->FINAL_ATA;
                 } else {
                     if ($ata->deleted_at !== null || $ata->PROCESSO !== $entry['PROCESSO'] || $identity->key($ata->N_LICIT) !== $entry['N_LICIT']
                         || $ata->CNPJ_FUNDO !== $entry['CNPJ_FUNDO']
@@ -81,7 +84,8 @@ final class ReconcileAtaProcessValidity
                         throw new RuntimeException('A cópia do processo diverge do cadastro da ata '.$entry['ATA']);
                     }
                     $signed = $amendments->where('ID_ATA', $ata->ID)->filter(fn ($item) => ! (new AtaAmendmentSourcePolicy)->isUnsigned(base_path('Reference/ATAS/ADITIVOS_ATAS/'.$item->source_path)));
-                    if ($signed->isNotEmpty()) {
+                    $existingBasis = json_decode($ata->validity_basis ?? '', true);
+                    if ($signed->isNotEmpty() || array_column($existingBasis['amendments'] ?? [], 'legacy_id') !== []) {
                         $row['status'] = 'aditivo_assinado_preservado';
                         $row['current_end'] = $ata->FINAL_ATA;
                         $result['preserved_signed_extension']++;

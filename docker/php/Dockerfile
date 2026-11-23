@@ -26,6 +26,10 @@ RUN docker-php-ext-install -j$(nproc) pcntl
 
 RUN git config --system --add safe.directory /var/www/html
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libreoffice-writer fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /var/www/html
 
 COPY docker/php/entrypoint.sh /usr/local/bin/contracts-entrypoint

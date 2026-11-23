@@ -415,11 +415,11 @@ class SupplyContractPdfTest extends TestCase
             'RG SOCIO PRIVADO', '111.444.777-35', 'RG GESTOR PRIVADO', 'Gestor fictício', 'Gestor do Fundo',
             '20/12/2025', '02/01/2026', '31/12/2026', 'Dois mil quinhentos', '2.530,92',
             'Produto exclusivo do contrato', 'Produto de outra ficha', 'Marca teste', '30149', '2,50', '1.012,368', '01.02.03.4.5',
-            'TOTAL GERAL', '2.540,92', 'Gestão 2029–2032', 'CLÁUSULA PRIMEIRA', 'CLÁUSULA DÉCIMA SEXTA', 'TESTEMUNHAS:'] as $value) {
+            'TOTAL GERAL', '2.540,92', 'CLÁUSULA PRIMEIRA', 'CLÁUSULA DÉCIMA SEXTA', 'TESTEMUNHAS:'] as $value) {
             $this->assertStringContainsString($value, $text);
         }
         foreach (['#CONTRATO', '#CPF', '#OBJETO', 'XXCVXCV', 'PRODUTO EXCLUIDO', 'PRODUTO DE OUTRO CONTRATO',
-            'DOTACAO DE OUTRO CONTRATO', 'DOTACAO RASCUNHO', 'DOTACAO EXCLUIDA', '9.999,00', '28/02/2027', '#FICHA', 'Ficha:'] as $value) {
+            'DOTACAO DE OUTRO CONTRATO', 'DOTACAO RASCUNHO', 'DOTACAO EXCLUIDA', '9.999,00', '28/02/2027', '#FICHA', 'Ficha:', 'Gestão 2029–2032'] as $value) {
             $this->assertStringNotContainsString($value, $text);
         }
         $audit = ActivityEvent::sole();

@@ -181,7 +181,7 @@ class AtaReferenceImportTest extends TestCase
             'source_path' => 'aditivo.pdf', 'source_sha256' => str_repeat('a', 64), 'source_size' => 100, 'extraction' => 'pdf_text', 'link_status' => 'vinculado', 'issues' => '[]'], 'ID');
         $product = (array) DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ata->ID)->first();
         // Database-generated columns must be omitted when cloning writable data.
-        unset($product['ID'], $product['ficha_identity']);
+        unset($product['ID'], $product['ficha_identity'], $product['amendment_active_slot']);
         DB::table('tb_PRODUTOS_ATA')->insert([...$product, 'ADITIVO' => 1, 'ID_ADITIVO' => $amendment, 'DATA_ADT' => '2026-11-09', 'PROC_ADT' => '2026000002']);
         $this->assertSame(1, $service->run($this->directory, true)['existing']);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 3);

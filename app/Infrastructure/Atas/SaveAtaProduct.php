@@ -28,6 +28,7 @@ final class SaveAtaProduct
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             if (trim($ata->PROCESSO) === '') {
                 throw ValidationException::withMessages(['item' => 'A Ata precisa ter um Processo antes de cadastrar produtos.']);
             }

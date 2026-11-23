@@ -27,7 +27,7 @@ export function initializeAtaSpecialQuantity(root, fetcher = fetch, warn = showS
     root.addEventListener('ata-loaded', ({ detail }) => configure(detail.special_quantity_name));
     root.addEventListener('ata-cleared', () => configure(''));
     remove?.addEventListener('click', async () => {
-        if (pending || !root.dataset.ataLoaded || !root.dataset.ataSpecialQuantityName || root.dataset.editorBusy === 'true') return;
+        if (pending || !root.dataset.ataLoaded || !root.dataset.ataSpecialQuantityName || root.dataset.editorBusy === 'true' || root.dataset.ataPublicationLocked === 'true') return;
         const ataId = root.dataset.ataLoaded;
         const version = root.dataset.ataVersion;
         const name = root.dataset.ataSpecialQuantityName;
@@ -75,7 +75,7 @@ export function initializeAtaSpecialQuantity(root, fetcher = fetch, warn = showS
         }
     });
     button.addEventListener('click', async () => {
-        if (pending || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true') return;
+        if (pending || !root.dataset.ataLoaded || root.dataset.editorBusy === 'true' || root.dataset.ataPublicationLocked === 'true') return;
         pending = true;
         const ataId = root.dataset.ataLoaded;
         const version = Number(root.dataset.ataVersion);

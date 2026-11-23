@@ -63,8 +63,6 @@ final class SupplyContractTemplate
             header img { width:205pt; height:auto; } .header-fund { position:absolute; right:0; top:24pt; width:297pt; font-weight:bold; white-space:nowrap; overflow-wrap:normal; text-align:right; }
             footer { position:fixed; bottom:-75pt; left:0; right:0; height:75pt; }
             footer img { width:100%; height:auto; }
-            .footer-administration { position:absolute; left:60%; top:49%; width:20%; height:22%; background:#fff; color:#082b87; font-size:8pt; text-align:center; line-height:13pt; }
-            .lease-footer .footer-administration { left:63%; top:61%; width:18%; height:20%; }
             p { margin:0 0 5pt; overflow-wrap:anywhere; } .gap { height:5pt; }
             p.works-heading-line { margin-bottom:0; }
             .clause { page-break-after:avoid; margin-top:8pt; } .clause-opening { page-break-inside:avoid; }
@@ -96,9 +94,7 @@ final class SupplyContractTemplate
             </style></head><body>';
         $html .= '<header><img alt="Prefeitura de Niquelândia" src="data:image/png;base64,'.base64_encode($logo).'">'
             .'<div class="header-fund" style="font-size:'.$fundSize.'pt">'.$this->escape($fields['#FUNDO']).'</div></header>';
-        // The source footer is an image with baked-in years. Cover only that legend with the current administration.
-        $html .= '<footer'.($model === 'property-lease' ? ' class="lease-footer"' : '').'><img alt="Rodapé institucional" src="data:image/png;base64,'.base64_encode($footer).'">'
-            .'<div class="footer-administration">Gestão '.$this->escape(str_replace('/', '–', $fields['#ADM'])).'</div></footer>';
+        $html .= '<footer'.($model === 'property-lease' ? ' class="lease-footer"' : '').'><img alt="Rodapé institucional" src="data:image/png;base64,'.base64_encode($footer).'"></footer>';
 
         $clauseOpen = false;
         $signaturesOpen = false;

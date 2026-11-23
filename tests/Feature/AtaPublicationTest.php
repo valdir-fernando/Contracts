@@ -70,7 +70,7 @@ class AtaPublicationTest extends TestCase
         $before = DB::table('tb_PRODUTOS_ATA')->orderBy('ID')->get()->toJson();
         $this->issue(['amount' => '999999', 'date' => '1900-01-01'])->assertOk();
         $this->assertStringContainsString('VALOR TOTAL</strong>: R$ 1.234,51 (mil, duzentos e trinta e quatro reais e cinquenta e um centavos)', $renderer->html);
-        $this->assertStringContainsString('CPF: 529.982.247-25', $renderer->html);
+        $this->assertSame(2, substr_count($renderer->html, 'CPF: 529.982.247-25'));
         $this->assertStringNotContainsString('Período:', $renderer->html);
         $this->assertSame($before, DB::table('tb_PRODUTOS_ATA')->orderBy('ID')->get()->toJson());
     }

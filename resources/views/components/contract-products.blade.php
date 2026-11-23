@@ -45,7 +45,7 @@
                 <div class="product-contract-summary">
                     <span @if($preview) class="ata-product-process-budget" @endif>
                     @if($preview)
-                        <label class="product-confirm product-manual-option"><input type="checkbox" data-ata-products-manual> Lançamento Manual</label>
+                        <label class="product-confirm product-manual-option"><input type="checkbox" data-ata-products-manual :disabled="publicationLocked"> Lançamento Manual</label>
                     @endif
                     @unless($preview)
                     <span>{{ $documentLabel }}: <strong>{{ $contract?->numero ?: 'Não informado' }}</strong></span>
@@ -59,9 +59,9 @@
                             <button type="button" class="section-tab document-action" data-ata-document="publication" data-ata-publication-url="{{ route('atas.publication', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="document-publication"/>PUBLICAÇÃO</button>
                         </span>
                         <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
-                        <button type="button" class="section-tab" data-products-save data-ata-product-save-url="{{ route('atas.products.store', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="save"/>Salvar produto</button>
-                        <button type="button" class="section-tab" data-products-new :disabled="!loaded || busy"><x-nav-icon name="plus"/>Novo Produto</button>
-                        <button type="button" class="section-tab" data-products-delete data-ata-product-delete-url="{{ route('atas.products.destroy', ['ata' => 0]) }}" :disabled="!loaded || busy"><x-nav-icon name="trash"/>Excluir</button>
+                        <button type="button" class="section-tab" data-products-save data-ata-product-save-url="{{ route('atas.products.store', ['ata' => 0]) }}" :disabled="!loaded || busy || publicationLocked"><x-nav-icon name="save"/>Salvar produto</button>
+                        <button type="button" class="section-tab" data-products-new :disabled="!loaded || busy || publicationLocked"><x-nav-icon name="plus"/>Novo Produto</button>
+                        <button type="button" class="section-tab" data-products-delete data-ata-product-delete-url="{{ route('atas.products.destroy', ['ata' => 0]) }}" :disabled="!loaded || busy || publicationLocked"><x-nav-icon name="trash"/>Excluir</button>
                     </span>
                     @else
                     <span>Processo: <strong>{{ $contract?->processo ?: 'Não informado' }}</strong></span>
@@ -82,7 +82,7 @@
             @endunless
             @unless($preview)<p class="hint" data-product-budget-status role="status" aria-live="polite"></p>@endunless
             @if($preview)<p data-product-feedback role="status" aria-live="polite" data-ata-item-lookup-url="{{ $itemLookupUrl }}"></p>@endif
-            <div class="product-entry-fields">
+            <div class="product-entry-fields" @if($preview) :inert="publicationLocked" @endif>
                 <div class="product-item-search">
                     <label><span>Item<x-required-mark :when="$preview"/></span><input type="text" data-product-field="item" maxlength="100" @required($preview) @if($preview) autofocus @endif></label>
                     <button type="button" class="product-item-search-button" data-product-item-search aria-label="Buscar item" title="Buscar item"><x-nav-icon name="search"/></button>
@@ -101,11 +101,9 @@
                         <input id="ata-product-quantity" data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto" required disabled>
                     </div>
                     <div class="ata-product-quantity-field" data-ata-special-quantity-field hidden>
-                        <div class="ata-product-quantity-label">
-                            <label for="ata-special-quantity-value"><span data-ata-special-quantity-label></span></label>
-                            <button type="button" class="text-link ata-special-quantity-link" data-ata-special-quantity-delete tabindex="-1" title="Excluir a QTD Especial e seus valores desta ata">Excluir QTD</button>
-                        </div>
+                        <label for="ata-special-quantity-value"><span data-ata-special-quantity-label></span></label>
                         <input id="ata-special-quantity-value" data-product-special-quantity data-quantity inputmode="decimal" maxlength="40" aria-label="Quantidade especial" value="0,0000">
+                        <button type="button" class="text-link ata-special-quantity-link" data-ata-special-quantity-delete tabindex="-1" title="Excluir a QTD Especial e seus valores desta ata">Excluir QTD</button>
                     </div>
                 @else
                     <label><span>QTD</span><input data-product-quantity data-quantity inputmode="decimal" maxlength="40" value="0,0000" aria-label="Quantidade do produto"></label>

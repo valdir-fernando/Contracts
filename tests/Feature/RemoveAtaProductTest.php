@@ -49,7 +49,7 @@ class RemoveAtaProductTest extends TestCase
     private function anotherProduct(array $extra = []): int
     {
         $row = (array) DB::table('tb_PRODUTOS_ATA')->where('ID', $this->product)->sole();
-        unset($row['ID'], $row['ficha_identity']);
+        unset($row['ID'], $row['ficha_identity'], $row['amendment_active_slot']);
 
         return DB::table('tb_PRODUTOS_ATA')->insertGetId(array_replace($row, ['ITEM' => '3'], $extra), 'ID');
     }
@@ -137,7 +137,7 @@ class RemoveAtaProductTest extends TestCase
     public function test_equal_quantity_soft_deletes_original_preserving_history_and_amendment(): void
     {
         $amendment = (array) DB::table('tb_PRODUTOS_ATA')->where('ID', $this->product)->sole();
-        unset($amendment['ID'], $amendment['ficha_identity']);
+        unset($amendment['ID'], $amendment['ficha_identity'], $amendment['amendment_active_slot']);
         $amendment['ADITIVO'] = 1;
         $amendmentId = DB::table('tb_PRODUTOS_ATA')->insertGetId($amendment, 'ID');
         $before = (array) DB::table('tb_PRODUTOS_ATA')->where('ID', $amendmentId)->sole();

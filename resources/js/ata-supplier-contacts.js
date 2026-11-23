@@ -41,9 +41,15 @@ export function initializeAtaSupplierContacts(form, fetcher = fetch) {
             // Lookup errors are reported by the shared supplier assistance.
         }
     };
-    documentField.addEventListener('input', clear);
+    documentField.addEventListener('input', () => {
+        form.dataset.ataSnapshot = '';
+        clear();
+    });
     documentField.addEventListener('focusout', load);
-    form.addEventListener('supplier-selected', load);
+    form.addEventListener('supplier-selected', () => {
+        form.dataset.ataSnapshot = '';
+        return load();
+    });
 }
 
 if (typeof document !== 'undefined') {

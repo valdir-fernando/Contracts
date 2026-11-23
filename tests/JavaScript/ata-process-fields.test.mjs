@@ -5,17 +5,199 @@ import { runInNewContext } from 'node:vm';
 
 const view = readFileSync(new URL('../../resources/views/atas/create.blade.php', import.meta.url), 'utf8');
 const funds = [{ id: 1, name: 'Educação' }, { id: 2, name: 'Saúde' }, { id: 3, name: 'Município' }];
+const equalQuantityType = 'Prorrogação/Quantitativo - Igual Período e Valor';
+const balanceExtensionType = 'Prorrogação - Saldo Positivo';
 
-test('toolbar keeps New and Save enabled and enables Delete only with a persisted ATA', () => {
+test('positive balance displays zero as the amendment amount and keeps the official ATA total', () => {
+    const { state } = editor();
+    state.amendmentOpen = true;
+    state.amendmentBaseTotal = '125,0000';
+    state.amendmentUpdatedTotal = '150,0000';
+    state.amendmentFields.type = balanceExtensionType;
+    state.amendmentBalanceLineTotals = { 35: '15,0000' };
+    assert.equal(state.amendmentDisplayedValue, '0,0000');
+    assert.equal(state.amendmentUpdatedTotal, '150,0000');
+    state.amendmentFields.type = equalQuantityType;
+    assert.equal(state.amendmentDisplayedValue, '125,0000');
+});
+
+test('new positive-balance rows are selectable even when the historical flag is absent', () => {
+    const { state } = editor();
+    const original = { id: 35 };
+    state.loaded = true;
+    assert.equal(state.canEditAmendmentProduct(original), true);
+    assert.equal(state.canEditAmendmentProduct({ ...original, balanceHistoryOnly: true }), false);
+    state.publicationLocked = true;
+    assert.equal(state.canEditAmendmentProduct(original), false);
+    assert.match(view, /aria-describedby="ata-amend-exclusion-notice"\s+:disabled="!canEditAmendmentProduct\(product\)"/);
+});
+
+test('Vantajosidade is required for both extension types without enabling quantities for positive balance', () => {
+    const { state } = editor();
+    for (const type of [equalQuantityType, balanceExtensionType, 'Apostilamento', '']) {
+        state.amendmentFields.type = type;
+        assert.equal(state.requiresAmendmentAdvantage, [equalQuantityType, balanceExtensionType].includes(type));
+        assert.equal(state.showAmendmentQuantities, type === equalQuantityType);
+        assert.equal(state.editAmendmentBalanceQuantities, type === balanceExtensionType);
+    }
+});
+
+test('typing a balance leaves reference quantities intact and New clears the draft', () => {
+    const { state } = editor();
+    state.resetAmendment({ amendment_base_products: [{ id: 35, item: '2', quantity: '10,0000' }] });
+    state.amendmentFields.type = balanceExtensionType;
+    state.amendmentBalanceQuantities[35] = '2,5000';
+    assert.match(view, /x-model="amendmentBalanceQuantities\[product\.id\]"/);
+    assert.equal(state.amendmentBaseProducts[0].quantity, '10,0000');
+    assert.equal(state.amendmentBalanceQuantityWidth, 86);
+    state.amendmentBalanceQuantities[35] = '123456789,50';
+    state.amendmentBalanceQuantities[36] = '10';
+    const wide = state.amendmentBalanceQuantityWidth;
+    assert.ok(wide > 86);
+    state.amendmentBalanceQuantities[35] = '123.456.789,5000';
+    assert.equal(state.amendmentBalanceQuantityWidth, wide);
+    state.amendmentFields.type = equalQuantityType;
+    assert.equal(state.amendmentBalanceQuantityWidth, 86);
+    state.amendmentFields.type = balanceExtensionType;
+    state.amendmentBalanceQuantities[35] = '1';
+    assert.equal(state.amendmentBalanceQuantityWidth, 86);
+    state.clearAmendmentFields();
+    assert.equal(state.amendmentBalanceQuantities[35], undefined);
+});
+
+test('consulting a positive-balance amendment shows the saved exclusions and New clears the selection', () => {
+    const { state } = editor();
+    state.resetAmendment({ amendments: { 2: { type: balanceExtensionType, excluded_product_ids: [35] } } });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.deepEqual(Array.from(state.amendmentExcludedProducts), ['35']);
+    assert.match(view, /x-model="amendmentExcludedProducts"/);
+    state.clearAmendmentFields();
+    assert.equal(state.amendmentExcludedProducts.length, 0);
+});
+
+test('consulting the amendment restores its saved balances and historical product details', () => {
+    const { state } = editor();
+    state.resetAmendment({
+        amendment_base_products: [{ id: 35, description: 'Descrição atual' }, { id: 36, description: 'Outro item' }],
+        amendments: { 2: { type: balanceExtensionType, balance_products: [
+            { id: 35, description: 'Descrição gravada', balance_quantity: '2.5000' },
+            { id: 37, description: 'Produto histórico', balance_quantity: '0.7500' },
+        ] } },
+    });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.amendmentBalanceQuantities[35], '2,5000');
+    assert.equal(state.amendmentProducts[0].description, 'Descrição gravada');
+    assert.deepEqual(Array.from(state.amendmentProducts, product => product.id), [35, 37]);
+    assert.equal(state.amendmentProducts[1].balanceHistoryOnly, true);
+    state.showAllAmendmentProducts = true;
+    assert.deepEqual(Array.from(state.amendmentProducts, product => product.id), [35, 36, 37]);
+    state.amendmentExcludedProducts = ['35'];
+    assert.equal(state.amendmentBalanceSubmission.length, 1);
+    assert.equal(state.amendmentBalanceSubmission[0].product_id, '37');
+});
+
+test('a saved amendment with exclusions and no recorded quantities hides its excluded products by default', () => {
+    const { state } = editor();
+    state.resetAmendment({
+        amendment_base_products: [2, 3, 4, 5, 6].map(id => ({ id })),
+        amendments: { 2: { type: balanceExtensionType, excluded_product_ids: [5, 6] } },
+    });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.deepEqual(Array.from(state.amendmentProducts, product => product.id), [2, 3, 4]);
+    assert.equal(Object.keys(state.amendmentBalanceQuantities).length, 0);
+    state.showAllAmendmentProducts = true;
+    assert.deepEqual(Array.from(state.amendmentProducts, product => product.id), [2, 3, 4, 5, 6]);
+});
+
+test('amendment list shows four products and reserves the fifth row height above the controls', () => {
+    const { state } = editor();
+    const row = bottom => ({ getBoundingClientRect: () => ({ bottom }) });
+    const rows = [row(98), row(134), row(175), row(211.5), row(254)];
+    const properties = new Map();
+    const list = {
+        scrollTop: 20,
+        getBoundingClientRect: () => ({ top: 50 }),
+        querySelectorAll: () => rows,
+        style: { setProperty: (key, value) => properties.set(key, value), removeProperty: key => properties.delete(key) },
+    };
+    state.$refs.ataAmend = { open: true };
+    state.$refs.ataAmendProductList = list;
+
+    state.sizeAmendmentProductList();
+    assert.equal(list.style.maxHeight, '182px');
+    assert.equal(properties.get('--ata-amend-list-spacer'), '42px');
+    rows.pop();
+    state.sizeAmendmentProductList();
+    assert.equal(list.style.maxHeight, '');
+    assert.equal(properties.size, 0);
+});
+
+test('equal-quantity emission requires a saved amendment with unchanged fields', () => {
+    const { state } = editor();
+    const saved = { type: equalQuantityType, date: '2026-11-20', start: '2026-12-01', end: '2027-11-30',
+        process: 'PROC-ADT', period: '12 meses', advantage: 'Pesquisa de Preços' };
+    state.resetAmendment({ amendment_numbers: [2], amendments: { 2: saved, 1: { ...saved, type: 'Prorrogação - Saldo Positivo' } } });
+    state.amendmentNumber = '002';
+    assert.equal(state.printableAmendment, '');
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentFields.advantage = 'Declaração do Gestor';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentFields.advantage = saved.advantage;
+    state.amendmentFields.period = '24 meses';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '');
+});
+
+test('positive-balance emission uses only saved balances and exclusions', () => {
+    const { state } = editor();
+    const saved = { type: balanceExtensionType, date: '2026-11-20', start: '2026-12-01', end: '2027-11-30',
+        process: 'PROC-ADT', period: '12 meses', advantage: 'Pesquisa de Preços',
+        balance_products: [{ id: 35, balance_quantity: '2.5000' }], excluded_product_ids: [36] };
+    state.resetAmendment({ amendments: { 2: saved } });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentBalanceQuantities[35] = '3';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentBalanceQuantities[35] = '2,5';
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentExcludedProducts = [];
+    assert.equal(state.printableAmendment, '');
+});
+
+test('amendment reference products are always shown and remain the same after looking up an amendment', () => {
+    const state = editor().state;
+    state.loaded = true;
+    state.resetAmendment({ amendment_numbers: [2], amendments: { 2: { type: 'Prorrogação - Saldo Positivo' } }, amendment_base_products: [{ item: '9' }] });
+    const list = view.match(/<div class="product-list-scroll product-contract-list ata-amend-product-list"[^>]*>/)[0];
+    assert.doesNotMatch(list, /x-show|x-cloak|hidden/);
+    assert.equal(state.amendmentBaseProducts[0].item, '9');
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.amendmentBaseProducts[0].item, '9');
+    state.clearLoaded();
+    assert.equal(state.amendmentBaseProducts.length, 0);
+});
+
+test('toolbar keeps New available and locks Save and Delete after publication', () => {
     const toolbar = view.slice(view.indexOf('aria-label="Ações da ata"'), view.indexOf('<dialog class="catalog-modal"'));
     const save = toolbar.split('\n').find(line => line.includes('data-ata-save'));
     const remove = toolbar.split('\n').find(line => line.includes('data-ata-delete'));
     const fresh = toolbar.match(/<a[^>]+>/)[0];
-    assert.doesNotMatch(save, /disabled|pointer-events-none/);
     assert.doesNotMatch(fresh, /disabled|pointer-events-none/);
-    const disabled = remove.match(/:disabled="([^"]+)"/)[1];
-    for (const loaded of [false, true]) {
-        for (const busy of [false, true]) assert.equal(runInNewContext(disabled, { loaded, busy }), !loaded);
+    const saveDisabled = save.match(/:disabled="([^"]+)"/)[1];
+    const removeDisabled = remove.match(/:disabled="([^"]+)"/)[1];
+    for (const publicationLocked of [false, true]) {
+        assert.equal(runInNewContext(saveDisabled, { publicationLocked }), publicationLocked);
+        for (const loaded of [false, true]) {
+            assert.equal(runInNewContext(removeDisabled, { loaded, publicationLocked }), !loaded || publicationLocked);
+        }
     }
 });
 
@@ -49,7 +231,11 @@ test('products opens a modal with the current supplier and closes without changi
 });
 
 function editor({ fetch, initial } = {}) {
-    const expression = view.match(/<div x-data="([\s\S]*?)" data-draft-state=/)[1].replace('@js($funds)', JSON.stringify(funds));
+    const expression = view.match(/<div x-data="([\s\S]*?)" data-draft-state=/)[1]
+        .replace('@js($funds)', JSON.stringify(funds)).replace('@js($amendmentTypes)', '[]')
+        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::EQUAL_QUANTITY)', JSON.stringify(equalQuantityType))
+        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::EXTENSION)', JSON.stringify(balanceExtensionType))
+        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::ADVANTAGE_TYPES)', JSON.stringify([balanceExtensionType, equalQuantityType]));
     let draftUrl;
     const state = runInNewContext(`(${expression})`, { fetch, URL, CustomEvent, window: {
         location: { href: 'http://localhost/atas/create' },
@@ -86,8 +272,8 @@ test('a loaded ata cannot add or remove participants from the draft', async () =
     assert.equal(form.state.participants[0].FUNDO, 'Participante salvo');
 });
 
-test('participant selection is disabled until a saved ata is loaded', () => {
-    assert.match(view, /id="ata-participant-fund"[^>]*disabled :disabled="busy \|\| !loaded"/);
+test('participant selection requires a saved, unpublished ATA', () => {
+    assert.match(view, /id="ata-participant-fund"[^>]*disabled :disabled="busy \|\| publicationLocked \|\| !loaded"/);
 });
 
 test('loaded ata adds to its own endpoint and version without changing the draft', async () => {
@@ -97,6 +283,7 @@ test('loaded ata adds to its own endpoint and version without changing the draft
         return { ok: true, json: async () => ({ version: 5, participants: [{ id: 21, fund_id: 2, FUNDO: 'Saúde' }] }) };
     } });
     const loaded = view.match(/@ata-loaded="([^"]+)"/)[1];
+    form.state.resetAmendment = form.state.resetAmendment.bind(form.state);
     form.state.$event = { detail: { id: 107, version: 4, process: 'PROC', managing_fund_id: '1', participants: [] } };
     runInNewContext(loaded, form.state);
     assert.equal(form.state.loaded, true);

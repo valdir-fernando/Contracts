@@ -28,9 +28,10 @@ final class SavedAtaParticipants
             $funds = DB::table('contract_funds')->whereIn('id', array_filter([$context->fund_id, (int) $data['participant_fund_id']]))
                 ->whereNull('deleted_at')->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $ata = DB::table('tb_ATA')->where('ID', $ataId)->whereNull('deleted_at')->lockForUpdate()
-                ->first(['ID', 'ATA', 'PROCESSO', 'CNPJ_FUNDO', 'fund_id', 'version']);
+                ->first(['ID', 'ATA', 'PROCESSO', 'CNPJ_FUNDO', 'fund_id', 'version', 'DATA_PUBLIC_INPC']);
             abort_unless($ata, 404);
             $this->authorize($actor, $ata->fund_id);
+            $this->policy->ensureEditable($ata);
             abort_if($ata->fund_id !== $context->fund_id, 409, 'O órgão da ata mudou. Consulte novamente pelo Nº ATA.');
             abort_if((int) $data['version'] !== (int) $ata->version, 409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de adicionar o Fundo.');
             $fund = $funds->get((int) $data['participant_fund_id']);

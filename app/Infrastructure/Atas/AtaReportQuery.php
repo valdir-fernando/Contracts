@@ -41,15 +41,18 @@ class AtaReportQuery
         }
         $filters = array_replace(['report_end_from' => null, 'report_end_to' => null], $filters);
         unset($filters['page']);
-        $numbers = DB::table('tb_ATA')->whereNull('deleted_at')->get(['ID', 'ATA', 'PROCESSO', 'INICIO_ATA', 'FINAL_ATA']);
+        $numbers = DB::table('tb_ATA')->whereNull('deleted_at')->get(['ID', 'ATA', 'PROCESSO', 'INICIO_ATA', 'FINAL_ATA', 'validity_basis']);
         $identity = new AtaAmendmentReader;
         $amendments = [];
         $amendmentEnds = [];
+        $registered = [];
         foreach (DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)->whereNotNull('Proc_ATA')
             ->orderByDesc('Data_ADT')->orderByDesc('ID')->get(['ID', 'ATA', 'Proc_ATA', 'ADT', 'Proc_ADT', 'FINAL']) as $amendment) {
             $number = $identity->key($amendment->ATA);
             $process = trim($amendment->Proc_ATA);
             $key = $number.'|'.$process;
+            $registered[$amendment->ID] = ['key' => $key, 'number' => (string) $amendment->ADT, 'process' => trim((string) $amendment->Proc_ADT),
+                'end' => $amendment->FINAL];
             if ($number !== null && $process !== '' && ! isset($amendments[$key])) {
                 $amendments[$key] = ['number' => (string) $amendment->ADT, 'process' => trim((string) $amendment->Proc_ADT)];
                 $amendmentEnds[$key] = $amendment->FINAL;
@@ -65,7 +68,15 @@ class AtaReportQuery
             if ($numberYear !== null && $numberYear <= $currentYear) {
                 $years->push($numberYear);
             }
-            $end = $amendmentEnds[$key.'|'.trim($row->PROCESSO)] ?? $row->FINAL_ATA;
+            $amendmentKey = $key.'|'.trim($row->PROCESSO);
+            $end = $amendmentEnds[$amendmentKey] ?? $row->FINAL_ATA;
+            $basis = json_decode($row->validity_basis ?? '', true);
+            $nativeIds = array_column($basis['amendments'] ?? [], 'legacy_id');
+            $latest = $registered[end($nativeIds)] ?? null;
+            if ($latest !== null && $latest['key'] === $amendmentKey && $latest['end'] === $row->FINAL_ATA) {
+                $end = $row->FINAL_ATA;
+                $amendments[$amendmentKey] = ['number' => $latest['number'], 'process' => $latest['process']];
+            }
             $ends[$row->ID] = $end;
             if ($filters['report_current'] === '1' && ($row->INICIO_ATA === null || $end === null || $row->INICIO_ATA > $reference || $end <= $reference)) {
                 continue;

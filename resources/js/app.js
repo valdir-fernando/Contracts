@@ -20,6 +20,7 @@ import './guarantee-message';
 import './guarantee-percentage';
 import './contract-object';
 import './fund-heading';
+import './fit-field';
 import './contract-search';
 import './contract-area';
 import './field-help';
@@ -35,10 +36,12 @@ import './ata-contractor';
 import './ata-supplier-contacts';
 import './ata-lookup';
 import './ata-save';
+import './ata-delivery-orders';
 import './ata-admission';
 import './ata-special-quantity';
 import './ata-extract';
 import './ata-publication';
+import './ata-signed-document';
 import './ata-validity';
 import './ata-products';
 import { initializeDecimalFields } from './decimal-fields';
@@ -123,24 +126,43 @@ document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
     sync();
 });
 
-// Make wide registries discoverable and reachable with a keyboard.
+// Keep scrollable tables reachable with a keyboard.
 let tableHintId = 0;
+function limitVisibleTableRows(scroller) {
+    const table = scroller.querySelector('table');
+    const firstHiddenRow = table?.tBodies[0]?.rows[Number(scroller.dataset.visibleRows)];
+    if (!firstHiddenRow?.getClientRects().length) {
+        scroller.style.removeProperty('max-height');
+        return;
+    }
+
+    const visibleHeight = firstHiddenRow.getBoundingClientRect().top - table.getBoundingClientRect().top;
+    const horizontalScrollbar = scroller.offsetHeight - scroller.clientHeight;
+    scroller.style.maxHeight = `${Math.floor(visibleHeight) + horizontalScrollbar}px`;
+}
+
 const tableObserver = new ResizeObserver((entries) => {
     entries.forEach(({ target }) => {
         const scroller = target.matches('.table-scroll') ? target : target.closest('.table-scroll');
         if (!scroller) return;
-        const overflow = scroller.scrollWidth > scroller.clientWidth + 1;
+        const limitRows = scroller.hasAttribute('data-visible-rows');
+        if (limitRows) limitVisibleTableRows(scroller);
+        const horizontalOverflow = scroller.scrollWidth > scroller.clientWidth + 1;
+        const verticalOverflow = scroller.scrollHeight > scroller.clientHeight;
         const hint = scroller.previousElementSibling;
-        if (hint?.classList.contains('table-scroll-hint')) hint.hidden = !overflow;
-        if (overflow) {
+        if (hint?.classList.contains('table-scroll-hint')) hint.hidden = !horizontalOverflow;
+        if (horizontalOverflow || verticalOverflow) {
             scroller.tabIndex = 0;
             scroller.setAttribute('role', 'region');
-            scroller.setAttribute('aria-label', 'Tabela com rolagem horizontal');
-            if (hint) scroller.setAttribute('aria-describedby', hint.id);
+            if (!limitRows) scroller.setAttribute('aria-label', 'Tabela com rolagem horizontal');
+            if (horizontalOverflow && hint) scroller.setAttribute('aria-describedby', hint.id);
+            else scroller.removeAttribute('aria-describedby');
         } else {
             scroller.removeAttribute('tabindex');
-            scroller.removeAttribute('role');
-            scroller.removeAttribute('aria-label');
+            if (!limitRows) {
+                scroller.removeAttribute('role');
+                scroller.removeAttribute('aria-label');
+            }
             scroller.removeAttribute('aria-describedby');
         }
     });
@@ -256,7 +278,7 @@ document.querySelectorAll('.nav-catalogs').forEach((group) => {
 });
 
 // Native dialogs provide focus containment and Escape without a custom focus trap.
-document.querySelectorAll('.catalog-modal').forEach((dialog) => {
+document.querySelectorAll('.catalog-modal:not([data-document-progress])').forEach((dialog) => {
     let opener;
     const open = (button) => {
         if (dialog.open) return;
@@ -273,6 +295,7 @@ document.querySelectorAll('.catalog-modal').forEach((dialog) => {
         button.addEventListener('click', () => dialog.close());
     });
     dialog.addEventListener('click', (event) => {
+        if (dialog.getAttribute('closedby') === 'none') return;
         const bounds = dialog.getBoundingClientRect();
         if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) dialog.close();
     });
@@ -346,17 +369,22 @@ document.querySelectorAll('input[type="date"]').forEach((input) => {
     button.setAttribute('aria-label', 'Abrir calendário');
     button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>';
     button.addEventListener('click', () => {
+        if (input.disabled) return;
         picker.value = brazilianDate(input.value) ?? '';
         if (typeof picker.showPicker === 'function') picker.showPicker();
         else { picker.focus(); picker.click(); }
     });
     picker.addEventListener('change', () => {
+        if (input.disabled) return;
         input.value = displayBrazilianDate(picker.value);
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
         input.focus();
     });
     control.append(button, picker);
+    const syncDisabled = () => { button.disabled = picker.disabled = input.disabled; };
+    new MutationObserver(syncDisabled).observe(input, { attributes: true, attributeFilter: ['disabled'] });
+    syncDisabled();
     validate();
 });
 document.querySelectorAll('form').forEach((form) => {

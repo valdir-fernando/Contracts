@@ -51,8 +51,17 @@ class AtaRegistrationTest extends TestCase
     private function input(array $extra = []): array
     {
         return array_replace(['draft_token' => app(AtaParticipants::class)->token($this->actor), 'version' => 0,
-            'managing_fund_id' => $this->fund, 'Data_ATA' => '2026-11-13', 'ata_process' => '123/2026',
+            'managing_fund_id' => $this->fund, 'Data_ATA' => '2026-11-13', 'Data_Orçamento' => '2026-10-20', 'ata_process' => '123/2026',
             'bidding' => 'Pregão', 'bidding_number' => '12/26', 'fornecedor_documento_snapshot' => '11.222.333/0001-81'], $extra);
+    }
+
+    public function test_a_new_ata_can_save_its_publication_date_and_is_locked_immediately(): void
+    {
+        $input = $this->input(['publication_date' => '2026-11-20']);
+        $created = $this->postJson(route('atas.store'), $input)->assertCreated()->json();
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $created['id'], 'DATA_PUBLIC_INPC' => '2026-11-20']);
+        $this->patchJson(route('atas.update', $created['id']), ['version' => 1, 'bidding_number' => '45/26'])->assertConflict();
+        $this->postJson(route('atas.store'), $input)->assertCreated()->assertExactJson($created);
     }
 
     public function test_created_ata_is_edited_without_reissuing_number_and_draft_retry_returns_the_edited_record(): void
@@ -82,6 +91,113 @@ class AtaRegistrationTest extends TestCase
         $this->assertLessThan(strpos($html, 'data-ata-validity'), strpos($html, 'name="ata_process"'));
         $this->assertStringNotContainsString('data-ata-validity-save-url', $html);
         $this->assertStringNotContainsString('Salvar Vigência/Publicação', $html);
+    }
+
+    public function test_delivery_authorization_opener_follows_products_in_new_ata(): void
+    {
+        $this->get(route('atas.create'))->assertOk()
+            ->assertSeeInOrder(['4. Produtos', '5. Aut. Entrega', '6. Aditivar ATA', '7. Cancelar ATA', 'Autorização de Entrega', 'Nº Pedido'])
+            ->assertSee('disabled :disabled="!loaded || busy" aria-haspopup="dialog" aria-controls="ata-amend-dialog"', false)
+            ->assertSee('id="ata-amend-dialog" class="catalog-modal contract-products-dialog"', false)
+            ->assertSee('aria-label="Fechar painel de aditivos"', false)
+            ->assertSeeInOrder(['id="ata-amend-dialog"', 'for="ata-amend-number">Nº Aditivo', 'id="ata-amend-number" type="text"', 'aria-label="Consultar aditivo"'], false)
+            ->assertSee('x-model="amendmentNumber"', false)
+            ->assertSeeInOrder(['id="ata-amend-number"', 'name="Data_ADT"', 'name="Proc_ADT"', 'name="Tipo_ADT"',
+                'name="INICIO"', 'name="FINAL"', 'name="Período"', 'ata-amend-actions', 'name="VL_Aditivo"', 'name="VL_Atualizado_ATA"',
+                'aria-label="Emissão de documentos do aditivo"', '<span>Aditivo</span>', '<span>Extrato</span>', '<span>Publicação</span>',
+                'class="product-actions-separator" role="separator" aria-orientation="vertical"', 'Salvar', 'Novo', 'Excluir'], false)
+            ->assertSee('list="ata-previous-amendments"', false)
+            ->assertSee('<datalist id="ata-previous-amendments">', false)
+            ->assertSee('@blur="lookupAmendment()"', false)
+            ->assertSee('title="Consultar aditivo" @click="lookupAmendment(true)"', false)
+            ->assertSeeInOrder(['x-model="amendmentFields.date"', 'x-model="amendmentFields.process"', 'x-model="amendmentFields.type"',
+                'x-model="amendmentFields.start"', 'x-model="amendmentFields.end"', 'x-model="amendmentFields.period"'], false)
+            ->assertSee('x-for="number in amendmentNumbers"', false)
+            ->assertSee('disabled :disabled="!loaded || busy">7. Cancelar ATA</button>', false)
+            ->assertSee('aria-controls="ata-delivery-dialog"', false)
+            ->assertSee('id="ata-delivery-dialog" class="catalog-modal contract-products-dialog"', false)
+            ->assertSee('x-ref="ataDeliveryNumber"', false)
+            ->assertSee('x-ref="ataDeliverySupplier"', false)
+            ->assertSee('class="modal-close" aria-label="Fechar autorização de entrega"', false)
+            ->assertSee('id="ata-delivery-order-number" type="text" maxlength="24"', false)
+            ->assertSee('aria-label="Consultar pedido"', false)
+            ->assertSeeInOrder(['ata-delivery-order-toolbar', 'data-order-lookup', 'aria-label="Consultar pedido"',
+                'class="primary-button ata-delivery-products-button">Consultar Produtos ATA</button>', 'data-order-status', 'data-delivery-product-list'], false)
+            ->assertSee('aria-label="Produtos do pedido"><tbody></tbody>', false)
+            ->assertDontSee('data-order-save', false)
+            ->assertDontSee('data-order-new', false)
+            ->assertDontSee('data-order-delete', false);
+    }
+
+    public function test_delivery_orders_use_a_shared_annual_sequence_and_lookup_is_scoped_to_the_ata(): void
+    {
+        $ata = $this->postJson(route('atas.store'), $this->input())->assertCreated()->json();
+        $other = $this->postJson(route('atas.store'), $this->input(['ata_process' => '124/2026']))->assertCreated()->json();
+        $store = fn (array $record) => route('atas.delivery-orders.store', ['ata' => $record['id']]);
+        $lookup = fn (array $record, string $number) => route('atas.delivery-orders.lookup', ['ata' => $record['id'], 'number' => $number]);
+        $input = ['version' => $ata['version'], 'request_id' => '123e4567-e89b-42d3-a456-426614174000', 'number' => '999/26'];
+
+        $this->postJson($store($ata), array_replace($input, ['version' => 99]))->assertConflict();
+        $this->postJson($store($ata), $input)->assertCreated()->assertExactJson(['number' => '001/26']);
+        $this->postJson($store($ata), $input)->assertCreated()->assertExactJson(['number' => '001/26']);
+        $this->postJson($store($other), $input)->assertCreated()->assertExactJson(['number' => '002/26']);
+        $this->getJson($lookup($other, '001/26'))->assertNotFound();
+        $this->getJson($lookup($ata, '001/26'))->assertOk()->assertExactJson(['number' => '001/26']);
+
+        $destroy = route('atas.delivery-orders.destroy', ['ata' => $ata['id']]);
+        $this->deleteJson($destroy, ['version' => 99, 'number' => '001/26'])->assertConflict();
+        $this->deleteJson($destroy, ['version' => $ata['version'], 'number' => '002/26'])->assertNotFound();
+        $this->deleteJson($destroy, ['version' => $ata['version'], 'number' => '001/26'])->assertNoContent();
+        $this->getJson($lookup($ata, '001/26'))->assertNotFound();
+        $this->postJson($store($ata), $input)->assertConflict();
+        $this->assertSoftDeleted('ata_delivery_orders', ['ata_id' => $ata['id'], 'number' => '001/26']);
+        $this->assertDatabaseHas('activity_events', ['action' => 'ata_delivery_order_removed']);
+        $this->postJson($store($ata), array_replace($input, ['request_id' => '123e4567-e89b-42d3-a456-426614174002']))
+            ->assertCreated()->assertExactJson(['number' => '003/26']);
+
+        $this->travelTo(now()->setDate(2027, 1, 1));
+        $this->postJson($store($ata), array_replace($input, ['request_id' => '123e4567-e89b-42d3-a456-426614174001']))
+            ->assertCreated()->assertExactJson(['number' => '001/27']);
+        $this->assertDatabaseCount('ata_delivery_orders', 4);
+        $this->assertSame(4, ActivityEvent::where('action', 'ata_delivery_order_created')->count());
+
+        $outsider = User::create(['name' => 'Sem escopo', 'username' => 'SEM-ESCOPO-PEDIDO', 'password' => 'SyntheticPassword123',
+            'user_type' => 'Operador'])->fresh();
+        $otherFund = DB::table('contract_funds')->insertGetId(['name' => 'Outro fundo', 'name_key' => 'OUTRO FUNDO', 'raw_payload' => '{}']);
+        $scope = AccessScope::create(['scope_key' => 'OTHER-DELIVERY-FUND', 'fund_id' => $otherFund, 'fund' => 'Outro fundo']);
+        $outsider->scopes()->attach($scope);
+        $this->actingAs($outsider)->withSession(['fund_id' => $otherFund]);
+        $this->getJson($lookup($ata, '001/26'))->assertForbidden();
+        $this->postJson($store($ata), $input)->assertForbidden();
+        $this->deleteJson($destroy, ['version' => $ata['version'], 'number' => '003/26'])->assertForbidden();
+    }
+
+    public function test_budget_date_is_required_and_available_after_saving_and_retained_after_removal(): void
+    {
+        $input = $this->input();
+        unset($input['Data_Orçamento']);
+        $this->postJson(route('atas.store'), $input)->assertUnprocessable()->assertJsonValidationErrors('Data_Orçamento');
+        $this->postJson(route('atas.store'), $this->input(['Data_Orçamento' => '2026-02-30']))
+            ->assertUnprocessable()->assertJsonValidationErrors('Data_Orçamento');
+        $this->get(route('atas.create'))->assertOk()
+            ->assertSeeInOrder(['Adicionar</button>', 'Data_Orçamento Estimado', 'id="ata-budget-date"', 'popovertarget="ata-budget-date-help"'], false)
+            ->assertSee('name="Data_Orçamento" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || publicationLocked" required', false)
+            ->assertSeeInOrder(['<select id="ata-amend-type"', '<option value="Prorrogação - Saldo Positivo">',
+                '<option value="Prorrogação/Quantitativo - Igual Período e Valor">',
+                '<option value="Prorrogação/Quantitativo/Reajuste Anual INDICE" disabled>',
+                '<option value="Prorrogação/Quantitativo/Reajuste Reequilibrio" disabled>',
+                '<option value="Apenas Reequilibrio - Saldo Positivo" disabled>',
+                '<option value="Apostilamento/Reajuste Anual INDICE" disabled>',
+                '<option value="Troca de marca ou modelo do produto registrado" disabled>',
+                '<option value="Alteração subjetiva (mudança no fornecedor)" disabled>'], false)
+            ->assertDontSee('Inclusão ou exclusão de órgãos participantes (Remanejamento)')
+            ->assertDontSee('<option value="Redução do preço da Ata (Revisão)">', false);
+        $created = $this->postJson(route('atas.store'), $this->input())->assertCreated()->json();
+        $this->getJson(route('atas.lookup', ['number' => $created['number']]))->assertOk()->assertJsonPath('budget_date', '2026-10-20');
+        $this->assertSame('2026-10-20', ActivityEvent::where('action', 'ata_created')->sole()->metadata['after']['DATA_ORCAMENTO']);
+        $this->deleteJson(route('atas.destroy', $created['id']), ['version' => $created['version']])->assertOk();
+        $this->assertSoftDeleted('tb_ATA', ['ID' => $created['id'], 'DATA_ORCAMENTO' => '2026-10-20']);
+        $this->assertSame('2026-10-20', ActivityEvent::where('action', 'ata_deleted')->sole()->metadata['before']['DATA_ORCAMENTO']);
     }
 
     public function test_invalid_manual_validity_dates_do_not_create_ata_or_consume_number(): void
@@ -173,7 +289,7 @@ class AtaRegistrationTest extends TestCase
 
     public function test_missing_general_fields_or_stale_draft_do_not_consume_a_number(): void
     {
-        foreach (['managing_fund_id', 'Data_ATA', 'ata_process', 'bidding', 'bidding_number', 'fornecedor_documento_snapshot'] as $field) {
+        foreach (['managing_fund_id', 'Data_ATA', 'Data_Orçamento', 'ata_process', 'bidding', 'bidding_number', 'fornecedor_documento_snapshot'] as $field) {
             $this->postJson(route('atas.store'), $this->input([$field => ' ']))->assertUnprocessable()->assertJsonValidationErrors($field);
         }
         $this->postJson(route('atas.store'), $this->input(['version' => 1]))->assertConflict();

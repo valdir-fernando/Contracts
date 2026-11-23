@@ -26,7 +26,7 @@ function paint(card, state) {
     card.setAttribute('aria-busy', String(busy));
     card.dataset.state = state.status;
     card.querySelector('[data-report-message]').textContent = messages[state.status] ?? messages.failed;
-    card.querySelector('[data-report-spinner]').hidden = !busy;
+    card.querySelector('[data-report-progress]').hidden = !busy;
     const link = card.querySelector('[data-report-download]');
     link.hidden = !state.download_url || state.status !== 'ready';
     if (!link.hidden) link.href = state.download_url;

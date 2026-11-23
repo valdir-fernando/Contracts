@@ -15,6 +15,7 @@
     <p><strong>{{ $fields['fund'] }}</strong></p>
     <p><strong>ADM</strong>: {{ $fields['administration'] }}</p>
     <p><strong><u>EXTRATO DA ATA {{ $fields['number'] }}</u></strong></p>
+    <p><strong>Gestor:</strong> {{ $fields['manager'] }}{{ $fields['position'] !== '' ? ', '.$fields['position'] : '' }} ({{ $fields['manager_identification'] }})</p>
     <p><strong>Processo/Licitação</strong>: {{ $fields['process'] ?: 'Não informado' }} - {{ $fields['bidding'] }} nº. {{ $fields['bidding_number'] ?: 'Não informado' }}</p>
     <p><strong>Fornecedor</strong>: {{ $fields['supplier_document'] }}<strong>- {{ $fields['supplier'] }}</strong></p>
     <div class="gap"></div>
@@ -26,8 +27,8 @@
     <div class="gap"></div>
     <div class="signature">
         <p class="manager"><strong>{{ $fields['manager'] }}</strong></p>
-        <p>CPF: {{ $fields['manager_document'] }}</p>
-        <p class="position">{{ $fields['position'] }}</p>
+        <p>{{ $fields['manager_identification'] }}</p>
+        @if($fields['position'] !== '')<p class="position">{{ $fields['position'] }}</p>@endif
     </div>
 </body>
 </html>

@@ -7,11 +7,11 @@ export function initializeAtaValidity(root, confirm = confirmSystemMessage) {
     if (!panel) return;
     const field = name => panel.querySelector(`[name="${name}"]`);
     const start = field('start_date'), end = field('end_date'), period = field('validity_period'), mode = field('one_year_inpc');
-    const publicationField = panel.querySelector('[data-ata-publication-field]');
     const publication = field('publication_date');
     const inpcNotice = panel.querySelector('[data-ata-inpc-notice]');
     const values = () => ({ start_date: start.value ? isoDate(start.value) : null, end_date: end.value ? isoDate(end.value) : null,
-        validity_period: period.value.trim() || null, one_year_inpc: mode.checked });
+        validity_period: period.value.trim() || null, one_year_inpc: mode.checked,
+        publication_date: publication?.value ? isoDate(publication.value) : null });
     let baseline = JSON.stringify(values());
     let savedPeriod = '';
     let generatedDates = false;
@@ -24,7 +24,7 @@ export function initializeAtaValidity(root, confirm = confirmSystemMessage) {
         if (inpcNotice) inpcNotice.hidden = !mode.checked;
         [start, end].forEach(input => {
             input.dataset.validityDisabled = String(mode.checked);
-            input.disabled = mode.checked || root.dataset.editorBusy === 'true';
+            input.disabled = mode.checked || root.dataset.editorBusy === 'true' || root.dataset.ataPublicationLocked === 'true';
             input.parentElement?.querySelectorAll('.date-picker-button, .date-native-picker').forEach(control => { control.disabled = input.disabled; });
         });
     };
@@ -34,7 +34,7 @@ export function initializeAtaValidity(root, confirm = confirmSystemMessage) {
         input.setCustomValidity?.('');
     };
     const calculateDates = () => {
-        if (!mode.checked) return;
+        if (!mode.checked) { dirty(); return; }
         const dates = ataPublicationDates(publication?.value ?? '');
         if (dates) {
             date(start, dates.start_date); date(end, dates.end_date);
@@ -82,9 +82,11 @@ export function initializeAtaValidity(root, confirm = confirmSystemMessage) {
     const load = data => {
         modeRevision++;
         setGeneratedDates(false);
-        if (publicationField) field('publication_date').value = '';
+        if (publication) date(publication, data.publication_date);
         savedPeriod = data.validity_period ?? '';
         date(start, data.start_date); date(end, data.end_date);
+        if (data.end_date_derived) root.dataset.ataDerivedEndDate = data.end_date ?? '';
+        else delete root.dataset.ataDerivedEndDate;
         mode.checked = data.one_year_inpc === true;
         period.value = mode.checked ? '1 Ano INPC' : savedPeriod;
         applyMode();

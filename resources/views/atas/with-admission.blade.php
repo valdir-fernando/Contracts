@@ -55,7 +55,7 @@
 <h1 class="center"><strong>ATA DE REGISTRO DE PREÇOS Nº {{ $fields['number'] }}</strong></h1>
 <p class="spaced left"><strong>{{ $fields['bidding'] }}</strong> {{ $fields['bidding_number'] }}</p>
 <p class="left"><strong>PROCESSO ADMINISTRATIVO N.</strong> {{ $fields['process'] }}</p>
-<p class="spaced">O <strong>{{ $fields['fund'] }}</strong>, pessoa jurídica de direito público interno, inscrita no CNPJ nº. {{ $fields['fund_document'] }}, com endereço na {{ $fields['fund_address'] }}, neste ato representado pelo(a) {{ $fields['position'] }}, Senhor(a) <strong>{{ $fields['manager'] }}</strong>, nomeado(a) pelo Decreto Municipal nº {{ $fields['decree'] }}, Matrícula Funcional nº {{ $fields['manager_registration'] }}, portador(a) do CPF nº. {{ $fields['manager_document'] }}, residente e domiciliado nesta cidade, considerando o julgamento da licitação na modalidade de {{ $fields['bidding'] }}, para <strong>REGISTRO DE PREÇOS</strong> nº {{ $fields['number'] }}, Processo Administrativo n.º {{ $fields['process'] }}, <strong>RESOLVE</strong>, registrar os preços da empresa indicada e qualificada nesta ATA, de acordo com a classificação por ela alcançada e nas quantidades cotadas, atendendo as condições previstas no Edital de licitação, sujeitando-se as partes às normas constantes na Lei nº 14.133, de 1º de abril de 2021, no Decreto n.º 11.462, de 31 de março de 2023, Decreto Municipal 107 de 30 de março de 2023 e, em conformidade com as disposições a seguir:</p>
+<p class="spaced">O <strong>{{ $fields['fund'] }}</strong>, pessoa jurídica de direito público interno, inscrita no CNPJ nº. {{ $fields['fund_document'] }}, com endereço na {{ $fields['fund_address'] }}, neste ato representado por <strong>{{ $fields['manager'] }}</strong>{{ $fields['position'] !== '' ? ', '.$fields['position'] : '' }} ({{ $fields['manager_identification'] }}), residente e domiciliado nesta cidade, considerando o julgamento da licitação na modalidade de {{ $fields['bidding'] }}, para <strong>REGISTRO DE PREÇOS</strong> nº {{ $fields['number'] }}, Processo Administrativo n.º {{ $fields['process'] }}, <strong>RESOLVE</strong>, registrar os preços da empresa indicada e qualificada nesta ATA, de acordo com a classificação por ela alcançada e nas quantidades cotadas, atendendo as condições previstas no Edital de licitação, sujeitando-se as partes às normas constantes na Lei nº 14.133, de 1º de abril de 2021, no Decreto n.º 11.462, de 31 de março de 2023, Decreto Municipal 107 de 30 de março de 2023 e, em conformidade com as disposições a seguir:</p>
 <h2 class="spaced"><strong>1. DO OBJETO</strong></h2>
 <p class="spaced"><strong>1.1</strong> - A presente Ata tem por objeto o Registro de Preços para futura e eventual aquisição de {{ $fields['object'] }}, conforme as quantidades, especificações, obrigações e demais condições expressas no Termo de Referência, que é parte integrante desta Ata, assim como a proposta vencedora, independentemente de transcrição.</p>
 <h2 class="spaced"><strong>2. PREÇOS, ESPECIFICAÇÕES E QUANTITATIVOS</strong></h2>
@@ -65,59 +65,7 @@
 @else
 <p class="spaced supplier">FORNECEDOR: <strong>{{ $fields['supplier'] }}</strong>, com sede na {{ $fields['supplier_address'] }}, inscrita no CNPJ/MF sob o nº {{ $fields['supplier_document'] }}, e-mail: {{ $fields['supplier_email'] }}, telefone para contato nº {{ $fields['supplier_phone'] }}, neste ato representada por seu sócio proprietário, Sr(a). <strong>{{ $fields['representative'] }}</strong>, RG nº {{ $fields['representative_rg'] }}, CPF nº {{ $fields['representative_cpf'] }}.</p>
 @endif
-@if(($fields['presentation']['products_layout'] ?? 'continuous') === 'parallel')
-    @forelse($fields['products'] as $product)
-        <table class="products parallel-item{{ $loop->first ? ' parallel-first' : '' }}">
-            <thead><tr>
-                <th style="width: 7%">Item</th><th style="width: 10%">Código</th><th style="width: 10%">UND</th>
-                @if($fields['special_quantity_name'] !== '')
-                    <th style="width: 11%">{{ $fields['special_quantity_name'] }}</th>
-                @endif
-                <th style="width: 12%">QTD</th><th>Marca</th>
-                <th style="width: 15%">VL. Unitário</th><th style="width: 16%">VL. Total</th>
-            </tr></thead>
-            <tbody>
-                <tr class="item-values">
-                    <td class="center">{{ $product['item'] }}</td><td class="center">{{ $product['code'] }}</td><td class="center">{{ $product['unit'] }}</td>
-                    @if($fields['special_quantity_name'] !== '')
-                        <td class="center">{{ $product['special_quantity'] }}</td>
-                    @endif
-                    <td class="center">{{ $product['quantity'] }}</td><td class="center">{{ $product['brand'] }}</td>
-                    <td class="number">{{ $product['unit_price'] }}</td><td class="number">{{ $product['total'] }}</td>
-                </tr>
-                <tr><td class="description" colspan="{{ $fields['special_quantity_name'] !== '' ? 8 : 7 }}">{{ $product['description'] }}</td></tr>
-            </tbody>
-        </table>
-    @empty
-        <p class="spaced">Nenhum produto registrado.</p>
-    @endforelse
-@else
-<table class="products">
-    <thead>
-        <tr>
-            <th style="width: 6%">Item</th><th style="width: 8%">Código</th><th>Produto</th><th style="width: 6%">UND</th>
-            @if($fields['special_quantity_name'] !== '')
-                <th style="width: 11%">{{ $fields['special_quantity_name'] }}</th>
-            @endif
-            <th style="width: 10%">QTD</th><th style="width: 10%">Marca</th><th style="width: 13%">VL. Unitário</th><th style="width: 13%">VL. Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        @forelse($fields['products'] as $product)
-            <tr>
-                <td class="center">{{ $product['item'] }}</td><td class="center">{{ $product['code'] }}</td><td>{{ $product['description'] }}</td><td class="center">{{ $product['unit'] }}</td>
-                @if($fields['special_quantity_name'] !== '')
-                    <td class="center">{{ $product['special_quantity'] }}</td>
-                @endif
-                <td class="center">{{ $product['quantity'] }}</td><td class="center">{{ $product['brand'] }}</td>
-                <td class="number">{{ $product['unit_price'] }}</td><td class="number">{{ $product['total'] }}</td>
-            </tr>
-        @empty
-            <tr><td colspan="{{ $fields['special_quantity_name'] !== '' ? 9 : 8 }}">Nenhum produto registrado.</td></tr>
-        @endforelse
-    </tbody>
-</table>
-@endif
+@include('atas.document-products')
 <p class="spaced"><strong>2.2</strong> - A listagem do cadastro de reserva referente ao presente registro de preços consta como anexo a esta Ata. (CASO TENHA INTERESSADO).</p>
 <h2 class="spaced"><strong>3. ÓRGÃO(S) GERENCIADOR E PARTICIPANTE(S)</strong></h2>
 <p class="spaced"><strong>3.1</strong> - O órgão gerenciador será o {{ $fields['fund'] }}.</p>
@@ -239,7 +187,7 @@
 <p class="center signature-line">___________________________________</p>
 <p class="center"><strong>{{ $fields['fund'] }}</strong></p>
 <p class="center"><strong>{{ $fields['manager'] }}</strong></p>
-<p class="center"><strong>CPF:</strong> {{ $fields['manager_document'] }}</p>
+<p class="center">{{ $fields['manager_identification'] }}</p>
 </td><td>
 <p class="center"><strong>DETENTOR(A)</strong></p>
 <p class="center signature-line">___________________________________</p>

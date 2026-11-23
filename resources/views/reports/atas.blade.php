@@ -17,7 +17,7 @@
                     </select>
                 </label>
             @endforeach
-            <a class="secondary-button compact report-pdf-button" href="{{ route('reports.atas.pdf', $filters) }}"><x-nav-icon name="printer"/>Gerar PDF</a>
+            <a class="secondary-button compact report-pdf-button" data-document-pdf href="{{ route('reports.atas.pdf', $filters) }}"><x-nav-icon name="printer"/>Gerar PDF</a>
             <noscript><button class="secondary-button compact">Aplicar</button></noscript>
         </form>
     </div>

@@ -6,6 +6,8 @@ final class AtaWithAdmissionTemplate extends AtaExtractTemplate
 {
     private const VIEW = 'views/atas/with-admission.blade.php';
 
+    public const PRODUCTS_VIEW = 'views/atas/document-products.blade.php';
+
     private const HEADER = 'documents/atas/with-admission-header.png';
 
     private const FOOTER = 'documents/atas/with-admission-footer.png';
@@ -14,7 +16,7 @@ final class AtaWithAdmissionTemplate extends AtaExtractTemplate
     {
         return hash('sha256', implode('', array_map(
             fn ($path) => hash_file('sha256', resource_path($path)),
-            [self::VIEW, self::HEADER, self::FOOTER],
+            [self::VIEW, self::HEADER, self::FOOTER, self::PRODUCTS_VIEW],
         )));
     }
 

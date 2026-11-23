@@ -28,6 +28,7 @@ final class RemoveAtaProduct
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             if (array_key_exists('product_ids', $input)) {
                 return $this->removeSelected($actor, $ata, $input);
             }

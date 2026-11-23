@@ -35,6 +35,7 @@ class AtaWithAdmissionTest extends TestCase
             'ATA' => '002/2025', 'PROCESSO' => 'PROC-TESTE', 'DATA_ATA' => '2025-06-02', 'LICITACAO' => 'Pregão Eletrônico',
             'N_LICIT' => '001/25', 'FUNDO' => 'Fundo Gerenciador', 'CNPJ_FUNDO' => '04252011000110',
             'ADMITIR_ADESAO' => 'SIM', 'OBJETO DA ATA' => 'Materiais de teste', 'PERIODO_ATA' => 'Doze meses',
+            'GESTOR' => 'Gestor de teste', 'CPF_GESTOR' => '52998224725',
             'INICIO_ATA' => '2025-06-03', 'FINAL_ATA' => '2026-06-02', 'source_files' => '[]',
             'quality_issues' => '[]', 'import_hash' => str_repeat('c', 64), 'version' => 1,
         ], 'ID');
@@ -44,7 +45,7 @@ class AtaWithAdmissionTest extends TestCase
     public function test_saved_fields_products_participants_and_manual_period_are_projected_into_the_model(): void
     {
         $this->updateAta(['QTD_ESPECIAL_NOME' => 'QTD Rural', 'FORNECEDOR' => '<Fornecedor teste>', 'CNPJ_FORNECEDOR' => '11222333000181',
-            'END_FUNDO' => 'Rua do Fundo', 'MATRICULA_GESTOR' => '1234', 'SOCIO' => 'Representante teste']);
+            'END_FUNDO' => 'Rua do Fundo', 'CPF_GESTOR' => null, 'MATRICULA_GESTOR' => '1234', 'SOCIO' => 'Representante teste']);
         $this->participant('Gerenciador duplicado', '04.252.011/0001-10');
         $this->participant('Fundo participante', '11222333000181');
         $this->participant('Fundo removido', '19131243000197', ['deleted_at' => now()]);
@@ -248,6 +249,61 @@ class AtaWithAdmissionTest extends TestCase
             Event::forget('eloquent.creating: '.ActivityEvent::class);
         }
         $this->assertDatabaseCount('activity_events', 0);
+    }
+
+    public function test_new_ata_document_buttons_are_linked_to_their_tooltips(): void
+    {
+        $html = $this->get(route('atas.create'))->assertOk()->getContent();
+        $document = new DOMDocument;
+        $document->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new DOMXPath($document);
+
+        foreach ([
+            'ata' => 'Emite Ata de Registro de Preços',
+            'extract' => 'Emite Extrato da ATA',
+            'publication' => 'Emite Extrato para Publicação da ATA',
+        ] as $action => $description) {
+            $button = '//*[@id="ata-summary-document-actions"]/button[@data-ata-document="'.$action.'"]';
+            $tooltip = $button.'/span[@role="tooltip" and @id = ../@aria-describedby]';
+            $this->assertSame($description, $xpath->evaluate('string('.$tooltip.')'));
+        }
+    }
+
+    public function test_manager_identification_uses_the_first_eligible_document_in_the_opening_and_signature(): void
+    {
+        $this->updateAta(['DECRETO_GESTOR' => 'Decreto Municipal nº 12/2025', 'CARGO_GESTOR' => 'Gestor do Fundo',
+            'MATRICULA_GESTOR' => 'MAT-1234', 'RG_GESTOR' => 'RG-5678']);
+        $renderer = $this->renderer();
+
+        foreach ([
+            [[], 'CPF: 529.982.247-25', ['12/2025', 'MAT-1234', 'RG-5678']],
+            [['CPF_GESTOR' => null], 'Decreto Municipal: 12/2025', ['MAT-1234', 'RG-5678']],
+            [['CARGO_GESTOR' => '  '], 'Matrícula Funcional: MAT-1234', ['12/2025', 'RG-5678']],
+            [['MATRICULA_GESTOR' => null], 'RG: RG-5678', ['12/2025', 'MAT-1234']],
+        ] as [$fields, $identification, $excluded]) {
+            if ($fields !== []) {
+                $this->updateAta($fields);
+            }
+            $this->issue()->assertOk();
+            $this->assertSame(2, substr_count($renderer->html, $identification), $identification);
+            foreach ($excluded as $value) {
+                $this->assertStringNotContainsString($value, $renderer->html);
+            }
+        }
+    }
+
+    public function test_all_ata_documents_refuse_issuance_without_eligible_manager_identification(): void
+    {
+        $this->updateAta(['CPF_GESTOR' => null, 'DECRETO_GESTOR' => '12/2025', 'CARGO_GESTOR' => null]);
+
+        foreach (['document', 'extract', 'publication'] as $action) {
+            $this->getJson(route('atas.'.$action, ['ata' => $this->ata, 'version' => 1]))
+                ->assertUnprocessable()->assertJsonValidationErrors('manager_document');
+        }
+
+        foreach (['ata_with_admission_generated', 'ata_extract_generated', 'ata_publication_generated'] as $action) {
+            $this->assertDatabaseMissing('activity_events', ['action' => $action]);
+        }
     }
 
     public function test_header_order_and_word_emphasis_are_preserved(): void

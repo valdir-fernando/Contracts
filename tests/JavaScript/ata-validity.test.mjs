@@ -18,6 +18,27 @@ function fixture(loaded = true, confirm = async () => true) {
     return { root, fields, panel, publicationField, notice, confirmations };
 }
 
+test('the saved publication date is restored and published validity dates are locked', () => {
+    const ui = fixture();
+    ui.root.dataset.ataPublicationLocked = 'true';
+    ui.root.listeners['ata-loaded']({ detail: { publication_date: '2026-11-20' } });
+    assert.equal(ui.fields.publication_date.value, '2026-11-20');
+    assert.equal(ui.fields.start_date.disabled, true);
+    assert.equal(ui.fields.end_date.disabled, true);
+    assert.equal(ui.root.dataset.ataValidityDirty, 'false');
+});
+
+test('the projected original end is displayed and its derived marker is cleared when switching ATAs', () => {
+    const ui = fixture();
+    ui.fields.end_date.type = 'text';
+    ui.root.listeners['ata-loaded']({ detail: { end_date: '2026-06-02', end_date_derived: true } });
+    assert.equal(ui.fields.end_date.value, '02/06/2026');
+    assert.equal(ui.root.dataset.ataDerivedEndDate, '2026-06-02');
+    ui.root.listeners['ata-loaded']({ detail: { end_date: '2027-01-01' } });
+    assert.equal(ui.fields.end_date.value, '01/01/2027');
+    assert.equal(ui.root.dataset.ataDerivedEndDate, undefined);
+});
+
 test('INPC clears and locks draft dates and their calendars after confirmation while publication stays visible', async () => {
     const ui = fixture(false);
     const calendars = [{ disabled: false }, { disabled: false }];

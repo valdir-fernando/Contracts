@@ -1,3 +1,6 @@
+import { deliverGeneratedPdf } from './document-delivery.js';
+import { startDocumentProgress } from './document-progress.js';
+
 export function contractExtractValues(form) {
     return JSON.stringify([...form.elements].filter((field) => field.name && !field.disabled
         && !['_token', '_method', 'version', 'reason'].includes(field.name))
@@ -34,41 +37,30 @@ function initializeContractPdf(button, urlAttribute, documentName, openPdf) {
         const url = new URL(button.dataset[urlAttribute], form.ownerDocument.baseURI);
         url.searchParams.set('version', form.elements.namedItem('version').value);
         button.disabled = true;
+        const finish = startDocumentProgress(form.ownerDocument);
         try {
             const opening = openPdf(url.href);
             if (opening?.then) await opening;
         } catch (error) {
+            finish();
             showError(error.message || 'Não foi possível emitir o documento. Tente novamente.');
         } finally {
+            finish();
             button.disabled = false;
         }
     });
 }
 
-export function initializeContractExtract(button, openPdf = (url) => window.open(url, '_blank', 'noopener')) {
+export function initializeContractExtract(button, openPdf = (url) => deliverGeneratedPdf(url, { fallback: 'extrato.pdf' })) {
     initializeContractPdf(button, 'extractUrl', 'o extrato', openPdf);
 }
 
-export function initializeContractPublication(button, openPdf = (url) => window.open(url, '_blank', 'noopener')) {
+export function initializeContractPublication(button, openPdf = (url) => deliverGeneratedPdf(url, { fallback: 'publicacao.pdf' })) {
     initializeContractPdf(button, 'publicationUrl', 'a publica\u00E7\u00E3o', openPdf);
 }
 
 export async function openContractDocument(url, fetcher = fetch, browser = window) {
-    const response = await fetcher(url, { headers: { Accept: 'application/json' } });
-    if (!response.ok || !response.headers.get('Content-Type')?.includes('application/pdf')) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || 'Não foi possível emitir o contrato. Confira sua sessão e tente novamente.');
-    }
-    const objectUrl = URL.createObjectURL(await response.blob());
-    const tab = browser.open(objectUrl, '_blank');
-    if (tab) tab.opener = null;
-    else {
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = 'contrato.pdf';
-        link.click();
-    }
-    browser.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    await deliverGeneratedPdf(url, { fetcher, browser, fallback: 'contrato.pdf' });
 }
 
 export function initializeContractDocument(button, openPdf = openContractDocument) {

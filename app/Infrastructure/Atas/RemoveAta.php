@@ -26,6 +26,7 @@ final class RemoveAta
             } else {
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
+            $this->policy->ensureEditable($ata);
             $data = Validator::make($input, ['version' => 'required|integer|min:1'])->validate();
             abort_if((int) $data['version'] !== (int) $ata->version, 409, 'A ata foi alterada. Consulte novamente antes de excluir.');
             $now = now();
