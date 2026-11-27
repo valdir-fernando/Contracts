@@ -71,17 +71,19 @@ class AtaController extends Controller
     public function amendmentDocument(Request $request, int $ata, int $amendment, AtaAmendmentWord $document)
     {
         $data = $request->validate(['version' => 'required|integer|min:1', 'products_layout' => 'sometimes|required|in:continuous,parallel',
-            'format' => 'sometimes|required|in:pdf,docx']);
+            'format' => 'sometimes|required|in:pdf,docx', 'instrument' => 'sometimes|required|in:apostille,amendment']);
         $format = $data['format'] ?? 'docx';
+        $apostille = ($data['instrument'] ?? null) === 'apostille';
         $renderer = $format === 'pdf' ? resolve(AtaAmendmentPdf::class) : $document;
-        $issued = $renderer->generateForAmendment($request->user(), $ata, (int) $data['version'], $amendment, $data['products_layout'] ?? 'continuous');
+        $issued = $renderer->generateForAmendment($request->user(), $ata, (int) $data['version'], $amendment, $data['products_layout'] ?? 'continuous', $apostille);
         $part = static fn (string $value, int $limit) => trim(mb_strcut(preg_replace('/[^\p{L}\p{M}\p{N}-]+/u', '_', $value), 0, $limit, 'UTF-8'), '_');
         $supplier = $part($issued['supplier'], 160) ?: 'Fornecedor';
         $number = $part(preg_replace('~\s*/\s*~', '-', $issued['number']), 40) ?: (string) $ata;
         $ordinal = str_pad((string) $amendment, 3, '0', STR_PAD_LEFT);
         $suffix = "_ATA_{$number}.{$format}";
-        $filename = "ADT_{$ordinal}_{$supplier}".$suffix;
-        $fallback = "ADT_{$ordinal}_".($part(Str::ascii($supplier), 160) ?: 'Fornecedor').$suffix;
+        $prefix = ($apostille ? 'APOST' : 'ADT').'_'.$ordinal.'_';
+        $filename = $prefix.$supplier.$suffix;
+        $fallback = $prefix.($part(Str::ascii($supplier), 160) ?: 'Fornecedor').$suffix;
 
         return response($issued['bytes'], 200, ['Content-Type' => $format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',

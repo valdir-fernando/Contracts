@@ -30,9 +30,9 @@ class AtaAmendmentProductsTest extends TestCase
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 1);
         $this->assertDatabaseCount('activity_events', 0);
         $this->assertSame(1, $service->run('/unused', true)['inserted_products']);
-        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ATA' => $ata, 'ID_ADITIVO' => $aditivo, 'ITEM' => '1',
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ATA' => $ata, 'amendment_id' => $aditivo, 'ITEM' => '1',
             'ADITIVO' => 1, 'DATA_ADT' => '2026-06-11', 'PROC_ADT' => '2026000002', 'VL_TOTAL' => '10.0000']);
-        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ADITIVO' => null, 'ADITIVO' => 0, 'DATA_ADT' => null, 'PROC_ADT' => null]);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['amendment_id' => null, 'ADITIVO' => 0, 'DATA_ADT' => null, 'PROC_ADT' => null]);
         $this->assertSame(1, $service->run('/unused', true)['existing_products']);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 2);
         $this->assertDatabaseCount('activity_events', 1);
@@ -48,13 +48,13 @@ class AtaAmendmentProductsTest extends TestCase
         $aditivo = $this->amendment();
         $service = $this->service();
         $this->assertSame(1, $service->run('/unused', true)['without_original_ata']);
-        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ATA' => null, 'ID_ADITIVO' => $aditivo, 'ATA' => '007/2025']);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ATA' => null, 'amendment_id' => $aditivo, 'ATA' => '007/2025']);
         $ata = $this->ata();
-        DB::table('tb_ADITIVOS_ATA')->where('ID', $aditivo)->update(['ID_ATA' => $ata, 'link_status' => 'vinculado']);
+        DB::table('tb_ADT_ATA')->where('ID', $aditivo)->update(['ID_ATA' => $ata, 'link_status' => 'vinculado']);
         $result = $service->run('/unused', true);
         $this->assertSame(1, $result['linked_products']);
         $this->assertSame(0, $result['inserted_products']);
-        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ADITIVO' => $aditivo, 'ID_ATA' => $ata]);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['amendment_id' => $aditivo, 'ID_ATA' => $ata]);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 1);
         $this->assertDatabaseCount('activity_events', 2);
     }
@@ -72,7 +72,7 @@ class AtaAmendmentProductsTest extends TestCase
             ActivityEvent::flushEventListeners();
         }
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
-        $this->assertNull(DB::table('tb_ADITIVOS_ATA')->value('products_import'));
+        $this->assertNull(DB::table('tb_ADT_ATA')->value('products_import'));
     }
 
     public function test_edited_amendment_product_is_never_overwritten(): void
@@ -225,8 +225,8 @@ class AtaAmendmentProductsTest extends TestCase
 
     private function amendment(?int $ata = null): int
     {
-        return DB::table('tb_ADITIVOS_ATA')->insertGetId(['ID_ATA' => $ata, 'ATA' => '007/2025', 'NUMERO' => 1,
-            'PROCESSO_ORIGEM' => '2025000001', 'PROCESSO_ADITIVO' => '2026000002', 'N_LICIT' => '001/2025',
+        return DB::table('tb_ADT_ATA')->insertGetId(['ID_ATA' => $ata, 'ATA' => '007/2025', 'ADT' => 1,
+            'Proc_ATA' => '2025000001', 'Proc_ADT' => '2026000002', 'N_LICIT' => '001/2025',
             'source_path' => 'aditivo.pdf', 'source_sha256' => str_repeat('a', 64), 'source_size' => 100, 'extraction' => 'pdf_text',
             'link_status' => $ata ? 'vinculado' : 'ata_ausente', 'issues' => '[]'], 'ID');
     }

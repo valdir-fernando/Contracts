@@ -37,13 +37,17 @@
             </div>
         </div>
     </x-slot:contractSummary>
+    @php($variablePeriodType = \App\Infrastructure\Atas\SaveAtaAmendment::VARIABLE_QUANTITY)
+    @php($annualIndexType = \App\Infrastructure\Atas\SaveAtaAmendment::ANNUAL_INDEX)
+    @php($apostilleAnnualIndexType = \App\Infrastructure\Atas\SaveAtaAmendment::APOSTILLE)
     @php($amendmentTypes = [
         \App\Infrastructure\Atas\SaveAtaAmendment::EXTENSION,
         \App\Infrastructure\Atas\SaveAtaAmendment::EQUAL_QUANTITY,
-        'Prorrogação/Quantitativo/Reajuste Anual INDICE',
+        $variablePeriodType,
+        $annualIndexType,
         'Prorrogação/Quantitativo/Reajuste Reequilibrio',
         'Apenas Reequilibrio - Saldo Positivo',
-        'Apostilamento/Reajuste Anual INDICE',
+        $apostilleAnnualIndexType,
         'Troca de marca ou modelo do produto registrado',
         'Alteração subjetiva (mudança no fornecedor)',
     ])
@@ -62,37 +66,65 @@
         amendmentExcludedProducts: [],
         showAllAmendmentProducts: false,
         amendmentBalanceLineTotals: {},
+        amendmentAdjustedPrices: {},
+        amendmentManualPrices: {},
+        amendmentBalanceTotal: '0,0000',
         amendmentBaseTotal: '',
         amendmentSpecialQuantity: '',
         amendmentUpdatedTotal: '',
+        amendmentBudgetDate: '',
+        amendmentAnnualIndexType: '',
         amendmentMaximumEnd: '',
         amendmentOpen: false,
         amendmentFields: { type: '' },
         amendmentTypes: @js($amendmentTypes),
-        historicalAmendmentType: '',
+        variablePeriodType: @js($variablePeriodType),
+        amendmentTypeCopyStatus: '',
         amendmentLookupNumber: '',
+        amendmentLookupApostille: false,
+        apostilleNumbers: [],
+        apostilles: {},
+        apostilleSignedDocuments: {},
+        get isApostille() {
+            return this.amendmentFields.type === @js($apostilleAnnualIndexType);
+        },
+        get currentAmendments() {
+            return this.isApostille ? this.apostilles : this.amendments;
+        },
+        get currentAmendmentNumbers() {
+            return this.isApostille ? this.apostilleNumbers : this.amendmentNumbers;
+        },
+        get currentAmendmentDocuments() {
+            return this.isApostille ? this.apostilleSignedDocuments : this.amendmentSignedDocuments;
+        },
         get showAmendmentQuantities() {
             return this.amendmentFields.type === @js(\App\Infrastructure\Atas\SaveAtaAmendment::EQUAL_QUANTITY);
         },
-        get editAmendmentBalanceQuantities() {
+        get limitAmendmentQuantitiesToOriginal() {
             return this.amendmentFields.type === @js(\App\Infrastructure\Atas\SaveAtaAmendment::EXTENSION);
+        },
+        get editAmendmentBalanceQuantities() {
+            return this.limitAmendmentQuantitiesToOriginal || this.amendmentFields.type === this.variablePeriodType || this.isAnnualIndexAmendment;
         },
         get amendmentDisplayedValue() {
             if (!this.amendmentOpen) return '';
-            if (this.editAmendmentBalanceQuantities) return '0,0000';
+            if (this.limitAmendmentQuantitiesToOriginal) return '0,0000';
+            if (this.editAmendmentBalanceQuantities) return this.amendmentBalanceTotal;
             return this.showAmendmentQuantities ? this.amendmentBaseTotal : '';
         },
         canEditAmendmentProduct(product) {
             return this.loaded && !this.busy && !this.publicationLocked && !product.balanceHistoryOnly;
         },
         get savedBalanceAmendment() {
-            const saved = this.amendments[this.amendmentLookupNumber];
+            if (this.amendmentLookupApostille !== this.isApostille) return null;
+            const saved = this.currentAmendments[this.amendmentLookupNumber];
             return this.editAmendmentBalanceQuantities && saved?.type === this.amendmentFields.type ? saved : null;
         },
         get amendmentProductRows() {
             if (!this.editAmendmentBalanceQuantities) return this.amendmentBaseProducts;
             const byId = new Map(this.amendmentBaseProducts.map(product => [String(product.id), product]));
-            for (const product of this.amendmentFields.balance_products || []) {
+            const snapshot = this.isAnnualIndexAmendment ? this.savedBalanceAmendment?.balance_products : this.amendmentFields.balance_products;
+            for (const product of snapshot || []) {
                 const id = String(product.id);
                 byId.set(id, { ...product, balanceHistoryOnly: !byId.has(id) });
             }
@@ -112,7 +144,9 @@
         get amendmentBalanceSubmission() {
             return Object.entries(this.amendmentBalanceQuantities)
                 .filter(([id, quantity]) => quantity?.trim() && !this.amendmentExcludedProducts.includes(id))
-                .map(([product_id, quantity]) => ({ product_id, quantity: quantity.trim() }));
+                .map(([product_id, quantity]) => ({ product_id, quantity: quantity.trim(),
+                    ...(this.isAnnualIndexAmendment ? { adjusted_unit_price: this.amendmentManualPrices[product_id]?.trim() || null } : {}),
+                }));
         },
         get amendmentBalanceQuantityWidth() {
             if (!this.editAmendmentBalanceQuantities) return 86;
@@ -123,43 +157,109 @@
             }, 86);
         },
         get requiresAmendmentAdvantage() {
-            return @js(\App\Infrastructure\Atas\SaveAtaAmendment::ADVANTAGE_TYPES).includes(this.amendmentFields.type);
+            return @js(\App\Infrastructure\Atas\SaveAtaAmendment::ADVANTAGE_TYPES).includes(this.amendmentFields.type)
+                && (!this.isAnnualIndexAmendment || this.requiresAnnualIndex);
+        },
+        get showsAmendmentAdvantage() {
+            return this.requiresAmendmentAdvantage || this.isAnnualIndexAmendment;
         },
         get removableAmendment() {
             const number = this.amendmentNumber.trim().replace(/^0+(?=[0-9])/, '');
-            return number === this.amendmentLookupNumber && number === String(this.amendmentNumbers[0]) ? number : '';
+            return this.amendmentLookupApostille === this.isApostille
+                && number === this.amendmentLookupNumber && number === String(this.currentAmendmentNumbers[0]) ? number : '';
         },
         get savedAmendmentNumber() {
             const number = this.amendmentNumber.trim().replace(/^0+(?=[0-9])/, '');
-            return Object.hasOwn(this.amendments, number) ? number : '';
+            return /^[0-9]+$/.test(number) && this.currentAmendments[number] ? number : '';
+        },
+        get historicalAmendmentType() {
+            const type = (this.currentAmendments[this.savedAmendmentNumber]?.type || '').trim();
+            return @js(\App\Infrastructure\Atas\SaveAtaAmendment::SUPPORTED_TYPES).includes(type) ? '' : type;
+        },
+        get usesHistoricalVariablePeriodLabel() {
+            return this.historicalAmendmentType.toLowerCase() === 'prorrogação de vigência';
+        },
+        get isAnnualIndexAmendment() {
+            return @js(\App\Infrastructure\Atas\SaveAtaAmendment::ANNUAL_INDEX_TYPES).includes(this.amendmentFields.type);
+        },
+        get requiresAnnualIndex() {
+            const saved = this.currentAmendments[this.savedAmendmentNumber];
+            return this.isApostille || this.isAnnualIndexAmendment && (saved?.type !== this.amendmentFields.type
+                || Boolean(saved.annual_index || this.amendmentFields.annualIndex));
+        },
+        editAnnualIndex(input) {
+            const previous = this.amendmentFields.annualIndex ?? '';
+            const normalized = input.value.trim().replace(/\s*%$/, '').replace('.', ',');
+            const value = /^\d*(?:,\d*)?$/.test(normalized) ? normalized : previous;
+            this.amendmentFields.annualIndex = value;
+            if (input.value === value) return;
+            const removed = value === normalized ? 0 : Math.max(0, input.value.length - value.length);
+            const start = Math.max(0, (input.selectionStart ?? value.length) - removed);
+            const end = Math.max(start, (input.selectionEnd ?? start) - removed);
+            input.value = value;
+            input.setSelectionRange(Math.min(start, value.length), Math.min(end, value.length));
+        },
+        formatAnnualIndex() {
+            const value = (this.amendmentFields.annualIndex ?? '').replace(/%$/, '').replace(/,$/, '').replace(/^,/, '0,');
+            this.amendmentFields.annualIndex = value ? value + '%' : '';
+        },
+        async copyAmendmentType() {
+            const select = this.$refs.ataAmendType;
+            const type = select.value;
+            const label = select.selectedOptions[0]?.label.trim();
+            if (!type || !label) return;
+
+            this.amendmentTypeCopyStatus = '';
+            try {
+                await navigator.clipboard.writeText(label);
+                if (select.value === type) this.amendmentTypeCopyStatus = 'copied';
+            } catch {
+                if (select.value !== type) return;
+                this.amendmentTypeCopyStatus = 'manual';
+                this.$nextTick(() => {
+                    const text = this.$refs.ataAmendTypeCopyText;
+                    text.value = label;
+                    text.focus();
+                    text.select();
+                });
+            }
         },
         get selectedAmendmentDocument() {
-            return this.amendmentSignedDocuments[this.savedAmendmentNumber] || {};
+            return this.currentAmendmentDocuments[this.savedAmendmentNumber] || {};
         },
         get printableAmendment() {
             const number = this.savedAmendmentNumber;
-            const saved = this.amendments[number];
-            if (!saved?.advantage || number !== this.amendmentLookupNumber || saved.type !== this.amendmentFields.type) return '';
+            const saved = this.currentAmendments[number];
+            if (!saved?.advantage || number !== this.amendmentLookupNumber || this.amendmentLookupApostille !== this.isApostille || saved.type !== this.amendmentFields.type) return '';
+            const variable = saved.type === this.variablePeriodType;
+            const annual = this.isAnnualIndexAmendment;
             if (!this.showAmendmentQuantities && !this.editAmendmentBalanceQuantities) return '';
+            if ((variable || annual) && !saved.has_registered_products) return '';
+            if (annual && (!saved.annual_index || this.amendmentFields.annualIndex?.replace(/%$/, '').replace(',', '.') !== saved.annual_index)) return '';
             const unchangedDates = ['date', 'start', 'end'].every(field =>
-                this.amendmentFields[field] === (saved[field] || '').split('-').reverse().join('/') || this.amendmentFields[field] === saved[field]);
-            if (!unchangedDates || !['process', 'period', 'advantage'].every(field => this.amendmentFields[field]?.trim() === saved[field])) return '';
-            if (this.editAmendmentBalanceQuantities && !this.savedBalancesReadyForEmission(saved)) return '';
+                saved[field] && (this.amendmentFields[field] === saved[field].split('-').reverse().join('/') || this.amendmentFields[field] === saved[field]));
+            if (!unchangedDates || !['process', 'period', 'advantage'].every(field => saved[field] && this.amendmentFields[field]?.trim() === saved[field])) return '';
+            if (this.editAmendmentBalanceQuantities && !this.savedQuantitiesMatch(saved)) return '';
             return number;
         },
-        savedBalancesReadyForEmission(saved) {
+        savedQuantitiesMatch(saved) {
             const products = saved.balance_products || [];
             const excluded = (saved.excluded_product_ids || []).map(String);
             const quantities = this.amendmentBalanceSubmission;
-            if (!products.some(product => product.balance_quantity !== '0.0000' && !excluded.includes(String(product.id)))) return false;
+            if (this.limitAmendmentQuantitiesToOriginal && !products.some(product => product.balance_quantity !== '0.0000' && !excluded.includes(String(product.id)))) return false;
             if (excluded.length !== this.amendmentExcludedProducts.length || !excluded.every(id => this.amendmentExcludedProducts.includes(id))) return false;
-            return products.length === quantities.length && quantities.every(({ product_id, quantity }) => {
-                const decimal = quantity.includes(',') ? quantity.replaceAll('.', '').replace(',', '.') : quantity;
-                const match = /^(\d+)(?:\.(\d{0,4}))?$/.exec(decimal);
-                if (!match) return false;
-                const normalized = match[1].replace(/^0+(?=\d)/, '') + '.' + (match[2] || '').padEnd(4, '0');
-                return products.some(product => String(product.id) === product_id && product.balance_quantity === normalized);
+            return products.length === quantities.length && quantities.every(({ product_id, quantity, adjusted_unit_price = null }) => {
+                const product = products.find(product => String(product.id) === product_id);
+                if (product?.balance_quantity !== this.normalizeAmendmentDecimal(quantity)) return false;
+                const price = adjusted_unit_price === null ? null : this.normalizeAmendmentDecimal(adjusted_unit_price);
+                return !this.isAnnualIndexAmendment || (product.adjusted_unit_price ?? null) === price;
             });
+        },
+        normalizeAmendmentDecimal(value) {
+            if (value.includes(',') && !/^(?:\d+|\d{1,3}(?:\.\d{3})+),\d{0,4}$/.test(value)) return '';
+            const decimal = value.includes(',') ? value.replaceAll('.', '').replace(',', '.') : value;
+            const match = /^(\d+)(?:\.(\d{0,4}))?$/.exec(decimal);
+            return match ? match[1].replace(/^0+(?=\d)/, '') + '.' + (match[2] || '').padEnd(4, '0') : '';
         },
         pendingRemoval: null,
         pendingParticipantRemoval: null,
@@ -181,10 +281,15 @@
             this.amendmentNumbers = data.amendment_numbers || [];
             this.amendments = data.amendments || {};
             this.amendmentSignedDocuments = data.amendment_signed_documents || {};
+            this.apostilleNumbers = data.apostille_numbers || [];
+            this.apostilles = data.apostilles || {};
+            this.apostilleSignedDocuments = data.apostille_signed_documents || {};
             this.amendmentBaseProducts = data.amendment_base_products || [];
             this.amendmentBaseTotal = data.amendment_base_total || '';
             this.amendmentSpecialQuantity = data.amendment_special_quantity_label || '';
             this.amendmentUpdatedTotal = data.amendment_updated_total || '';
+            this.amendmentBudgetDate = (data.budget_date ?? '').split('-').reverse().join('/');
+            this.amendmentAnnualIndexType = data.annual_index_type ?? '';
             this.amendmentMaximumEnd = data.amendment_maximum_end || '';
             this.clearAmendmentFields();
         },
@@ -192,24 +297,30 @@
             this.amendmentNumber = '';
             this.amendmentFields = { type: '' };
             this.amendmentBalanceQuantities = {};
+            this.amendmentManualPrices = {};
             this.amendmentExcludedProducts = [];
             this.showAllAmendmentProducts = false;
-            this.historicalAmendmentType = '';
             this.amendmentLookupNumber = '';
+            this.amendmentLookupApostille = false;
         },
         applySavedAmendment(data) {
             const number = data.amendment_number;
+            const apostille = data.amendment.type === @js($apostilleAnnualIndexType);
+            const records = apostille ? this.apostilles : this.amendments;
+            const documents = apostille ? this.apostilleSignedDocuments : this.amendmentSignedDocuments;
+            const numbers = apostille ? this.apostilleNumbers : this.amendmentNumbers;
             this.loadedVersion = data.version;
             this.amendmentUpdatedTotal = data.amendment_updated_total;
-            this.amendments[number] = data.amendment;
-            if (data.signed_amendment_id && !this.amendmentSignedDocuments[number]) {
-                this.amendmentSignedDocuments[number] = { id: data.signed_amendment_id, copies: [] };
+            records[number] = data.amendment;
+            if (data.signed_amendment_id && !documents[number]) {
+                documents[number] = { id: data.signed_amendment_id, copies: [] };
             }
-            if (!this.amendmentNumbers.includes(number)) {
-                this.amendmentNumbers = [number, ...this.amendmentNumbers];
+            if (!numbers.includes(number)) {
+                numbers.unshift(number);
             }
-            if (this.savedAmendmentNumber === String(number)) {
+            if (this.isApostille === apostille && this.savedAmendmentNumber === String(number)) {
                 this.amendmentLookupNumber = String(number);
+                this.amendmentLookupApostille = this.isApostille;
                 this.amendmentExcludedProducts = (data.amendment.excluded_product_ids || []).map(String);
                 this.loadAmendmentBalances(data.amendment);
                 this.showAllAmendmentProducts = false;
@@ -219,6 +330,10 @@
             const products = amendment?.balance_products || [];
             this.amendmentFields.balance_products = products;
             this.amendmentBalanceQuantities = Object.fromEntries(products.map(product => [product.id, product.balance_quantity.replace('.', ',')]));
+            this.amendmentManualPrices = Object.fromEntries(products.filter(product => product.adjusted_unit_price != null)
+                .map(product => [product.id, product.adjusted_unit_price.replace('.', ',')]));
+            this.amendmentFields.annualIndex = (amendment?.annual_index ?? '').replace('.', ',');
+            this.formatAnnualIndex();
         },
         closeAmendment() {
             this.amendmentOpen = false;
@@ -228,19 +343,27 @@
         },
         lookupAmendment(force = false) {
             const number = this.amendmentNumber.trim().replace(/^0+(?=[0-9])/, '');
-            if (!force && number === this.amendmentLookupNumber) return;
-            const previous = this.amendments[this.amendmentLookupNumber];
+            const apostille = this.isApostille;
+            if (!force && number === this.amendmentLookupNumber && apostille === this.amendmentLookupApostille) return;
+            const previous = (this.amendmentLookupApostille ? this.apostilles : this.amendments)[this.amendmentLookupNumber];
             this.amendmentLookupNumber = number;
-            const amendment = /^[0-9]+$/.test(number) ? this.amendments[number] : null;
+            this.amendmentLookupApostille = apostille;
+            const amendment = /^[0-9]+$/.test(number) ? this.currentAmendments[number] : null;
             if (!amendment && !previous) return;
-            const type = (amendment?.type || '').trim();
+            const type = (amendment?.type || (apostille ? @js($apostilleAnnualIndexType) : '')).trim();
             this.amendmentFields = { ...amendment, type, advantage: amendment?.advantage || '' };
             this.loadAmendmentBalances(amendment);
             this.amendmentExcludedProducts = (amendment?.excluded_product_ids || []).map(String);
             this.showAllAmendmentProducts = false;
-            this.historicalAmendmentType = this.amendmentTypes.includes(type) ? '' : type;
             for (const field of ['date', 'start', 'end']) {
                 this.amendmentFields[field] = (amendment?.[field] || '').split('-').reverse().join('/');
+            }
+        },
+        changeAmendmentType(type) {
+            this.amendmentFields.type = type;
+            if (this.isApostille !== this.amendmentLookupApostille) {
+                this.lookupAmendment(true);
+                if (!this.savedAmendmentNumber) this.amendmentFields.type = type;
             }
         },
         openAmendment() {
@@ -466,7 +589,7 @@
         <button type="button" class="section-tab" :class="{ active: step === 2 }" aria-pressed="false" :aria-pressed="step === 2" aria-controls="ata-supplier-panel" @click="step = 2">3. Dados do Fornecedor</button>
         <button type="button" class="section-tab products-button" disabled title="Salve ou carregue uma ata para acessar os Produtos." :disabled="!loaded || busy" :title="loaded ? 'Consultar produtos da ata' : 'Salve ou carregue uma ata para acessar os Produtos.'" aria-haspopup="dialog" aria-controls="ata-products-dialog" @click="$refs.ataProductsSupplier.textContent = $root.querySelector('[name=fornecedor_nome_snapshot]').value || 'Nome / Razão Social'; $refs.ataProducts.showModal(); $nextTick(() => $dispatch('ata-products-opened'))">4. Produtos</button>
         <button type="button" class="section-tab ata-delivery-button" aria-haspopup="dialog" aria-controls="ata-delivery-dialog" :disabled="busy" @click="$refs.ataDeliveryNumber.textContent = $refs.ataProducts.querySelector('[data-ata-products-number]').textContent; $refs.ataDeliverySupplier.textContent = $root.querySelector('[name=fornecedor_nome_snapshot]').value || 'Nome / Razão Social'; $refs.ataDelivery.showModal(); $dispatch('ata-delivery-opened')">5. Aut. Entrega</button>
-        <button type="button" class="section-tab ata-amend-tab" disabled :disabled="!loaded || busy" aria-haspopup="dialog" aria-controls="ata-amend-dialog" @click="openAmendment()">6. Aditivar ATA</button>
+        <button type="button" class="section-tab ata-amend-tab" disabled :disabled="!loaded || busy" aria-haspopup="dialog" aria-controls="ata-amend-dialog" @click="openAmendment()" x-text="isApostille ? '6. Apostilar ATA' : '6. Aditivar ATA'">6. Aditivar ATA</button>
         <button type="button" class="section-tab ata-cancel-tab" disabled :disabled="!loaded || busy">7. Cancelar ATA</button>
     </nav>
     <section id="ata-process-panel" class="surface contract-section contract-editor-section min-h-64" aria-label="Dados Processuais" x-show="step === 0">
@@ -515,6 +638,15 @@
             </div>
             <div class="field"><label for="ata-validity-start">Data_Inicial</label><div class="ata-validity-date-control"><input id="ata-validity-start" name="start_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || publicationLocked || $el.dataset.validityDisabled === 'true'"><button type="button" class="text-link ata-locked-date-notice" data-ata-locked-date aria-label="Data_Inicial: campo bloqueado para edição"></button></div></div>
             <div class="field"><label for="ata-validity-end">Data_Final</label><div class="ata-validity-date-control"><input id="ata-validity-end" name="end_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || publicationLocked || $el.dataset.validityDisabled === 'true'"><button type="button" class="text-link ata-locked-date-notice" data-ata-locked-date aria-label="Data_Final: campo bloqueado para edição"></button></div></div>
+            <div class="field ata-annual-index-type-field">
+                <label for="ata-annual-index-type">Tipo_Indice_Anual</label>
+                <select id="ata-annual-index-type" name="annual_index_type" :disabled="busy || publicationLocked">
+                    <option value="">Selecione</option>
+                    @foreach(\App\Support\ContractFields::ADJUSTMENT_INDICES as $index => $description)
+                        <option value="{{ $index }}" title="{{ $description }}">{{ $index }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="field ata-publication-date-field" data-ata-publication-field>
                 <label for="ata-publication-date">Data_Public_INPC</label>
                 <input id="ata-publication-date" name="publication_date" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || publicationLocked">
@@ -677,45 +809,61 @@
         </div>
     </dialog>
     <dialog id="ata-amend-dialog" class="catalog-modal contract-products-dialog" x-ref="ataAmend" aria-labelledby="ata-amend-title"
-        @ata-amendment-balance-calculated="amendmentBalanceLineTotals = $event.detail"
+        @ata-amendment-balance-calculated="amendmentBalanceLineTotals = $event.detail.lines; amendmentBalanceTotal = $event.detail.total; amendmentAdjustedPrices = $event.detail.prices"
         x-effect="amendmentProducts; $nextTick(() => sizeAmendmentProductList())" @resize.window="sizeAmendmentProductList()" @close="closeAmendment()">
         <div class="modal-header">
-            <h2 id="ata-amend-title" tabindex="-1"><span>Aditivar ATA</span><span class="product-options-separator" aria-hidden="true"></span><span class="ata-products-reference">Processo: <span class="ata-products-reference-value" x-text="process || 'Não informado'"></span></span><span class="product-options-separator" aria-hidden="true"></span><span class="ata-products-reference">ATA <span class="ata-products-reference-value" x-ref="ataAmendNumber"></span></span></h2>
+            <h2 id="ata-amend-title" tabindex="-1"><span x-text="isApostille ? 'Apostilar ATA' : (savedAmendmentNumber ? 'Aditivo Nº ' + savedAmendmentNumber : 'Aditivar ATA')">Aditivar ATA</span><span class="product-options-separator" aria-hidden="true"></span><span class="ata-products-reference">Processo: <span class="ata-products-reference-value" x-text="process || 'Não informado'"></span></span><span class="product-options-separator" aria-hidden="true"></span><span class="ata-products-reference">ATA <span class="ata-products-reference-value" x-ref="ataAmendNumber"></span></span></h2>
             <div class="product-title-supplier"><p class="contract-heading-supplier" data-fit-supplier-name x-ref="ataAmendSupplier">Nome / Razão Social</p></div>
-            <button type="button" class="modal-close" @click="$refs.ataAmend.close()" aria-label="Fechar painel de aditivos">×</button>
+            <button type="button" class="modal-close" @click="$refs.ataAmend.close()" aria-label="Fechar painel de aditivos"
+                :aria-label="isApostille ? 'Fechar painel de apostilamentos' : 'Fechar painel de aditivos'">×</button>
         </div>
         <div class="contract-section">
             <div class="ata-amend-fields">
                 <div class="field ata-amend-number">
-                    <label for="ata-amend-number">Nº Aditivo</label>
+                    <label for="ata-amend-number" x-text="isApostille ? 'Nº Apostilamento' : 'Nº Aditivo'">Nº Aditivo</label>
                     <div class="product-item-search">
                         <input id="ata-amend-number" type="text" list="ata-previous-amendments" maxlength="32" autocomplete="off" required x-model="amendmentNumber" @blur="lookupAmendment()">
-                        <button type="button" class="product-item-search-button" aria-label="Consultar aditivo" title="Consultar aditivo" @click="lookupAmendment(true)"><x-nav-icon name="search"/></button>
+                        <button type="button" class="product-item-search-button" aria-label="Consultar aditivo" title="Consultar aditivo" @click="lookupAmendment(true)"
+                            :aria-label="isApostille ? 'Consultar apostilamento' : 'Consultar aditivo'" :title="isApostille ? 'Consultar apostilamento' : 'Consultar aditivo'"><x-nav-icon name="search"/></button>
                     </div>
                     <datalist id="ata-previous-amendments">
-                        <template x-for="number in amendmentNumbers" :key="number">
+                        <template x-for="number in currentAmendmentNumbers" :key="number">
                             <option :value="number"></option>
                         </template>
                     </datalist>
                 </div>
                 <div class="field ata-amend-date">
-                    <label for="ata-amend-date">Data_ADT</label>
+                    <label for="ata-amend-date" x-text="isApostille ? 'Data_Apost.' : 'Data_ADT'">Data_ADT</label>
                     <input id="ata-amend-date" name="Data_ADT" type="date" required x-model="amendmentFields.date">
                 </div>
                 <div class="field ata-amend-process">
-                    <label for="ata-amend-process">Proc_ADT</label>
+                    <label for="ata-amend-process" x-text="isApostille ? 'Proc_Apost.' : 'Proc_ADT'">Proc_ADT</label>
                     <input id="ata-amend-process" name="Proc_ADT" type="text" maxlength="64" required x-model="amendmentFields.process">
                 </div>
                 <div class="field ata-amend-type">
-                    <label for="ata-amend-type">Tipo_ADT</label>
-                    <select id="ata-amend-type" name="Tipo_ADT" data-fit-field required x-model="amendmentFields.type"
-                        x-effect="amendmentFields.type; $nextTick(() => $dispatch('fit-field'))">
+                    <div class="field-label-row">
+                        <label for="ata-amend-type">Tipo_ADT</label>
+                        <button type="button" class="text-link" aria-label="Copiar Tipo_ADT" disabled
+                            :disabled="!amendmentFields.type" @click="copyAmendmentType()">Copiar</button>
+                        <span role="status" x-text="amendmentTypeCopyStatus === 'copied' ? 'Copiado' : ''"></span>
+                    </div>
+                    <select id="ata-amend-type" name="Tipo_ADT" data-fit-field required x-ref="ataAmendType" x-model="amendmentFields.type" @change="changeAmendmentType($el.value)"
+                        x-effect="amendmentFields.type; amendmentTypeCopyStatus = ''; $nextTick(() => $dispatch('fit-field'))"
+                        @keydown.ctrl.c.prevent="copyAmendmentType()" @keydown.meta.c.prevent="copyAmendmentType()">
                         <option value="" disabled hidden></option>
                         @foreach($amendmentTypes as $type)
-                            <option value="{{ $type }}"{{ in_array($type, \App\Infrastructure\Atas\SaveAtaAmendment::SUPPORTED_TYPES, true) ? '' : ' disabled' }}>{{ $type }}</option>
+                            @if($type === $variablePeriodType)
+                                <option value="{{ $type }}" :hidden="usesHistoricalVariablePeriodLabel" :disabled="usesHistoricalVariablePeriodLabel">{{ $type }}</option>
+                            @elseif($type === $annualIndexType)
+                                <option value="{{ $type }}">Prorrogação/Quantitativo/Reajuste ANUAL INDICE</option>
+                            @elseif($type === $apostilleAnnualIndexType)
+                                <option value="{{ $type }}">Apostilamento/Reajuste ANUAL INDICE</option>
+                            @else
+                                <option value="{{ $type }}"@unless(in_array($type, \App\Infrastructure\Atas\SaveAtaAmendment::SUPPORTED_TYPES, true)) disabled :disabled="historicalAmendmentType !== $el.value"@endunless>{{ $type }}</option>
+                            @endif
                         @endforeach
-                        <template x-if="historicalAmendmentType">
-                            <option :value="historicalAmendmentType" x-text="historicalAmendmentType" disabled hidden></option>
+                        <template x-if="historicalAmendmentType && !amendmentTypes.includes(historicalAmendmentType)">
+                            <option :value="historicalAmendmentType" x-text="usesHistoricalVariablePeriodLabel ? variablePeriodType : historicalAmendmentType"></option>
                         </template>
                     </select>
                 </div>
@@ -725,7 +873,7 @@
                 </div>
                 <div class="field ata-amend-date">
                     <label for="ata-amend-end">FINAL</label>
-                    <input id="ata-amend-end" name="FINAL" type="date" required x-model="amendmentFields.end" :data-amendment-end-limit="amendmentMaximumEnd">
+                    <input id="ata-amend-end" name="FINAL" type="date" required x-model="amendmentFields.end" :data-amendment-end-limit="isApostille ? null : amendmentMaximumEnd">
                 </div>
                 <div class="field ata-amend-period">
                     <label for="ata-amend-period">Período</label>
@@ -733,30 +881,58 @@
                         x-effect="amendmentFields.period; $nextTick(() => $dispatch('fit-field'))">
                 </div>
             </div>
-            <div class="field ata-amend-advantage" x-cloak x-show="requiresAmendmentAdvantage">
-                <label for="ata-amend-advantage">Vantajosidade</label>
-                <select id="ata-amend-advantage" name="VANTAJOSIDADE" x-model="amendmentFields.advantage"
-                    :required="requiresAmendmentAdvantage" :disabled="!requiresAmendmentAdvantage || busy">
-                    <option value="" disabled>Selecione</option>
-                    @foreach(\App\Infrastructure\Atas\SaveAtaAmendment::ADVANTAGE_OPTIONS as $option)
-                        <option value="{{ $option }}">{{ $option }}</option>
-                    @endforeach
-                </select>
+            <div class="field" x-cloak x-show="amendmentTypeCopyStatus === 'manual'">
+                <label for="ata-amend-type-copy-text">Copie o texto selecionado</label>
+                <input id="ata-amend-type-copy-text" x-ref="ataAmendTypeCopyText" type="text" readonly>
+            </div>
+            <div class="ata-amend-fields ata-amend-adjustment-fields" x-cloak x-show="showsAmendmentAdvantage">
+                <div class="field">
+                    <label for="ata-amend-advantage">Vantajosidade</label>
+                    <select id="ata-amend-advantage" name="VANTAJOSIDADE" x-model="amendmentFields.advantage"
+                        :required="requiresAmendmentAdvantage" :disabled="!showsAmendmentAdvantage || busy">
+                        <option value="" disabled>Selecione</option>
+                        @foreach(\App\Infrastructure\Atas\SaveAtaAmendment::ADVANTAGE_OPTIONS as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field" x-show="isAnnualIndexAmendment">
+                    <label for="ata-amend-annual-index">Indice_Anual</label>
+                    <input id="ata-amend-annual-index" name="Indice_Anual" type="text" inputmode="decimal" maxlength="64" data-percentage
+                        :value="amendmentFields.annualIndex ?? ''"
+                        @focus="if ($el.value.endsWith('%')) { editAnnualIndex($el); $el.select(); }"
+                        @input="editAnnualIndex($el)" @blur="formatAnnualIndex()"
+                        :required="requiresAnnualIndex" :disabled="!isAnnualIndexAmendment || busy">
+                </div>
+                <div class="ata-amend-reference-fields" x-show="isAnnualIndexAmendment">
+                    <div class="field">
+                        <label for="ata-amend-budget-date">Data_Orçamento Estimado</label>
+                        <input id="ata-amend-budget-date" type="text" readonly :value="amendmentBudgetDate || 'Não informado'">
+                    </div>
+                    <div class="field">
+                        <label for="ata-amend-annual-index-type">Tipo_Indice_Anual</label>
+                        <input id="ata-amend-annual-index-type" type="text" readonly :value="amendmentAnnualIndexType || 'Não informado'">
+                    </div>
+                </div>
             </div>
             <div class="ata-amend-product-notices" x-cloak x-show="editAmendmentBalanceQuantities">
-                <p class="hint" x-show="savedBalanceAmendment && !savedBalanceAmendment.balance_products?.length">Nenhuma quantidade foi gravada neste aditivo.</p>
+                <p class="hint" x-show="savedBalanceAmendment && !savedBalanceAmendment.balance_products?.length"
+                    x-text="isApostille ? 'Nenhuma quantidade foi gravada neste apostilamento.' : 'Nenhuma quantidade foi gravada neste aditivo.'"></p>
                 <button type="button" class="text-link" x-show="savedBalanceAmendment?.excluded_product_ids?.length || savedBalanceAmendment?.balance_products?.length"
                     @click="showAllAmendmentProducts = !showAllAmendmentProducts" :aria-pressed="showAllAmendmentProducts">Mostrar todos os produtos</button>
-                <p id="ata-amend-exclusion-notice" class="ata-amend-exclusion-notice">Os itens selecionados serão excluídos da prorrogação e não farão mais parte da ATA.</p>
+                <p id="ata-amend-exclusion-notice" class="ata-amend-exclusion-notice"
+                    x-text="isApostille ? 'Os itens marcados ficam fora do reajuste deste apostilamento.' : 'Os itens selecionados serão excluídos da prorrogação e não farão mais parte da ATA.'"></p>
             </div>
             <div class="product-list-scroll product-contract-list ata-amend-product-list" :class="{ 'ata-amend-list-with-exclusion-notice': editAmendmentBalanceQuantities }"
-                x-ref="ataAmendProductList" tabindex="0" role="region" aria-label="Lista de produtos do aditivo">
-                <table class="data-table" aria-label="Produtos de referência do novo aditivo"
-                    x-effect="if (editAmendmentBalanceQuantities) $dispatch('ata-amendment-balance-input', { products: amendmentProductRows.filter(product => !amendmentExcludedProducts.includes(String(product.id))), quantities: { ...amendmentBalanceQuantities } })"
+                x-ref="ataAmendProductList" tabindex="0" role="region" aria-label="Lista de produtos">
+                <table class="data-table" aria-label="Produtos de referência"
+                    x-effect="if (editAmendmentBalanceQuantities) $dispatch('ata-amendment-balance-input', { products: amendmentProductRows.filter(product => !amendmentExcludedProducts.includes(String(product.id))), quantities: { ...amendmentBalanceQuantities }, limitToOriginal: limitAmendmentQuantitiesToOriginal, annualIndex: isAnnualIndexAmendment ? amendmentFields.annualIndex ?? '' : null, manualPrices: { ...amendmentManualPrices } })"
                     :style="{ '--ata-amend-quantity-width': amendmentBalanceQuantityWidth + 'px' }">
                     <thead><tr><th>Item</th><th>Código</th><th>Produto</th><th>UND</th><th>QTD</th>
-                        <th x-show="amendmentSpecialQuantity" x-text="amendmentSpecialQuantity"></th><th>Marca</th><th>VL. Unitário</th><th>VL. Total</th>
-                        <th class="ata-amend-exclusion" x-show="editAmendmentBalanceQuantities" aria-label="Excluir da prorrogação"></th>
+                        <th x-show="amendmentSpecialQuantity" x-text="amendmentSpecialQuantity"></th><th>Marca</th><th>VL. Unitário</th>
+                        <th class="ata-amend-adjusted-price" x-show="isAnnualIndexAmendment">Novo_VL_Unitário</th><th class="ata-amend-line-total">VL. Total</th>
+                        <th class="ata-amend-exclusion" x-show="editAmendmentBalanceQuantities" aria-label="Excluir da prorrogação"
+                            :aria-label="isApostille ? 'Excluir do reajuste' : 'Excluir da prorrogação'"></th>
                     </tr></thead>
                     <tbody>
                         <template x-for="product in amendmentProducts" :key="product.id">
@@ -767,25 +943,34 @@
                                     <template x-if="editAmendmentBalanceQuantities">
                                         <input type="text" inputmode="decimal" data-quantity data-decimal-keep-blank class="ata-amend-balance-quantity"
                                             x-model="amendmentBalanceQuantities[product.id]"
-                                            :data-amendment-original-quantity="product.quantity"
+                                            :data-amendment-original-quantity="limitAmendmentQuantitiesToOriginal ? product.quantity : null"
                                             :title="'Quantidade original: ' + product.quantity"
-                                            :aria-label="'Saldo do item ' + product.item" :disabled="!canEditAmendmentProduct(product) || !product.quantity || amendmentExcludedProducts.includes(String(product.id))">
+                                            :aria-label="(limitAmendmentQuantitiesToOriginal ? 'Saldo do item ' : 'Quantidade do item ') + product.item"
+                                            :disabled="!canEditAmendmentProduct(product) || (limitAmendmentQuantitiesToOriginal && !product.quantity) || amendmentExcludedProducts.includes(String(product.id))">
                                     </template>
                                     <span x-show="showAmendmentQuantities" x-text="product.quantity"></span>
                                 </td>
                                 <td x-show="amendmentSpecialQuantity" x-text="product.special_quantity"></td>
                                 <td x-text="product.brand"></td><td x-text="product.unit_price"></td>
-                                <td x-text="editAmendmentBalanceQuantities ? (amendmentBalanceLineTotals[product.id] ?? '') : (showAmendmentQuantities ? product.total : '')"></td>
+                                <td class="ata-amend-adjusted-price" x-show="isAnnualIndexAmendment">
+                                    <input type="text" inputmode="decimal" data-money data-decimal-keep-blank
+                                        :value="amendmentManualPrices[product.id] ?? amendmentAdjustedPrices[product.id] ?? ''"
+                                        @input="amendmentManualPrices[product.id] = $el.value"
+                                        @blur="if (!$el.value.trim()) delete amendmentManualPrices[product.id]"
+                                        :aria-label="'Novo_VL_Unitário do item ' + product.item"
+                                        :disabled="!isAnnualIndexAmendment || !canEditAmendmentProduct(product) || amendmentExcludedProducts.includes(String(product.id))">
+                                </td>
+                                <td class="ata-amend-line-total" x-text="editAmendmentBalanceQuantities ? (amendmentBalanceLineTotals[product.id] ?? '') : (showAmendmentQuantities ? product.total : '')"></td>
                                 <td class="ata-amend-exclusion" x-show="editAmendmentBalanceQuantities">
                                     <input type="checkbox" :value="String(product.id)" x-model="amendmentExcludedProducts"
-                                        :aria-label="'Excluir item ' + product.item + ' da prorrogação'" aria-describedby="ata-amend-exclusion-notice"
+                                        :aria-label="'Excluir item ' + product.item + (isApostille ? ' do reajuste' : ' da prorrogação')" aria-describedby="ata-amend-exclusion-notice"
                                         :disabled="!canEditAmendmentProduct(product)">
                                 </td>
                             </tr>
                         </template>
                         <tr x-show="!amendmentProducts.length">
-                            <td :colspan="8 + Number(Boolean(amendmentSpecialQuantity)) + Number(editAmendmentBalanceQuantities)"
-                                x-text="savedBalanceAmendment ? 'Nenhum produto incluído neste aditivo.' : 'Nenhum produto original ativo nesta ATA.'"></td>
+                            <td :colspan="8 + Number(Boolean(amendmentSpecialQuantity)) + Number(editAmendmentBalanceQuantities) + Number(isAnnualIndexAmendment)"
+                                x-text="savedBalanceAmendment ? 'Nenhum produto incluído.' : 'Nenhum produto original ativo nesta ATA.'"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -797,7 +982,7 @@
         <div class="form-actions action-toolbar ata-amend-actions">
             <div class="contract-action-values">
                 <div class="field">
-                    <label for="ata-amend-value">VL_Aditivo</label>
+                    <label for="ata-amend-value" x-text="isApostille ? 'VL_Apostilamento' : 'VL_Aditivo'">VL_Aditivo</label>
                     <input id="ata-amend-value" name="VL_Aditivo" type="text"
                         :value="amendmentDisplayedValue" readonly>
                 </div>
@@ -810,22 +995,23 @@
                 @include('atas.signed-document-control', ['signedAmendment' => true])
             @endif
             <div class="contract-document-actions ata-amend-document-actions">
-                <nav aria-label="Emissão de documentos do aditivo">
+                <nav aria-label="Emissão de documentos">
                     <button type="button" class="document-action" data-ata-amendment-document-url="{{ route('atas.amendments.document', ['ata' => 0, 'amendment' => 0]) }}"
-                        :data-amendment-number="printableAmendment" disabled :disabled="!printableAmendment || busy"><x-nav-icon name="contracts"/><span>Aditivo</span></button>
+                        :data-amendment-number="printableAmendment" :data-instrument="isApostille ? 'apostille' : null" disabled :disabled="!printableAmendment || busy"><x-nav-icon name="contracts"/><span x-text="isApostille ? 'Termo de Apostilamento' : 'Aditivo'">Aditivo</span></button>
                     <button type="button" class="document-action" disabled><x-nav-icon name="document-extract"/><span>Extrato</span></button>
                     <button type="button" class="document-action" disabled><x-nav-icon name="document-publication"/><span>Publicação</span></button>
                 </nav>
             </div>
             <span class="product-actions-separator" role="separator" aria-orientation="vertical"></span>
             <button type="button" class="section-tab" data-ata-amendment-save :data-saved-amendment-number="savedAmendmentNumber" data-save-url="{{ route('atas.amendments.store', ['ata' => 0]) }}"
+                :data-instrument="isApostille ? 'apostille' : null"
                 :data-excluded-products="editAmendmentBalanceQuantities ? JSON.stringify(amendmentExcludedProducts) : null"
                 :data-balance-quantities="editAmendmentBalanceQuantities ? JSON.stringify(amendmentBalanceSubmission) : null"
                 disabled :disabled="!loaded || busy || publicationLocked"><x-nav-icon name="save"/>Salvar</button>
             <button type="button" class="section-tab" @click="clearAmendmentFields()" :disabled="busy || publicationLocked"><x-nav-icon name="plus"/>Novo</button>
             <button type="button" class="section-tab" data-ata-amendment-delete
                 data-delete-url="{{ route('atas.amendments.destroy', ['ata' => 0, 'amendment' => 0]) }}"
-                :data-amendment-number="removableAmendment" disabled :disabled="!removableAmendment || busy || publicationLocked"><x-nav-icon name="trash"/>Excluir</button>
+                :data-amendment-number="removableAmendment" :data-instrument="isApostille ? 'apostille' : null" disabled :disabled="!removableAmendment || busy || publicationLocked"><x-nav-icon name="trash"/>Excluir</button>
         </div>
     </dialog>
     </div>

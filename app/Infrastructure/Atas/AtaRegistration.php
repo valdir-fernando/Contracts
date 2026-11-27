@@ -8,8 +8,10 @@ use App\Infrastructure\Security\SelectedFund;
 use App\Models\ActivityEvent;
 use App\Models\User;
 use App\Services\Legacy\Normalizer;
+use App\Support\ContractFields;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 final class AtaRegistration
@@ -37,9 +39,11 @@ final class AtaRegistration
                 'ata_process' => 'required|string|max:64', 'bidding' => 'required|string|max:100',
                 'bidding_number' => 'required|string|max:32', 'fornecedor_documento_snapshot' => 'required|string|max:32',
                 'publication_date' => 'sometimes|nullable|date_format:Y-m-d',
+                'annual_index_type' => ['sometimes', 'nullable', 'string', Rule::in(array_keys(ContractFields::ADJUSTMENT_INDICES))],
             ], [], ['managing_fund_id' => 'Fundo Gerenciador', 'Data_ATA' => 'Data_ATA',
                 'Data_Orçamento' => 'Data_Orçamento Estimado',
                 'admitir_adesao' => 'Admitir Adesão a ATA',
+                'annual_index_type' => 'Tipo_Indice_Anual',
                 'ata_process' => 'Processo ATA', 'bidding' => 'Licitação', 'bidding_number' => 'Nº Licit',
                 'fornecedor_documento_snapshot' => 'CPF/CNPJ do fornecedor'])->validate();
             $draft = $this->participants->lockForSave($actor, $data['draft_token']);
@@ -78,6 +82,7 @@ final class AtaRegistration
                 'DATA_ORCAMENTO' => $data['Data_Orçamento'],
                 'ADMITIR_ADESAO' => ($data['admitir_adesao'] ?? null) ?: null,
                 'DATA_PUBLIC_INPC' => $data['publication_date'] ?? null,
+                'TIPO_INDICE_ANUAL' => $data['annual_index_type'] ?? null,
                 'LICITACAO' => trim($data['bidding']), 'N_LICIT' => trim($data['bidding_number']), 'fund_id' => $fund->id,
                 'source_files' => '[]', 'quality_issues' => '[]', 'import_hash' => hash('sha256', 'native:'.$draftId),
                 'version' => 1, 'created_at' => $now, 'updated_at' => $now,

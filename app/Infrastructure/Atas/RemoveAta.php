@@ -33,7 +33,9 @@ final class RemoveAta
             TransactionGuard::requireActive();
             $identity = new AtaAmendmentReader;
             $numberKey = $identity->key($ata->ATA);
-            $legacyAmendments = DB::table('tb_ADT_ATA')->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()
+            $legacyAmendments = DB::table('tb_ADT_ATA')->whereNull('deleted_at')
+                ->where(fn ($query) => $query->where('ID_ATA', $id)->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')))
+                ->orderBy('ID')->lockForUpdate()
                 ->get(['ID', 'ATA', 'Proc_ATA'])->filter(fn ($row) => $numberKey !== null
                     && $identity->key($row->ATA) === $numberKey && trim((string) $row->Proc_ATA) === trim($ata->PROCESSO));
             if ($legacyAmendments->isNotEmpty()) {
@@ -42,16 +44,15 @@ final class RemoveAta
                 abort_if($ambiguous, 409, 'Há atas com o mesmo número e processo. Revise os vínculos dos aditivos antes de excluir.');
             }
             $related = [];
-            $amendments = DB::table('tb_ADITIVOS_ATA')->where('ID_ATA', $id)->orderBy('ID')->lockForUpdate()->pluck('ID')->all();
+            $amendments = DB::table('tb_ADT_ATA')->where('ID_ATA', $id)->orderBy('ID')->lockForUpdate()->pluck('ID')->all();
             $drafts = DB::table('ata_participant_drafts')->where('ata_id', $id)->pluck('id')->all();
             $queries = [
                 'tb_PRODUTOS_ATA' => DB::table('tb_PRODUTOS_ATA')->where(function ($query) use ($id, $amendments) {
-                    $query->where('ID_ATA', $id)->orWhere(fn ($query) => $query->whereNull('ID_ATA')->whereIn('ID_ADITIVO', $amendments));
+                    $query->where('ID_ATA', $id)->orWhere(fn ($query) => $query->whereNull('ID_ATA')->whereIn('amendment_id', $amendments));
                 }),
                 'tb_FUNDOS_ATA' => DB::table('tb_FUNDOS_ATA')->where('ID_ATA', $id),
                 'tb_Participantes' => DB::table('tb_Participantes')->whereIn('draft_id', $drafts),
-                'tb_ADITIVOS_ATA' => DB::table('tb_ADITIVOS_ATA')->whereIn('ID', $amendments),
-                'tb_ADT_ATA' => DB::table('tb_ADT_ATA')->whereIn('ID', $legacyAmendments->pluck('ID')->all()),
+                'tb_ADT_ATA' => DB::table('tb_ADT_ATA')->whereIn('ID', array_unique([...$amendments, ...$legacyAmendments->pluck('ID')->all()])),
             ];
             foreach ($queries as $table => $query) {
                 $primary = $table === 'tb_Participantes' ? 'id' : 'ID';

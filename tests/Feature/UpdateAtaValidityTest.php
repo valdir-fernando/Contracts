@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Infrastructure\Atas\AtaAmendmentReader;
+use App\Infrastructure\Atas\RegisterAtaAmendments;
+use App\Infrastructure\Atas\SaveAtaAmendment;
 use App\Infrastructure\Atas\UpdateAtaValidity;
 use App\Models\ActivityEvent;
 use FPDF;
@@ -33,12 +35,12 @@ class UpdateAtaValidityTest extends TestCase
         $preview = $service->run($this->directory);
         $this->assertSame(1, $preview['linked']);
         $this->assertSame(1, $preview['updated_atas']);
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'INICIO_ATA' => null, 'FINAL_ATA' => null, 'version' => 1]);
         $result = $service->run($this->directory, true);
         $this->assertSame(1, $result['updated_atas']);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'DATA_ATA' => '2026-03-11', 'INICIO_ATA' => '2026-03-11', 'FINAL_ATA' => '2028-06-12', 'version' => 2]);
-        $this->assertDatabaseHas('tb_ADITIVOS_ATA', ['ID_ATA' => $id, 'ATA' => '007/2026', 'link_status' => 'vinculado']);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID_ATA' => $id, 'ATA' => '007/2026', 'link_status' => 'vinculado']);
         $this->assertSame(['ano_data_diverge_ano_ata'], json_decode(DB::table('tb_ATA')->value('quality_issues'), true));
         $this->assertSame(0, $service->run($this->directory, true)['updated_atas']);
         $this->assertDatabaseCount('activity_events', 1);
@@ -64,7 +66,7 @@ class UpdateAtaValidityTest extends TestCase
         $service = app(UpdateAtaValidity::class);
         $this->assertSame(0, $service->run($this->directory, true)['documents']);
         $this->assertSame([], app(AtaAmendmentReader::class)->read($unsigned));
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'FINAL_ATA' => '2027-03-11']);
         $this->assertFileExists($unsigned.'/'.basename($file));
     }
@@ -84,8 +86,8 @@ class UpdateAtaValidityTest extends TestCase
         $result = $service->run($this->directory, true);
         $this->assertSame(1, $result['ignored_unsigned']);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'FINAL_ATA' => '2027-03-11']);
-        $this->assertDatabaseHas('tb_ADITIVOS_ATA', ['ID_ATA' => $id, 'link_status' => 'nao_assinado']);
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 1);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID_ATA' => $id, 'link_status' => 'nao_assinado']);
+        $this->assertDatabaseCount('tb_ADT_ATA', 1);
         $this->assertDatabaseCount('activity_events', 2);
         $this->assertSame(0, $service->run($this->directory, true)['updated_atas']);
         $this->assertDatabaseCount('activity_events', 2);
@@ -99,7 +101,7 @@ class UpdateAtaValidityTest extends TestCase
         $this->assertSame(0, $result['linked']);
         $this->assertSame(1, $result['new_amendments']);
         $this->assertSame('ata_ausente', $result['pending_documents'][0]['reason']);
-        $this->assertDatabaseHas('tb_ADITIVOS_ATA', ['ATA' => '007/2025', 'ID_ATA' => null]);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ATA' => '007/2025', 'ID_ATA' => null]);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'FINAL_ATA' => '2027-03-11']);
     }
 
@@ -123,7 +125,7 @@ class UpdateAtaValidityTest extends TestCase
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'FINAL_ATA' => '2028-09-10']);
         unlink($first);
         $this->assertSame(0, $service->run($this->directory, true)['updated_atas']);
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 2);
+        $this->assertDatabaseCount('tb_ADT_ATA', 2);
     }
 
     public function test_pending_amendment_is_linked_when_original_ata_is_later_registered(): void
@@ -133,7 +135,7 @@ class UpdateAtaValidityTest extends TestCase
         $service->run($this->directory, true);
         $id = $this->ata('007/2026');
         $service->run($this->directory, true);
-        $this->assertDatabaseHas('tb_ADITIVOS_ATA', ['ID_ATA' => $id, 'link_status' => 'vinculado']);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID_ATA' => $id, 'link_status' => 'vinculado']);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'FINAL_ATA' => '2027-06-12']);
     }
 
@@ -151,7 +153,7 @@ class UpdateAtaValidityTest extends TestCase
             ActivityEvent::flushEventListeners();
         }
         $this->assertDatabaseHas('tb_ATA', ['ID' => $id, 'INICIO_ATA' => null, 'FINAL_ATA' => null, 'version' => 1]);
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
         $this->assertDatabaseCount('activity_events', 0);
     }
 
@@ -192,7 +194,7 @@ class UpdateAtaValidityTest extends TestCase
         $this->ata('007/2026');
         $file = $this->pdf('007/2026');
         $this->artisan('atas:update-validity', ['directory' => $this->directory])->assertSuccessful();
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
         $this->artisan('atas:update-validity', ['directory' => $this->directory, '--apply' => true])->assertSuccessful();
         file_put_contents($file, "\n% modified source", FILE_APPEND);
         $this->expectExceptionMessage('Origem do aditivo');
@@ -235,6 +237,33 @@ class UpdateAtaValidityTest extends TestCase
         return DB::table('tb_ATA')->insertGetId(array_replace(['ATA' => $number, 'DATA_ATA' => '2026-03-11', 'PROCESSO' => '1234567890',
             'LICITACAO' => 'PREGÃO ELETRÔNICO', 'N_LICIT' => '001/2026', 'CNPJ_FUNDO' => '00.000.000/0000-01', 'CNPJ_FORNECEDOR' => '00.000.000/0000-03',
             'PERIODO_ATA' => '12 (doze) meses', 'source_files' => '[]', 'quality_issues' => '["vigencia_pendente_publicacao_pncp","ano_data_diverge_ano_ata"]', 'import_hash' => str_repeat('0', 64)], $values), 'ID');
+    }
+
+    public function test_documentary_import_and_review_share_one_record_in_either_order(): void
+    {
+        $service = app(UpdateAtaValidity::class);
+        foreach (['007/2026' => true, '008/2026' => false] as $number => $importFirst) {
+            $ata = $this->ata($number);
+            $path = $this->pdf($number);
+            $review = ['fields' => ['ATA' => $number, 'ADT' => 1, 'Proc_ATA' => '1234567890',
+                'Data_ADT' => '2026-06-11', 'Proc_ADT' => '9876543210',
+                'Tipo_ADT' => SaveAtaAmendment::EQUAL_QUANTITY,
+                'INICIO' => '2026-06-13', 'FINAL' => '2027-06-12', 'Período' => '12 meses'],
+                'source_path' => basename($path), 'source_sha256' => hash_file('sha256', $path),
+                'signatures' => ['contracting' => null, 'contracted' => null, 'method' => 'absent', 'page' => 1]];
+            if ($importFirst) {
+                $service->run($this->directory, true);
+            }
+            (new RegisterAtaAmendments)->run($this->directory, [$review], true);
+            $service->run($this->directory, true);
+            $service->run($this->directory, true);
+            $records = DB::table('tb_ADT_ATA')->where('ID_ATA', $ata)->get();
+            $this->assertCount(1, $records);
+            $this->assertSame('2026-06-11', $records->sole()->Data_ADT);
+            $this->assertSame('12 meses', $records->sole()->{'Período'});
+            $this->assertSame(basename($path), $records->sole()->source_path);
+            $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
+        }
     }
 
     private function text(string $ata, string $start, string $end, int $ordinal = 1): string

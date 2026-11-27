@@ -48,7 +48,7 @@ final class ReconcileAtaProcessValidity
                 }
             }
             $atas = DB::table('tb_ATA')->orderBy('ID')->lockForUpdate()->get();
-            $amendments = DB::table('tb_ADITIVOS_ATA')->whereNull('deleted_at')->where('link_status', 'vinculado')->orderBy('ID')->lockForUpdate()->get();
+            $amendments = DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('link_status', 'vinculado')->orderBy('ID')->lockForUpdate()->get(['ID', 'ID_ATA', 'source_path']);
             $identity = new AtaAmendmentReader;
             foreach ($entries as $entry) {
                 $source = $entry['source']['file'];

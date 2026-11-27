@@ -8,8 +8,10 @@ use App\Infrastructure\Security\SelectedFund;
 use App\Models\ActivityEvent;
 use App\Models\User;
 use App\Services\Legacy\Normalizer;
+use App\Support\ContractFields;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 final class UpdateAta
@@ -41,12 +43,15 @@ final class UpdateAta
                 'ata_process' => 'sometimes|required|string|max:64', 'bidding' => 'sometimes|required|string|max:100',
                 'bidding_number' => 'sometimes|required|string|max:32', 'admitir_adesao' => 'sometimes|nullable|in:SIM,NAO',
                 'publication_date' => 'sometimes|nullable|date_format:Y-m-d',
+                'annual_index_type' => ['sometimes', 'nullable', 'string', Rule::in(array_keys(ContractFields::ADJUSTMENT_INDICES))],
                 'fornecedor_documento_snapshot' => ['sometimes', 'required', 'string', 'max:32', 'regex:/^[\d\s.\/-]+$/D'],
-            ], [], ['fornecedor_documento_snapshot' => 'CPF/CNPJ do fornecedor', 'Data_Orçamento' => 'Data_Orçamento Estimado'])->validate();
+            ], [], ['fornecedor_documento_snapshot' => 'CPF/CNPJ do fornecedor', 'Data_Orçamento' => 'Data_Orçamento Estimado',
+                'annual_index_type' => 'Tipo_Indice_Anual'])->validate();
             abort_if((int) $data['version'] !== (int) $ata->version, 409, 'A ata foi alterada. Consulte novamente pelo Nº ATA antes de salvar.');
             $record = [];
             foreach (['Data_ATA' => 'DATA_ATA', 'Data_Orçamento' => 'DATA_ORCAMENTO', 'ata_process' => 'PROCESSO', 'bidding' => 'LICITACAO',
-                'bidding_number' => 'N_LICIT', 'admitir_adesao' => 'ADMITIR_ADESAO', 'publication_date' => 'DATA_PUBLIC_INPC'] as $field => $column) {
+                'bidding_number' => 'N_LICIT', 'admitir_adesao' => 'ADMITIR_ADESAO', 'publication_date' => 'DATA_PUBLIC_INPC',
+                'annual_index_type' => 'TIPO_INDICE_ANUAL'] as $field => $column) {
                 if (array_key_exists($field, $data)) {
                     $record[$column] = $data[$field] === null ? null : trim($data[$field]);
                 }
@@ -57,12 +62,10 @@ final class UpdateAta
                 $sameNumber = fn ($number) => $key !== null ? $identity->key($number) === $key : trim((string) $number) === trim($ata->ATA);
                 $legacyAmendment = DB::table('tb_ADT_ATA')->whereRaw('TRIM(Proc_ATA) = ?', [trim($ata->PROCESSO)])
                     ->get(['ATA'])->contains(fn ($row) => $sameNumber($row->ATA));
-                $importedAmendment = DB::table('tb_ADITIVOS_ATA')->where('ID_ATA', $id)->exists()
-                    || DB::table('tb_ADITIVOS_ATA')->whereNull('ID_ATA')->whereRaw('TRIM(PROCESSO_ORIGEM) = ?', [trim($ata->PROCESSO)])
-                        ->get(['ATA'])->contains(fn ($row) => $sameNumber($row->ATA));
+                $linkedAmendment = DB::table('tb_ADT_ATA')->where('ID_ATA', $id)->exists();
                 $amendmentProduct = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $id)
                     ->where(fn ($query) => $query->where('ADITIVO', '>', 0)->orWhereNotNull('ID_ADITIVO'))->exists();
-                if ($legacyAmendment || $importedAmendment || $amendmentProduct) {
+                if ($legacyAmendment || $linkedAmendment || $amendmentProduct) {
                     throw ValidationException::withMessages(['ata_process' => 'O Processo só pode mudar se não houver aditivos vinculados. Esta ATA possui aditivos vinculados.']);
                 }
                 $duplicate = DB::table('tb_ATA')->where('ID', '<>', $id)->whereRaw('TRIM(PROCESSO) = ?', [$record['PROCESSO']])

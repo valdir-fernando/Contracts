@@ -16,7 +16,7 @@ function panel(fetcher) {
     const navigations = [];
     const warningText = node();
     const names = ['fornecedor_documento_snapshot', 'fornecedor_nome_snapshot', 'supplier_id', 'supplier_email', 'supplier_mobile', 'supplier_whatsapp',
-        'cpf_socio', 'rg_socio', 'Data_ATA', 'Data_Orçamento', 'admitir_adesao', 'bidding', 'bidding_number', 'managing_fund_id'];
+        'cpf_socio', 'rg_socio', 'Data_ATA', 'Data_Orçamento', 'admitir_adesao', 'bidding', 'bidding_number', 'managing_fund_id', 'annual_index_type'];
     const controls = Object.fromEntries(names.map(name => [name, node()]));
     controls.Data_ATA.type = 'text';
     controls.Data_Orçamento.type = 'text';
@@ -64,7 +64,7 @@ function panel(fetcher) {
 }
 
 const saved = (id, number) => ({ id, number, process: `PROCESSO-${id}`, date: '2026-01-02', admitir_adesao: 'SIM', bidding: 'PREGÃO', bidding_number: '123',
-    managing_fund_id: '1', managing_fund_name: 'Fundo salvo', version: 1, budget_date: '2025-12-20',
+    managing_fund_id: '1', managing_fund_name: 'Fundo salvo', version: 1, budget_date: '2025-12-20', annual_index_type: 'INPC',
     contractor: { cpf_gestor: '52998224725' }, supplier: { fornecedor_nome_snapshot: `Fornecedor ${id}`, fornecedor_documento_snapshot: '11222333000181' },
     participants: [{ id: 20, FUNDO: 'Participante salvo' }], total: '1234.5678',
     products: [{ item: '1', description: '<Produto salvo>', unit: 'UN', quantity: '0.0001', unit_price: '1.1234', total: '1234.5678' }],
@@ -179,6 +179,7 @@ test('blur loads persisted fields, participants and products with exact monetary
     assert.equal(ui.controls.Data_ATA.value, '02/01/2026');
     assert.equal(ui.controls.Data_Orçamento.value, '20/12/2025');
     assert.equal(ui.controls.admitir_adesao.value, 'SIM');
+    assert.equal(ui.controls.annual_index_type.value, 'INPC');
     assert.equal(ui.controls.bidding.value, 'PREGÃO');
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, 'Fornecedor 1');
     assert.equal(ui.controls.fornecedor_documento_snapshot.value, '11.222.333/0001-81');
@@ -218,6 +219,7 @@ test('editing the number aborts pending requests and late responses cannot repla
     ui.number.listeners.input();
     assert.equal(ui.controls.fornecedor_nome_snapshot.value, '');
     assert.equal(ui.controls.admitir_adesao.value, '');
+    assert.equal(ui.controls.annual_index_type.value, '');
     assert.equal(ui.products.children.length, 0);
     assert.equal(ui.productsTitle.textContent, '');
     assert.equal(ui.total.value, '0,0000');

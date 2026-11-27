@@ -60,7 +60,7 @@ final class AtaAmendmentSignedDocuments
         }, 3);
     }
 
-    /** @return array{bytes: string, number: ?string, supplier: ?string, amendment_number: int} */
+    /** @return array{bytes: string, number: ?string, supplier: ?string, amendment_number: int, apostille: bool} */
     public function download(User $expected, int $ata, int $amendment, bool $original): array
     {
         return DB::transaction(function () use ($expected, $ata, $amendment, $original) {
@@ -73,7 +73,8 @@ final class AtaAmendmentSignedDocuments
             ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'ata_amendment_signed_document_downloaded', 'created_at' => now(),
                 'metadata' => ['ata_id' => $ata, 'amendment_id' => $amendment, 'copy' => $kind]]);
 
-            return ['bytes' => $bytes, 'number' => $target->ATA, 'supplier' => $target->FORNECEDOR, 'amendment_number' => (int) $target->amendment_number];
+            return ['bytes' => $bytes, 'number' => $target->ATA, 'supplier' => $target->FORNECEDOR,
+                'amendment_number' => (int) $target->amendment_number, 'apostille' => $target->apostille];
         });
     }
 
@@ -117,13 +118,13 @@ final class AtaAmendmentSignedDocuments
     {
         $record = self::active($ata, $amendment)->first(['original_sha256', 'redacted_sha256', 'removed_copy']);
         if ($upload !== null) {
-            abort_if($record, 409, 'Este aditivo já tem um PDF armazenado.');
+            abort_if($record, 409, 'Já existe um PDF armazenado para este documento.');
 
             return $upload;
         }
         $copies = AtaSignedDocuments::availableCopies($record);
         abort_unless(in_array('original', $copies, true), 404, 'O PDF original não está disponível.');
-        abort_unless($copies === ['original'], 409, 'Este aditivo já tem uma cópia tarjada.');
+        abort_unless($copies === ['original'], 409, 'Já existe uma cópia tarjada para este documento.');
 
         return $this->verifiedBytes($record, 'original', self::active($ata, $amendment)->value('original_pdf'));
     }
@@ -151,11 +152,13 @@ final class AtaAmendmentSignedDocuments
         $key = $identity->key($target->ATA);
         $process = trim($target->PROCESSO ?? '');
         $record = DB::table('tb_ADT_ATA')->where('ID', $amendment)->whereNull('deleted_at')
-            ->whereRaw('TRIM(Proc_ATA) = ?', [$process])->lockForUpdate()->first(['ATA', 'ADT']);
+            ->where(fn ($query) => $query->where('ID_ATA', $ata)->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')))
+            ->whereRaw('TRIM(Proc_ATA) = ?', [$process])->lockForUpdate()->first(['ATA', 'ADT', 'Tipo_ADT']);
         abort_unless($record && $key !== null && $process !== '' && $identity->key($record->ATA) === $key, 404);
         abort_if(DB::table('tb_ATA')->where('ID', '!=', $ata)->whereRaw('TRIM(PROCESSO) = ?', [$process])
             ->pluck('ATA')->contains(fn ($number) => $identity->key($number) === $key), 409, 'A identificação da ATA é ambígua.');
         $target->amendment_number = $record->ADT;
+        $target->apostille = SaveAtaAmendment::isApostille($record->Tipo_ADT);
 
         return $target;
     }

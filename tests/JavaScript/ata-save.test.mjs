@@ -208,6 +208,25 @@ test('the main save sends the publication date and a published ATA cannot be sav
     assert.equal(requests.length, 1);
 });
 
+test('the main save sends the annual index type and can clear a saved choice', async () => {
+    const requests = [];
+    const panel = savePanel(async (_url, options) => {
+        requests.push({ method: options.method, payload: JSON.parse(options.body) });
+        return { ok: true, json: async () => ({ id: 7, number: '107/2025', version: 1 }) };
+    });
+    panel.values.annual_index_type = 'IGP-M';
+    await panel.click();
+    assert.equal(requests[0].method, 'POST');
+    assert.equal(requests[0].payload.annual_index_type, 'IGP-M');
+
+    Object.assign(panel.root.dataset, { ataLoaded: '7', ataVersion: '1' });
+    panel.root.querySelector('[data-ata-save]').dataset.updateUrl = '/atas/0';
+    panel.values.annual_index_type = '';
+    await panel.click();
+    assert.equal(requests[1].method, 'PATCH');
+    assert.equal(requests[1].payload.annual_index_type, null);
+});
+
 test('stale edit response cannot reload a different ATA', async () => {
     let release;
     const panel = savePanel(() => new Promise(resolve => { release = resolve; }));
@@ -345,6 +364,7 @@ test('amendment save warns for missing fields, retains them after success and ed
     const events = [], messages = [];
     const values = { number: '', date: '', process: '', type: '', start: '', end: '', period: '' };
     const advantage = { required: false, disabled: true, value: '' };
+    const annualIndex = { required: false, disabled: true, value: '' };
     const finalField = { dataset: { amendmentEndLimit: '2027-11-07' }, get value() { return values.end; },
         addEventListener: (event, handler) => { if (event === 'blur') blurEnd = handler; } };
     const button = { dataset: { saveUrl: '/atas/0/amendments' },
@@ -353,6 +373,7 @@ test('amendment save warns for missing fields, retains them after success and ed
         querySelector: selector => {
             if (selector === '[data-ata-amendment-save]') return button;
             if (selector === '#ata-amend-advantage') return advantage;
+            if (selector === '#ata-amend-annual-index') return annualIndex;
             if (selector === '#ata-amend-end') return finalField;
             return { value: values[selector.slice('#ata-amend-'.length)] };
         },
@@ -422,4 +443,18 @@ test('amendment save warns for missing fields, retains them after success and ed
     advantage.value = 'Pesquisa de Preços';
     await click();
     assert.equal(JSON.parse(request.options.body).advantage, 'Pesquisa de Preços');
+
+    values.type = 'Prorrogação/Quantitativo/Reajuste Anual INDICE';
+    Object.assign(annualIndex, { required: true, disabled: false });
+    request = undefined;
+    await click();
+    assert.equal(request, undefined);
+    assert.match(messages.at(-1), /Indice_Anual/);
+    annualIndex.value = '12,256%';
+    button.dataset.excludedProducts = '["8"]';
+    button.dataset.balanceQuantities = '[{"product_id":"31","quantity":"2,0001","adjusted_unit_price":"3,"}]';
+    await click();
+    assert.equal(JSON.parse(request.options.body).annual_index, '12,256');
+    assert.deepEqual(JSON.parse(request.options.body).balance_quantities, [{ product_id: '31', quantity: '2,0001', adjusted_unit_price: '3,0' }]);
+    assert.match(messages.at(-1), /Quantidades gravadas \(1\)/);
 });

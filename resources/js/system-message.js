@@ -68,7 +68,7 @@ export function chooseAtaDocumentFormat(ownerDocument = document, subject = 'ATA
         ownerDocument.body.append(dialog);
     }
     if (dialog.open) return Promise.resolve(null);
-    dialog.querySelector('#ata-format-description').textContent = subject === 'ATA' ? 'Escolha o formato da ATA.' : 'Escolha o formato do aditivo.';
+    dialog.querySelector('#ata-format-description').textContent = subject === 'ATA' ? 'Escolha o formato da ATA.' : `Escolha o formato do ${subject.toLowerCase()}.`;
     dialog.querySelector('[value="pdf"]').textContent = `${subject} em PDF`;
     dialog.querySelector('[value="docx"]').textContent = `${subject} em Word`;
     dialog.returnValue = '';

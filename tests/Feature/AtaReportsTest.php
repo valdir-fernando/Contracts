@@ -78,12 +78,12 @@ class AtaReportsTest extends TestCase
         $second = $this->ata('002/2026');
         $previous = $this->ata('003/2025');
         $deleted = $this->ata('004/2026', ['deleted_at' => now()]);
-        $amendment = DB::table('tb_ADITIVOS_ATA')->insertGetId(['ID_ATA' => $first, 'ATA' => '001/2026', 'NUMERO' => 2,
+        $amendment = DB::table('tb_ADT_ATA')->insertGetId(['ID_ATA' => $first, 'ATA' => '001/2026', 'ADT' => 2,
             'source_path' => 'amendment-2.pdf', 'source_sha256' => str_repeat('0', 64), 'source_size' => 1,
             'extraction' => 'test', 'link_status' => 'vinculado', 'issues' => '[]'], 'ID');
         $this->item($first, '0.1000');
         $this->item($first, '0.2000', ['ADITIVO' => 1]);
-        $this->item($first, '0.3000', ['ADITIVO' => 2, 'ID_ADITIVO' => $amendment]);
+        $this->item($first, '0.3000', ['ADITIVO' => 2, 'amendment_id' => $amendment]);
         $this->item($first, '777.0000', ['ADITIVO' => 3, 'deleted_at' => now()]);
         $this->item($second, '5.4000', ['ADITIVO' => 1]);
         $this->item($previous, '999.0000', ['ADITIVO' => 1]);

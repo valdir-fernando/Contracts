@@ -47,7 +47,11 @@ class AtaReportQuery
         $amendmentEnds = [];
         $registered = [];
         foreach (DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)->whereNotNull('Proc_ATA')
-            ->orderByDesc('Data_ADT')->orderByDesc('ID')->get(['ID', 'ATA', 'Proc_ATA', 'ADT', 'Proc_ADT', 'FINAL']) as $amendment) {
+            ->where(fn ($query) => $query->whereNotNull('ID_ATA')->orWhereNull('source_path'))
+            ->orderByDesc('Data_ADT')->orderByDesc('ID')->get(['ID', 'ATA', 'Proc_ATA', 'ADT', 'Proc_ADT', 'FINAL', 'Tipo_ADT']) as $amendment) {
+            if (SaveAtaAmendment::isApostille($amendment->Tipo_ADT)) {
+                continue;
+            }
             $number = $identity->key($amendment->ATA);
             $process = trim($amendment->Proc_ATA);
             $key = $number.'|'.$process;

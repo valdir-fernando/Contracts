@@ -24,16 +24,42 @@ export function ataProductTotal(quantity, price, places = 2) {
     return formatAtaTotalUnits(ataProductTotalUnits(quantity, price, places) ?? 0n, places);
 }
 
-export function ataAmendmentBalanceLineTotals(products, quantities) {
+export function ataAmendmentBalanceLineTotals(products, quantities, limitToOriginal = true) {
     const items = {};
     for (const product of products) {
         const quantity = quantities[product.id];
-        if (!quantity?.trim() || !product.quantity || limitAtaQuantity(quantity, product.quantity) !== quantity) continue;
+        if (!quantity?.trim()) continue;
+        if (limitToOriginal && (!product.quantity || limitAtaQuantity(quantity, product.quantity) !== quantity)) continue;
         const amount = ataProductTotalUnits(quantity, product.unit_price, 4);
         if (amount === null) continue;
         items[product.id] = formatAtaTotalUnits(amount, 4);
     }
     return items;
+}
+
+export function ataAnnualAmendmentTotals(products, quantities, index, manualPrices = {}) {
+    const prices = {};
+    const lines = {};
+    let total = 0n;
+    const percentage = /^(\d+)(?:[,.](\d+))?%?$/.exec(index);
+    const [, whole = '0', fraction = ''] = percentage ?? [];
+    const divisor = 100n * 10n ** BigInt(fraction.length);
+    const multiplier = divisor + BigInt(whole + fraction);
+    for (const product of products) {
+        const unitPrice = String(product.unit_price ?? '').trim() ? ataDecimalUnits(product.unit_price) : null;
+        if (percentage && unitPrice !== null) {
+            const adjusted = unitPrice * multiplier / divisor;
+            if (String(adjusted).length <= 18) prices[product.id] = formatAtaTotalUnits(adjusted, 4);
+        }
+        const quantity = quantities[product.id];
+        const price = manualPrices[product.id] ?? prices[product.id];
+        if (!quantity?.trim() || !price?.trim()) continue;
+        const amount = ataProductTotalUnits(quantity, price, 2);
+        if (amount === null) continue;
+        lines[product.id] = formatAtaTotalUnits(amount, 2);
+        total += amount;
+    }
+    return { prices, lines, total: formatAtaTotalUnits(total, 2) };
 }
 
 export function fitAtaDescription(input, getStyle = element => getComputedStyle(element)) {
@@ -69,7 +95,8 @@ export function initializeAtaAmendmentBalanceCorrection(root, requestCorrection 
         pending = true;
         try {
             const replacement = await requestCorrection(entered, original, validate, root.ownerDocument);
-            if (!target.isConnected || target.disabled || root.dataset.ataLoaded !== ataLoaded || root.dataset.ataVersion !== ataVersion) return;
+            if (!target.isConnected || target.disabled || target.dataset.amendmentOriginalQuantity !== original
+                || root.dataset.ataLoaded !== ataLoaded || root.dataset.ataVersion !== ataVersion) return;
             target.value = validate(replacement) ? replacement : '';
             target.dispatchEvent(new Event('input', { bubbles: true }));
             target.focus({ preventScroll: true });
@@ -450,8 +477,17 @@ if (typeof document !== 'undefined') {
         initializeAtaProducts(root);
         initializeAtaAmendmentBalanceCorrection(root);
         root.addEventListener('ata-amendment-balance-input', ({ target, detail }) => {
+            const { products, quantities, limitToOriginal, annualIndex, manualPrices } = detail;
+            let calculation;
+            if (annualIndex !== null) {
+                calculation = ataAnnualAmendmentTotals(products, quantities, annualIndex, manualPrices);
+            } else {
+                const lines = ataAmendmentBalanceLineTotals(products, quantities, limitToOriginal);
+                const total = Object.values(lines).reduce((sum, amount) => sum + ataDecimalUnits(amount), 0n);
+                calculation = { prices: {}, lines, total: formatAtaTotalUnits(total, 4) };
+            }
             target.dispatchEvent(new CustomEvent('ata-amendment-balance-calculated', {
-                bubbles: true, detail: ataAmendmentBalanceLineTotals(detail.products, detail.quantities),
+                bubbles: true, detail: calculation,
             }));
         });
     });

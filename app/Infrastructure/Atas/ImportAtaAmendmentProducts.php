@@ -11,16 +11,19 @@ use RuntimeException;
 /** Explicit system maintenance; preserves original products and documentary totals. */
 final class ImportAtaAmendmentProducts
 {
+    private const RECORD_COLUMNS = ['ID', 'ID_ATA', 'ATA', 'ADT', 'Proc_ATA', 'Proc_ADT', 'N_LICIT',
+        'source_path', 'source_sha256', 'extraction', 'link_status', 'products_import', 'edited_in_panel_at', 'deleted_at'];
+
     public function __construct(private AtaAmendmentProductReader $reader) {}
 
     public function run(string $directory, bool $apply = false): array
     {
         $prepared = [];
         $pending = [];
-        foreach (DB::table('tb_ADITIVOS_ATA')->whereNull('deleted_at')->orderBy('ID')->get() as $record) {
+        foreach (DB::table('tb_ADT_ATA')->whereNotNull('source_path')->whereNull('edited_in_panel_at')->whereNull('deleted_at')->orderBy('ID')->get(self::RECORD_COLUMNS) as $record) {
             $metadata = (array) $record;
             try {
-                $entry = $this->reader->read($directory, $metadata);
+                $entry = $this->reader->read($directory, AtaAmendmentImportData::documentary($metadata));
                 if ($entry['products'] === [] && $entry['has_item_header']) {
                     throw new RuntimeException('Tabela identificada sem produtos reconhecidos.');
                 }
@@ -40,13 +43,13 @@ final class ImportAtaAmendmentProducts
                 'inserted_products' => 0, 'existing_products' => 0, 'linked_products' => 0, 'without_original_ata' => 0,
                 'without_item_table' => [], 'pending' => $pending, 'issues' => [], 'changes' => []];
             $atas = DB::table('tb_ATA')->orderBy('ID')->lockForUpdate()->get()->keyBy('ID');
-            $amendments = DB::table('tb_ADITIVOS_ATA')->orderBy('ID')->lockForUpdate()->get()->keyBy('ID');
+            $amendments = DB::table('tb_ADT_ATA')->orderBy('ID')->lockForUpdate()->get(self::RECORD_COLUMNS)->keyBy('ID');
             foreach ($prepared as ['metadata' => $before, 'entry' => $entry]) {
                 $amendment = $amendments->get($before['ID']);
                 if ($amendment === null || $amendment->deleted_at !== null) {
                     throw new RuntimeException('Aditivo excluído durante a preparação: '.$before['ID']);
                 }
-                foreach (['ID_ATA', 'ATA', 'NUMERO', 'PROCESSO_ORIGEM', 'PROCESSO_ADITIVO', 'N_LICIT', 'source_path', 'source_sha256', 'extraction', 'link_status', 'products_import'] as $column) {
+                foreach (['ID_ATA', 'ATA', 'ADT', 'Proc_ATA', 'Proc_ADT', 'N_LICIT', 'edited_in_panel_at', 'source_path', 'source_sha256', 'extraction', 'link_status', 'products_import'] as $column) {
                     if ($amendment->{$column} !== $before[$column]) {
                         throw new RuntimeException('Aditivo alterado durante a preparação: '.$before['ID']);
                     }
@@ -54,7 +57,7 @@ final class ImportAtaAmendmentProducts
                 $ata = $amendment->ID_ATA === null ? null : $atas->get($amendment->ID_ATA);
                 $identity = new AtaAmendmentReader;
                 if ($ata !== null && ($identity->key($ata->ATA) !== $identity->key($amendment->ATA)
-                    || $ata->PROCESSO !== $amendment->PROCESSO_ORIGEM || $identity->key($ata->N_LICIT) !== $identity->key($amendment->N_LICIT))) {
+                    || $ata->PROCESSO !== $amendment->Proc_ATA || $identity->key($ata->N_LICIT) !== $identity->key($amendment->N_LICIT))) {
                     throw new RuntimeException('A ata vinculada diverge da identificação do aditivo.');
                 }
                 if ($amendment->link_status === 'conferencia_necessaria' || $ata !== null && $ata->deleted_at !== null) {
@@ -66,7 +69,7 @@ final class ImportAtaAmendmentProducts
                 if ($amendment->products_import !== null && json_decode($amendment->products_import, true, flags: JSON_THROW_ON_ERROR) != $manifest) {
                     throw new RuntimeException('Conteúdo de produtos já importado diverge: '.$amendment->ID);
                 }
-                $current = DB::table('tb_PRODUTOS_ATA')->where('ID_ADITIVO', $amendment->ID)->orderBy('ID')->lockForUpdate()->get()->keyBy('ITEM');
+                $current = DB::table('tb_PRODUTOS_ATA')->where('amendment_id', $amendment->ID)->orderBy('ID')->lockForUpdate()->get()->keyBy('ITEM');
                 if (array_diff($current->keys()->map(fn ($item) => (string) $item)->all(), array_column($entry['products'], 'ITEM')) !== []) {
                     throw new RuntimeException('Produtos extras encontrados no aditivo '.$amendment->ID);
                 }
@@ -75,10 +78,10 @@ final class ImportAtaAmendmentProducts
                 $ids = [];
                 $linkedIds = [];
                 foreach ($entry['products'] as $product) {
-                    $data = [...$product, 'ID_ATA' => $ata?->ID, 'ID_ADITIVO' => $amendment->ID,
-                        'ATA' => $amendment->ATA, 'PROCESSO' => $amendment->PROCESSO_ORIGEM,
+                    $data = [...$product, 'ID_ATA' => $ata?->ID, 'amendment_id' => $amendment->ID,
+                        'ATA' => $amendment->ATA, 'PROCESSO' => $amendment->Proc_ATA,
                         'LICITACAO' => $ata?->LICITACAO ?? 'PREGÃO ELETRÔNICO', 'N_LICIT' => $amendment->N_LICIT,
-                        'ADITIVO' => $amendment->NUMERO, 'DATA_ADT' => $entry['DATA_ADT'], 'PROC_ADT' => $entry['PROC_ADT']];
+                        'ADITIVO' => $amendment->ADT, 'DATA_ADT' => $entry['DATA_ADT'], 'PROC_ADT' => $entry['PROC_ADT']];
                     if ($ata === null) {
                         $result['without_original_ata']++;
                     }
@@ -109,7 +112,7 @@ final class ImportAtaAmendmentProducts
                     $result['issues'][$amendment->ID] = ['ata' => $amendment->ATA, 'issues' => $entry['issues']];
                 }
                 if ($apply && $amendment->products_import === null) {
-                    DB::table('tb_ADITIVOS_ATA')->where('ID', $amendment->ID)->update(['products_import' => $this->json($manifest), 'updated_at' => now()]);
+                    DB::table('tb_ADT_ATA')->where('ID', $amendment->ID)->update(['products_import' => $this->json($manifest), 'updated_at' => now()]);
                 }
                 if ($apply && ($amendment->products_import === null || $linkedIds !== [])) {
                     $result['changes'][] = ['aditivo_id' => $amendment->ID, 'ata_id' => $ata?->ID, 'product_ids' => $ids, 'linked_product_ids' => $linkedIds, 'manifest' => $manifest];

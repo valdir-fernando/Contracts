@@ -37,7 +37,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
         });
         field('fornecedor_documento_snapshot').dispatchEvent(new Event('input', { bubbles: true }));
         supplierForm.querySelectorAll('input:not([name="_token"]), textarea').forEach(input => { input.value = ''; });
-        ['Data_ATA', 'Data_Orçamento', 'admitir_adesao', 'bidding', 'bidding_number'].forEach(name => { field(name).value = ''; });
+        ['Data_ATA', 'Data_Orçamento', 'admitir_adesao', 'bidding', 'bidding_number', 'annual_index_type'].forEach(name => { field(name).value = ''; });
         root.querySelectorAll('[data-ata-contractor-field]').forEach(output => { output.textContent = ''; });
         root.querySelector('#ata-total').value = '0,0000';
         root.querySelectorAll('[data-product-heading-total], [data-product-contract-total], [data-product-line-total]').forEach(input => { input.value = '0,0000'; });
@@ -85,6 +85,7 @@ export function initializeAtaLookup(root, number, opener, status, fetcher = fetc
                 input.value = input.type === 'date' ? value ?? '' : (value ?? '').split('-').reverse().join('/');
             }
             field('admitir_adesao').value = data.admitir_adesao ?? '';
+            field('annual_index_type').value = data.annual_index_type ?? '';
             field('bidding').value = data.bidding ?? '';
             field('bidding_number').value = data.bidding_number ?? '';
             const manager = field('managing_fund_id');

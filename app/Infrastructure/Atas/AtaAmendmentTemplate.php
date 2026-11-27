@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Atas;
 
+use App\Domain\Atas\AtaAnnualIndex;
 use App\Domain\Shared\DecimalAmount;
 use App\Domain\Shared\MoneyWords;
 use Brick\Math\BigDecimal;
@@ -18,6 +19,9 @@ final class AtaAmendmentTemplate extends AtaExtractTemplate
 
     private const MODELS = [
         SaveAtaAmendment::EQUAL_QUANTITY => 'Aditivo_Prorrogacao_Igual_Periodo_Valor.docx',
+        SaveAtaAmendment::VARIABLE_QUANTITY => 'Aditivo_Prorrogacao_Periodo_Valor_Variavel.docx',
+        SaveAtaAmendment::ANNUAL_INDEX => 'Aditivo_Prorrogacao_Reajuste_Anual_Indice.docx',
+        SaveAtaAmendment::APOSTILLE => 'Termo_Apostilamento_Reajuste_Anual_Indice.docx',
         SaveAtaAmendment::EXTENSION => 'Aditivo_Prorrogacao_Saldo.docx',
     ];
 
@@ -30,16 +34,18 @@ final class AtaAmendmentTemplate extends AtaExtractTemplate
     public function render(array $fields): string
     {
         $amendment = $fields['related']['amendment'] ?? null;
-        abort_unless($amendment, 404, 'Aditivo ativo não encontrado nesta ATA.');
+        $apostille = ($fields['presentation']['instrument'] ?? null) === 'apostille';
+        $subject = $apostille ? 'apostilamento' : 'aditivo';
+        abort_unless($amendment, 404, ucfirst($subject).' ativo não encontrado nesta ATA.');
         $model = self::MODELS[$amendment['Tipo_ADT']] ?? null;
         abort_unless($model, 422, 'Este tipo de aditivo ainda não tem modelo para emissão.');
         $balance = $amendment['Tipo_ADT'] === SaveAtaAmendment::EXTENSION;
         abort_unless(in_array($amendment['VANTAJOSIDADE'], SaveAtaAmendment::ADVANTAGE_OPTIONS, true), 422,
-            'Selecione e salve a Vantajosidade antes de emitir o aditivo.');
+            "Selecione e salve a Vantajosidade antes de emitir o {$subject}.");
         $products = $balance ? $this->balanceRows($fields['related']['balances']) : $fields['related']['products'];
-        abort_if($products === [], 422, $balance ? 'Informe e salve ao menos um saldo positivo antes de emitir o aditivo.' : 'O aditivo não tem produtos ativos para emissão.');
+        abort_if($products === [], 422, $balance ? 'Informe e salve ao menos um saldo positivo antes de emitir o aditivo.' : "O {$subject} não tem produtos ativos para emissão.");
         abort_if(blank($amendment['Proc_ADT']) || blank($amendment['Período']) || blank($amendment['Data_ADT'])
-            || blank($amendment['INICIO']) || blank($amendment['FINAL']), 422, 'Preencha os dados do aditivo antes de emitir o documento.');
+            || blank($amendment['INICIO']) || blank($amendment['FINAL']), 422, "Preencha os dados do {$subject} antes de emitir o documento.");
 
         $tables = (new AtaWordDocument)->productTables([
             'presentation' => $fields['presentation'],
@@ -53,8 +59,10 @@ final class AtaAmendmentTemplate extends AtaExtractTemplate
         ]);
         $tokens = [
             '#ADT' => str_pad((string) $amendment['ADT'], 3, '0', STR_PAD_LEFT),
+            '#APOST' => str_pad((string) $amendment['ADT'], 3, '0', STR_PAD_LEFT),
             '#ATA' => $fields['number'], '#ADM' => 'ADM: '.$fields['administration'],
             '#PROC_ADT' => $amendment['Proc_ADT'], '#PROCESSO_ADITIVO' => $amendment['Proc_ADT'],
+            '#PROC_APOST' => $amendment['Proc_ADT'], '#DOC_FORNECEDOR' => $fields['supplier_document_label'].': '.$fields['supplier_document'],
             '#VANTAJOSIDADE' => $amendment['VANTAJOSIDADE'],
             '#PROC_ATA' => $fields['process'], '#LICITAÇÃO' => $fields['bidding'], '#LICIT' => $fields['bidding'],
             '#N_LICIT' => $fields['bidding_number'], '#FUNDO' => $fields['fund'],
@@ -69,6 +77,17 @@ final class AtaAmendmentTemplate extends AtaExtractTemplate
             '#FINAL' => (new DateTimeImmutable($amendment['FINAL']))->format('d/m/Y'),
             '#DATA_ATA' => $fields['related']['signature_date'],
         ];
+        if (in_array($amendment['Tipo_ADT'], SaveAtaAmendment::ANNUAL_INDEX_TYPES, true)) {
+            $index = AtaAnnualIndex::normalize($amendment['annual_index']);
+            abort_if($index === null, 422, "Informe e salve Indice_Anual antes de emitir o {$subject}.");
+            $tokens += [
+                '#INDICE_ANUAL' => str_replace('.', ',', $index).'%',
+                '#TIPO_INDICE_ANUAL' => $fields['annual_index_type'] ?: "índice indicado na instrução do {$subject}",
+                '#DATA_BASE_REAJUSTE' => $fields['budget_date'] === null
+                    ? 'conforme os autos do Processo Administrativo nº '.$amendment['Proc_ADT']
+                    : (new DateTimeImmutable($fields['budget_date']))->format('d/m/Y'),
+            ];
+        }
         if ($balance) {
             abort_if(blank($fields['related']['original_start']) || blank($fields['related']['previous_end']), 422,
                 'Confira a data inicial e o vencimento anterior da vigência da ATA antes de emitir o aditivo.');
@@ -82,11 +101,12 @@ final class AtaAmendmentTemplate extends AtaExtractTemplate
             $total = BigDecimal::zero();
             foreach ($products as $product) {
                 $value = DecimalAmount::normalize((string) $product['VL_TOTAL']);
-                abort_if($value === null || str_starts_with($value, '-'), 422, 'Confira os valores dos produtos do aditivo.');
+                abort_if($value === null || str_starts_with($value, '-'), 422, "Confira os valores dos produtos do {$subject}.");
                 $total = $total->plus($value);
             }
             $amount = (string) $total->toScale(2, RoundingMode::HalfUp);
-            $tokens += ['#VL_ADT' => $this->decimal($amount), '#EXTENSO_ADT' => MoneyWords::reais($amount)];
+            $tokens += ['#VL_ADT' => $this->decimal($amount), '#EXTENSO_ADT' => MoneyWords::reais($amount),
+                '#VL_APOST' => $this->decimal($amount), '#EXTENSO_APOST' => MoneyWords::reais($amount)];
         }
         if ($fields['supplier_document_label'] === 'CPF') {
             $tokens['a empresa #FORNECEDOR, inscrita no CNPJ/MF sob o nº #CNPJ_FORNECEDOR, com sede no(a) #END_FORNECEDOR, neste ato representada por seu sócio-administrador, Sr,(a) #SOCIO, #DOCUMENTOS_SOCIO'] =
@@ -120,7 +140,7 @@ final class AtaAmendmentTemplate extends AtaExtractTemplate
                     foreach (iterator_to_array($xpath->query('//w:p')) as $paragraph) {
                         $nodes = iterator_to_array($xpath->query('.//w:t[count(ancestor::w:p) = '.($xpath->query('ancestor::w:p', $paragraph)->length + 1).']', $paragraph));
                         $text = implode('', array_map(fn ($node) => $node->textContent, $nodes));
-                        if (in_array(trim($text), ['#TABELA DOS PRODUTOS ADITIVO', '#TABELA DOS PRODUTOS – SALDO'], true)) {
+                        if (in_array(trim($text), ['#TABELA DOS PRODUTOS ADITIVO', '#TABELA DOS PRODUTOS – SALDO', '#TABELA DOS PRODUTOS APOSTILAMENTO'], true)) {
                             foreach ($tables->documentElement->childNodes as $block) {
                                 $paragraph->parentNode->insertBefore($xml->importNode($block, true), $paragraph);
                             }

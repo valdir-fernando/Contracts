@@ -91,8 +91,9 @@ final class AtaSignedDocumentController
         $number = $this->filenamePart($document['number'], 40) ?: (string) $ata;
         $supplier = $this->filenamePart($document['supplier'], 160) ?: 'Fornecedor';
         $suffix = $original ? '_Assinado.pdf' : '_Assinado_Tarjado.pdf';
+        $instrument = ($document['apostille'] ?? false) ? 'Apostilamento' : 'Aditivo';
         $name = isset($document['amendment_number'])
-            ? "Aditivo_{$document['amendment_number']}_ATA_{$number}_{$supplier}"
+            ? "{$instrument}_{$document['amendment_number']}_ATA_{$number}_{$supplier}"
             : "Ata_{$number}_{$supplier}";
         $fallback = $this->filenamePart(Str::ascii($name), 205);
 

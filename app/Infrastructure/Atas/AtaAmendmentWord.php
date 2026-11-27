@@ -19,11 +19,12 @@ class AtaAmendmentWord extends AtaExtractPdf
     }
 
     /** @return array{bytes: string, number: string, supplier: string} */
-    public function generateForAmendment(User $actor, int $ata, int $version, int $amendment, string $layout = 'continuous'): array
+    public function generateForAmendment(User $actor, int $ata, int $version, int $amendment, string $layout = 'continuous', bool $apostille = false): array
     {
         abort_unless(in_array($layout, ['continuous', 'parallel'], true), 422);
 
-        return $this->generateDocumentResult($actor, $ata, $version, ['amendment_number' => $amendment, 'products_layout' => $layout]);
+        return $this->generateDocumentResult($actor, $ata, $version, ['amendment_number' => $amendment, 'products_layout' => $layout,
+            ...($apostille ? ['instrument' => 'apostille'] : [])]);
     }
 
     protected function auditAction(): string
@@ -38,7 +39,8 @@ class AtaAmendmentWord extends AtaExtractPdf
 
     protected function additionalColumns(): array
     {
-        return ['CNPJ_FUNDO', 'END_FUNDO', 'END_FORNECEDOR', 'SOCIO', 'CPF_SOCIO', 'RG_SOCIO', 'RG_FORNECEDOR', 'QTD_ESPECIAL_NOME', 'validity_basis'];
+        return ['CNPJ_FUNDO', 'END_FUNDO', 'END_FORNECEDOR', 'SOCIO', 'CPF_SOCIO', 'RG_SOCIO', 'RG_FORNECEDOR', 'QTD_ESPECIAL_NOME',
+            'validity_basis', 'DATA_ORCAMENTO', 'TIPO_INDICE_ANUAL'];
     }
 
     protected function relatedSource(object $ata, array $presentation): array
@@ -52,15 +54,33 @@ class AtaAmendmentWord extends AtaExtractPdf
         }
 
         $number = $presentation['amendment_number'];
+        $apostille = ($presentation['instrument'] ?? null) === 'apostille';
         $amendments = DB::table('tb_ADT_ATA')->whereRaw('TRIM(Proc_ATA) = ?', [$process])
+            ->where(fn ($query) => $query->where('ID_ATA', $ata->ID)->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')))
             ->where('ADT', $number)->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()
-            ->get(['ID', 'ATA', 'ADT', 'Data_ADT', 'Proc_ADT', 'Tipo_ADT', 'INICIO', 'FINAL', 'Período', 'VANTAJOSIDADE', 'balance_products'])
-            ->filter(fn ($row) => $identity->key($row->ATA) === $key);
+            ->get(['ID', 'ATA', 'ADT', 'Data_ADT', 'Proc_ADT', 'Tipo_ADT', 'INICIO', 'FINAL', 'Período', 'VANTAJOSIDADE', 'annual_index', 'balance_products'])
+            ->filter(fn ($row) => $identity->key($row->ATA) === $key && SaveAtaAmendment::isApostille($row->Tipo_ADT) === $apostille);
         if ($amendments->count() !== 1) {
             return [];
         }
 
         $amendment = $amendments->first();
+        if ($apostille) {
+            $amendment->Tipo_ADT = SaveAtaAmendment::APOSTILLE;
+            $excluded = DB::table('ata_amendment_excluded_products')->where('ata_id', $ata->ID)->where('amendment_id', $amendment->ID)
+                ->whereNull('deleted_at')->orderBy('id')->lockForUpdate()->pluck('product_id')->map(fn ($id) => (int) $id)->all();
+            $products = [];
+            foreach (json_decode($amendment->balance_products ?? '[]', true, flags: JSON_THROW_ON_ERROR) as $item) {
+                if (! isset($item['adjusted_total']) || in_array($item['id'], $excluded, true)) {
+                    continue;
+                }
+                $products[] = ['ITEM' => $item['item'], 'COD_PROD' => $item['code'], 'DISCRIMINACAO' => $item['description'],
+                    'UND' => $item['unit'], 'MARCA' => $item['brand'], 'QTD' => $item['balance_quantity'], 'QTD_ESPECIAL' => $item['special_quantity'],
+                    'VL_UNIT' => $item['effective_unit_price'], 'VL_TOTAL' => $item['adjusted_total']];
+            }
+
+            return ['amendment' => (array) $amendment, 'products' => $products, 'signature_date' => self::longDate($amendment->Data_ADT)];
+        }
         if ($amendment->Tipo_ADT === SaveAtaAmendment::EXTENSION) {
             $excluded = DB::table('ata_amendment_excluded_products')->where('ata_id', $ata->ID)->where('amendment_id', $amendment->ID)
                 ->whereNull('deleted_at')->orderBy('id')->lockForUpdate()->pluck('product_id')->map(fn ($id) => (int) $id)->all();
@@ -73,7 +93,8 @@ class AtaAmendmentWord extends AtaExtractPdf
         }
 
         $products = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ata->ID)->where('ADITIVO', $number)
-            ->whereNull('ID_ADITIVO')->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()
+            ->where(fn ($query) => $query->where('amendment_id', $amendment->ID)->orWhereNull('amendment_id'))
+            ->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()
             ->get(['ID', 'ITEM', 'COD_PROD', 'DISCRIMINACAO', 'UND', 'MARCA', 'QTD', 'QTD_ESPECIAL', 'VL_UNIT', 'VL_TOTAL'])
             ->map(fn ($row) => (array) $row)->all();
 
@@ -93,12 +114,11 @@ class AtaAmendmentWord extends AtaExtractPdf
             }
         }
         $registered = DB::table('tb_ADT_ATA')->whereRaw('TRIM(Proc_ATA) = ?', [$process])->where('ADT', '<', $number)
-            ->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()->get(['ATA', 'FINAL'])
-            ->filter(fn ($row) => $identity->key($row->ATA) === $key)->max('FINAL');
-        $imported = DB::table('tb_ADITIVOS_ATA')->where('ID_ATA', $ata->ID)->where('NUMERO', '<', $number)
-            ->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()->pluck('FINAL_ADITIVO')->max();
+            ->where(fn ($query) => $query->where('ID_ATA', $ata->ID)->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')))
+            ->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()->get(['ATA', 'FINAL', 'Tipo_ADT'])
+            ->filter(fn ($row) => $identity->key($row->ATA) === $key && ! SaveAtaAmendment::isApostille($row->Tipo_ADT))->max('FINAL');
 
-        return max($originalEnd, $registered, $imported);
+        return max($originalEnd, $registered);
     }
 
     protected function fields(object $ata, User $actor, object $settings): array
@@ -117,6 +137,8 @@ class AtaAmendmentWord extends AtaExtractPdf
             'representative_document' => $cpf,
             'representative_identification' => 'RG: '.$rg.', CPF: '.$cpf,
             'special_quantity' => trim($ata->QTD_ESPECIAL_NOME ?? ''),
+            'budget_date' => $ata->DATA_ORCAMENTO,
+            'annual_index_type' => trim($ata->TIPO_INDICE_ANUAL ?? ''),
         ];
     }
 

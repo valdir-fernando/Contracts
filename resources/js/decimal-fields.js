@@ -13,7 +13,7 @@ export function formatDecimalField(value) {
     return `${sign}${integer},${fraction.padEnd(4, '0')}`;
 }
 
-const selector = 'input[inputmode="decimal"], input[data-money], input[data-quantity]';
+const selector = 'input[inputmode="decimal"]:not([data-percentage]), input[data-money], input[data-quantity]';
 const states = new WeakMap();
 
 export function initializeDecimalInput(input) {

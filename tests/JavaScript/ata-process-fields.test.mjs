@@ -7,6 +7,141 @@ const view = readFileSync(new URL('../../resources/views/atas/create.blade.php',
 const funds = [{ id: 1, name: 'Educação' }, { id: 2, name: 'Saúde' }, { id: 3, name: 'Município' }];
 const equalQuantityType = 'Prorrogação/Quantitativo - Igual Período e Valor';
 const balanceExtensionType = 'Prorrogação - Saldo Positivo';
+const variablePeriodType = 'Prorrogação/Quantitativo - Período e Valor Variável';
+const annualIndexType = 'Prorrogação/Quantitativo/Reajuste Anual INDICE';
+const apostilleType = 'Apostilamento/Reajuste Anual INDICE';
+const annualIndexTypes = [annualIndexType, apostilleType];
+
+test('historical type can be restored only for the selected saved amendment', () => {
+    const { state } = editor();
+    const historical = 'Prorrogação de vigência';
+    state.resetAmendment({ amendments: { 1: { type: historical }, 2: { type: balanceExtensionType } } });
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.historicalAmendmentType, historical);
+    assert.equal(state.amendmentFields.type, historical);
+    assert.equal(state.requiresAmendmentAdvantage, false);
+    state.amendmentFields.type = equalQuantityType;
+    assert.equal(state.historicalAmendmentType, historical);
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.historicalAmendmentType, '');
+    state.clearAmendmentFields();
+    assert.equal(state.historicalAmendmentType, '');
+});
+
+test('the historical extension option displays the variable period and value label while retaining its saved value', () => {
+    const { state } = editor();
+    const [, label] = view.match(/<option :value="historicalAmendmentType"\s+x-text="([^"]+)"/);
+    for (const [type, expectedLabel] of [
+        ['Prorrogação de vigência', variablePeriodType],
+        ['Prorrogação de Vigência', variablePeriodType],
+        ['Aditivo histórico', 'Aditivo histórico'],
+    ]) {
+        state.resetAmendment({ amendments: { 1: { type } } });
+        state.amendmentNumber = '001';
+        state.lookupAmendment();
+        assert.equal(runInNewContext(label, state), expectedLabel);
+        assert.equal(state.amendmentFields.type, type);
+        assert.equal(state.usesHistoricalVariablePeriodLabel, expectedLabel === variablePeriodType);
+        assert.equal(state.editAmendmentBalanceQuantities, false);
+    }
+});
+
+test('variable period permits edited quantities above the original and shows their calculated value', () => {
+    const { state } = editor();
+    assert.equal(state.editAmendmentBalanceQuantities, false);
+    state.amendmentOpen = true;
+    state.amendmentFields.type = variablePeriodType;
+    assert.equal(state.editAmendmentBalanceQuantities, true);
+    assert.equal(state.limitAmendmentQuantitiesToOriginal, false);
+    assert.equal(state.requiresAmendmentAdvantage, true);
+    state.amendmentBalanceTotal = '12,3000';
+    assert.equal(state.amendmentDisplayedValue, '12,3000');
+
+    state.resetAmendment({ amendments: { 1: { type: variablePeriodType } } });
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.amendmentFields.type, variablePeriodType);
+    assert.equal(state.printableAmendment, '');
+});
+
+test('copying an amendment type writes its visible label and skips an empty selection', async () => {
+    const clipboard = [];
+    const { state } = editor({ navigator: { clipboard: { async writeText(text) { clipboard.push(text); } } } });
+    const select = { value: '', selectedOptions: [{ label: '' }] };
+    state.$refs.ataAmendType = select;
+    await state.copyAmendmentType();
+    assert.deepEqual(clipboard, []);
+
+    select.value = 'Prorrogação de vigência';
+    select.selectedOptions = [{ label: 'Prorrogação/Quantitativo - Período e Valor Variável' }];
+    await state.copyAmendmentType();
+    assert.deepEqual(clipboard, ['Prorrogação/Quantitativo - Período e Valor Variável']);
+    assert.equal(state.amendmentTypeCopyStatus, 'copied');
+    assert.equal(select.value, 'Prorrogação de vigência');
+});
+
+test('annual index allows saving with the index filled and keeps historical editing available', async () => {
+    const clipboard = [];
+    const { state } = editor({ navigator: { clipboard: { async writeText(text) { clipboard.push(text); } } } });
+    const [label] = view.match(/Prorrogação\/Quantitativo\/Reajuste ANUAL INDICE/);
+    const [, expression] = view.match(/data-ata-amendment-save\b[\s\S]*?\s:disabled="([^"]+)"/);
+    const saveDisabled = () => runInNewContext(expression, state);
+    state.loaded = true;
+    state.amendmentFields.type = annualIndexType;
+    state.$refs.ataAmendType = { value: annualIndexType, selectedOptions: [{ label }] };
+    assert.equal(saveDisabled(), false);
+    assert.equal(state.requiresAnnualIndex, true);
+    await state.copyAmendmentType();
+    assert.deepEqual(clipboard, ['Prorrogação/Quantitativo/Reajuste ANUAL INDICE']);
+
+    state.resetAmendment({ amendments: { 1: { type: annualIndexType }, 2: { type: equalQuantityType } } });
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.amendmentFields.type, annualIndexType);
+    assert.equal(saveDisabled(), false);
+    assert.equal(state.requiresAnnualIndex, false);
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(saveDisabled(), false);
+    state.amendmentFields.type = annualIndexType;
+    assert.equal(state.requiresAnnualIndex, true);
+});
+
+test('an unavailable clipboard selects the visible amendment type for manual copying', async () => {
+    const { state } = editor({ navigator: {} });
+    const actions = [];
+    const text = { value: '', focus() { actions.push('focus'); }, select() { actions.push('select'); } };
+    state.$refs.ataAmendType = { value: equalQuantityType, selectedOptions: [{ label: equalQuantityType }] };
+    state.$refs.ataAmendTypeCopyText = text;
+    state.$nextTick = callback => callback();
+
+    await state.copyAmendmentType();
+    assert.equal(state.amendmentTypeCopyStatus, 'manual');
+    assert.equal(text.value, equalQuantityType);
+    assert.deepEqual(actions, ['focus', 'select']);
+});
+
+test('amendment title follows saving, selecting and clearing a saved amendment', () => {
+    const { state } = editor();
+    const expression = view.match(/id="ata-amend-title"[^>]*><span x-text="([^"]+)"/)[1];
+    const title = () => runInNewContext(expression, state);
+    assert.equal(title(), 'Aditivar ATA');
+    state.amendmentNumber = '002';
+    assert.equal(title(), 'Aditivar ATA');
+    state.applySavedAmendment({ amendment_number: 2, version: 'next', amendment: { type: balanceExtensionType } });
+    assert.equal(title(), 'Aditivo Nº 2');
+    state.clearAmendmentFields();
+    assert.equal(title(), 'Aditivar ATA');
+    state.resetAmendment({ amendments: { 3: { type: balanceExtensionType } } });
+    state.amendmentNumber = '003';
+    state.lookupAmendment();
+    assert.equal(title(), 'Aditivo Nº 3');
+    state.amendmentNumber = '004';
+    state.lookupAmendment();
+    assert.equal(title(), 'Aditivar ATA');
+});
 
 test('positive balance displays zero as the amendment amount and keeps the official ATA total', () => {
     const { state } = editor();
@@ -32,14 +167,131 @@ test('new positive-balance rows are selectable even when the historical flag is 
     assert.match(view, /aria-describedby="ata-amend-exclusion-notice"\s+:disabled="!canEditAmendmentProduct\(product\)"/);
 });
 
-test('Vantajosidade is required for both extension types without enabling quantities for positive balance', () => {
+test('Vantajosidade, Indice_Anual and editable quantities follow the selected amendment type', () => {
     const { state } = editor();
-    for (const type of [equalQuantityType, balanceExtensionType, 'Apostilamento', '']) {
+    const advantageTypes = [equalQuantityType, balanceExtensionType, variablePeriodType];
+    for (const type of [...advantageTypes, ...annualIndexTypes, 'Apostilamento', '']) {
         state.amendmentFields.type = type;
-        assert.equal(state.requiresAmendmentAdvantage, [equalQuantityType, balanceExtensionType].includes(type));
+        assert.equal(state.requiresAmendmentAdvantage, [...advantageTypes, ...annualIndexTypes].includes(type));
+        assert.equal(state.showsAmendmentAdvantage, [...advantageTypes, ...annualIndexTypes].includes(type));
+        assert.equal(state.isAnnualIndexAmendment, annualIndexTypes.includes(type));
         assert.equal(state.showAmendmentQuantities, type === equalQuantityType);
-        assert.equal(state.editAmendmentBalanceQuantities, type === balanceExtensionType);
+        assert.equal(state.editAmendmentBalanceQuantities, [balanceExtensionType, variablePeriodType, ...annualIndexTypes].includes(type));
+        assert.equal(state.limitAmendmentQuantitiesToOriginal, type === balanceExtensionType);
     }
+});
+
+test('apostilamento shares the number field and consults its own records, products and signed PDFs', () => {
+    const { state } = editor();
+    const amended = { type: annualIndexType, process: 'PROC-ADT', annual_index: '5' };
+    const apostilled = { type: apostilleType, process: 'PROC-APOST', annual_index: '7',
+        balance_products: [{ id: 2, balance_quantity: '3.0000', adjusted_unit_price: '17.2500' }] };
+    state.resetAmendment({ amendments: { 1: amended }, amendment_numbers: [1], amendment_signed_documents: { 1: { id: 3 } },
+        apostilles: { 1: apostilled }, apostille_numbers: [1], apostille_signed_documents: { 1: { id: 5 } } });
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.amendmentFields.process, 'PROC-ADT');
+    assert.equal(state.selectedAmendmentDocument.id, 3);
+    state.changeAmendmentType(apostilleType);
+    assert.equal(state.amendmentFields.process, 'PROC-APOST');
+    assert.equal(state.amendmentFields.annualIndex, '7%');
+    assert.equal(state.amendmentManualPrices[2], '17,2500');
+    assert.equal(state.selectedAmendmentDocument.id, 5);
+    assert.equal(state.removableAmendment, '1');
+    for (const [id, label] of [['number', 'Nº Apostilamento'], ['date', 'Data_Apost.'], ['process', 'Proc_Apost.']]) {
+        const expression = view.match(new RegExp(`for="ata-amend-${id}" x-text="([^"]+)"`))[1];
+        assert.equal(runInNewContext(expression, state), label);
+    }
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.amendmentFields.type, apostilleType);
+    assert.equal(state.amendmentFields.process, undefined);
+    assert.equal(state.savedAmendmentNumber, '');
+    assert.equal(state.requiresAnnualIndex, true);
+    state.applySavedAmendment({ amendment_number: 2, version: 4, amendment: apostilled, signed_amendment_id: 6 });
+    assert.equal(state.apostilles[2].process, 'PROC-APOST');
+    assert.equal(state.selectedAmendmentDocument.id, 6);
+    assert.equal(state.removableAmendment, '2');
+    assert.equal(state.amendments[2], undefined);
+});
+
+test('annual adjustment shows the estimated budget date and index type of the loaded ATA', () => {
+    const { state } = editor();
+    const [, dateBinding] = view.match(/id="ata-amend-budget-date" type="text" readonly :value="([^"]+)"/);
+    const [, indexTypeBinding] = view.match(/id="ata-amend-annual-index-type" type="text" readonly :value="([^"]+)"/);
+    const visibleDate = () => runInNewContext(dateBinding, state);
+    const visibleIndexType = () => runInNewContext(indexTypeBinding, state);
+    state.resetAmendment({ budget_date: '2026-10-20', annual_index_type: 'IPCA' });
+    assert.equal(visibleDate(), '20/10/2026');
+    assert.equal(visibleIndexType(), 'IPCA');
+    state.clearAmendmentFields();
+    assert.equal(visibleDate(), '20/10/2026');
+    assert.equal(visibleIndexType(), 'IPCA');
+    state.resetAmendment({ budget_date: '2025-03-07', annual_index_type: 'IGP-M' });
+    assert.equal(visibleDate(), '07/03/2025');
+    assert.equal(visibleIndexType(), 'IGP-M');
+    state.resetAmendment({ budget_date: null, annual_index_type: null });
+    assert.equal(visibleDate(), 'Não informado');
+    assert.equal(visibleIndexType(), 'Não informado');
+    state.resetAmendment();
+    assert.equal(visibleDate(), 'Não informado');
+    assert.equal(visibleIndexType(), 'Não informado');
+});
+
+test('Indice_Anual accepts only decimal numbers and appends a percent sign without rounding', () => {
+    const { state } = editor();
+    const input = { value: '', selectionStart: 0, selectionEnd: 0, setSelectionRange(start, end) {
+        this.selectionStart = start;
+        this.selectionEnd = end;
+    } };
+    const edit = value => {
+        input.value = value;
+        input.selectionStart = input.selectionEnd = value.length;
+        state.editAnnualIndex(input);
+        return input.value;
+    };
+    for (const [entered, displayed] of [
+        ['2,23', '2,23%'], ['12,256', '12,256%'], ['12,256700', '12,256700%'], ['4.05%', '4,05%'],
+        ['0', '0%'], [',5', '0,5%'], ['2,', '2%'], [',', ''], ['', ''],
+    ]) {
+        edit(entered);
+        state.formatAnnualIndex();
+        assert.equal(state.amendmentFields.annualIndex, displayed);
+        state.formatAnnualIndex();
+        assert.equal(state.amendmentFields.annualIndex, displayed);
+        assert.equal(edit(displayed), displayed.replace(/%$/, ''));
+    }
+
+    edit('2,23');
+    for (const invalid of ['2,2,3', '1.234,56', '-2,23', 'IPCA 4,33', '2,23x']) {
+        assert.equal(edit(invalid), '2,23');
+        assert.equal(state.amendmentFields.annualIndex, '2,23');
+    }
+    state.formatAnnualIndex();
+    input.value = state.amendmentFields.annualIndex;
+    input.selectionStart = 0;
+    input.selectionEnd = input.value.length;
+    state.editAnnualIndex(input);
+    assert.equal(input.value.slice(input.selectionStart, input.selectionEnd), '2,23');
+    state.clearAmendmentFields();
+    assert.equal(state.amendmentFields.annualIndex, undefined);
+});
+
+test('annual amendment restores the manual unit price and submits null to restore the suggestion', () => {
+    const { state } = editor();
+    state.resetAmendment({ amendments: { 1: { type: annualIndexType, annual_index: '12.256',
+        balance_products: [{ id: 31, balance_quantity: '2.0001', adjusted_unit_price: '3.4567' }],
+    } } });
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.amendmentManualPrices[31], '3,4567');
+    assert.equal(state.amendmentBalanceSubmission[0].adjusted_unit_price, '3,4567');
+    delete state.amendmentManualPrices[31];
+    assert.equal(state.amendmentBalanceSubmission[0].adjusted_unit_price, null);
+    state.amendmentExcludedProducts = ['31'];
+    assert.equal(state.amendmentBalanceSubmission.length, 0);
+    state.clearAmendmentFields();
+    assert.equal(Object.keys(state.amendmentManualPrices).length, 0);
 });
 
 test('typing a balance leaves reference quantities intact and New clears the draft', () => {
@@ -171,6 +423,70 @@ test('positive-balance emission uses only saved balances and exclusions', () => 
     assert.equal(state.printableAmendment, '');
 });
 
+test('variable-period emission requires saved products and rejects unsaved changes', () => {
+    const { state } = editor();
+    const saved = { type: variablePeriodType, date: '2026-11-20', start: '2026-12-01', end: '2027-08-31',
+        process: 'PROC-ADT', period: '9 meses', advantage: 'Declaração do Gestor', has_registered_products: true,
+        balance_products: [{ id: 35, balance_quantity: '3.1250' }], excluded_product_ids: [36] };
+    state.resetAmendment({ amendments: { 2: saved } });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentBalanceQuantities[35] = '5';
+    assert.equal(state.printableAmendment, '');
+    state.applySavedAmendment({ amendment_number: 2, version: 3,
+        amendment: { ...saved, balance_products: [{ id: 35, balance_quantity: '5.0000' }] } });
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentExcludedProducts = [];
+    assert.equal(state.printableAmendment, '');
+
+    const { balance_products, ...imported } = saved;
+    state.resetAmendment({ amendments: { 2: imported, 1: { ...imported, has_registered_products: false } } });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentBalanceQuantities[35] = '1';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '');
+});
+
+test('annual index emission requires saved products, percentage and unit prices', () => {
+    const { state } = editor();
+    const saved = { type: annualIndexType, date: '2026-11-20', start: '2026-12-01', end: '2027-08-31', process: 'PROC-ADT',
+        period: '9 meses', advantage: 'Declaração do Gestor', annual_index: '12.256', has_registered_products: true,
+        balance_products: [{ id: 35, balance_quantity: '2.0001', adjusted_unit_price: '3.4567' }], excluded_product_ids: [36] };
+    state.resetAmendment({ amendments: { 2: saved, 1: { ...saved, has_registered_products: false } } });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentManualPrices[35] = '3,4577';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentManualPrices[35] = '3,4567';
+    state.amendmentFields.annualIndex = '2,23%';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentFields.annualIndex = '12,256%';
+    assert.equal(state.printableAmendment, '2');
+    delete state.amendmentManualPrices[35];
+    assert.equal(state.printableAmendment, '');
+    state.applySavedAmendment({ amendment_number: 2, version: 3,
+        amendment: { ...saved, balance_products: [{ id: 35, balance_quantity: '2.0001' }] } });
+    assert.equal(state.printableAmendment, '2');
+    state.amendmentManualPrices[35] = '1,2,3';
+    assert.equal(state.printableAmendment, '');
+    state.amendmentExcludedProducts = [];
+    assert.equal(state.printableAmendment, '');
+
+    state.amendmentNumber = '001';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '');
+    state.resetAmendment({ amendments: { 2: { ...saved, annual_index: null } } });
+    state.amendmentNumber = '002';
+    state.lookupAmendment();
+    assert.equal(state.printableAmendment, '');
+});
+
 test('amendment reference products are always shown and remain the same after looking up an amendment', () => {
     const state = editor().state;
     state.loaded = true;
@@ -230,14 +546,19 @@ test('products opens a modal with the current supplier and closes without changi
     assert.equal(heading.textContent, 'Nome / Razão Social');
 });
 
-function editor({ fetch, initial } = {}) {
+function editor({ fetch, initial, navigator } = {}) {
     const expression = view.match(/<div x-data="([\s\S]*?)" data-draft-state=/)[1]
-        .replace('@js($funds)', JSON.stringify(funds)).replace('@js($amendmentTypes)', '[]')
+        .replace('@js($funds)', JSON.stringify(funds))
+        .replace('@js($amendmentTypes)', JSON.stringify([balanceExtensionType, equalQuantityType, variablePeriodType, ...annualIndexTypes]))
+        .replace('@js($variablePeriodType)', JSON.stringify(variablePeriodType))
+        .replaceAll('@js($apostilleAnnualIndexType)', JSON.stringify(apostilleType))
+        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::ANNUAL_INDEX_TYPES)', JSON.stringify(annualIndexTypes))
         .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::EQUAL_QUANTITY)', JSON.stringify(equalQuantityType))
         .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::EXTENSION)', JSON.stringify(balanceExtensionType))
-        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::ADVANTAGE_TYPES)', JSON.stringify([balanceExtensionType, equalQuantityType]));
+        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::ADVANTAGE_TYPES)', JSON.stringify([balanceExtensionType, equalQuantityType, variablePeriodType, ...annualIndexTypes]))
+        .replace('@js(\\App\\Infrastructure\\Atas\\SaveAtaAmendment::SUPPORTED_TYPES)', JSON.stringify([balanceExtensionType, equalQuantityType, variablePeriodType, ...annualIndexTypes]));
     let draftUrl;
-    const state = runInNewContext(`(${expression})`, { fetch, URL, CustomEvent, window: {
+    const state = runInNewContext(`(${expression})`, { fetch, URL, CustomEvent, navigator, window: {
         location: { href: 'http://localhost/atas/create' },
         history: { replaceState: (_, __, url) => { draftUrl = url; } },
     } });

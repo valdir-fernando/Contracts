@@ -115,13 +115,17 @@ export function initializeAtaAmendmentDocument(root, fetcher = fetch, warn = sho
     button.addEventListener('click', async () => {
         const { ataLoaded: id, ataVersion: version } = root.dataset;
         const number = button.dataset.amendmentNumber;
+        const instrument = button.dataset.instrument;
+        const apostille = instrument === 'apostille';
+        const subject = apostille ? 'apostilamento' : 'aditivo';
         if (pending || button.disabled || !id || !number || root.dataset.editorBusy === 'true') return;
-        const current = () => root.dataset.ataLoaded === id && root.dataset.ataVersion === version && button.dataset.amendmentNumber === number;
+        const current = () => root.dataset.ataLoaded === id && root.dataset.ataVersion === version
+            && button.dataset.amendmentNumber === number && button.dataset.instrument === instrument;
         pending = true;
         let generating = false;
         let finish;
         try {
-            const format = await chooseFormat(root.ownerDocument, 'Aditivo');
+            const format = await chooseFormat(root.ownerDocument, apostille ? 'Termo de Apostilamento' : 'Aditivo');
             if (!['pdf', 'docx'].includes(format) || !current() || button.disabled || root.dataset.editorBusy === 'true') return;
             const layout = await chooseLayout(root.ownerDocument);
             if (!['continuous', 'parallel'].includes(layout) || !current() || button.disabled || root.dataset.editorBusy === 'true') return;
@@ -133,30 +137,31 @@ export function initializeAtaAmendmentDocument(root, fetcher = fetch, warn = sho
             url.searchParams.set('version', version);
             url.searchParams.set('products_layout', layout);
             url.searchParams.set('format', format);
+            if (apostille) url.searchParams.set('instrument', instrument);
             const response = await fetcher(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
             if (!current()) return;
             if (response.redirected || !response.ok) {
                 const status = response.redirected ? 401 : response.status;
                 const body = !response.redirected && status === 422 ? await response.json().catch(() => null) : null;
                 const messages = {
-                    401: 'Sua sessão terminou. Entre novamente para emitir o aditivo.',
-                    403: 'Você não tem permissão para emitir este aditivo.',
-                    404: 'Aditivo não disponível. Consulte novamente a ATA.',
-                    409: 'Os dados mudaram. Consulte novamente a ATA antes de emitir o aditivo.',
+                    401: `Sua sessão terminou. Entre novamente para emitir o ${subject}.`,
+                    403: `Você não tem permissão para emitir este ${subject}.`,
+                    404: `${apostille ? 'Apostilamento' : 'Aditivo'} não disponível. Consulte novamente a ATA.`,
+                    409: `Os dados mudaram. Consulte novamente a ATA antes de emitir o ${subject}.`,
                     429: 'Foram feitas muitas tentativas. Aguarde um momento e tente novamente.',
                 };
                 finish();
-                if (current()) warn(body?.errors?.manager_document?.[0] || body?.message || messages[status] || 'Não foi possível emitir o aditivo.', root.ownerDocument);
+                if (current()) warn(body?.errors?.manager_document?.[0] || body?.message || messages[status] || `Não foi possível emitir o ${subject}.`, root.ownerDocument);
                 return;
             }
             const contentType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
             if (!response.headers.get('Content-Type')?.includes(contentType)) throw new Error();
             const blob = await response.blob();
-            const filename = documentFilename(response.headers, `aditivo.${format}`);
+            const filename = documentFilename(response.headers, `${subject}.${format}`);
             if (current()) download(blob, root.ownerDocument, undefined, filename);
         } catch {
             finish?.();
-            if (current()) warn('Não foi possível baixar o aditivo. Tente novamente.', root.ownerDocument);
+            if (current()) warn(`Não foi possível baixar o ${subject}. Tente novamente.`, root.ownerDocument);
         } finally {
             finish?.();
             pending = false;

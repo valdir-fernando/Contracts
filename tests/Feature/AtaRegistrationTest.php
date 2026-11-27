@@ -60,7 +60,9 @@ class AtaRegistrationTest extends TestCase
         $input = $this->input(['publication_date' => '2026-11-20']);
         $created = $this->postJson(route('atas.store'), $input)->assertCreated()->json();
         $this->assertDatabaseHas('tb_ATA', ['ID' => $created['id'], 'DATA_PUBLIC_INPC' => '2026-11-20']);
-        $this->patchJson(route('atas.update', $created['id']), ['version' => 1, 'bidding_number' => '45/26'])->assertConflict();
+        $this->patchJson(route('atas.update', $created['id']), [
+            'version' => 1, 'bidding_number' => '45/26', 'annual_index_type' => 'IPCA',
+        ])->assertConflict();
         $this->postJson(route('atas.store'), $input)->assertCreated()->assertExactJson($created);
     }
 
@@ -100,11 +102,11 @@ class AtaRegistrationTest extends TestCase
             ->assertSee('disabled :disabled="!loaded || busy" aria-haspopup="dialog" aria-controls="ata-amend-dialog"', false)
             ->assertSee('id="ata-amend-dialog" class="catalog-modal contract-products-dialog"', false)
             ->assertSee('aria-label="Fechar painel de aditivos"', false)
-            ->assertSeeInOrder(['id="ata-amend-dialog"', 'for="ata-amend-number">Nº Aditivo', 'id="ata-amend-number" type="text"', 'aria-label="Consultar aditivo"'], false)
+            ->assertSeeInOrder(['id="ata-amend-dialog"', 'for="ata-amend-number" x-text="isApostille', '>Nº Aditivo</label>', 'id="ata-amend-number" type="text"', 'aria-label="Consultar aditivo"'], false)
             ->assertSee('x-model="amendmentNumber"', false)
             ->assertSeeInOrder(['id="ata-amend-number"', 'name="Data_ADT"', 'name="Proc_ADT"', 'name="Tipo_ADT"',
                 'name="INICIO"', 'name="FINAL"', 'name="Período"', 'ata-amend-actions', 'name="VL_Aditivo"', 'name="VL_Atualizado_ATA"',
-                'aria-label="Emissão de documentos do aditivo"', '<span>Aditivo</span>', '<span>Extrato</span>', '<span>Publicação</span>',
+                'aria-label="Emissão de documentos"', 'Termo de Apostilamento', '>Aditivo</span>', '<span>Extrato</span>', '<span>Publicação</span>',
                 'class="product-actions-separator" role="separator" aria-orientation="vertical"', 'Salvar', 'Novo', 'Excluir'], false)
             ->assertSee('list="ata-previous-amendments"', false)
             ->assertSee('<datalist id="ata-previous-amendments">', false)
@@ -112,7 +114,7 @@ class AtaRegistrationTest extends TestCase
             ->assertSee('title="Consultar aditivo" @click="lookupAmendment(true)"', false)
             ->assertSeeInOrder(['x-model="amendmentFields.date"', 'x-model="amendmentFields.process"', 'x-model="amendmentFields.type"',
                 'x-model="amendmentFields.start"', 'x-model="amendmentFields.end"', 'x-model="amendmentFields.period"'], false)
-            ->assertSee('x-for="number in amendmentNumbers"', false)
+            ->assertSee('x-for="number in currentAmendmentNumbers"', false)
             ->assertSee('disabled :disabled="!loaded || busy">7. Cancelar ATA</button>', false)
             ->assertSee('aria-controls="ata-delivery-dialog"', false)
             ->assertSee('id="ata-delivery-dialog" class="catalog-modal contract-products-dialog"', false)
@@ -184,12 +186,18 @@ class AtaRegistrationTest extends TestCase
             ->assertSee('name="Data_Orçamento" type="date" min="0001-01-01" max="9999-12-31" :disabled="busy || publicationLocked" required', false)
             ->assertSeeInOrder(['<select id="ata-amend-type"', '<option value="Prorrogação - Saldo Positivo">',
                 '<option value="Prorrogação/Quantitativo - Igual Período e Valor">',
-                '<option value="Prorrogação/Quantitativo/Reajuste Anual INDICE" disabled>',
-                '<option value="Prorrogação/Quantitativo/Reajuste Reequilibrio" disabled>',
-                '<option value="Apenas Reequilibrio - Saldo Positivo" disabled>',
-                '<option value="Apostilamento/Reajuste Anual INDICE" disabled>',
-                '<option value="Troca de marca ou modelo do produto registrado" disabled>',
-                '<option value="Alteração subjetiva (mudança no fornecedor)" disabled>'], false)
+                '<option value="Prorrogação/Quantitativo - Período e Valor Variável" :hidden="usesHistoricalVariablePeriodLabel" :disabled="usesHistoricalVariablePeriodLabel">',
+                '<option value="Prorrogação/Quantitativo/Reajuste Anual INDICE">Prorrogação/Quantitativo/Reajuste ANUAL INDICE</option>',
+                '<option value="Prorrogação/Quantitativo/Reajuste Reequilibrio" disabled :disabled="historicalAmendmentType !== $el.value">',
+                '<option value="Apenas Reequilibrio - Saldo Positivo" disabled :disabled="historicalAmendmentType !== $el.value">',
+                '<option value="Apostilamento/Reajuste Anual INDICE">Apostilamento/Reajuste ANUAL INDICE</option>',
+                '<option value="Troca de marca ou modelo do produto registrado" disabled :disabled="historicalAmendmentType !== $el.value">',
+                '<option value="Alteração subjetiva (mudança no fornecedor)" disabled :disabled="historicalAmendmentType !== $el.value">'], false)
+            ->assertSeeInOrder(['<label for="ata-amend-advantage">Vantajosidade</label>', 'Pesquisa de Preços', 'Declaração do Gestor',
+                '<label for="ata-amend-annual-index">Indice_Anual</label>', 'id="ata-amend-annual-index" name="Indice_Anual"',
+                '<label for="ata-amend-budget-date">Data_Orçamento Estimado</label>', 'id="ata-amend-budget-date" type="text" readonly',
+                '<label for="ata-amend-annual-index-type">Tipo_Indice_Anual</label>', 'id="ata-amend-annual-index-type" type="text" readonly'], false)
+            ->assertSeeInOrder(['<th>VL. Unitário</th>', '>Novo_VL_Unitário</th>', '>VL. Total</th>', 'aria-label="Excluir da prorrogação"'], false)
             ->assertDontSee('Inclusão ou exclusão de órgãos participantes (Remanejamento)')
             ->assertDontSee('<option value="Redução do preço da Ata (Revisão)">', false);
         $created = $this->postJson(route('atas.store'), $this->input())->assertCreated()->json();
@@ -198,6 +206,37 @@ class AtaRegistrationTest extends TestCase
         $this->deleteJson(route('atas.destroy', $created['id']), ['version' => $created['version']])->assertOk();
         $this->assertSoftDeleted('tb_ATA', ['ID' => $created['id'], 'DATA_ORCAMENTO' => '2026-10-20']);
         $this->assertSame('2026-10-20', ActivityEvent::where('action', 'ata_deleted')->sole()->metadata['before']['DATA_ORCAMENTO']);
+    }
+
+    public function test_annual_index_type_is_selectable_saved_and_editable_with_auditing(): void
+    {
+        $this->get(route('atas.create'))->assertOk()->assertSeeInOrder([
+            'for="ata-annual-index-type"', 'name="annual_index_type"',
+            '>IPCA</option>', '>INPC</option>', '>IGP-M</option>', '>INCC</option>', '>IST</option>', '>ICTI</option>',
+            'for="ata-publication-date"', 'Ata assinada (PDF)',
+        ], false);
+        $this->postJson(route('atas.store'), $this->input(['annual_index_type' => 'desconhecido']))
+            ->assertUnprocessable()->assertJsonValidationErrors('annual_index_type');
+        $this->assertDatabaseCount('tb_ATA', 0);
+
+        $created = $this->postJson(route('atas.store'), $this->input(['annual_index_type' => 'INPC']))->assertCreated()->json();
+        $lookup = route('atas.lookup', ['number' => $created['number']]);
+        $update = route('atas.update', $created['id']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('annual_index_type', 'INPC');
+        $this->assertSame('INPC', ActivityEvent::where('action', 'ata_created')->sole()->metadata['after']['TIPO_INDICE_ANUAL']);
+
+        $this->patchJson($update, ['version' => 1, 'annual_index_type' => 'desconhecido'])
+            ->assertUnprocessable()->assertJsonValidationErrors('annual_index_type');
+        $this->patchJson($update, ['version' => 1, 'annual_index_type' => 'IPCA'])->assertOk()->assertJsonPath('version', 2);
+        $event = ActivityEvent::where('action', 'ata_updated')->sole();
+        $this->assertSame('INPC', $event->metadata['before']['TIPO_INDICE_ANUAL']);
+        $this->assertSame('IPCA', $event->metadata['after']['TIPO_INDICE_ANUAL']);
+        $this->patchJson($update, ['version' => 2, 'bidding_number' => '45/26'])->assertOk()->assertJsonPath('version', 3);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('annual_index_type', 'IPCA');
+
+        $this->patchJson($update, ['version' => 3, 'annual_index_type' => null])->assertOk()->assertJsonPath('version', 4);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('annual_index_type', null);
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $created['id'], 'TIPO_INDICE_ANUAL' => null]);
     }
 
     public function test_invalid_manual_validity_dates_do_not_create_ata_or_consume_number(): void

@@ -93,10 +93,10 @@ class AtaLookupTest extends TestCase
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '10']));
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ITEM' => '11', 'deleted_at' => now()]));
         foreach ([1, 2, 3] as $number) {
-            $amendment = DB::table('tb_ADITIVOS_ATA')->insertGetId(['ID_ATA' => $ata, 'NUMERO' => $number, 'source_path' => "adt-{$number}",
+            $amendment = DB::table('tb_ADT_ATA')->insertGetId(['ID_ATA' => $ata, 'ATA' => '001/2026', 'Proc_ATA' => 'PROC-SALVO', 'ADT' => $number, 'source_path' => "adt-{$number}",
                 'source_sha256' => str_repeat((string) $number, 64), 'source_size' => 1, 'extraction' => 'pdf',
                 'link_status' => 'vinculado', 'issues' => '[]', 'deleted_at' => $number === 3 ? now() : null], 'ID');
-            DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ID_ADITIVO' => $amendment, 'ADITIVO' => $number,
+            DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['amendment_id' => $amendment, 'ADITIVO' => $number,
                 'ITEM' => (string) $number, 'deleted_at' => $number === 2 ? now() : null]));
         }
         DB::table('tb_PRODUTOS_ATA')->insert(array_replace($base, ['ADITIVO' => 2, 'ITEM' => '4', 'deleted_at' => now()]));
@@ -150,10 +150,14 @@ class AtaLookupTest extends TestCase
         DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 3, 'deleted_at' => now()]));
         DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 4, 'Proc_ATA' => 'OUTRO']));
         DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 5, 'ATA' => '2/26']));
-        $import = ['ID_ATA' => $id, 'source_size' => 1, 'extraction' => 'pdf', 'link_status' => 'vinculado', 'issues' => '[]'];
+        $import = ['ID_ATA' => $id, 'ATA' => '1/26', 'Proc_ATA' => 'PROC-SALVO', 'source_size' => 1, 'extraction' => 'pdf', 'link_status' => 'vinculado', 'issues' => '[]'];
         foreach ([1, 2] as $number) {
-            DB::table('tb_ADITIVOS_ATA')->insert($import + ['NUMERO' => $number, 'source_path' => "PRIVADO-{$number}", 'PROCESSO_ADITIVO' => 'IMPORTADO',
-                'source_sha256' => str_repeat((string) $number, 64)]);
+            $metadata = $import + ['ADT' => $number, 'source_path' => "PRIVADO-{$number}", 'source_sha256' => str_repeat((string) $number, 64)];
+            if ($number === 2) {
+                DB::table('tb_ADT_ATA')->where('ATA', '1/26')->where('Proc_ATA', 'PROC-SALVO')->where('ADT', 2)->update($metadata);
+            } else {
+                DB::table('tb_ADT_ATA')->insert($metadata + ['Proc_ADT' => 'IMPORTADO']);
+            }
         }
         DB::table('tb_ADT_ATA')->insert(array_replace($legacy, ['ADT' => 12]));
         $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()
@@ -167,7 +171,7 @@ class AtaLookupTest extends TestCase
         $other = $this->ata(['ATA' => '1/26', 'CNPJ_FUNDO' => '04252011000110']);
         DB::table('tb_ATA')->where('ID', $other)->update(['deleted_at' => now()]);
         $this->getJson(route('atas.lookup', ['number' => '1/26']))->assertOk()->assertJsonPath('amendment_numbers', [2, 1])
-            ->assertJsonPath('amendments.2.process', 'IMPORTADO')->assertJsonMissingPath('amendments.12');
+            ->assertJsonPath('amendments.2.process', 'PROC-ADITIVO')->assertJsonMissingPath('amendments.12');
     }
 
     public function test_lookup_preserves_unknown_admission_on_existing_atas_and_returns_explicit_choices(): void

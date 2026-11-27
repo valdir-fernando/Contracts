@@ -528,12 +528,25 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-amend-date { width: 9rem; }
 .ata-amend-process { flex: .5 1 4.5rem; }
 .ata-amend-type { flex: 1.5 1 13.5rem; }
+.ata-amend-type .field-label-row { color: #4b5f7c; font-size: 12px; font-weight: 600; }
+.ata-amend-type .text-link:disabled { opacity: .5; cursor: default; text-decoration: none; }
 #ata-amend-type option { font-size: 13px; }
 #ata-amend-dialog .date-input-control > input[data-brazilian-date] { padding-inline-end: 42px; }
 .ata-amend-period { flex: 1 1 12rem; }
-.ata-amend-advantage { width: min(100%, 14rem); margin-block: 8px 0; }
+.ata-amend-adjustment-fields { margin-block-start: 8px; }
+.ata-amend-adjustment-fields > .field { width: min(100%, 14rem); }
+.ata-amend-reference-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 14rem) minmax(0, 9rem);
+    align-items: end;
+    gap: 8px;
+    width: min(100%, 23.5rem);
+}
+.ata-amend-reference-fields > .field { margin-bottom: 0; }
 #ata-amend-dialog .ata-amend-product-list { margin-block-start: 10px; margin-block-end: calc(12px + var(--ata-amend-list-spacer, 0px)); min-height: 0; max-height: none; overflow-y: auto; scrollbar-gutter: stable; }
-#ata-amend-dialog .ata-amend-balance-quantity { width: 100%; min-width: 0; min-height: 28px; height: 28px; padding: 2px 4px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+#ata-amend-dialog :is(.ata-amend-balance-quantity, .ata-amend-adjusted-price input) { width: 100%; min-width: 0; min-height: 28px; height: 28px; padding: 2px 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+#ata-amend-dialog .ata-amend-balance-quantity { text-align: center; }
+#ata-amend-dialog .ata-amend-adjusted-price input { text-align: right; }
 #ata-amend-dialog .ata-amend-product-list .data-table { min-width: max(1000px, calc(800px + var(--ata-amend-quantity-width, 86px))); border-collapse: separate; border-spacing: 0; }
 #ata-amend-dialog .ata-amend-product-list thead { position: sticky; top: 0; z-index: 2; background: var(--canvas); }
 #ata-amend-dialog .ata-amend-product-list thead th { position: static; border-block-start-width: 1px; }
@@ -544,7 +557,7 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-amend-product-notices .hint { margin: 0; }
 .ata-amend-exclusion-notice { margin: 0 0 0 auto; text-align: right; font-size: 12px; }
 #ata-amend-dialog .ata-amend-list-with-exclusion-notice { margin-block-start: 3px; }
-#ata-amend-dialog .ata-amend-product-list .data-table .ata-amend-exclusion { width: 38px; text-align: center; vertical-align: middle; }
+#ata-amend-dialog .ata-amend-product-list .data-table .ata-amend-exclusion { width: 38px; padding-inline: 4px; text-align: center; vertical-align: middle; }
 #ata-amend-dialog .ata-amend-exclusion input { width: 15px; min-width: 0; height: 15px; min-height: 0; margin: 0; accent-color: var(--primary); }
 #ata-amend-dialog { padding-block-end: max(56px, env(safe-area-inset-bottom)); }
 .ata-amend-document-actions { margin-inline-start: 0; }
@@ -655,6 +668,8 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 :is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table :is(th, td):nth-child(6) { width: 86px; text-align: center; }
 :is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table :is(th, td):nth-child(7) { width: 120px; text-align: left; }
 :is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table :is(th, td):is(:nth-child(8), :nth-child(9)) { width: 100px; text-align: right; }
+#ata-amend-dialog .ata-amend-product-list .data-table :is(th, td).ata-amend-adjusted-price { width: 132px; text-align: right; }
+#ata-amend-dialog .ata-amend-product-list .data-table :is(th, td).ata-amend-line-total { width: 100px; padding-inline: 8px; text-align: right; }
 :is(#ata-products-dialog, #ata-delivery-dialog, #ata-amend-dialog) .product-contract-list .data-table [hidden] { display: none; }
 #ata-products-dialog [data-ata-product-select] { width: auto; margin: 0; vertical-align: middle; }
 .product-contract-list .data-table td { font-size: 11px; }
@@ -752,7 +767,14 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
     }
     .ata-process-participants { grid-template-columns: 100% var(--ata-budget-control-width); }
 }
-.ata-validity-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 24px; margin-top: 10px; }
+.ata-validity-fields {
+    display: grid;
+    grid-template-columns: max-content repeat(2, minmax(0, clamp(114px, 12cqw, max(140px, var(--ata-process-width)))))
+        minmax(0, clamp(106px, 12cqw, 140px)) minmax(0, clamp(114px, 13cqw, 160px)) minmax(0, 1fr);
+    align-items: end;
+    gap: 10px clamp(8px, 1cqw, 24px);
+    margin-top: 10px;
+}
 .ata-validity-date-control { position: relative; }
 .ata-editor .ata-validity-date-control > .ata-locked-date-notice { display: none; position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 9px; background: transparent; box-shadow: none; cursor: help; }
 .ata-editor .ata-validity-date-control:has(input:disabled) > .ata-locked-date-notice { display: block; }
@@ -760,11 +782,10 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-editor .ata-validity-date-control > .ata-locked-date-notice:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .ata-validity-fields input:is([name="start_date"], [name="end_date"]):disabled { background: #f7f8fb; color: var(--muted); }
 .ata-editor .ata-validity-fields input[data-auto-calculated="true"] { color: #ff0000 !important; -webkit-text-fill-color: #ff0000; opacity: 1; }
-.ata-validity-fields > .field { margin-bottom: 0; flex: 0 0 max(140px, var(--ata-process-width)); }
-.ata-validity-fields > .ata-validity-period-field { flex: 0 0 auto; width: max-content; }
-.ata-inpc-notice { flex: 0 0 100%; margin: -6px 0 0; color: #8b4513; font-size: 11px; line-height: 1.4; }
+.ata-validity-fields > .field, .ata-validity-fields .ata-signed-file-field { margin-bottom: 0; min-width: 0; }
+.ata-validity-fields .ata-signed-feedback, .ata-inpc-notice { grid-column: 1 / -1; }
+.ata-inpc-notice { margin: -6px 0 0; color: #8b4513; font-size: 11px; line-height: 1.4; }
 .ata-inpc-notice[hidden] { display: none; }
-.ata-validity-fields > .ata-publication-date-field { flex-basis: 160px; }
 .ata-signed-document { display: contents; }
 .ata-amend-signed-document { display: flex; flex: 1 1 14rem; flex-direction: column; min-width: 11rem; max-width: 24rem; }
 .ata-amend-signed-document .ata-signed-file-field { flex: 1 1 auto; }
@@ -775,8 +796,9 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-signed-file-field > input::file-selector-button { padding-block: 1px; }
 .ata-signed-feedback { flex: 0 0 100%; }
 .ata-signed-feedback:empty { display: none; }
-@container (800px <= width <= 980px) {
-    .ata-validity-fields:has(.ata-signed-file-field) > .field:not(.ata-validity-period-field) { flex-basis: 126px; }
+@container (width < 850px) {
+    .ata-validity-fields { grid-template-columns: max-content repeat(2, minmax(0, 1fr)); }
+    .ata-validity-fields > .ata-annual-index-type-field { grid-column-start: 1; }
 }
 .ata-signed-review-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 11px; }
 .ata-signed-review-toolbar .secondary-button { min-height: 30px; padding: 3px 8px; font-size: inherit; }
@@ -815,6 +837,9 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-signed-confirm input[type="checkbox"] { width: auto; min-height: 0; }
 .ata-validity-heading, .ata-validity-period-control { display: flex; align-items: center; gap: 10px; }
 .ata-validity-heading { flex-wrap: wrap; }
+@container (850px <= width <= 980px) {
+    .ata-validity-heading { column-gap: 4px; }
+}
 .ata-validity-heading > label:first-child { margin: 0; }
 .ata-validity-separator { align-self: center; height: 16px; border-left: 1px solid var(--border); }
 .ata-validity-heading .ata-validity-option { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; margin: 0; }
@@ -826,7 +851,11 @@ html[data-amendments-panel=true] .contract-section:has(.amendments-table) { padd
 .ata-editor :is(.ata-date-field, .ata-publication-date-field) input { font-family: inherit; font-size: 13px; font-weight: 400; }
 .ata-publication-date-field[hidden] { display: none; }
 @media (min-width: 651px) { .ata-validity-heading { flex-wrap: nowrap; } }
-@media (max-width: 650px) { .ata-validity-fields { display: grid; grid-template-columns: minmax(0, 1fr); } .ata-validity-fields > .ata-validity-period-field { width: auto; } }
+@media (max-width: 650px) {
+    .ata-validity-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ata-validity-fields > .field:has(.ata-validity-period-control, .ata-validity-date-control) { grid-column: 1 / -1; }
+    .ata-validity-fields .field > label { overflow-wrap: anywhere; }
+}
 .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 180px) minmax(0, 210px); }
 @media (max-width: 650px) { .field-grid.ata-managing-fund-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) { .ata-process-fields { width: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, calc((100% - 48px) / 3 * 1.3)) minmax(0, 1fr); } .ata-process-participants { grid-column: 1 / -1; } }

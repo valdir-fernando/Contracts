@@ -13,12 +13,12 @@
     @if($signedAmendment)
         data-signed-amendment
         x-effect="$dispatch('ata-signed-amendment-context', { ...selectedAmendmentDocument, number: savedAmendmentNumber })"
-        @ata-signed-document-updated="loadedVersion = $event.detail.version; amendmentSignedDocuments[savedAmendmentNumber] = { id: selectedAmendmentDocument.id, copies: $event.detail.signed_document_copies }"
+        @ata-signed-document-updated="loadedVersion = $event.detail.version; currentAmendmentDocuments[savedAmendmentNumber] = { id: selectedAmendmentDocument.id, copies: $event.detail.signed_document_copies }"
     @else
         @ata-signed-document-updated="loadedVersion = $event.detail.version"
     @endif>
     <div class="field ata-signed-file-field">
-        <label for="{{ $signedPrefix }}-file">{{ $signedAmendment ? 'Aditivo assinado (PDF)' : 'Ata assinada (PDF)' }}</label>
+        <label for="{{ $signedPrefix }}-file" @if($signedAmendment) x-text="isApostille ? 'Apostilamento assinado (PDF)' : 'Aditivo assinado (PDF)'" @endif>{{ $signedAmendment ? 'Aditivo assinado (PDF)' : 'Ata assinada (PDF)' }}</label>
         <input id="{{ $signedPrefix }}-file" type="file" accept=".pdf,application/pdf"
             :disabled="busy || !loaded{{ $signedAmendment ? ' || !selectedAmendmentDocument.id' : '' }}" disabled>
     </div>
@@ -50,7 +50,7 @@
         <progress id="{{ $signedPrefix }}-save-progress" class="document-progress-bar" data-signed-progress-bar max="100" value="0"></progress>
     </dialog>
     <dialog class="catalog-modal" data-signed-upload-choice aria-labelledby="{{ $signedPrefix }}-upload-choice-title">
-        <div class="modal-header"><h2 id="{{ $signedPrefix }}-upload-choice-title">{{ $signedAmendment ? 'PDF do aditivo assinado' : 'PDF da ata assinada' }}</h2></div>
+        <div class="modal-header"><h2 id="{{ $signedPrefix }}-upload-choice-title" @if($signedAmendment) x-text="isApostille ? 'PDF do apostilamento assinado' : 'PDF do aditivo assinado'" @endif>{{ $signedAmendment ? 'PDF do aditivo assinado' : 'PDF da ata assinada' }}</h2></div>
         <form method="dialog" class="form-actions">
             <button type="submit" class="secondary-button" value="cancel" autofocus>Cancelar</button>
             <button type="submit" class="secondary-button" value="original">Salvar original e tarjar depois</button>
@@ -59,7 +59,7 @@
     </dialog>
     <dialog class="catalog-modal" data-signed-removal aria-labelledby="{{ $signedPrefix }}-removal-title">
         <div class="modal-header">
-            <h2 id="{{ $signedPrefix }}-removal-title">REMOÇÃO DE DOCUMENTOS PDF - Nº {{ $signedAmendment ? 'ADITIVO' : 'ATA' }} <span data-signed-removal-number></span></h2>
+            <h2 id="{{ $signedPrefix }}-removal-title">REMOÇÃO DE DOCUMENTOS PDF - Nº {{ $signedAmendment ? '' : 'ATA' }}@if($signedAmendment)<span x-text="isApostille ? 'APOSTILAMENTO' : 'ADITIVO'">ADITIVO</span>@endif <span data-signed-removal-number></span></h2>
             <button type="button" class="modal-close" data-signed-removal-close aria-label="Fechar" title="Fechar" autofocus>×</button>
         </div>
         <table class="data-table">

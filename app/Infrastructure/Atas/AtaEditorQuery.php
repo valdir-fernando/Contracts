@@ -34,7 +34,7 @@ final class AtaEditorQuery
         abort_if($matches->count() !== 1, 409, 'Mais de uma ata disponível para este número. Confira o cadastro antes de continuar.');
         $ata = DB::table('tb_ATA')->where('ID', $matches->first()->ID)->whereNull('deleted_at')->first([
             'ID', 'ATA', 'version', 'fund_id', 'DATA_ATA', 'DATA_ORCAMENTO', 'ADMITIR_ADESAO', 'QTD_ESPECIAL_NOME', 'PROCESSO', 'LICITACAO', 'N_LICIT',
-            'INICIO_ATA', 'FINAL_ATA', 'PERIODO_ATA', 'VIGENCIA_ANO_INPC', 'DATA_PUBLIC_INPC', 'validity_basis',
+            'INICIO_ATA', 'FINAL_ATA', 'PERIODO_ATA', 'VIGENCIA_ANO_INPC', 'DATA_PUBLIC_INPC', 'TIPO_INDICE_ANUAL', 'validity_basis',
             'CNPJ_FUNDO', 'FUNDO', 'END_FUNDO', 'GESTOR', 'CPF_GESTOR', 'RG_GESTOR', 'CARGO_GESTOR', 'DECRETO_GESTOR', 'MATRICULA_GESTOR',
             'FORNECEDOR', 'CNPJ_FORNECEDOR', 'END_FORNECEDOR', 'SOCIO', 'CPF_SOCIO', 'RG_SOCIO', 'EMAIL', 'TELEFONE1', 'TELEFONE2',
             'RG_FORNECEDOR', 'DOC_PROF', 'PIS_PASEP',
@@ -68,7 +68,7 @@ final class AtaEditorQuery
         $products = [];
         $rows = DB::table('tb_PRODUTOS_ATA')->where('ID_ATA', $ata->ID)
             ->whereNull('deleted_at')->orderBy('ID')
-            ->get(['ID', 'ADITIVO', 'ID_ADITIVO', 'ITEM', 'COD_PROD', 'FICHA', 'DISCRIMINACAO', 'MARCA', 'UND', 'QTD', 'QTD_ESPECIAL', 'VL_UNIT', 'VL_TOTAL']);
+            ->get(['ID', 'ADITIVO', 'ID_ADITIVO', 'amendment_id', 'ITEM', 'COD_PROD', 'FICHA', 'DISCRIMINACAO', 'MARCA', 'UND', 'QTD', 'QTD_ESPECIAL', 'VL_UNIT', 'VL_TOTAL']);
         foreach ($rows as $row) {
             $amount = DecimalAmount::normalize((string) $row->VL_TOTAL);
             $updatedTotal = bcadd($updatedTotal, $amount ?? '0.0000', 4);
@@ -82,13 +82,26 @@ final class AtaEditorQuery
                 'unit_price' => DecimalAmount::normalize((string) $row->VL_UNIT), 'total' => $amount];
         }
 
-        [$amendments, $registeredIds] = $this->amendments($ata, $identity, $key);
-        if ($registeredIds !== []) {
-            $excluded = DB::table('ata_amendment_excluded_products')->where('ata_id', $ata->ID)->whereIn('amendment_id', $registeredIds)
+        [$instruments, $registeredIds] = $this->amendments($ata, $identity, $key);
+        $allIds = [...array_values($registeredIds['amendments']), ...array_values($registeredIds['apostilles'])];
+        if ($allIds !== []) {
+            $productsByNumber = $rows->groupBy('ADITIVO');
+            $excluded = DB::table('ata_amendment_excluded_products')->where('ata_id', $ata->ID)->whereIn('amendment_id', $allIds)
                 ->whereNull('deleted_at')->orderBy('id')->get(['amendment_id', 'product_id'])->groupBy('amendment_id');
-            foreach ($registeredIds as $number => $id) {
-                if ($excluded->has($id)) {
-                    $amendments[$number]['excluded_product_ids'] = $excluded[$id]->pluck('product_id')->map(fn ($productId) => (int) $productId)->all();
+            foreach ($registeredIds as $instrument => $ids) {
+                foreach ($ids as $number => $id) {
+                    $record = $instruments[$instrument][$number];
+                    if ($instrument === 'apostilles') {
+                        $record['has_registered_products'] = array_column($record['balance_products'] ?? [], 'adjusted_total') !== [];
+                    } elseif (in_array($record['type'] ?? null, [SaveAtaAmendment::VARIABLE_QUANTITY, SaveAtaAmendment::ANNUAL_INDEX], true)) {
+                        $record['has_registered_products'] = $productsByNumber->get($number)?->contains(
+                            fn ($row) => $row->amendment_id === null || (int) $row->amendment_id === $id,
+                        ) ?? false;
+                    }
+                    if ($excluded->has($id)) {
+                        $record['excluded_product_ids'] = $excluded[$id]->pluck('product_id')->map(fn ($productId) => (int) $productId)->all();
+                    }
+                    $instruments[$instrument][$number] = $record;
                 }
             }
         }
@@ -106,12 +119,14 @@ final class AtaEditorQuery
         $signedPair = $actor->isAdmin() ? DB::table('ata_signed_document_copies')->where('ata_id', $ata->ID)
             ->whereNull('deleted_at')->first(['removed_copy', 'redacted_sha256']) : null;
         $signedCopies = AtaSignedDocuments::availableCopies($signedPair);
-        $amendmentDocuments = [];
-        if ($actor->isAdmin() && $registeredIds !== []) {
-            $pairs = DB::table('ata_amendment_signed_documents')->where('ata_id', $ata->ID)->whereIn('amendment_id', $registeredIds)
+        $documents = ['amendments' => [], 'apostilles' => []];
+        if ($actor->isAdmin() && $allIds !== []) {
+            $pairs = DB::table('ata_amendment_signed_documents')->where('ata_id', $ata->ID)->whereIn('amendment_id', $allIds)
                 ->whereNull('deleted_at')->get(['amendment_id', 'removed_copy', 'redacted_sha256'])->keyBy('amendment_id');
-            foreach ($registeredIds as $number => $id) {
-                $amendmentDocuments[$number] = ['id' => $id, 'copies' => AtaSignedDocuments::availableCopies($pairs->get($id))];
+            foreach ($registeredIds as $instrument => $ids) {
+                foreach ($ids as $number => $id) {
+                    $documents[$instrument][$number] = ['id' => $id, 'copies' => AtaSignedDocuments::availableCopies($pairs->get($id))];
+                }
             }
         }
         $basis = json_decode($ata->validity_basis ?? '{}', true);
@@ -129,13 +144,16 @@ final class AtaEditorQuery
             'amendment_maximum_end' => AtaTerm::maximumAmendmentEnd($ata->INICIO_ATA)?->format('Y-m-d'),
             'end_date_derived' => $amendedEnd, 'validity_period' => $ata->PERIODO_ATA,
             'publication_date' => $ata->DATA_PUBLIC_INPC,
+            'annual_index_type' => $ata->TIPO_INDICE_ANUAL,
             'one_year_inpc' => $ata->VIGENCIA_ANO_INPC === null ? null : (bool) $ata->VIGENCIA_ANO_INPC,
             'bidding' => $ata->LICITACAO, 'bidding_number' => $ata->N_LICIT,
             'has_signed_document_copies' => $signedCopies !== [], 'signed_document_copies' => $signedCopies,
             'can_create_redacted_copy' => $signedCopies === ['original'],
-            'amendment_signed_documents' => $amendmentDocuments,
+            'amendment_signed_documents' => $documents['amendments'], 'apostille_signed_documents' => $documents['apostilles'],
             'contractor' => $contractor, 'supplier' => $supplier, 'participants' => $participants, 'products' => $products, 'total' => $total,
-            'amendment_numbers' => array_keys($amendments), 'amendments' => $amendments, 'amendment_base_products' => $amendmentProducts,
+            'amendment_numbers' => array_keys($instruments['amendments']), 'amendments' => $instruments['amendments'],
+            'apostille_numbers' => array_keys($instruments['apostilles']), 'apostilles' => $instruments['apostilles'],
+            'amendment_base_products' => $amendmentProducts,
             'amendment_base_total' => $amendmentBaseTotal, 'amendment_updated_total' => $updatedTotal];
     }
 
@@ -158,35 +176,38 @@ final class AtaEditorQuery
 
     private function amendments(object $ata, AtaAmendmentReader $identity, string $key): array
     {
-        $amendments = [];
-        $registeredIds = [];
-        $imported = DB::table('tb_ADITIVOS_ATA')->where('ID_ATA', $ata->ID)->whereNull('deleted_at')
-            ->where('NUMERO', '>', 0)->orderByDesc('ID')->get(['NUMERO', 'PROCESSO_ADITIVO', 'INICIO_ADITIVO', 'FINAL_ADITIVO']);
-        foreach ($imported as $row) {
-            $amendments[(int) $row->NUMERO] ??= ['process' => $row->PROCESSO_ADITIVO, 'start' => $row->INICIO_ADITIVO, 'end' => $row->FINAL_ADITIVO];
-        }
-
+        $instruments = $registeredIds = ['amendments' => [], 'apostilles' => []];
         $process = trim($ata->PROCESSO);
-        // Legacy amendments lack a fund or parent ID. Only match them against an unambiguous ATA identity.
-        if ($process !== '' && ! DB::table('tb_ATA')->where('ID', '!=', $ata->ID)
-            ->whereRaw('TRIM(PROCESSO) = ?', [$process])->pluck('ATA')->contains(fn ($number) => $identity->key($number) === $key)) {
-            $registered = DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)
-                ->whereRaw('TRIM(Proc_ATA) = ?', [$process])->orderBy('Data_ADT')->orderBy('ID')
-                ->get(['ID', 'ATA', 'ADT', 'Proc_ATA', 'Data_ADT', 'Proc_ADT', 'Tipo_ADT', 'INICIO', 'FINAL', 'Período', 'VANTAJOSIDADE', 'balance_products']);
-            foreach ($registered as $row) {
-                if (trim($row->Proc_ATA) === $process && $identity->key($row->ATA) === $key) {
-                    $registeredIds[(int) $row->ADT] = (int) $row->ID;
-                    $amendments[(int) $row->ADT] = ['date' => $row->Data_ADT, 'process' => $row->Proc_ADT,
-                        'type' => $row->Tipo_ADT, 'start' => $row->INICIO, 'end' => $row->FINAL, 'period' => $row->{'Período'},
-                        ...($row->VANTAJOSIDADE !== null ? ['advantage' => $row->VANTAJOSIDADE] : []),
-                        ...($row->balance_products !== null && $row->Tipo_ADT === SaveAtaAmendment::EXTENSION
-                            ? ['balance_products' => json_decode($row->balance_products, true, flags: JSON_THROW_ON_ERROR)] : [])];
+        $unambiguous = $process !== '' && ! DB::table('tb_ATA')->where('ID', '!=', $ata->ID)
+            ->whereRaw('TRIM(PROCESSO) = ?', [$process])->pluck('ATA')->contains(fn ($number) => $identity->key($number) === $key);
+        $records = DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)
+            ->where(function ($query) use ($ata, $process, $unambiguous) {
+                $query->where('ID_ATA', $ata->ID);
+                if ($unambiguous) {
+                    $query->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')->whereRaw('TRIM(Proc_ATA) = ?', [$process]));
                 }
+            })->orderBy('ID')->get(['ID', 'ID_ATA', 'ATA', 'ADT', 'Data_ADT', 'Proc_ADT', 'Tipo_ADT', 'INICIO', 'FINAL', 'Período', 'VANTAJOSIDADE', 'annual_index', 'balance_products', 'source_path']);
+        foreach ($records as $row) {
+            if ($row->ID_ATA === null && $identity->key($row->ATA) !== $key) {
+                continue;
             }
+            $instrument = SaveAtaAmendment::isApostille($row->Tipo_ADT) ? 'apostilles' : 'amendments';
+            $type = $instrument === 'apostilles' ? SaveAtaAmendment::APOSTILLE : $row->Tipo_ADT;
+            $registeredIds[$instrument][(int) $row->ADT] = (int) $row->ID;
+            $fields = ['process' => $row->Proc_ADT, 'start' => $row->INICIO, 'end' => $row->FINAL];
+            if ($row->source_path === null || $row->Data_ADT !== null || $row->Tipo_ADT !== null || $row->{'Período'} !== null) {
+                $fields = ['date' => $row->Data_ADT, 'process' => $row->Proc_ADT, 'type' => $type,
+                    'start' => $row->INICIO, 'end' => $row->FINAL, 'period' => $row->{'Período'}];
+            }
+            $instruments[$instrument][(int) $row->ADT] = [...$fields,
+                ...($row->VANTAJOSIDADE !== null ? ['advantage' => $row->VANTAJOSIDADE] : []),
+                ...($row->annual_index !== null && in_array($type, SaveAtaAmendment::ANNUAL_INDEX_TYPES, true) ? ['annual_index' => $row->annual_index] : []),
+                ...($row->balance_products !== null && in_array($type, SaveAtaAmendment::QUANTITY_ENTRY_TYPES, true)
+                    ? ['balance_products' => json_decode($row->balance_products, true, flags: JSON_THROW_ON_ERROR)] : [])];
         }
+        krsort($instruments['amendments'], SORT_NUMERIC);
+        krsort($instruments['apostilles'], SORT_NUMERIC);
 
-        krsort($amendments, SORT_NUMERIC);
-
-        return [$amendments, $registeredIds];
+        return [$instruments, $registeredIds];
     }
 }

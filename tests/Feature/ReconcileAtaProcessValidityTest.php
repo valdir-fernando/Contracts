@@ -36,7 +36,7 @@ class ReconcileAtaProcessValidityTest extends TestCase
         $this->assertSame(1, $service->run('/fixture', true)['inserted']);
         $this->assertDatabaseHas('tb_ATA', ['ATA' => '003/2025', 'DATA_ATA' => '2025-06-13', 'INICIO_ATA' => '2025-06-13', 'FINAL_ATA' => '2026-06-13']);
         $this->assertDatabaseHas('tb_N_ATA', ['ANO' => 2025, 'NUMERO' => 3]);
-        $this->assertDatabaseCount('tb_ADITIVOS_ATA', 0);
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
         $this->assertDatabaseCount('tb_FUNDOS_ATA', 1);
         $this->assertDatabaseHas('tb_FUNDOS_ATA', ['ATA' => '003/2025', 'papel' => 'gerenciador']);
@@ -60,7 +60,7 @@ class ReconcileAtaProcessValidityTest extends TestCase
         $service->run('/fixture', true);
         $id = DB::table('tb_ATA')->value('ID');
         DB::table('tb_ATA')->update(['FINAL_ATA' => '2027-06-12']);
-        DB::table('tb_ADITIVOS_ATA')->insert(['ID_ATA' => $id, 'ATA' => '003/2025', 'NUMERO' => 1, 'source_path' => 'signed.pdf',
+        DB::table('tb_ADT_ATA')->insert(['ID_ATA' => $id, 'ATA' => '003/2025', 'ADT' => 1, 'source_path' => 'signed.pdf',
             'source_sha256' => str_repeat('a', 64), 'source_size' => 10, 'extraction' => 'pdf_text', 'link_status' => 'vinculado', 'issues' => '[]']);
         $this->assertSame(1, $service->run('/fixture', true)['preserved_signed_extension']);
         $this->assertDatabaseHas('tb_ATA', ['FINAL_ATA' => '2027-06-12']);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initializeAtaProducts, initializeAtaProductPicker, initializeAtaAmendmentBalanceCorrection, ataProductTotal, ataAmendmentBalanceLineTotals, fitAtaDescription, limitAtaQuantity } from '../../resources/js/ata-products.js';
+import { initializeAtaProducts, initializeAtaProductPicker, initializeAtaAmendmentBalanceCorrection, ataProductTotal, ataAmendmentBalanceLineTotals, ataAnnualAmendmentTotals, fitAtaDescription, limitAtaQuantity } from '../../resources/js/ata-products.js';
 
 test('positive-balance amendments show reference totals per line with four decimal places', () => {
     const products = [
@@ -21,6 +21,28 @@ test('positive-balance totals exclude quantities above the original until they a
     ];
     assert.deepEqual(ataAmendmentBalanceLineTotals(products, { 2: '1,2501', 3: '3', 4: '1' }), {
         3: '6,0000',
+    });
+});
+
+test('variable period reference totals accept quantities above the original', () => {
+    const products = [
+        { id: 2, quantity: '1,2500', unit_price: '4,0000' },
+        { id: 3, quantity: '1,0000', unit_price: '2,0000' },
+    ];
+    assert.deepEqual(ataAmendmentBalanceLineTotals(products, { 2: '1,2501', 3: '-2' }, false), { 2: '5,0004' });
+});
+
+test('annual index applies exact adjusted prices and truncates each included line to cents', () => {
+    const products = [
+        { id: 1, unit_price: '2,3333' }, { id: 2, unit_price: '2,3333' },
+        { id: 3, unit_price: '10,0000' }, { id: 4, unit_price: null },
+    ];
+    assert.deepEqual(ataAnnualAmendmentTotals(products, { 1: '2,0001', 2: '2,0001', 4: '1' }, '12,256%'), {
+        prices: { 1: '2,6192', 2: '2,6192', 3: '11,2256' }, lines: { 1: '5,23', 2: '5,23' }, total: '10,46',
+    });
+    assert.deepEqual(ataAnnualAmendmentTotals(products, { 1: '5' }, ''), { prices: {}, lines: {}, total: '0,00' });
+    assert.deepEqual(ataAnnualAmendmentTotals(products, { 1: '2,0001', 2: '1', 3: '2' }, '2,23%', { 1: '3,4567', 2: '0', 3: '' }), {
+        prices: { 1: '2,3853', 2: '2,3853', 3: '10,2230' }, lines: { 1: '6,91', 2: '0,00' }, total: '6,91',
     });
 });
 

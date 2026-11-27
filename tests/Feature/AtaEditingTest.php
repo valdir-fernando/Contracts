@@ -176,18 +176,18 @@ class AtaEditingTest extends TestCase
         $participant = DB::table('tb_Participantes')->insertGetId(['draft_id' => $draft, 'fund_id' => $this->fund,
             'ATA' => '107/2025', 'Processo_ATA' => '2025007440', 'CNPJ_Fundo' => '04252011000110', 'FUNDO' => 'Fundo', 'Tipo_Fundo' => 'Participante']);
         $fund = DB::table('tb_FUNDOS_ATA')->insertGetId(['ID_ATA' => $this->ata, 'CNPJ_FUNDO' => '04252011000110', 'FUNDO' => 'Fundo', 'papel' => 'gerenciador'], 'ID');
-        $amendment = DB::table('tb_ADITIVOS_ATA')->insertGetId(['ID_ATA' => $this->ata, 'ATA' => '107/2025',
-            'NUMERO' => 1, 'PROCESSO_ORIGEM' => '2025007440', 'source_path' => 'synthetic.pdf', 'source_sha256' => str_repeat('b', 64),
+        $amendment = DB::table('tb_ADT_ATA')->insertGetId(['ID_ATA' => $this->ata, 'ATA' => '107/2025',
+            'ADT' => 1, 'Proc_ATA' => '2025007440', 'source_path' => 'synthetic.pdf', 'source_sha256' => str_repeat('b', 64),
             'source_size' => 10, 'extraction' => 'text', 'link_status' => 'vinculado', 'issues' => '[]'], 'ID');
-        $legacy = DB::table('tb_ADT_ATA')->insertGetId(['ATA' => '107/25', 'Proc_ATA' => '2025007440', 'ADT' => 1, 'Doc_ADT' => '%PDF-synthetic'], 'ID');
+        DB::table('tb_ADT_ATA')->where('ID', $amendment)->update(['Doc_ADT' => '%PDF-synthetic']);
         $product = ['ID_ATA' => $this->ata, 'ATA' => '107/2025', 'PROCESSO' => '2025007440', 'LICITACAO' => 'Pregão',
             'N_LICIT' => '12', 'ITEM' => '1', 'DISCRIMINACAO' => 'Produto', 'UND' => 'UN',
             'QTD' => '1.0000', 'VL_UNIT' => '2.0000', 'VL_TOTAL' => '2.0000', 'source_row' => '{}'];
         $original = DB::table('tb_PRODUTOS_ATA')->insertGetId($product, 'ID');
-        $additional = DB::table('tb_PRODUTOS_ATA')->insertGetId(array_replace($product, ['ITEM' => '2', 'ADITIVO' => 1, 'ID_ADITIVO' => $amendment]), 'ID');
+        $additional = DB::table('tb_PRODUTOS_ATA')->insertGetId(array_replace($product, ['ITEM' => '2', 'ADITIVO' => 1, 'amendment_id' => $amendment]), 'ID');
 
-        return ['tb_FUNDOS_ATA' => [$fund], 'tb_Participantes' => [$participant], 'tb_ADITIVOS_ATA' => [$amendment],
-            'tb_ADT_ATA' => [$legacy], 'tb_PRODUTOS_ATA' => [$original, $additional]];
+        return ['tb_FUNDOS_ATA' => [$fund], 'tb_Participantes' => [$participant], 'tb_ADT_ATA' => [$amendment],
+            'tb_PRODUTOS_ATA' => [$original, $additional]];
     }
 
     public function test_delete_marks_all_linked_records_with_same_timestamp_and_audits_ids_without_removing_pdfs(): void
@@ -236,7 +236,7 @@ class AtaEditingTest extends TestCase
         $this->assertSame('0.1001', $event->metadata['removed_amount']);
 
         $delete(1, 2)->assertOk()->assertJsonPath('version', 3);
-        $this->assertSoftDeleted('tb_ADITIVOS_ATA', ['ID' => $records['tb_ADITIVOS_ATA'][0]]);
+        $this->assertSoftDeleted('tb_ADT_ATA', ['ID' => $records['tb_ADT_ATA'][0]]);
         $this->assertSoftDeleted('tb_PRODUTOS_ATA', ['ID' => $records['tb_PRODUTOS_ATA'][1]]);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'FINAL_ATA' => '2026-11-07', 'deleted_at' => null]);
         $this->getJson(route('atas.lookup', ['number' => '107/25']))->assertOk()
@@ -268,6 +268,11 @@ class AtaEditingTest extends TestCase
             ->assertJsonValidationErrors(['number', 'date', 'process', 'type', 'start', 'end', 'period']);
         $input = ['version' => 1, 'number' => 2, 'date' => '2026-11-05', 'process' => 'PRORROGACAO-02',
             'type' => SaveAtaAmendment::EQUAL_QUANTITY, 'start' => '2026-11-07', 'end' => '2027-11-06', 'period' => '12 meses'];
+        $this->postJson($url, array_replace($input, ['type' => SaveAtaAmendment::ANNUAL_INDEX, 'advantage' => 'Pesquisa de Preços']))
+            ->assertUnprocessable()->assertJsonValidationErrors('annual_index');
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'version' => 1, 'FINAL_ATA' => '2026-11-06']);
+        $this->assertDatabaseMissing('tb_ADT_ATA', ['ID_ATA' => $this->ata, 'ADT' => 2]);
+        $this->assertDatabaseMissing('tb_PRODUTOS_ATA', ['ID_ATA' => $this->ata, 'ADITIVO' => 2]);
         $this->postJson($url, $input)->assertUnprocessable()->assertJsonValidationErrors('advantage');
         $this->postJson($url, $input + ['advantage' => 'Outra justificativa'])->assertUnprocessable()->assertJsonValidationErrors('advantage');
         $input['advantage'] = 'Pesquisa de Preços';
@@ -310,7 +315,7 @@ class AtaEditingTest extends TestCase
     public function test_extension_without_new_quantities_keeps_the_amount_and_other_types_have_no_implicit_effects(): void
     {
         $input = ['version' => 1, 'number' => 1, 'date' => '2026-11-05', 'process' => 'PRORROGACAO',
-            'type' => 'Apostilamento/Reajuste Anual INDICE', 'start' => '2026-11-07', 'end' => '2027-11-06', 'period' => '12 meses'];
+            'type' => 'Apostilamento/Reequilíbrio Econômico-Financeiro', 'start' => '2026-11-07', 'end' => '2027-11-06', 'period' => '12 meses'];
         $url = route('atas.amendments.store', $this->ata);
         $this->postJson($url, $input)->assertUnprocessable()->assertJsonValidationErrors('type');
         $this->assertDatabaseCount('tb_ADT_ATA', 0);
@@ -324,6 +329,63 @@ class AtaEditingTest extends TestCase
         $this->assertDatabaseHas('tb_ADT_ATA', ['ADT' => 1, 'VANTAJOSIDADE' => 'Declaração do Gestor']);
         $this->assertDatabaseCount('tb_PRODUTOS_ATA', 0);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'FINAL_ATA' => '2027-11-06']);
+    }
+
+    public function test_apostille_has_its_own_number_and_records_prices_without_changing_the_ata(): void
+    {
+        DB::table('tb_ATA')->where('ID', $this->ata)->update(['INICIO_ATA' => '2025-11-07', 'FINAL_ATA' => '2026-11-06', 'PERIODO_ATA' => '12 meses']);
+        $original = ['ID_ATA' => $this->ata, 'ATA' => '107/2025', 'PROCESSO' => '2025007440', 'LICITACAO' => 'Pregão', 'N_LICIT' => '12', 'ITEM' => '1',
+            'DISCRIMINACAO' => 'Produto para reajustar', 'UND' => 'UN', 'QTD' => '2.0000',
+            'VL_UNIT' => '10.5000', 'VL_TOTAL' => '21.0000', 'ADITIVO' => 0, 'source_row' => '{}'];
+        $product = DB::table('tb_PRODUTOS_ATA')->insertGetId($original, 'ID');
+        $excluded = DB::table('tb_PRODUTOS_ATA')->insertGetId(array_replace($original, ['ITEM' => '2']), 'ID');
+        $url = route('atas.amendments.store', $this->ata);
+        $data = ['version' => 1, 'number' => 1, 'date' => '2026-08-01', 'process' => 'PROC-APOST',
+            'type' => SaveAtaAmendment::APOSTILLE, 'start' => '2026-08-01', 'end' => '2026-11-06', 'period' => '3 meses',
+            'advantage' => 'Pesquisa de Preços', 'annual_index' => '7,25', 'excluded_product_ids' => [$excluded],
+            'balance_quantities' => [['product_id' => $product, 'quantity' => '1,5', 'adjusted_unit_price' => '11,4567']]];
+        $this->postJson($url, array_replace($data, ['number' => 2]))->assertConflict();
+        $this->postJson($url, array_diff_key($data, ['annual_index' => true]))->assertUnprocessable()->assertJsonValidationErrors('annual_index');
+        $this->postJson($url, array_replace($data, ['balance_quantities' => []]))->assertUnprocessable()->assertJsonValidationErrors('balance_quantities');
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+        $term = $this->postJson($url, $data)->assertCreated()->assertJsonPath('version', 2)
+            ->assertJsonPath('amendment.annual_index', '7.25')
+            ->assertJsonPath('amendment.balance_products.0.effective_unit_price', '11.4567')
+            ->assertJsonPath('amendment.balance_products.0.adjusted_total', '17.1800')
+            ->assertJsonPath('amendment_amount', '17.1800')->assertJsonPath('amendment_updated_total', '42.0000')
+            ->json('signed_amendment_id');
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'FINAL_ATA' => '2026-11-06', 'validity_basis' => null]);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $product, 'QTD' => 2, 'VL_UNIT' => 10.5]);
+        $this->assertDatabaseCount('tb_PRODUTOS_ATA', 2);
+        $extension = array_replace(array_diff_key($data, ['balance_quantities' => true, 'excluded_product_ids' => true]), [
+            'version' => 2, 'type' => SaveAtaAmendment::EQUAL_QUANTITY, 'process' => 'PROC-ADT',
+            'start' => '2026-11-07', 'end' => '2027-11-06', 'period' => '12 meses',
+        ]);
+        $amendment = $this->postJson($url, $extension)->assertCreated()->assertJsonPath('version', 3)
+            ->assertJsonPath('amendment_updated_total', '84.0000')->json('signed_amendment_id');
+        $lookup = route('atas.lookup', ['number' => '107/2025']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('apostille_numbers', [1])->assertJsonPath('amendment_numbers', [1])
+            ->assertJsonPath('amendments.1.process', 'PROC-ADT')->assertJsonPath('apostilles.1.process', 'PROC-APOST')
+            ->assertJsonPath('apostilles.1.has_registered_products', true)->assertJsonPath('apostilles.1.excluded_product_ids', [$excluded])
+            ->assertJsonPath('amendment_signed_documents.1.id', $amendment)->assertJsonPath('apostille_signed_documents.1.id', $term);
+        $params = ['ata' => $this->ata, 'amendment' => 1];
+        $edit = array_replace($data, ['version' => 3, 'instrument' => 'apostille', 'process' => 'PROC-APOST-EDITADO',
+            'excluded_product_ids' => [], 'balance_quantities' => [
+                ['product_id' => $product, 'quantity' => '0', 'adjusted_unit_price' => null],
+                ['product_id' => $excluded, 'quantity' => '1,5', 'adjusted_unit_price' => null],
+            ]]);
+        $this->patchJson(route('atas.amendments.update', $params), $edit)->assertOk()->assertJsonPath('version', 4)
+            ->assertJsonMissingPath('amendment.balance_products.0.adjusted_total')
+            ->assertJsonPath('amendment.balance_products.1.effective_unit_price', '11.2612')->assertJsonPath('amendment_amount', '16.8900');
+        $this->deleteJson(route('atas.amendments.destroy', $params), ['version' => 3, 'instrument' => 'apostille'])->assertConflict();
+        $this->deleteJson(route('atas.amendments.destroy', $params), ['version' => 4, 'instrument' => 'apostille'])->assertOk();
+        $this->assertSoftDeleted('tb_ADT_ATA', ['ID' => $term]);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID' => $amendment, 'Proc_ADT' => 'PROC-ADT', 'deleted_at' => null]);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['amendment_id' => $amendment, 'deleted_at' => null]);
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'FINAL_ATA' => '2027-11-06', 'version' => 5]);
+        $this->assertSame(['ata_apostille_saved', 'ata_apostille_updated', 'ata_apostille_deleted'],
+            ActivityEvent::where('action', 'like', 'ata_apostille_%')->orderBy('id')->pluck('action')->all());
     }
 
     public function test_a_deleted_amendment_number_can_be_reused_without_reactivating_its_products(): void
@@ -340,7 +402,7 @@ class AtaEditingTest extends TestCase
         $url = route('atas.amendments.store', $this->ata);
         $this->postJson($url, $input)->assertCreated()->assertJsonPath('amendment_number', 1);
         $this->postJson($url, array_replace($input, ['version' => 3]))->assertConflict();
-        $this->assertSoftDeleted('tb_PRODUTOS_ATA', ['ID' => $oldItem, 'ID_ADITIVO' => $records['tb_ADITIVOS_ATA'][0]]);
+        $this->assertSoftDeleted('tb_PRODUTOS_ATA', ['ID' => $oldItem, 'amendment_id' => $records['tb_ADT_ATA'][0]]);
         $this->assertSoftDeleted('tb_ADT_ATA', ['ID' => $records['tb_ADT_ATA'][0]]);
         $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID_ATA' => $this->ata, 'ADITIVO' => 1, 'ITEM' => '2', 'deleted_at' => null, 'PROC_ADT' => 'NOVO-01']);
         $this->getJson(route('atas.lookup', ['number' => '107/25']))->assertOk()
@@ -445,6 +507,190 @@ class AtaEditingTest extends TestCase
         $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $original, 'QTD' => '1.0000', 'deleted_at' => null]);
     }
 
+    public function test_variable_quantity_amendment_launches_included_quantities_updates_totals_and_preserves_history(): void
+    {
+        $original = $this->originalProduct(['VL_UNIT' => '2.3333', 'VL_TOTAL' => '2.3333']);
+        $excluded = $this->originalProduct(['ITEM' => '2', 'QTD' => '2.0000', 'VL_TOTAL' => '2.0000']);
+        DB::table('tb_ATA')->where('ID', $this->ata)->update([
+            'INICIO_ATA' => '2025-11-07', 'FINAL_ATA' => '2026-11-06', 'PERIODO_ATA' => '12 meses',
+        ]);
+        $input = ['version' => 1, 'number' => 1, 'date' => '2026-11-05', 'process' => 'VARIAVEL-01',
+            'type' => SaveAtaAmendment::VARIABLE_QUANTITY, 'start' => '2026-11-07', 'end' => '2027-08-06',
+            'period' => '9 meses', 'advantage' => 'Declaração do Gestor', 'excluded_product_ids' => [$excluded]];
+        $url = route('atas.amendments.store', $this->ata);
+        foreach ([$excluded, 999] as $invalidProduct) {
+            $this->postJson($url, $input + ['balance_quantities' => [['product_id' => $invalidProduct, 'quantity' => '2,0001']]])
+                ->assertUnprocessable()->assertJsonValidationErrors('balance_quantities');
+        }
+        foreach (['-1,0000', '99.999.999.999.999,9999'] as $invalidQuantity) {
+            $this->postJson($url, $input + ['balance_quantities' => [['product_id' => $original, 'quantity' => $invalidQuantity]]])
+                ->assertUnprocessable()->assertJsonValidationErrors('balance_quantities');
+        }
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
+        $this->assertDatabaseCount('ata_amendment_excluded_products', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+
+        $created = $this->postJson($url, $input + ['balance_quantities' => [['product_id' => $original, 'quantity' => '2,0001']]])
+            ->assertCreated()->assertJsonPath('amendment.balance_products.0.balance_quantity', '2.0001')
+            ->assertJsonPath('amendment.excluded_product_ids', [$excluded])
+            ->assertJsonPath('amendment.has_registered_products', true)
+            ->assertJsonPath('amendment_amount', '4.6668')->assertJsonPath('amendment_updated_total', '9.0001');
+        $amendment = $created->json('signed_amendment_id');
+        $products = DB::table('tb_PRODUTOS_ATA')->where('amendment_id', $amendment)->whereNull('deleted_at');
+        $first = (int) (clone $products)->sole()->ID;
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $first, 'ITEM' => '1', 'QTD' => '2.0001', 'VL_UNIT' => '2.3333', 'VL_TOTAL' => '4.6668']);
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'FINAL_ATA' => '2027-08-06', 'version' => 2]);
+
+        $edit = route('atas.amendments.update', ['ata' => $this->ata, 'amendment' => 1]);
+        $this->patchJson($edit, array_replace($input, ['version' => 2]))->assertOk()->assertJsonPath('amendment_amount', '4.6668');
+        $this->assertSame($first, (int) (clone $products)->sole()->ID);
+        $this->patchJson($edit, array_replace($input, ['version' => 3, 'balance_quantities' => [['product_id' => $original, 'quantity' => '3,0001']]]))
+            ->assertOk()->assertJsonPath('amendment_amount', '7.0001')->assertJsonPath('amendment_updated_total', '11.3334');
+        $this->assertSoftDeleted('tb_PRODUTOS_ATA', ['ID' => $first, 'QTD' => '2.0001', 'VL_TOTAL' => '4.6668']);
+        $this->assertSame(1, $products->count());
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $original, 'QTD' => '1.0000', 'deleted_at' => null]);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $excluded, 'QTD' => '2.0000', 'deleted_at' => null]);
+        $lookup = route('atas.lookup', ['number' => '107/25']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('amendments.1.balance_products.0.balance_quantity', '3.0001')
+            ->assertJsonPath('amendments.1.has_registered_products', true)
+            ->assertJsonPath('amendment_updated_total', '11.3334');
+        $report = app(AtaReportQuery::class)->for($this->actor, ['report_year' => 'all'], false);
+        $this->assertSame('11.3334', $report['rows']->sole()['amount']);
+        $event = ActivityEvent::where('action', 'ata_amendment_updated')->latest('id')->firstOrFail();
+        $this->assertSame('7.0001', $event->metadata['amount']);
+        $this->assertSame([$first], $event->metadata['before_product_ids']);
+
+        $this->deleteJson(route('atas.amendments.destroy', ['ata' => $this->ata, 'amendment' => 1]), ['version' => 4])->assertOk();
+        $this->assertSame(0, $products->count());
+        $this->getJson($lookup)->assertOk()->assertJsonPath('amendment_updated_total', '4.3333');
+        $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'FINAL_ATA' => '2026-11-06', 'version' => 5]);
+    }
+
+    public function test_annual_index_amendment_persists_truncated_lines_and_recalculates_after_editing_the_index(): void
+    {
+        $first = $this->originalProduct(['VL_UNIT' => '2.3333', 'VL_TOTAL' => '2.3333']);
+        $second = $this->originalProduct(['ITEM' => '2', 'VL_UNIT' => '2.3333', 'VL_TOTAL' => '2.3333']);
+        $excluded = $this->originalProduct(['ITEM' => '3']);
+        DB::table('tb_ATA')->where('ID', $this->ata)->update([
+            'INICIO_ATA' => '2025-11-07', 'FINAL_ATA' => '2026-11-06', 'PERIODO_ATA' => '12 meses',
+        ]);
+        $input = ['version' => 1, 'number' => 1, 'date' => '2026-11-05', 'process' => 'REAJUSTE-01',
+            'type' => SaveAtaAmendment::ANNUAL_INDEX, 'start' => '2026-11-07', 'end' => '2027-08-06',
+            'period' => '9 meses', 'advantage' => 'Declaração do Gestor', 'annual_index' => '12,256%',
+            'excluded_product_ids' => [$excluded], 'balance_quantities' => [
+                ['product_id' => $first, 'quantity' => '2,0001'], ['product_id' => $second, 'quantity' => '2,0001'],
+            ]];
+        $url = route('atas.amendments.store', $this->ata);
+        $this->postJson($url, array_replace($input, ['annual_index' => '12,256%%']))
+            ->assertUnprocessable()->assertJsonValidationErrors('annual_index');
+        $this->postJson($url, array_replace($input, ['balance_quantities' => [['product_id' => $excluded, 'quantity' => '2']]]))
+            ->assertUnprocessable()->assertJsonValidationErrors('balance_quantities');
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+
+        $created = $this->postJson($url, $input)->assertCreated()->assertJsonPath('amendment.annual_index', '12.256')
+            ->assertJsonPath('amendment.has_registered_products', true)
+            ->assertJsonPath('amendment.excluded_product_ids', [$excluded])
+            ->assertJsonPath('amendment.balance_products.0.unit_price', '2.3333')
+            ->assertJsonPath('amendment_amount', '10.4600')->assertJsonPath('amendment_updated_total', '16.1266');
+        $id = $created->json('signed_amendment_id');
+        $products = DB::table('tb_PRODUTOS_ATA')->where('amendment_id', $id)->whereNull('deleted_at');
+        $originalEntries = $products->pluck('ID')->all();
+        $this->assertCount(2, $originalEntries);
+        $this->assertSame(2, (clone $products)->where('QTD', '2.0001')->where('VL_UNIT', '2.6192')->where('VL_TOTAL', '5.2300')->count());
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID' => $id, 'annual_index' => '12.256', 'VANTAJOSIDADE' => 'Declaração do Gestor']);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $excluded, 'ADITIVO' => 0, 'deleted_at' => null]);
+        $audit = ActivityEvent::where('action', 'ata_amendment_saved')->sole();
+        $this->assertSame('10.4600', $audit->metadata['amount']);
+        $this->assertSame('16.1266', $audit->metadata['updated_total']);
+
+        $edit = route('atas.amendments.update', ['ata' => $this->ata, 'amendment' => 1]);
+        $this->patchJson($edit, array_replace($input, ['version' => 2, 'annual_index' => '12,2560']))
+            ->assertOk()->assertJsonPath('amendment_amount', '10.4600');
+        $this->assertSame($originalEntries, $products->pluck('ID')->all());
+        $this->patchJson($edit, array_replace($input, ['version' => 3, 'annual_index' => '2,23']))
+            ->assertOk()->assertJsonPath('amendment_amount', '9.5400')->assertJsonPath('amendment_updated_total', '15.2066');
+        $this->assertSame(2, (clone $products)->where('VL_UNIT', '2.3853')->where('VL_TOTAL', '4.7700')->count());
+        foreach ($originalEntries as $entry) {
+            $this->assertSoftDeleted('tb_PRODUTOS_ATA', ['ID' => $entry, 'VL_TOTAL' => '5.2300']);
+        }
+
+        $lookup = route('atas.lookup', ['number' => '107/25']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('amendments.1.annual_index', '2.23')
+            ->assertJsonPath('amendments.1.balance_products.0.balance_quantity', '2.0001')
+            ->assertJsonPath('amendments.1.excluded_product_ids', [$excluded])->assertJsonPath('amendment_updated_total', '15.2066');
+        $report = app(AtaReportQuery::class)->for($this->actor, ['report_year' => 'all'], false);
+        $this->assertSame('15.2066', $report['rows']->sole()['amount']);
+        $this->deleteJson(route('atas.amendments.destroy', ['ata' => $this->ata, 'amendment' => 1]), ['version' => 4])->assertOk();
+        $this->getJson($lookup)->assertOk()->assertJsonPath('amendment_updated_total', '5.6666');
+    }
+
+    public function test_annual_index_amendment_persists_manual_prices_and_allows_return_to_the_calculated_price(): void
+    {
+        $original = $this->originalProduct(['VL_UNIT' => '2.3333', 'VL_TOTAL' => '2.3333']);
+        DB::table('tb_ATA')->where('ID', $this->ata)->update([
+            'INICIO_ATA' => '2025-11-07', 'FINAL_ATA' => '2026-11-06', 'PERIODO_ATA' => '12 meses',
+        ]);
+        $input = ['version' => 1, 'number' => 1, 'date' => '2026-11-05', 'process' => 'REAJUSTE-01',
+            'type' => SaveAtaAmendment::ANNUAL_INDEX, 'start' => '2026-11-07', 'end' => '2027-08-06',
+            'period' => '9 meses', 'advantage' => 'Pesquisa de Preços', 'annual_index' => '12,256%'];
+        $quantity = ['product_id' => $original, 'quantity' => '2,0001'];
+        $url = route('atas.amendments.store', $this->ata);
+        foreach (['-0,01', '3,45678', '1,2,3'] as $price) {
+            $this->postJson($url, $input + ['balance_quantities' => [$quantity + ['adjusted_unit_price' => $price]]])
+                ->assertUnprocessable()->assertJsonValidationErrors('balance_quantities');
+        }
+        $this->postJson($url, array_replace($input, ['type' => SaveAtaAmendment::VARIABLE_QUANTITY, 'balance_quantities' => [$quantity + ['adjusted_unit_price' => '3,4567']]]))
+            ->assertUnprocessable()->assertJsonValidationErrors('balance_quantities.0');
+        $this->assertDatabaseCount('tb_ADT_ATA', 0);
+        $this->assertDatabaseCount('activity_events', 0);
+
+        $created = $this->postJson($url, $input + ['balance_quantities' => [$quantity + ['adjusted_unit_price' => '3,4567']]])
+            ->assertCreated()->assertJsonPath('amendment.balance_products.0.adjusted_unit_price', '3.4567')
+            ->assertJsonPath('amendment_amount', '6.9100')->assertJsonPath('amendment_updated_total', '9.2433');
+        $id = $created->json('signed_amendment_id');
+        $products = DB::table('tb_PRODUTOS_ATA')->where('amendment_id', $id)->whereNull('deleted_at');
+        $first = (clone $products)->sole();
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $first->ID, 'VL_UNIT' => '3.4567', 'VL_TOTAL' => '6.9100']);
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $original, 'VL_UNIT' => '2.3333']);
+        $lookup = route('atas.lookup', ['number' => '107/25']);
+        $this->getJson($lookup)->assertOk()->assertJsonPath('amendments.1.balance_products.0.adjusted_unit_price', '3.4567');
+
+        $edit = route('atas.amendments.update', ['ata' => $this->ata, 'amendment' => 1]);
+        $this->patchJson($edit, array_replace($input, ['version' => 2, 'balance_quantities' => [$quantity + ['adjusted_unit_price' => '0']]]))
+            ->assertOk()->assertJsonPath('amendment.balance_products.0.adjusted_unit_price', '0.0000')->assertJsonPath('amendment_amount', '0.0000');
+        $this->assertSoftDeleted('tb_PRODUTOS_ATA', ['ID' => $first->ID, 'VL_UNIT' => '3.4567']);
+        $this->patchJson($edit, array_replace($input, ['version' => 3, 'annual_index' => '2,23', 'balance_quantities' => [$quantity]]))
+            ->assertOk()->assertJsonPath('amendment.balance_products.0.adjusted_unit_price', '0.0000')->assertJsonPath('amendment_amount', '0.0000');
+        $this->patchJson($edit, array_replace($input, ['version' => 4, 'annual_index' => '2,23', 'balance_quantities' => [$quantity + ['adjusted_unit_price' => null]]]))
+            ->assertOk()->assertJsonMissingPath('amendment.balance_products.0.adjusted_unit_price')
+            ->assertJsonPath('amendment_amount', '4.7700')->assertJsonPath('amendment_updated_total', '7.1033');
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => (clone $products)->sole()->ID, 'VL_UNIT' => '2.3853', 'VL_TOTAL' => '4.7700']);
+    }
+
+    public function test_historical_annual_amendment_preserves_existing_products_without_inventing_an_index(): void
+    {
+        $this->originalProduct();
+        DB::table('tb_ATA')->where('ID', $this->ata)->update([
+            'INICIO_ATA' => '2025-11-07', 'FINAL_ATA' => '2026-11-06', 'PERIODO_ATA' => '12 meses',
+        ]);
+        $input = ['version' => 1, 'number' => 1, 'date' => '2026-11-05', 'process' => 'REAJUSTE-HISTORICO',
+            'type' => SaveAtaAmendment::EQUAL_QUANTITY, 'start' => '2026-11-07', 'end' => '2027-08-06',
+            'period' => '9 meses', 'advantage' => 'Pesquisa de Preços'];
+        $id = $this->postJson(route('atas.amendments.store', $this->ata), $input)->assertCreated()->json('signed_amendment_id');
+        DB::table('tb_ADT_ATA')->where('ID', $id)->update(['Tipo_ADT' => SaveAtaAmendment::ANNUAL_INDEX]);
+        $product = DB::table('tb_PRODUTOS_ATA')->where('amendment_id', $id)->value('ID');
+        $edit = route('atas.amendments.update', ['ata' => $this->ata, 'amendment' => 1]);
+        $input['type'] = SaveAtaAmendment::ANNUAL_INDEX;
+        $input['version'] = 2;
+        unset($input['advantage']);
+        $this->patchJson($edit, $input + ['annual_index' => '2,23'])->assertConflict();
+        $this->patchJson($edit, array_replace($input, ['process' => 'REAJUSTE-ATUALIZADO', 'excluded_product_ids' => [], 'balance_quantities' => []]))
+            ->assertOk()->assertJsonMissingPath('amendment.annual_index')->assertJsonPath('amendment.advantage', 'Pesquisa de Preços');
+        $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $product, 'amendment_id' => $id, 'VL_TOTAL' => '1.0000', 'deleted_at' => null]);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID' => $id, 'annual_index' => null, 'Proc_ADT' => 'REAJUSTE-ATUALIZADO']);
+    }
+
     public function test_recreating_a_positive_balance_amendment_saves_quantities_and_exclusions_under_its_new_id(): void
     {
         $records = $this->linkedRecords();
@@ -485,11 +731,10 @@ class AtaEditingTest extends TestCase
     public function test_amendment_delete_preserves_a_manually_corrected_expiration_and_is_atomic_with_audit(): void
     {
         $records = $this->linkedRecords();
-        $importedId = $records['tb_ADITIVOS_ATA'][0];
-        $legacyId = $records['tb_ADT_ATA'][0];
-        DB::table('tb_ADT_ATA')->where('ID', $legacyId)->update(['FINAL' => '2027-11-06']);
+        $amendmentId = $records['tb_ADT_ATA'][0];
+        DB::table('tb_ADT_ATA')->where('ID', $amendmentId)->update(['FINAL' => '2027-11-06']);
         $basis = json_encode(['rule' => UpdateAtaValidity::RULE, 'start' => '2025-11-07', 'end' => '2027-11-06',
-            'period' => '1 ano', 'amendments' => [['id' => $importedId, 'number' => 1, 'end' => '2027-11-06']]], JSON_THROW_ON_ERROR);
+            'period' => '1 ano', 'amendments' => [['id' => $amendmentId, 'number' => 1, 'end' => '2027-11-06']]], JSON_THROW_ON_ERROR);
         DB::table('tb_ATA')->where('ID', $this->ata)->update([
             'INICIO_ATA' => '2025-11-07', 'FINAL_ATA' => '2026-11-06', 'validity_basis' => $basis,
         ]);
@@ -504,8 +749,7 @@ class AtaEditingTest extends TestCase
         } finally {
             Event::forget('eloquent.creating: '.ActivityEvent::class);
         }
-        $this->assertDatabaseHas('tb_ADT_ATA', ['ID' => $legacyId, 'deleted_at' => null]);
-        $this->assertDatabaseHas('tb_ADITIVOS_ATA', ['ID' => $importedId, 'deleted_at' => null]);
+        $this->assertDatabaseHas('tb_ADT_ATA', ['ID' => $amendmentId, 'deleted_at' => null]);
         $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $records['tb_PRODUTOS_ATA'][1], 'deleted_at' => null]);
         $this->assertDatabaseHas('tb_ATA', ['ID' => $this->ata, 'version' => 1, 'FINAL_ATA' => '2026-11-06', 'validity_basis' => $basis]);
         $this->deleteJson(route('atas.amendments.destroy', ['ata' => $this->ata, 'amendment' => 1]), ['version' => 1])->assertOk();
@@ -695,8 +939,8 @@ class AtaEditingTest extends TestCase
     public function test_linked_imported_amendment_prevents_process_change_without_changing_original_products(): void
     {
         $product = $this->originalProduct();
-        DB::table('tb_ADITIVOS_ATA')->insert(['ID_ATA' => $this->ata, 'ATA' => '107/2025', 'NUMERO' => 1,
-            'PROCESSO_ORIGEM' => '2025007440', 'source_path' => 'linked.pdf', 'source_sha256' => str_repeat('d', 64),
+        DB::table('tb_ADT_ATA')->insert(['ID_ATA' => $this->ata, 'ATA' => '107/2025', 'ADT' => 1,
+            'Proc_ATA' => '2025007440', 'source_path' => 'linked.pdf', 'source_sha256' => str_repeat('d', 64),
             'source_size' => 10, 'extraction' => 'text', 'link_status' => 'vinculado', 'issues' => '[]']);
         $this->change(['ata_process' => 'OUTRO'])->assertUnprocessable()->assertJsonValidationErrors('ata_process');
         $this->assertDatabaseHas('tb_PRODUTOS_ATA', ['ID' => $product, 'PROCESSO' => '2025007440']);

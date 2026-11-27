@@ -101,6 +101,9 @@ export function initializeAtaSave(root, warn = showSupplierDocumentWarning, fetc
             if (values.publication_date !== undefined) {
                 payload.publication_date = values.publication_date ? isoDate(values.publication_date) : null;
             }
+            if (values.annual_index_type !== undefined) {
+                payload.annual_index_type = values.annual_index_type || null;
+            }
             const url = ataId ? button.dataset.updateUrl.replace(/\/0$/, `/${encodeURIComponent(ataId)}`) : button.dataset.saveUrl;
             const response = await fetcher(url, {
                 method: ataId ? 'PATCH' : 'POST', credentials: 'same-origin', headers: { Accept: 'application/json',
@@ -183,6 +186,7 @@ export function initializeAtaAmendmentSave(root, warn = showSupplierDocumentWarn
     const button = root.querySelector('[data-ata-amendment-save]');
     if (!button) return;
     const advantage = root.querySelector('#ata-amend-advantage');
+    const annualIndex = root.querySelector('#ata-amend-annual-index');
     const end = root.querySelector('#ata-amend-end');
     const endLimitError = value => {
         const date = isoDate(value);
@@ -203,23 +207,30 @@ export function initializeAtaAmendmentSave(root, warn = showSupplierDocumentWarn
     button.addEventListener('click', async () => {
         const id = root.dataset.ataLoaded;
         if (!id || pending || button.disabled || root.dataset.editorBusy === 'true') return;
+        const apostille = button.dataset.instrument === 'apostille';
+        const subject = apostille ? 'apostilamento' : 'aditivo';
+        const labels = apostille ? { number: 'Nº Apostilamento', date: 'Data_Apost.', process: 'Proc_Apost.' } : {};
         const data = Object.fromEntries(Object.entries(fields).map(([key, [suffix]]) =>
             [key, root.querySelector(`#ata-amend-${suffix}`).value.trim()]));
-        const missing = Object.keys(fields).filter(key => !data[key]).map(key => fields[key][1]);
+        const missing = Object.keys(fields).filter(key => !data[key]).map(key => labels[key] ?? fields[key][1]);
         if (advantage?.required && !advantage.disabled) {
             data.advantage = advantage.value.trim();
             if (!data.advantage) missing.push('Vantajosidade');
         }
+        if (annualIndex?.required && !annualIndex.disabled) {
+            data.annual_index = annualIndex.value.trim().replace(/%$/, '');
+            if (!data.annual_index) missing.push('Indice_Anual');
+        }
         if (missing.length) {
-            warn(`Preencha os campos obrigatórios do aditivo: ${missing.join(', ')}.`, root.ownerDocument);
+            warn(`Preencha os campos obrigatórios do ${subject}: ${missing.join(', ')}.`, root.ownerDocument);
             return;
         }
         const invalidDates = ['date', 'start', 'end'].filter(key => !isoDate(data[key]));
         if (invalidDates.length) {
-            warn(`Informe datas válidas nos campos: ${invalidDates.map(key => fields[key][1]).join(', ')}.`, root.ownerDocument);
+            warn(`Informe datas válidas nos campos: ${invalidDates.map(key => labels[key] ?? fields[key][1]).join(', ')}.`, root.ownerDocument);
             return;
         }
-        const endMessage = endLimitError(data.end);
+        const endMessage = apostille ? '' : endLimitError(data.end);
         if (endMessage) {
             warn(endMessage, root.ownerDocument);
             return;
@@ -230,9 +241,12 @@ export function initializeAtaAmendmentSave(root, warn = showSupplierDocumentWarn
         if (button.dataset.balanceQuantities) {
             data.balance_quantities = JSON.parse(button.dataset.balanceQuantities).map(entry => ({
                 ...entry, quantity: entry.quantity.replace(/[,.]$/, separator => separator + '0'),
+                ...(typeof entry.adjusted_unit_price === 'string'
+                    ? { adjusted_unit_price: entry.adjusted_unit_price.replace(/[,.]$/, separator => separator + '0') } : {}),
             }));
         }
         const editing = button.dataset.savedAmendmentNumber === data.number;
+        if (apostille) data.instrument = 'apostille';
         const url = button.dataset.saveUrl.replace(/\/0\/amendments$/, `/${encodeURIComponent(id)}/amendments`);
         pending = true;
         notify('ata-saving');
@@ -245,19 +259,20 @@ export function initializeAtaAmendmentSave(root, warn = showSupplierDocumentWarn
             const saved = await response.json();
             if (root.dataset.ataLoaded !== id) return;
             if (!response.ok) {
-                warn(Object.values(saved.errors ?? {}).flat().join('\n') || saved.message || 'Não foi possível salvar o aditivo.', root.ownerDocument);
+                warn(Object.values(saved.errors ?? {}).flat().join('\n') || saved.message || `Não foi possível salvar o ${subject}.`, root.ownerDocument);
                 return;
             }
-            root.dataset.ataDerivedEndDate = saved.original_end_date ?? '';
+            if (!apostille) root.dataset.ataDerivedEndDate = saved.original_end_date ?? '';
             notify('ata-amendment-saved', { ...saved, amendment_updated_total: formatDecimalField(saved.amendment_updated_total) });
-            const message = editing ? 'Aditivo atualizado com sucesso.' : 'Aditivo salvo com sucesso.';
+            const message = `${apostille ? 'Apostilamento' : 'Aditivo'} ${editing ? 'atualizado' : 'salvo'} com sucesso.`;
             const excluded = saved.amendment?.excluded_product_ids;
             const balances = saved.amendment?.balance_products?.length ?? 0;
+            const savedQuantities = data.annual_index !== undefined ? 'Quantidades gravadas' : 'Saldos gravados';
             const summary = Array.isArray(excluded)
-                ? ` Saldos gravados (${balances}). Itens excluídos da prorrogação (${excluded.length}).` : '';
+                ? ` ${savedQuantities} (${balances}). Itens excluídos ${apostille ? 'do reajuste' : 'da prorrogação'} (${excluded.length}).` : '';
             warn(message + summary, root.ownerDocument);
         } catch {
-            warn('Não foi possível confirmar o salvamento do aditivo. Consulte novamente a ATA.', root.ownerDocument);
+            warn(`Não foi possível confirmar o salvamento do ${subject}. Consulte novamente a ATA.`, root.ownerDocument);
         } finally {
             pending = false;
             notify('ata-save-finished');
@@ -274,30 +289,33 @@ export function initializeAtaAmendmentDelete(root, confirm = confirmSystemMessag
         const id = root.dataset.ataLoaded;
         const version = root.dataset.ataVersion;
         const number = button.dataset.amendmentNumber;
+        const instrument = button.dataset.instrument;
+        const subject = instrument === 'apostille' ? 'apostilamento' : 'aditivo';
         if (!id || !number || pending || button.disabled) return;
         pending = true;
         let started = false;
         try {
-            if (!await confirm(`Confirma a exclusão do aditivo nº ${number} e de seus produtos? O histórico será preservado.`, root.ownerDocument)) return;
+            const target = instrument === 'apostille' ? `${subject} nº ${number}` : `${subject} nº ${number} e de seus produtos`;
+            if (!await confirm(`Confirma a exclusão do ${target}? O histórico será preservado.`, root.ownerDocument)) return;
             if (root.dataset.ataLoaded !== id || root.dataset.ataVersion !== version ||
-                button.dataset.amendmentNumber !== number || button.disabled) return;
+                button.dataset.amendmentNumber !== number || button.dataset.instrument !== instrument || button.disabled) return;
             started = true;
             notify('ata-saving');
             const url = button.dataset.deleteUrl.replace(/\/0\/amendments\/0$/, `/${encodeURIComponent(id)}/amendments/${encodeURIComponent(number)}`);
             const response = await fetcher(url, {
                 method: 'DELETE', credentials: 'same-origin', headers: { Accept: 'application/json',
                     'Content-Type': 'application/json', 'X-CSRF-TOKEN': root.dataset.csrfToken },
-                body: JSON.stringify({ version: Number(version) }),
+                body: JSON.stringify({ version: Number(version), instrument }),
             });
             const data = await response.json();
             if (root.dataset.ataLoaded !== id) return;
             if (!response.ok) {
-                warn(data.message || 'Não foi possível excluir o aditivo.', root.ownerDocument);
+                warn(data.message || `Não foi possível excluir o ${subject}.`, root.ownerDocument);
                 return;
             }
             notify('ata-saved', data);
         } catch {
-            warn('Não foi possível confirmar a exclusão do aditivo. Consulte novamente a ATA.', root.ownerDocument);
+            warn(`Não foi possível confirmar a exclusão do ${subject}. Consulte novamente a ATA.`, root.ownerDocument);
         } finally {
             pending = false;
             if (started) notify('ata-save-finished');

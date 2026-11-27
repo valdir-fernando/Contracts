@@ -23,8 +23,10 @@ class AtaSummaryQuery
 
         $identity = new AtaAmendmentReader;
         $amendment = DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)->whereNotNull('Proc_ATA')
-            ->orderByDesc('Data_ADT')->orderByDesc('ID')->get(['ATA', 'Proc_ATA', 'ADT', 'Proc_ADT', 'FINAL'])
+            ->where(fn ($query) => $query->where('ID_ATA', $id)->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')))
+            ->orderByDesc('Data_ADT')->orderByDesc('ID')->get(['ATA', 'Proc_ATA', 'ADT', 'Proc_ADT', 'FINAL', 'Tipo_ADT'])
             ->first(fn ($row) => $identity->key($row->ATA) === $identity->key($ata->ATA)
+                && ! SaveAtaAmendment::isApostille($row->Tipo_ADT)
                 && trim($row->Proc_ATA) !== '' && trim($row->Proc_ATA) === trim($ata->PROCESSO));
 
         $funds = DB::table('tb_FUNDOS_ATA')->where('ID_ATA', $id)->whereNull('deleted_at')

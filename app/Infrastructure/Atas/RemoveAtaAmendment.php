@@ -31,23 +31,21 @@ final class RemoveAtaAmendment
                 $this->policy->authorize($actor, (int) $ata->fund_id);
             }
             $this->policy->ensureEditable($ata);
-            $data = Validator::make($input, ['version' => 'required|integer|min:1'])->validate();
+            $data = Validator::make($input, ['version' => 'required|integer|min:1', 'instrument' => 'sometimes|required|in:apostille,amendment'])->validate();
             abort_if((int) $ata->version !== (int) $data['version'], 409, 'A ATA foi alterada. Consulte novamente antes de excluir.');
 
-            $imported = DB::table('tb_ADITIVOS_ATA')->where('ID_ATA', $ataId)->where('NUMERO', '>', 0)
-                ->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()->get(['ID', 'NUMERO as number', 'FINAL_ADITIVO as end_date']);
-            $legacy = $this->legacyAmendments($ata);
-            $amendments = $imported->concat($legacy);
-            abort_unless($number > 0 && $amendments->contains('number', $number), 404, 'Aditivo ativo não encontrado nesta ATA.');
+            $apostille = ($data['instrument'] ?? null) === 'apostille';
+            $subject = $apostille ? 'apostilamento' : 'aditivo';
+            $amendments = $this->legacyAmendments($ata, $apostille);
+            abort_unless($number > 0 && $amendments->contains('number', $number), 404, ucfirst($subject).' ativo não encontrado nesta ATA.');
             abort_if($amendments->contains(fn ($amendment) => (int) $amendment->number > $number), 409,
-                'Exclua primeiro os aditivos posteriores a este.');
+                "Exclua primeiro os {$subject}s posteriores a este.");
 
-            $importedIds = $imported->where('number', $number)->pluck('ID')->all();
-            $legacyIds = $legacy->where('number', $number)->pluck('ID')->all();
+            $amendmentIds = $amendments->where('number', $number)->pluck('ID')->all();
             $items = DB::table('tb_PRODUTOS_ATA')->whereNull('deleted_at')
                 ->where(fn ($query) => $query->where('ID_ATA', $ataId)->orWhereNull('ID_ATA'))
-                ->where(fn ($query) => $query->whereIn('ID_ADITIVO', $importedIds)->orWhere(fn ($unlinked) => $unlinked
-                    ->whereNull('ID_ADITIVO')->where('ID_ATA', $ataId)->where('ADITIVO', $number)))
+                ->where(fn ($query) => $query->whereIn('amendment_id', $amendmentIds)->when(! $apostille, fn ($query) => $query
+                    ->orWhere(fn ($unlinked) => $unlinked->whereNull('amendment_id')->where('ID_ATA', $ataId)->where('ADITIVO', $number))))
                 ->orderBy('ID')->lockForUpdate()->get(['ID', 'ID_ATA', 'VL_TOTAL']);
             $removedAmount = '0.0000';
             foreach ($items->where('ID_ATA', $ataId) as $item) {
@@ -55,18 +53,17 @@ final class RemoveAtaAmendment
             }
 
             $version = (int) $ata->version + 1;
-            $validity = $this->validityChanges($ata, $amendments->where('number', $number)->pluck('end_date')->all(),
+            $validity = $apostille ? [] : $this->validityChanges($ata, $amendments->where('number', $number)->pluck('end_date')->all(),
                 $amendments->where('number', '<', $number)->groupBy('number')->sortKeysDesc()->map(fn ($rows) => $rows->pluck('end_date')->all())->all(),
                 $number, $version);
             $now = now();
             TransactionGuard::requireActive();
-            DB::table('tb_ADITIVOS_ATA')->whereIn('ID', $importedIds)->update(['deleted_at' => $now, 'updated_at' => $now]);
-            DB::table('tb_ADT_ATA')->whereIn('ID', $legacyIds)->update(['deleted_at' => $now]);
+            DB::table('tb_ADT_ATA')->whereIn('ID', $amendmentIds)->update(['deleted_at' => $now]);
             DB::table('tb_PRODUTOS_ATA')->whereIn('ID', $items->pluck('ID'))->update(['deleted_at' => $now, 'updated_at' => $now]);
             DB::table('tb_ATA')->where('ID', $ataId)->update($validity + ['version' => $version, 'updated_at' => $now]);
-            ActivityEvent::create(['actor_id' => $actor->id, 'action' => 'ata_amendment_deleted', 'created_at' => $now,
-                'metadata' => ['ata_id' => $ataId, 'amendment_number' => $number, 'imported_ids' => $importedIds,
-                    'legacy_ids' => $legacyIds, 'product_ids' => $items->pluck('ID')->all(), 'removed_amount' => $removedAmount,
+            ActivityEvent::create(['actor_id' => $actor->id, 'action' => $apostille ? 'ata_apostille_deleted' : 'ata_amendment_deleted', 'created_at' => $now,
+                'metadata' => ['ata_id' => $ataId, 'amendment_number' => $number,
+                    'amendment_ids' => $amendmentIds, 'product_ids' => $items->pluck('ID')->all(), 'removed_amount' => $removedAmount,
                     'before_version' => (int) $ata->version, 'after_version' => $version, 'before_end' => $ata->FINAL_ATA,
                     'after_end' => array_key_exists('FINAL_ATA', $validity) ? $validity['FINAL_ATA'] : $ata->FINAL_ATA,
                     'before_validity_basis' => $ata->validity_basis,
@@ -76,15 +73,16 @@ final class RemoveAtaAmendment
         }, 3);
     }
 
-    private function legacyAmendments(object $ata)
+    private function legacyAmendments(object $ata, bool $apostille)
     {
         $identity = new AtaAmendmentReader;
         $ataKey = $identity->key($ata->ATA);
         $process = trim($ata->PROCESSO);
         $records = DB::table('tb_ADT_ATA')->whereNull('deleted_at')->where('ADT', '>', 0)
-            ->whereRaw('TRIM(Proc_ATA) = ?', [$process])->orderBy('ID')->lockForUpdate()
-            ->get(['ID', 'ATA', 'ADT as number', 'FINAL as end_date'])
-            ->filter(fn ($row) => $ataKey !== null && $process !== '' && $identity->key($row->ATA) === $ataKey);
+            ->where(fn ($query) => $query->where('ID_ATA', $ata->ID)->orWhere(fn ($legacy) => $legacy->whereNull('ID_ATA')->whereNull('source_path')->whereRaw('TRIM(Proc_ATA) = ?', [$process])))->orderBy('ID')->lockForUpdate()
+            ->get(['ID', 'ATA', 'ADT as number', 'FINAL as end_date', 'Tipo_ADT'])
+            ->filter(fn ($row) => $ataKey !== null && $process !== '' && $identity->key($row->ATA) === $ataKey
+                && SaveAtaAmendment::isApostille($row->Tipo_ADT) === $apostille);
         if ($records->isNotEmpty()) {
             $ambiguous = DB::table('tb_ATA')->where('ID', '!=', $ata->ID)->whereRaw('TRIM(PROCESSO) = ?', [$process])
                 ->pluck('ATA')->contains(fn ($candidate) => $identity->key($candidate) === $ataKey);

@@ -20,11 +20,13 @@ final class UpdateAtaValidity
     public function run(string $directory, bool $apply = false): array
     {
         // PDF/OCR work never runs inside the write transaction.
-        $documents = $this->reader->read($directory);
+        $documents = array_map(AtaAmendmentImportData::canonical(...), $this->reader->read($directory));
 
         return DB::transaction(function () use ($directory, $documents, $apply) {
             $atas = DB::table('tb_ATA')->orderBy('ID')->lockForUpdate()->get();
-            $stored = DB::table('tb_ADITIVOS_ATA')->orderBy('ID')->lockForUpdate()->get()->keyBy('source_path');
+            $stored = DB::table('tb_ADT_ATA')->whereNotNull('source_path')->orderBy('ID')->lockForUpdate()
+                ->get(['ID', 'ID_ATA', 'ATA', 'ADT', 'Proc_ATA', 'Proc_ADT', 'N_LICIT', 'CNPJ_FORNECEDOR', 'INICIO', 'FINAL',
+                    'source_path', 'source_sha256', 'source_size', 'extraction', 'link_status', 'issues', 'import_snapshot', 'deleted_at'])->keyBy('source_path');
             $result = ['apply' => $apply, 'documents' => count($documents), 'new_amendments' => 0, 'linked' => 0,
                 'updated_atas' => 0, 'unchanged_atas' => 0, 'ignored_unsigned' => 0, 'pending_documents' => [], 'skipped_atas' => [], 'changes' => []];
             $linked = [];
@@ -37,7 +39,7 @@ final class UpdateAtaValidity
                 if ((new AtaAmendmentSourcePolicy)->isUnsigned($directory.'/'.$record->source_path)) {
                     $result['ignored_unsigned']++;
                     if ($apply && $record->link_status !== 'nao_assinado') {
-                        DB::table('tb_ADITIVOS_ATA')->where('ID', $record->ID)->update(['link_status' => 'nao_assinado', 'updated_at' => now()]);
+                        DB::table('tb_ADT_ATA')->where('ID', $record->ID)->update(['link_status' => 'nao_assinado', 'updated_at' => now()]);
                         $documentChanges[] = ['id' => $record->ID, 'status' => 'nao_assinado'];
                     }
 
@@ -53,7 +55,7 @@ final class UpdateAtaValidity
                 }
                 $candidates = $atas->filter(fn ($ata) => $this->reader->key($ata->ATA) === $document['ATA']);
                 $matching = $candidates->filter(fn ($ata) => $ata->deleted_at === null
-                    && $ata->PROCESSO === $document['PROCESSO_ORIGEM']
+                    && $ata->PROCESSO === $document['Proc_ATA']
                     && $this->reader->key($ata->N_LICIT) === $document['N_LICIT']
                     && ($document['CNPJ_FORNECEDOR'] === null || $this->digits($ata->CNPJ_FORNECEDOR) === $this->digits($document['CNPJ_FORNECEDOR'])));
                 $target = $matching->count() === 1 && $document['issues'] === [] ? $matching->first() : null;
@@ -72,7 +74,12 @@ final class UpdateAtaValidity
                 }
                 if ($current !== null) {
                     foreach ($document as $column => $value) {
-                        $actual = $column === 'issues' ? json_decode($current->issues, true, flags: JSON_THROW_ON_ERROR) : $current->{$column};
+                        $snapshot = json_decode($current->import_snapshot ?? 'null', true, flags: JSON_THROW_ON_ERROR);
+                        $snapshot = $snapshot === null ? null : AtaAmendmentImportData::canonical($snapshot);
+                        $actual = $snapshot !== null && array_key_exists($column, $snapshot) ? $snapshot[$column] : $current->{$column};
+                        if ($column === 'issues' && is_string($actual)) {
+                            $actual = json_decode($actual, true, flags: JSON_THROW_ON_ERROR);
+                        }
                         if ($value === null ? $actual !== null : (is_array($value) ? $value !== $actual : (string) $value !== (string) $actual)) {
                             throw new RuntimeException('Origem do aditivo já registrado foi alterada: '.$document['source_path']);
                         }
@@ -90,7 +97,7 @@ final class UpdateAtaValidity
                         throw new RuntimeException('O vínculo confirmado de um aditivo não pode ser transferido automaticamente.');
                     }
                     if ($apply) {
-                        DB::table('tb_ADITIVOS_ATA')->where('ID', $id)->update(['ID_ATA' => $target?->ID ?? $current->ID_ATA, 'link_status' => $status, 'updated_at' => now()]);
+                        DB::table('tb_ADT_ATA')->where('ID', $id)->update(['ID_ATA' => $target?->ID ?? $current->ID_ATA, 'link_status' => $status, 'updated_at' => now()]);
                         $documentChanges[] = ['id' => $id, 'status' => $status];
                     }
                 }
@@ -170,16 +177,16 @@ final class UpdateAtaValidity
         if ($amendments === []) {
             $end = AtaTerm::end($start, $ata->PERIODO_ATA ?? '')->format('Y-m-d');
         } else {
-            usort($amendments, fn ($a, $b) => [(int) $a['NUMERO'], $a['source_path']] <=> [(int) $b['NUMERO'], $b['source_path']]);
+            usort($amendments, fn ($a, $b) => [(int) $a['ADT'], $a['source_path']] <=> [(int) $b['ADT'], $b['source_path']]);
             $last = end($amendments);
-            $sameOrdinal = array_filter($amendments, fn ($item) => (int) $item['NUMERO'] === (int) $last['NUMERO']);
-            if (count(array_unique(array_column($sameOrdinal, 'FINAL_ADITIVO'))) !== 1) {
+            $sameOrdinal = array_filter($amendments, fn ($item) => (int) $item['ADT'] === (int) $last['ADT']);
+            if (count(array_unique(array_column($sameOrdinal, 'FINAL'))) !== 1) {
                 throw new InvalidArgumentException('aditivos_do_mesmo_numero_com_finais_divergentes');
             }
-            $end = $last['FINAL_ADITIVO'];
+            $end = $last['FINAL'];
             foreach ($amendments as $amendment) {
                 $sources[] = ['id' => $amendment['ID'], 'sha256' => $amendment['source_sha256'],
-                    'number' => (int) $amendment['NUMERO'], 'end' => $amendment['FINAL_ADITIVO']];
+                    'number' => (int) $amendment['ADT'], 'end' => $amendment['FINAL']];
             }
         }
         if ($end === null || $end < $start->format('Y-m-d')) {
@@ -193,9 +200,33 @@ final class UpdateAtaValidity
     private function insertAmendment(array $document, ?int $ataId, string $status): int
     {
         TransactionGuard::requireActive();
+        $matches = DB::table('tb_ADT_ATA')->where('ADT', $document['ADT'])->whereNull('source_path')->whereNull('deleted_at')->orderBy('ID')->lockForUpdate()
+            ->get(['ID', 'ATA', 'ADT', 'Proc_ATA', 'Proc_ADT', 'INICIO', 'FINAL', 'Tipo_ADT'])
+            ->filter(fn ($row) => ! SaveAtaAmendment::isApostille($row->Tipo_ADT)
+                && $this->reader->key($row->ATA) === $document['ATA'] && trim($row->Proc_ATA ?? '') === trim($document['Proc_ATA'] ?? ''));
+        if ($matches->count() > 1) {
+            throw new RuntimeException('Origem ambígua para o aditivo '.$document['ATA']);
+        }
+        $existing = $matches->first();
+        $data = [...$document, 'issues' => $this->json($document['issues']),
+            'import_snapshot' => $this->json($document), 'ID_ATA' => $ataId, 'link_status' => $status, 'updated_at' => now()];
+        if ($existing !== null) {
+            foreach (['ATA', 'ADT', 'Proc_ATA', 'Proc_ADT', 'INICIO', 'FINAL'] as $field) {
+                if ($existing->{$field} !== null) {
+                    $same = $field === 'ATA' ? $this->reader->key($existing->{$field}) === $document[$field]
+                        : (string) $existing->{$field} === (string) $document[$field];
+                    if ($document[$field] !== null && ! $same) {
+                        throw new RuntimeException('Cadastro existente diverge da origem: '.$document['ATA'].' / '.$field);
+                    }
+                    unset($data[$field]);
+                }
+            }
+            DB::table('tb_ADT_ATA')->where('ID', $existing->ID)->update($data);
 
-        return DB::table('tb_ADITIVOS_ATA')->insertGetId([...$document, 'issues' => $this->json($document['issues']),
-            'ID_ATA' => $ataId, 'link_status' => $status, 'created_at' => now(), 'updated_at' => now()], 'ID');
+            return (int) $existing->ID;
+        }
+
+        return DB::table('tb_ADT_ATA')->insertGetId($data + ['created_at' => now()], 'ID');
     }
 
     private function json(array $value): string
